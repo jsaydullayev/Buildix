@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: theme('colors.bg');
+    color: theme('colors.text');
+    font-family: theme('fontFamily.body');
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Consistent focus ring for keyboard users on interactive elements. */
+  :where(a, button, input, select, textarea):focus-visible {
+    outline: none;
+    box-shadow: theme('boxShadow.focus-ring');
+    border-color: theme('colors.primary.DEFAULT');
+  }
+}
+
+@layer utilities {
+  /* Tabular numerals for money/tables so digits align column-to-column. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}

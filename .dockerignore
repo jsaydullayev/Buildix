@@ -1,0 +1,36 @@
+# Build context is the repo root (see Buildix.API/Dockerfile). Keep it lean and
+# never ship local secrets or build output into an image layer.
+
+# .NET build output
+**/bin/
+**/obj/
+**/out/
+
+# Node / frontend build output (the web image builds its own dist)
+**/node_modules/
+Buildix.Web/dist/
+
+# Git / IDE / OS
+.git/
+.gitignore
+.vs/
+.vscode/
+.idea/
+**/*.user
+
+# Secrets — MUST never enter an image (mirrors .gitignore)
+**/appsettings.Development.json
+**/appsettings.*.Local.json
+**/appsettings.Local.json
+.env
+.env.*
+!.env.example
+**/*.pfx
+**/*.key
+secrets.json
+
+# Runtime data / docs / tests (not needed to build+run the API image)
+Buildix.API/wwwroot/uploads/
+docs/
+**/*.md
+deploy/

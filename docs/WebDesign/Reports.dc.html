@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Reports" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:10px 12px;margin-bottom:22px;cursor:pointer" style-hover="background:rgba(255,255,255,.11)">
+      <div><div style="font-size:13px;font-weight:600">Стройбаза №1</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Ташкент, Сергели</div></div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5"></path><path d="m7 15 5 5 5-5"></path></svg>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <a href="Owner Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Sales.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</a>
+      <a href="Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <a href="Purchases.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</a>
+      <a href="Shifts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники</div>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <div style="width:34px;height:34px;border-radius:999px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">АК</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">Азиз Каримов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Владелец</div></div>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Отчёты</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">Финансовая картина бизнеса</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:inline-flex;background:#f1f5f9;border-radius:10px;padding:3px">
+          <div onClick="{{ setPWeek }}" style="padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:{{ weekW }};color:{{ weekC }};background:{{ weekBg }};cursor:pointer">Неделя</div>
+          <div onClick="{{ setPMonth }}" style="padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:{{ monthW }};color:{{ monthC }};background:{{ monthBg }};cursor:pointer">Июль</div>
+          <div onClick="{{ setPQuarter }}" style="padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:{{ quarterW }};color:{{ quarterC }};background:{{ quarterBg }};cursor:pointer">Квартал</div>
+        </div>
+        <button type="button" style="height:42px;padding:0 18px;border:1px solid #cbd5e1;border-radius:9px;background:#ffffff;color:#0f172a;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="border:1px solid #2563eb;color:#2563eb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>Скачать отчёт</button>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:24px 32px 34px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Выручка</div><div style="font-size:22px;font-weight:700">{{ revenue }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#16a34a;font-weight:600;margin-top:6px">▲ {{ revGrowth }} к прошлому периоду</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Прибыль</div><div style="font-size:22px;font-weight:700;color:#15803d">{{ profit }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">маржа {{ margin }}</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Расходы на закуп</div><div style="font-size:22px;font-weight:700">{{ expenses }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">{{ purchCount }} закупов</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Средний чек</div><div style="font-size:22px;font-weight:700">{{ avgCheck }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">{{ checksCount }} чеков</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;align-items:start">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:15px;font-weight:600">Выручка и прибыль по дням</div>
+            <div style="display:flex;gap:16px;font-size:12px;color:#64748b"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#2563eb"></span>Выручка</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#86efac"></span>Прибыль</span></div>
+          </div>
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+            <div style="display:grid;grid-template-columns:44px minmax(0,1fr) 110px;gap:12px;align-items:center;padding:7px 0">
+              <div style="font-size:12px;color:#94a3b8">{{ d.label }}</div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <div style="height:14px;border-radius:4px;background:#eff6ff;overflow:hidden"><div style="width:{{ d.revW }};height:14px;border-radius:4px;background:#2563eb"></div></div>
+                <div style="height:8px;border-radius:4px;background:#f0fdf4;overflow:hidden"><div style="width:{{ d.profW }};height:8px;border-radius:4px;background:#86efac"></div></div>
+              </div>
+              <div style="font-size:12.5px;font-weight:600;text-align:right">{{ d.rev }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+            <div style="font-size:15px;font-weight:600;margin-bottom:14px">Продажи по категориям</div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="font-weight:500">Сыпучие</span><span style="color:#64748b">38%</span></div><div style="height:8px;border-radius:99px;background:#f1f5f9"><div style="width:38%;height:8px;border-radius:99px;background:#2563eb"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="font-weight:500">Металл</span><span style="color:#64748b">27%</span></div><div style="height:8px;border-radius:99px;background:#f1f5f9"><div style="width:27%;height:8px;border-radius:99px;background:#3b82f6"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="font-weight:500">Кровля</span><span style="color:#64748b">19%</span></div><div style="height:8px;border-radius:99px;background:#f1f5f9"><div style="width:19%;height:8px;border-radius:99px;background:#60a5fa"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="font-weight:500">Отделка</span><span style="color:#64748b">16%</span></div><div style="height:8px;border-radius:99px;background:#f1f5f9"><div style="width:16%;height:8px;border-radius:99px;background:#93c5fd"></div></div></div>
+            </div>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+            <div style="font-size:15px;font-weight:600;margin-bottom:14px">Способы оплаты</div>
+            <div style="display:flex;flex-direction:column;gap:11px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:999px;background:#f0fdf4;font-size:11.5px;font-weight:600;color:#15803d">Наличные</span></span><span style="font-weight:600">58%</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:999px;background:#eff6ff;font-size:11.5px;font-weight:600;color:#1e40af">Карта</span></span><span style="font-weight:600">31%</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:999px;background:#fff7ed;font-size:11.5px;font-weight:600;color:#9a3412">В долг</span></span><span style="font-weight:600">11%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden;min-width:0">
+          <div style="padding:16px 22px 12px;font-size:15px;font-weight:600">Топ-5 товаров</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 120px;gap:12px;padding:8px 22px;background:#f8fafc;border-top:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ТОВАР</div><div style="text-align:right">ПРОДАНО</div><div style="text-align:right">ВЫРУЧКА</div></div>
+          <sc-for list="{{ topProducts }}" as="t" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 120px;gap:12px;align-items:center;padding:11px 22px;border-top:1px solid #f1f5f9;font-size:13px">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0"><div style="width:22px;height:22px;border-radius:6px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none">{{ t.n }}</div><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.name }}</div></div>
+              <div style="text-align:right;color:#64748b">{{ t.qty }}</div>
+              <div style="text-align:right;font-weight:600">{{ t.rev }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden;min-width:0">
+          <div style="padding:16px 22px 12px;font-size:15px;font-weight:600">Продавцы</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 80px 120px 90px;gap:12px;padding:8px 22px;background:#f8fafc;border-top:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ПРОДАВЕЦ</div><div style="text-align:right">ЧЕКОВ</div><div style="text-align:right">ВЫРУЧКА</div><div style="text-align:right">ДОЛЯ</div></div>
+          <sc-for list="{{ sellers }}" as="s" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 80px 120px 90px;gap:12px;align-items:center;padding:11px 22px;border-top:1px solid #f1f5f9;font-size:13px">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0"><div style="width:30px;height:30px;border-radius:999px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;flex:none">{{ s.initials }}</div><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.name }}</div></div>
+              <div style="text-align:right;color:#64748b">{{ s.checks }}</div>
+              <div style="text-align:right;font-weight:600">{{ s.rev }}</div>
+              <div style="text-align:right;color:#64748b">{{ s.share }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { p: 'month' };
+  renderVals() {
+    const p = this.state.p;
+    const data = {
+      week: { revenue: '84 300 000', revGrowth: '9%', profit: '15 700 000', margin: '18,6%', expenses: '41 200 000', purchCount: '4', avgCheck: '268 000', checksCount: '314' },
+      month: { revenue: '318 400 000', revGrowth: '14%', profit: '58 900 000', margin: '18,5%', expenses: '96 200 000', purchCount: '14', avgCheck: '274 000', checksCount: '1 162' },
+      quarter: { revenue: '902 700 000', revGrowth: '22%', profit: '164 300 000', margin: '18,2%', expenses: '287 500 000', purchCount: '39', avgCheck: '266 000', checksCount: '3 393' },
+    }[p];
+    const days = [
+      { label: 'Пн', rev: '10,2 млн', revW: '48%', profW: '40%' },
+      { label: 'Вт', rev: '12,1 млн', revW: '57%', profW: '49%' },
+      { label: 'Ср', rev: '8,9 млн', revW: '42%', profW: '35%' },
+      { label: 'Чт', rev: '15,4 млн', revW: '72%', profW: '63%' },
+      { label: 'Пт', rev: '12,6 млн', revW: '59%', profW: '51%' },
+      { label: 'Сб', rev: '18,7 млн', revW: '88%', profW: '78%' },
+      { label: 'Вс', rev: '6,4 млн', revW: '30%', profW: '25%' },
+    ];
+    const topProducts = [
+      { n: '1', name: 'Цемент М500, 50 кг', qty: '2 140 меш.', rev: '81 300 000' },
+      { n: '2', name: 'Арматура Ø12', qty: '18,4 т', rev: '54 200 000' },
+      { n: '3', name: 'Кирпич керамический', qty: '36 500 шт', rev: '51 100 000' },
+      { n: '4', name: 'Профнастил 0,45 мм', qty: '520 лист.', rev: '41 600 000' },
+      { n: '5', name: 'Гипсокартон 12,5 мм', qty: '780 лист.', rev: '35 100 000' },
+    ];
+    const sellers = [
+      { initials: 'ЖТ', name: 'Жасур Тошев', checks: '486', rev: '132 800 000', share: '42%' },
+      { initials: 'ОР', name: 'Отабек Рахимов', checks: '398', rev: '104 200 000', share: '33%' },
+      { initials: 'ДК', name: 'Дилшод Каримов', checks: '278', rev: '81 400 000', share: '25%' },
+    ];
+    const seg = (k, active) => ({
+      [`${k}W`]: active ? '600' : '500',
+      [`${k}C`]: active ? '#ffffff' : '#64748b',
+      [`${k}Bg`]: active ? '#2563eb' : 'transparent',
+    });
+    return {
+      ...data, days, topProducts, sellers,
+      ...seg('week', p === 'week'), ...seg('month', p === 'month'), ...seg('quarter', p === 'quarter'),
+      setPWeek: () => this.setState({ p: 'week' }),
+      setPMonth: () => this.setState({ p: 'month' }),
+      setPQuarter: () => this.setState({ p: 'quarter' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

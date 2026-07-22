@@ -1,0 +1,66 @@
+# ============================================================
+# Build output
+# ============================================================
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# ============================================================
+# Visual Studio / Rider / VS Code
+# ============================================================
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*_i.c
+*_p.c
+
+# ============================================================
+# Secrets — NEVER commit these
+# ============================================================
+# Local development configuration holds real secrets (JWT key, DB password,
+# SuperAdmin credentials, console segment). Only the *.example.json template
+# is committed. Copy it to appsettings.Development.json and fill in locally.
+appsettings.Development.json
+appsettings.*.Local.json
+appsettings.Local.json
+*.pfx
+*.key
+.env
+.env.*
+!.env.example
+secrets.json
+
+# ============================================================
+# EF Core / Database
+# ============================================================
+*.db
+*.db-shm
+*.db-wal
+
+# ============================================================
+# User-uploaded content (runtime data, not source)
+# ============================================================
+Buildix.API/wwwroot/uploads/
+
+# ============================================================
+# OS / misc
+# ============================================================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.bak

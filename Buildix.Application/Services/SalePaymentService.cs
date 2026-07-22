@@ -1,0 +1,319 @@
+using Microsoft.EntityFrameworkCore;
+using Buildix.Application.DTOs;
+using Buildix.Application.Interfaces;
+using Buildix.Application.Common;
+using Buildix.Domain.Entities;
+using Buildix.Domain.Enums;
+using Buildix.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
+
+namespace Buildix.Application.Services;
+
+/// <summary>
+/// Payment concern extracted from SaleService. Records a payment against a sale
+/// and drives the resulting status (Paid / Closed / Debt), debt record, and
+/// cash-register balance. See <see cref="ISalePaymentService"/>.
+/// </summary>
+public class SalePaymentService : ISalePaymentService
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppDbContext _context;
+    private readonly ICurrentMarketService _currentMarketService;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ILogger<SalePaymentService> _logger;
+    private readonly IMarketSettingsService _settings;
+
+    public SalePaymentService(
+        IUnitOfWork unitOfWork,
+        IAppDbContext context,
+        ICurrentMarketService currentMarketService,
+        IAuditLogService auditLogService,
+        ILogger<SalePaymentService> logger,
+        IMarketSettingsService settings)
+    {
+        _unitOfWork = unitOfWork;
+        _context = context;
+        _currentMarketService = currentMarketService;
+        _auditLogService = auditLogService;
+        _logger = logger;
+        _settings = settings;
+    }
+
+    /// <summary>
+    /// Enforces MarketSettings.DebtOnlyForRegulars + the per-customer/market debt
+    /// limit when a partial payment is about to convert a sale into a debt. This
+    /// mirrors SaleService.MarkSaleAsDebtAsync so the "В долг" rules cannot be
+    /// bypassed via the partial-payment path (review H-1). Returns a failed
+    /// Result on violation (the value is never read); an ok Result otherwise.
+    /// </summary>
+    private async Task<Result<PaymentDto>> CheckDebtRulesAsync(
+        Guid customerId, int marketId, Guid saleId, decimal newRemainingDebt, CancellationToken ct)
+    {
+        var settings = await _settings.GetOrCreateAsync(marketId, ct);
+        var customer = await _context.Customers
+            .FirstOrDefaultAsync(c => c.Id == customerId && c.MarketId == marketId, ct);
+
+        if (settings.DebtOnlyForRegulars && (customer is null || !customer.IsRegular))
+            return Result.Failure<PaymentDto>("Долг разрешён только постоянным клиентам.", "DEBT_REGULARS_ONLY");
+
+        if (customer is not null)
+        {
+            var limit = customer.DebtLimit ?? settings.DefaultDebtLimit;
+            if (limit > 0)
+            {
+                // Other open debts for this customer (exclude this sale's own row).
+                var otherDebt = await _context.Debts
+                    .Where(d => d.CustomerId == customerId && d.MarketId == marketId
+                        && d.Status == DebtStatus.Open && d.SaleId != saleId)
+                    .SumAsync(d => (decimal?)d.RemainingDebt, ct) ?? 0m;
+                if (otherDebt + newRemainingDebt > limit)
+                    return Result.Failure<PaymentDto>(
+                        $"Превышен лимит долга клиента ({limit:N0} сум).", "DEBT_LIMIT_EXCEEDED");
+            }
+        }
+        return Result.Success<PaymentDto>(null!); // ok — value never read
+    }
+
+    public async Task<Result<PaymentDto>> AddPaymentAsync(Guid saleId, AddPaymentDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Amount <= 0)
+            return Result.Failure<PaymentDto>("Payment amount must be greater than 0");
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            // S-race — lock the Sale row FOR UPDATE before the read-modify-write
+            // below. AddPaymentAsync does `sale.PaidAmount += amount` and then
+            // derives Status + the Debt record from that value. Sale carries no
+            // concurrency token (disabled by design), so without this lock two
+            // concurrent payments on the same sale would both read the same
+            // PaidAmount, both add their amount, and the last write would clobber
+            // the other — a lost payment and a possibly-wrong terminal status /
+            // debt balance. DebtService.PayAsync already locks the Sale the same
+            // way. FOR UPDATE is PostgreSQL-only; the InMemory test provider skips
+            // it. Must be "SELECT *, xmin": Sale maps xmin to PostgreSQL's system
+            // column and PG's `*` never expands system columns, so omitting it
+            // raises 42703 (undefined_column). The lock query loads + tracks the
+            // row, and GetWithItemsAsync below returns that same tracked instance
+            // (with SaleItems populated) rather than issuing a second read.
+            if (_context.Database.ProviderName?.Contains("InMemory") == false)
+            {
+                await _context.Sales
+                    .FromSqlInterpolated($"SELECT *, xmin FROM \"Sales\" WHERE \"Id\" = {saleId} FOR UPDATE")
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            // Repository now enforces MarketId at the query layer — a sale in
+            // another tenant returns null here, same as a non-existent id.
+            var sale = await _unitOfWork.Sales.GetWithItemsAsync(saleId, marketId, cancellationToken);
+
+            if (sale is null)
+                return Result.Failure<PaymentDto>("Sale not found");
+
+            if (sale.Status == SaleStatus.Paid || sale.Status == SaleStatus.Closed || sale.Status == SaleStatus.Cancelled)
+                return Result.Failure<PaymentDto>($"Cannot add payment to sale with status: {sale.Status}");
+
+            // Log payment details with structured properties
+            _logger.LogInformation("Adding payment {PaymentAmount} to sale {SaleId}, " +
+                "TotalAmount: {TotalAmount}, PaidAmount: {PaidAmount}, Status: {Status}, ItemsCount: {ItemsCount}",
+                request.Amount, sale.Id, sale.TotalAmount, sale.PaidAmount, sale.Status, sale.SaleItems?.Count ?? 0);
+
+            if (sale.SaleItems != null)
+            {
+                foreach (var item in sale.SaleItems)
+                {
+                    decimal itemTotal = item.SalePrice * item.Quantity;
+                    _logger.LogDebug("Sale item: ProductId={ProductId}, Quantity={Quantity}, SalePrice={SalePrice}, Total={Total}",
+                        item.ProductId, item.Quantity, item.SalePrice, itemTotal);
+                }
+            }
+
+            // Authoritative total from a server-side SUM of the sale's items.
+            // This used to be recomputed from the in-memory SaleItems collection
+            // further down — which is stale if items were added/removed by a
+            // concurrent request. Computing it here (once) makes every check
+            // below (already-paid, over-payment, debt) use the real total.
+            await SaleTotals.RecalculateAsync(_context, sale, cancellationToken);
+
+            // Allaqachon to'liq to'langan savdoga qayta to'lov qilish taqiqlanadi.
+            if (sale.TotalAmount > 0 && sale.PaidAmount >= sale.TotalAmount)
+                return Result.Failure<PaymentDto>("Bu savdo allaqachon to'liq to'langan.");
+
+            // Over-payment guard: never accept more than the outstanding balance.
+            // Without this, PaidAmount could exceed TotalAmount and the overage
+            // would silently resurface later as phantom customer credit.
+            if (sale.TotalAmount > 0 && request.Amount > sale.TotalAmount - sale.PaidAmount)
+                return Result.Failure<PaymentDto>("To'lov summasi qoldiq summadan oshib ketdi.");
+
+            // VALIDATION: Mijozsiz qarzga savdo taqiqlanadi
+            var newPaidAmount = sale.PaidAmount + request.Amount;
+            if (newPaidAmount < sale.TotalAmount && (!sale.CustomerId.HasValue || sale.CustomerId.Value == Guid.Empty))
+            {
+                return Result.Failure<PaymentDto>("Mijoz tanlanmagan savdoni qarzga yopib bo'lmaydi. Iltimos, mijoz tanlang yoki to'liq to'lov qiling.");
+            }
+
+            // H-1: this partial payment will leave a debt for a real customer —
+            // enforce the same debt-only-regulars + limit rules as MarkSaleAsDebt.
+            // Runs BEFORE any payment/balance mutation so a violation rolls back clean.
+            if (newPaidAmount < sale.TotalAmount && sale.CustomerId.HasValue && sale.CustomerId.Value != Guid.Empty)
+            {
+                var debtCheck = await CheckDebtRulesAsync(
+                    sale.CustomerId.Value, sale.MarketId, saleId, sale.TotalAmount - newPaidAmount, cancellationToken);
+                if (debtCheck.IsFailure) return debtCheck;
+            }
+
+            // Map frontend's "CARD" to backend's "Terminal"
+            var paymentTypeStr = request.PaymentType;
+            if (string.Equals(paymentTypeStr, "CARD", StringComparison.OrdinalIgnoreCase))
+            {
+                paymentTypeStr = "Terminal";
+            }
+
+            var payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                SaleId = saleId,
+                PaymentType = Enum.Parse<PaymentType>(paymentTypeStr, true),
+                Amount = request.Amount,
+                MarketId = sale.MarketId  // Multi-tenancy - inherit from Sale
+            };
+
+            await _unitOfWork.Payments.AddAsync(payment, cancellationToken);
+
+            // Update cash register balance for cash payments — scoped to this sale's market.
+            if (payment.PaymentType == PaymentType.Cash)
+            {
+                var cashRegister = await _context.CashRegisters
+                    .FirstOrDefaultAsync(cr => cr.MarketId == sale.MarketId, cancellationToken);
+
+                if (cashRegister == null)
+                {
+                    cashRegister = new CashRegister
+                    {
+                        Id = Guid.NewGuid(),
+                        MarketId = sale.MarketId,
+                        CurrentBalance = 0,
+                        LastUpdated = DateTime.UtcNow
+                    };
+                    _context.CashRegisters.Add(cashRegister);
+                }
+
+                cashRegister.CurrentBalance += request.Amount;
+                cashRegister.LastUpdated = DateTime.UtcNow;
+            }
+
+            // Update sale paid amount. TotalAmount is already authoritative
+            // (SaleTotals.RecalculateAsync ran above), so no in-memory recompute here.
+            sale.PaidAmount += request.Amount;
+
+            _logger.LogDebug("Final values for sale {SaleId} - TotalAmount: {TotalAmount}, PaidAmount: {PaidAmount}",
+                sale.Id, sale.TotalAmount, sale.PaidAmount);
+
+            // Determine new status
+            _logger.LogDebug("Determining new status for sale {SaleId}: " +
+                "TotalAmount={TotalAmount} (>0: {IsGreaterThan0}), " +
+                "PaidAmount={PaidAmount} (>=Total: {IsPaidInFull}, >0: {IsPaidPartial}, <Total: {IsPartialPayment})",
+                sale.Id, sale.TotalAmount, sale.TotalAmount > 0,
+                sale.PaidAmount, sale.PaidAmount >= sale.TotalAmount,
+                sale.PaidAmount > 0, sale.PaidAmount < sale.TotalAmount);
+
+            // 1. To'liq to'langan savdo
+            if (sale.TotalAmount > 0 && sale.PaidAmount >= sale.TotalAmount)
+            {
+                // Semantic distinction (mirrors DebtService.PayAsync):
+                //   Paid   = sale was paid in full at sale time, never had debt.
+                //   Closed = sale was previously on debt (partial payment + carried),
+                //            and the customer has now finished paying it off.
+                // Without this branch, paying the final installment via AddPaymentAsync
+                // would land on Paid while paying it via DebtService.PayAsync would land
+                // on Closed — same business event, two different terminal states.
+                var wasOnDebt = sale.Status == SaleStatus.Debt;
+                sale.Status = wasOnDebt ? SaleStatus.Closed : SaleStatus.Paid;
+                _logger.LogInformation(
+                    "Sale {SaleId} is fully paid, setting status to {Status} (wasOnDebt={WasOnDebt})",
+                    saleId, sale.Status, wasOnDebt);
+
+                // Close any associated debt (filtered by market)
+                var existingDebtToClose = (await _unitOfWork.Debts.FindAsync(
+                    d => d.SaleId == saleId && d.MarketId == sale.MarketId,
+                    cancellationToken)).FirstOrDefault();
+
+                if (existingDebtToClose != null)
+                {
+                    existingDebtToClose.Status = DebtStatus.Closed;
+                    existingDebtToClose.RemainingDebt = 0;
+                    _unitOfWork.Debts.Update(existingDebtToClose);
+                }
+            }
+            // 2. Qisman to'langan savdo (qarzga yopilgan)
+            else if (sale.TotalAmount > 0 && sale.PaidAmount > 0 && sale.PaidAmount < sale.TotalAmount)
+            {
+                _logger.LogInformation("Sale {SaleId} has partial payment, setting status to Debt", saleId);
+                sale.Status = SaleStatus.Debt;
+
+                // Create or update debt record - ONLY if there's a customer
+                // Mijozsiz qarzga savdo ham mumkin, status "debt" bo'ladi, lekin debt record yaratilmaydi
+                if (sale.CustomerId.HasValue && sale.CustomerId.Value != Guid.Empty)
+                {
+                    var existingDebt = (await _unitOfWork.Debts.FindAsync(
+                        d => d.SaleId == saleId && d.MarketId == sale.MarketId,
+                        cancellationToken)).FirstOrDefault();
+
+                    if (existingDebt == null)
+                    {
+                        var newDebt = new Debt
+                        {
+                            Id = Guid.NewGuid(),
+                            SaleId = saleId,
+                            CustomerId = sale.CustomerId.Value,
+                            TotalDebt = sale.TotalAmount,
+                            RemainingDebt = sale.TotalAmount - sale.PaidAmount,
+                            Status = DebtStatus.Open,
+                            DueDate = request.DueDate.HasValue
+                                ? DateTime.SpecifyKind(request.DueDate.Value.Date, DateTimeKind.Utc)
+                                : (DateTime?)null,
+                            MarketId = sale.MarketId
+                        };
+                        await _unitOfWork.Debts.AddAsync(newDebt, cancellationToken);
+                    }
+                    else
+                    {
+                        existingDebt.TotalDebt = sale.TotalAmount;
+                        existingDebt.RemainingDebt = sale.TotalAmount - sale.PaidAmount;
+                        existingDebt.Status = existingDebt.RemainingDebt > 0 ? DebtStatus.Open : DebtStatus.Closed;
+                        _unitOfWork.Debts.Update(existingDebt);
+                    }
+                }
+            }
+            // 3. TotalAmount 0 bo'lsa (hali mahsulotlar qo'shilgan yo'q), status Draft da qoladi
+            else if (sale.TotalAmount == 0)
+            {
+                _logger.LogInformation("Sale {SaleId} has TotalAmount=0, keeping Draft status", saleId);
+            }
+            else
+            {
+                _logger.LogWarning("Unhandled case for sale {SaleId}: TotalAmount={TotalAmount}, PaidAmount={PaidAmount}",
+                    sale.Id, sale.TotalAmount, sale.PaidAmount);
+            }
+
+            _unitOfWork.Sales.Update(sale);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Sale {SaleId} final status: {Status}", sale.Id, sale.Status);
+
+            // Audit log
+            await _auditLogService.LogPaymentActionAsync(payment.Id, sale.SellerId, cancellationToken);
+
+            return Result.Success(new PaymentDto(
+                payment.Id,
+                payment.PaymentType.ToString().ToLowerInvariant(),
+                payment.Amount,
+                payment.CreatedAt,
+                sale.Status.ToString().ToLowerInvariant(), // Yangilangan sale status
+                sale.PaidAmount, // Yangilangan paid amount
+                sale.TotalAmount // Total amount
+            ));
+        }, cancellationToken);
+    }
+}

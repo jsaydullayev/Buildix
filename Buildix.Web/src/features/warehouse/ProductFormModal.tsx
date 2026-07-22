@@ -1,0 +1,254 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Modal, Button, Input } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
+import { useAuth } from '@/shared/auth/useAuth';
+import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
+import {
+  productsApi,
+  type Product,
+  type ProductCategory,
+  type CreateProductBody,
+} from './api';
+
+const schema = z.object({
+  name: z.string().min(1),
+  sku: z.string().max(50).optional(),
+  categoryId: z.preprocess(
+    (v) => (v === '' || v === undefined || v === null ? null : Number(v)),
+    z.number().int().nullable(),
+  ),
+  unit: z.coerce.number().int().min(1),
+  salePrice: z.coerce.number().min(0),
+  minSalePrice: z.coerce.number().min(0),
+  costPrice: z.coerce.number().min(0),
+  quantity: z.coerce.number().min(0),
+  minThreshold: z.coerce.number().min(0),
+  hidePriceFromSellers: z.boolean(),
+});
+type FormValues = z.infer<typeof schema>;
+
+export function ProductFormModal({
+  open,
+  onClose,
+  product,
+  categories,
+}: {
+  open: boolean;
+  onClose: () => void;
+  product: Product | null;
+  categories: ProductCategory[];
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { hasPermission, hasRole } = useAuth();
+  const canViewCost = hasPermission(PERMISSIONS.data.costPrice);
+  const canEditStock = hasRole(ROLES.Owner, ROLES.SuperAdmin);
+  const isEdit = !!product;
+
+  const unitsQuery = useQuery({ queryKey: ['units'], queryFn: productsApi.units, staleTime: Infinity });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: '',
+      sku: '',
+      categoryId: null,
+      unit: 1,
+      salePrice: 0,
+      minSalePrice: 0,
+      costPrice: 0,
+      quantity: 0,
+      minThreshold: 5,
+      hidePriceFromSellers: false,
+    },
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    reset(
+      product
+        ? {
+            name: product.name,
+            sku: product.sku ?? '',
+            categoryId: product.categoryId,
+            unit: product.unit,
+            salePrice: product.salePrice,
+            minSalePrice: product.minSalePrice,
+            costPrice: product.costPrice,
+            quantity: product.quantity,
+            minThreshold: product.minThreshold,
+            hidePriceFromSellers: product.hidePriceFromSellers,
+          }
+        : {
+            name: '',
+            sku: '',
+            categoryId: null,
+            unit: 1,
+            salePrice: 0,
+            minSalePrice: 0,
+            costPrice: 0,
+            quantity: 0,
+            minThreshold: 5,
+            hidePriceFromSellers: false,
+          },
+    );
+  }, [open, product, reset]);
+
+  const mutation = useMutation({
+    mutationFn: (values: FormValues) => {
+      const body: CreateProductBody = {
+        name: values.name,
+        sku: values.sku?.trim() ? values.sku.trim() : null,
+        categoryId: values.categoryId,
+        unit: values.unit,
+        salePrice: values.salePrice,
+        minSalePrice: values.minSalePrice,
+        costPrice: values.costPrice,
+        quantity: values.quantity,
+        minThreshold: values.minThreshold,
+        isTemporary: false,
+        hidePriceFromSellers: values.hidePriceFromSellers,
+      };
+      return isEdit
+        ? productsApi.update(product.id, { ...body, quantity: canEditStock ? values.quantity : null })
+        : productsApi.create(body);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['products'] });
+      void qc.invalidateQueries({ queryKey: ['products-all'] });
+      onClose();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => productsApi.remove(product!.id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['products'] });
+      void qc.invalidateQueries({ queryKey: ['products-all'] });
+      onClose();
+    },
+  });
+
+  const belowCost = canViewCost && watch('salePrice') > 0 && watch('salePrice') < watch('costPrice');
+
+  const inputCls =
+    'h-11 rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring';
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? t('warehouse.form.editTitle') : t('warehouse.form.addTitle')}
+      width="lg"
+      footer={
+        <>
+          {isEdit && hasPermission(PERMISSIONS.products.delete) && (
+            <Button
+              variant="danger"
+              className="mr-auto"
+              loading={deleteMutation.isPending}
+              onClick={() => {
+                if (window.confirm(t('warehouse.form.deleteConfirm'))) deleteMutation.mutate();
+              }}
+            >
+              {t('warehouse.form.delete')}
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            loading={isSubmitting || mutation.isPending}
+            onClick={handleSubmit((v) => mutation.mutate(v))}
+          >
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Input
+            label={t('warehouse.form.name')}
+            error={errors.name ? t('warehouse.form.name') : undefined}
+            {...register('name')}
+          />
+        </div>
+
+        <Field label={t('warehouse.form.sku')}>
+          <input className={inputCls} {...register('sku')} />
+        </Field>
+        <Field label={t('warehouse.form.category')}>
+          <select className={inputCls} {...register('categoryId')}>
+            <option value="">{t('warehouse.form.noCategory')}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label={t('warehouse.form.unit')}>
+          <select className={inputCls} {...register('unit')}>
+            {(unitsQuery.data ?? []).map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.nameRu}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t('warehouse.form.minThreshold')}>
+          <input type="number" step="any" className={inputCls} {...register('minThreshold')} />
+        </Field>
+
+        <Field label={t('warehouse.form.salePrice')}>
+          <input type="number" step="any" className={cn(inputCls, belowCost && 'border-danger')} {...register('salePrice')} />
+        </Field>
+        <Field label={t('warehouse.form.minSalePrice')}>
+          <input type="number" step="any" className={inputCls} {...register('minSalePrice')} />
+        </Field>
+
+        {canViewCost && (
+          <Field label={t('warehouse.form.costPrice')}>
+            <input type="number" step="any" className={inputCls} {...register('costPrice')} />
+          </Field>
+        )}
+        {(!isEdit || canEditStock) && (
+          <Field label={t('warehouse.form.quantity')}>
+            <input type="number" step="any" className={inputCls} {...register('quantity')} />
+          </Field>
+        )}
+
+        {belowCost && (
+          <div className="col-span-2 -mt-1 text-[12.5px] text-danger">{t('warehouse.form.belowCost')}</div>
+        )}
+
+        <label className="col-span-2 flex cursor-pointer select-none items-center gap-2.5 text-[13.5px]">
+          <input type="checkbox" className="h-4 w-4 accent-primary" {...register('hidePriceFromSellers')} />
+          {t('warehouse.form.hidePrice')}
+        </label>
+      </form>
+    </Modal>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[13px] font-medium text-label">{label}</label>
+      {children}
+    </div>
+  );
+}

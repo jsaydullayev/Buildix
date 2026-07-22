@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Seller Account" style="width:100%;min-width:1360px;min-height:100vh;display:flex;flex-direction:column;background:#f6f8fb;color:#0f172a">
+
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:62px;background:#0f2557;color:#ffffff">
+    <div style="display:flex;align-items:center;gap:14px">
+      
+      <div style="display:flex;align-items:center;gap:4px;font-size:13.5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:3px;flex:none">
+        <a href="Seller POS.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Касса</a>
+        <a href="Seller Sales.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>Мои продажи</a>
+        <a href="Seller Products.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары</a>
+        <a href="Seller Clients.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Клиенты</a>
+        <a href="Seller Debts.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+        <a href="Seller Supplies.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Поставки</a>
+      </div>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:12px">
+      <a href="Seller Shifts.dc.html" title="Мои смены" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:8px;background:rgba(22,163,74,.18);border:1px solid rgba(74,222,128,.4);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;color:#86efac;cursor:pointer" style-hover="background:rgba(22,163,74,.32);border:1px solid rgba(74,222,128,.7);color:#a7f3d0"><span style="width:6px;height:6px;border-radius:999px;background:#4ade80;flex:none"></span>Смена открыта · 08:00</a>
+      <a href="Seller Notifications.dc.html" title="Уведомления" style="flex:none;position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75)" style-hover="background:rgba(255,255,255,.16);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:999px;background:#dc2626;color:#ffffff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;box-sizing:border-box">3</span></a>
+      <div style="flex:none;display:flex;align-items:center;gap:10px;border-left:1px solid rgba(255,255,255,.2);padding-left:12px">
+        <div style="flex:none;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.14);border-radius:8px;padding:5px 10px">
+          <div style="width:32px;height:32px;border-radius:999px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">ЖТ</div>
+          <div><div style="font-size:12.5px;font-weight:600;white-space:nowrap">Жасур Тошев</div><div style="font-size:10.5px;color:rgba(255,255,255,.5)">Продавец</div></div>
+        </div>
+        <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:24px 28px 0;max-width:1240px;width:100%;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;gap:14px">
+    <a href="javascript:history.back()" title="Назад" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;background:#ffffff;border:1px solid #e2e8f0;color:#475569;flex:none" style-hover="border:1px solid #2563eb;color:#2563eb"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg></a>
+    <div>
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Мой аккаунт</div>
+      <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">Личные данные и безопасность входа</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:18px 28px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;max-width:1240px;width:100%;margin:0 auto;box-sizing:border-box">
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:24px">
+        <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px">
+          <div style="width:68px;height:68px;border-radius:999px;background:#2563eb;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;flex:none">ЖТ</div>
+          <div style="min-width:0">
+            <div style="font-size:18px;font-weight:600">Жасур Тошев</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+              <span style="padding:4px 12px;border-radius:999px;background:#eff6ff;font-size:11.5px;font-weight:600;color:#1e40af">Продавец</span>
+              <span style="font-size:12.5px;color:#94a3b8">работает с апреля 2025</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px"><label style="font-size:12.5px;font-weight:500;color:#334155">Телефон</label><input type="text" value="+998 90 555 12 34" style="height:42px;border:1px solid #cbd5e1;border-radius:8px;padding:0 13px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)"></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><label style="font-size:12.5px;font-weight:500;color:#334155">Логин</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="text" value="jasur.toshev" disabled style="flex:1;height:42px;border:1px solid #e2e8f0;border-radius:8px;padding:0 13px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#94a3b8;outline:none;background:#f8fafc">
+              <span style="font-size:12px;color:#94a3b8;flex:none">выдан администратором</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button type="button" style="height:42px;padding:0 20px;border:none;border-radius:9px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#1e40af">Сохранить</button></div>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:24px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Смена пароля</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-bottom:18px">Минимум 8 символов, буквы и цифры</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;gap:6px"><label style="font-size:12.5px;font-weight:500;color:#334155">Текущий пароль</label><input type="password" placeholder="••••••••" style="height:42px;border:1px solid #cbd5e1;border-radius:8px;padding:0 13px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:6px"><label style="font-size:12.5px;font-weight:500;color:#334155">Новый пароль</label><input type="password" placeholder="••••••••" style="height:42px;border:1px solid #cbd5e1;border-radius:8px;padding:0 13px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)"></div>
+            <div style="display:flex;flex-direction:column;gap:6px"><label style="font-size:12.5px;font-weight:500;color:#334155">Повторите пароль</label><input type="password" placeholder="••••••••" style="height:42px;border:1px solid #cbd5e1;border-radius:8px;padding:0 13px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)"></div>
+          </div>
+          <button type="button" style="align-self:flex-start;height:40px;padding:0 18px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#0f172a;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #2563eb;color:#2563eb">Обновить пароль</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:24px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Мои результаты · июль</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-bottom:16px">Показатели видны вам и владельцу</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:11px;padding:14px 16px"><div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Продажи</div><div style="font-size:18px;font-weight:700">168 400 000 <span style="font-size:11px;font-weight:500;color:#94a3b8">сум</span></div></div>
+          <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:11px;padding:14px 16px"><div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Чеков</div><div style="font-size:18px;font-weight:700">612</div></div>
+          <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:11px;padding:14px 16px"><div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Средний чек</div><div style="font-size:18px;font-weight:700">275 000 <span style="font-size:11px;font-weight:500;color:#94a3b8">сум</span></div></div>
+          <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:11px;padding:14px 16px"><div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Смен отработано</div><div style="font-size:18px;font-weight:700">16</div></div>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:24px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Устройства и сессии</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-bottom:14px">Где выполнен вход в ваш аккаунт</div>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #f1f5f9">
+            <div style="width:38px;height:38px;border-radius:9px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px"><div style="font-size:13.5px;font-weight:600">Касса · Windows · Chrome</div><span style="padding:2px 9px;border-radius:999px;background:#f0fdf4;font-size:10.5px;font-weight:600;color:#15803d">это устройство</span></div><div style="font-size:12px;color:#94a3b8;margin-top:2px">Ташкент · сейчас</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:12px 0">
+            <div style="width:38px;height:38px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"></rect><path d="M12 18h.01"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">Android · Chrome</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">Ташкент · вчера, 21:08</div></div>
+            <button type="button" style="height:32px;padding:0 13px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#64748b;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="border:1px solid #dc2626;color:#dc2626">Выйти</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 24px;display:flex;align-items:center;gap:14px">
+        <div style="width:38px;height:38px;border-radius:9px;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></div>
+        <div style="font-size:12.5px;line-height:1.55;color:#64748b">Изменение имени, роли и доступов — у администратора. Обратитесь: <span style="font-weight:600;color:#0f172a">+998 90 123 45 67</span> · <span style="font-weight:600;color:#0f172a">@buildix_admin</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

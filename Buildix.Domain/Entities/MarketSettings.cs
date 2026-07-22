@@ -1,0 +1,75 @@
+using Buildix.Domain.Enums;
+
+namespace Buildix.Domain.Entities;
+
+/// <summary>
+/// Per-market configuration backing the Настройки (Settings) screen. One row
+/// per <see cref="Market"/> (1:1, shares the market's int key). Every business
+/// toggle/limit the design exposes lives here so the rules can be enforced in
+/// the sales/shift/debt flows instead of only being cosmetic UI state.
+///
+/// Defaults mirror the values shown in the Settings mockup so a freshly
+/// provisioned market behaves sensibly before the owner ever opens the screen.
+/// </summary>
+public class MarketSettings
+{
+    /// <summary>PK == FK to Market.Id (1:1).</summary>
+    public int MarketId { get; set; }
+    public Market? Market { get; set; }
+
+    // ── Магазин (store profile) ──────────────────────────────────────────
+    public string? Phone { get; set; }
+    public string? Address { get; set; }
+    /// <summary>Free-form working hours, e.g. "08:00 — 20:00".</summary>
+    public string? WorkingHours { get; set; }
+
+    // ── Касса и смены (cash & shift rules) ───────────────────────────────
+    /// <summary>Kassir smena ochmasdan sota olmaydi.</summary>
+    public bool SalesOnlyWhenShiftOpen { get; set; } = true;
+    /// <summary>Naqd yechish egasi tasdig'ini talab qiladi (approval oqimi).</summary>
+    public bool CashWithdrawalNeedsApproval { get; set; } = true;
+    /// <summary>Qarzga sotish faqat "postoyanniy" mijozlarga.</summary>
+    public bool DebtOnlyForRegulars { get; set; } = true;
+    /// <summary>Bitta mijozga standart qarz limiti (sum). 0 = limitsiz.</summary>
+    public decimal DefaultDebtLimit { get; set; } = 15_000_000m;
+    /// <summary>Kassada ruxsat etilgan maksimal расхождение (sum).</summary>
+    public decimal AllowedCashDiscrepancy { get; set; } = 0m;
+    /// <summary>Smena avto-yopilish vaqti (HH:mm), null = avto-yopish yo'q.</summary>
+    public TimeOnly? ShiftAutoCloseTime { get; set; }
+
+    // ── Чек (receipt) ────────────────────────────────────────────────────
+    public string? ReceiptHeader { get; set; }
+    public string? ReceiptFooter { get; set; }
+    public bool AutoPrintReceipt { get; set; } = false;
+
+    // ── Локаль (locale) ──────────────────────────────────────────────────
+    public Language DefaultLanguage { get; set; } = Language.Russian;
+    /// <summary>Hafta boshi: 1 = Dushanba (ISO), 7 = Yakshanba.</summary>
+    public int FirstDayOfWeek { get; set; } = 1;
+
+    // ── Склад и цены (warehouse & pricing) ───────────────────────────────
+    public bool MinStockAlertEnabled { get; set; } = true;
+    /// <summary>Sotuv narxi tannarxdan past bo'lsa bloklanadi.</summary>
+    public bool BlockSaleBelowCost { get; set; } = true;
+    /// <summary>Yangi mahsulot uchun standart ustama (%).</summary>
+    public decimal DefaultMarkupPct { get; set; } = 18m;
+
+    // ── Уведомления (Telegram notifications) ─────────────────────────────
+    public bool NotifyDaySummary { get; set; } = true;
+    public bool NotifyOverdueDebts { get; set; } = true;
+    public bool NotifyWithdrawalRequests { get; set; } = true;
+    /// <summary>Egasining Telegram @username'i.</summary>
+    public string? OwnerTelegram { get; set; }
+    /// <summary>
+    /// Egasining Telegram chat_id'si — bot faqat shu ma'lum bo'lgach xabar
+    /// yubora oladi (foydalanuvchi botga /start bosgach aniqlanadi).
+    /// </summary>
+    public long? OwnerTelegramChatId { get; set; }
+
+    // ── Безопасность (security) ──────────────────────────────────────────
+    /// <summary>Harakatsizlikда avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>
+    public int InactivityLogoutMinutes { get; set; } = 0;
+    public bool AuditEnabled { get; set; } = true;
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

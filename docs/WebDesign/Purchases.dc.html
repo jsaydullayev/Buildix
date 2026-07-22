@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Purchases" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:10px 12px;margin-bottom:22px;cursor:pointer" style-hover="background:rgba(255,255,255,.11)">
+      <div><div style="font-size:13px;font-weight:600">Стройбаза №1</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Ташкент, Сергели</div></div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5"></path><path d="m7 15 5 5 5-5"></path></svg>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <a href="Owner Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Sales.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</a>
+      <a href="Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники</div>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <div style="width:34px;height:34px;border-radius:999px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">АК</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">Азиз Каримов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Владелец</div></div>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Закуп</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">Поставки и заказы поставщикам</div>
+      </div>
+      <button type="button" style="height:42px;padding:0 20px;border:none;border-radius:9px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="background:#1e40af"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>Новый закуп</button>
+    </div>
+
+    <div style="flex:1;padding:24px 32px 34px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:16px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Закупов в июле</div><div style="font-size:21px;font-weight:700">14</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:16px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:8px">Сумма за июль</div><div style="font-size:21px;font-weight:700">96 200 000 <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div></div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:13px;padding:16px 20px"><div style="font-size:12.5px;color:#1e40af;margin-bottom:8px">В пути</div><div style="font-size:21px;font-weight:700;color:#1e40af">2 поставки</div></div>
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:13px;padding:16px 20px"><div style="font-size:12.5px;color:#9a3412;margin-bottom:8px">Долг поставщикам</div><div style="font-size:21px;font-weight:700;color:#9a3412">18 600 000 <span style="font-size:12px;font-weight:500;color:#d9a886">сум</span></div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="flex:1;display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;height:44px;padding:0 16px;max-width:360px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+              <input type="text" placeholder="Поиск по поставщику, накладной…" style="flex:1;border:none;outline:none;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;background:transparent">
+            </div>
+            <div style="display:inline-flex;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:3px">
+              <div onClick="{{ setFAll }}" style="padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:{{ fallW }};color:{{ fallC }};background:{{ fallBg }};cursor:pointer">Все</div>
+              <div onClick="{{ setFTransit }}" style="padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:{{ ftransitW }};color:{{ ftransitC }};background:{{ ftransitBg }};cursor:pointer">В пути</div>
+              <div onClick="{{ setFReceived }}" style="padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:{{ freceivedW }};color:{{ freceivedC }};background:{{ freceivedBg }};cursor:pointer">Принятые</div>
+              <div onClick="{{ setFUnpaid }}" style="padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:{{ funpaidW }};color:{{ funpaidC }};background:{{ funpaidBg }};cursor:pointer">Не оплачены</div>
+            </div>
+          </div>
+
+          <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:90px minmax(0,1.3fr) minmax(0,1.5fr) 110px 140px 130px 40px;gap:14px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>№</div><div>ПОСТАВЩИК</div><div>ТОВАРЫ</div><div>ДАТА</div><div style="text-align:right">СУММА</div><div>СТАТУС</div><div></div></div>
+            <sc-for list="{{ orders }}" as="o" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:90px minmax(0,1.3fr) minmax(0,1.5fr) 110px 140px 130px 40px;gap:14px;align-items:center;padding:13px 24px;border-bottom:1px solid #f1f5f9;font-size:13px;cursor:pointer" style-hover="background:#f8fafc">
+                <div style="font-weight:600;color:#2563eb">{{ o.id }}</div>
+                <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.supplier }}</div>
+                <div style="color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.items }}</div>
+                <div style="color:#64748b">{{ o.date }}</div>
+                <div style="text-align:right;font-weight:600">{{ o.total }}</div>
+                <div><span style="padding:3px 10px;border-radius:999px;background:{{ o.stBg }};font-size:11.5px;font-weight:600;color:{{ o.stC }}">{{ o.status }}</span></div>
+                <div style="display:flex;justify-content:flex-end;color:#cbd5e1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg></div>
+              </div>
+            </sc-for>
+            <div style="padding:14px 24px;font-size:12.5px;color:#94a3b8">{{ shownLabel }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div style="font-size:15px;font-weight:600">Рекомендуем заказать</div>
+              <span style="padding:3px 10px;border-radius:999px;background:#fef2f2;font-size:11.5px;font-weight:600;color:#991b1b">4 позиции</span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="min-width:0"><div style="font-size:13px;font-weight:500">Гипсокартон 12,5 мм</div><div style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:2px">Закончился</div></div>
+                <div style="font-size:12px;color:#64748b;text-align:right;flex:none">продаётся<br>25 шт/день</div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="min-width:0"><div style="font-size:13px;font-weight:500">Арматура Ø12</div><div style="font-size:11.5px;color:#b45309;font-weight:600;margin-top:2px">Осталось 3,2 т · на 4 дня</div></div>
+                <div style="font-size:12px;color:#64748b;text-align:right;flex:none">продаётся<br>0,8 т/день</div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="min-width:0"><div style="font-size:13px;font-weight:500">Труба проф. 40×20</div><div style="font-size:11.5px;color:#b45309;font-weight:600;margin-top:2px">Осталось 120 м · на 6 дней</div></div>
+                <div style="font-size:12px;color:#64748b;text-align:right;flex:none">продаётся<br>20 м/день</div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0">
+                <div style="min-width:0"><div style="font-size:13px;font-weight:500">Шифер 8-волновой</div><div style="font-size:11.5px;color:#b45309;font-weight:600;margin-top:2px">Осталось 40 лист. · на 8 дней</div></div>
+                <div style="font-size:12px;color:#64748b;text-align:right;flex:none">продаётся<br>5 лист/день</div>
+              </div>
+            </div>
+            <button type="button" style="width:100%;height:40px;margin-top:14px;border:none;border-radius:9px;background:#2563eb;color:#ffffff;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#1e40af">Создать заказ из списка</button>
+          </div>
+
+          <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+            <div style="font-size:15px;font-weight:600;margin-bottom:14px">Топ поставщики</div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9">
+                <div style="width:32px;height:32px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">АЦ</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">«Ахангаран Цемент»</div><div style="font-size:11.5px;color:#94a3b8">6 закупов · июль</div></div>
+                <div style="font-size:13px;font-weight:600;flex:none">42 500 000</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9">
+                <div style="width:32px;height:32px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">БМ</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">«Бекабад Металл»</div><div style="font-size:11.5px;color:#94a3b8">4 закупа · июль</div></div>
+                <div style="font-size:13px;font-weight:600;flex:none">31 800 000</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0">
+                <div style="width:32px;height:32px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">ТС</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">«Тошкент Стройснаб»</div><div style="font-size:11.5px;color:#94a3b8">4 закупа · июль</div></div>
+                <div style="font-size:13px;font-weight:600;flex:none">21 900 000</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { f: 'all' };
+  renderVals() {
+    const TRANSIT = { status: 'В пути', stBg: '#eff6ff', stC: '#1e40af', key: 'transit' };
+    const RECEIVED = { status: 'Принят', stBg: '#f0fdf4', stC: '#15803d', key: 'received' };
+    const UNPAID = { status: 'Не оплачен', stBg: '#fff7ed', stC: '#9a3412', key: 'unpaid' };
+    const all = [
+      { id: '№214', supplier: '«Ахангаран Цемент»', items: 'Цемент М500 ×600 меш.', date: '19 июля', total: '19 200 000', ...TRANSIT },
+      { id: '№213', supplier: '«Бекабад Металл»', items: 'Арматура Ø12 ×8 т, труба 40×20', date: '18 июля', total: '24 600 000', ...TRANSIT },
+      { id: '№212', supplier: '«Тошкент Стройснаб»', items: 'Гипсокартон ×200, профиль ×300', date: '16 июля', total: '11 400 000', ...UNPAID },
+      { id: '№211', supplier: '«Ахангаран Цемент»', items: 'Цемент М400 ×400 меш.', date: '14 июля', total: '12 000 000', ...RECEIVED },
+      { id: '№210', supplier: '«Кварц Групп»', items: 'Песок 30 т, щебень 20 т', date: '12 июля', total: '5 800 000', ...RECEIVED },
+      { id: '№209', supplier: '«Бекабад Металл»', items: 'Профнастил 0,45 ×150 лист.', date: '10 июля', total: '9 300 000', ...RECEIVED },
+    ];
+    const f = this.state.f;
+    const orders = all.filter(o => f === 'all' || o.key === f);
+    const seg = (k, active) => ({
+      [`f${k}W`]: active ? '600' : '500',
+      [`f${k}C`]: active ? '#ffffff' : '#64748b',
+      [`f${k}Bg`]: active ? '#2563eb' : 'transparent',
+    });
+    return {
+      orders,
+      shownLabel: `Показано ${orders.length} из 14 закупов за июль`,
+      ...seg('all', f === 'all'), ...seg('transit', f === 'transit'), ...seg('received', f === 'received'), ...seg('unpaid', f === 'unpaid'),
+      setFAll: () => this.setState({ f: 'all' }),
+      setFTransit: () => this.setState({ f: 'transit' }),
+      setFReceived: () => this.setState({ f: 'received' }),
+      setFUnpaid: () => this.setState({ f: 'unpaid' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+import { apiClient } from '@/shared/api/client';
+import type { PagedResult } from '@/shared/api/paged';
+import { productsApi, type Product, type ProductQuery } from '@/features/warehouse/api';
+
+/** A line on a POS sale (SaleItemDto). */
+export interface PosSaleItem {
+  id: string;
+  saleId: string;
+  productId: string | null;
+  productName: string;
+  quantity: number;
+  costPrice: number;
+  salePrice: number;
+  totalPrice: number;
+  profit: number;
+  unit: string;
+  comment: string | null;
+  isExternal: boolean;
+}
+
+/** A payment recorded against a sale (PaymentDto). */
+export interface PosPayment {
+  paymentType: string;
+  amount: number;
+}
+
+/** A POS sale (SaleDto). */
+export interface PosSale {
+  id: string;
+  saleNumber: number;
+  sellerId: string;
+  sellerName: string;
+  customerId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  status: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  discountAmount: number;
+  createdAt: string;
+  items: PosSaleItem[];
+  payments: PosPayment[];
+}
+
+/** A customer (CustomerDto). */
+export interface PosCustomer {
+  id: string;
+  phone: string;
+  fullName: string | null;
+  comment: string | null;
+  totalDebt: number;
+  customerType: string;
+  isRegular: boolean;
+  debtLimit: number | null;
+}
+
+export interface AddSaleItemBody {
+  isExternal: boolean;
+  productId?: string | null;
+  externalProductName?: string | null;
+  externalCostPrice?: number | null;
+  quantity: number;
+  salePrice: number;
+  minSalePrice: number;
+  comment?: string | null;
+}
+
+export interface AddPaymentBody {
+  paymentType: string;
+  amount: number;
+  dueDate?: string | null;
+}
+
+export interface CreateCustomerBody {
+  phone: string;
+  fullName?: string | null;
+  comment?: string | null;
+  initialDebt?: number | null;
+  customerType?: string | null;
+  isRegular?: boolean;
+  debtLimit?: number | null;
+}
+
+export type { Product };
+
+export const posApi = {
+  /** Create a fresh Draft sale (seller taken from JWT). */
+  createDraft: async (customerId: string | null = null): Promise<PosSale> => {
+    const { data } = await apiClient.post<PosSale>('/Sales', { customerId });
+    return data;
+  },
+
+  /** Read the authoritative state of a sale. */
+  getSale: async (saleId: string): Promise<PosSale> => {
+    const { data } = await apiClient.get<PosSale>(`/Sales/${saleId}`);
+    return data;
+  },
+
+  /** Search products for the POS grid (reuses the paged Products endpoint). */
+  searchProducts: (q: ProductQuery): Promise<PagedResult<Product>> => productsApi.listPaged(q),
+
+  /** Add a product (or free-form item) to the sale. Returns the affected line. */
+  addItem: async (saleId: string, body: AddSaleItemBody): Promise<PosSaleItem> => {
+    const { data } = await apiClient.post<PosSaleItem>(`/Sales/${saleId}/items`, body);
+    return data;
+  },
+
+  /** Reduce a line's quantity (or remove it fully). */
+  removeItem: async (saleId: string, saleItemId: string, quantity: number): Promise<PosSaleItem> => {
+    const { data } = await apiClient.post<PosSaleItem>(`/Sales/${saleId}/items/remove`, {
+      saleItemId,
+      quantity,
+    });
+    return data;
+  },
+
+  /** Set (or clear, with 0) the sale-level discount. */
+  setDiscount: async (saleId: string, discountAmount: number): Promise<PosSale> => {
+    const { data } = await apiClient.patch<PosSale>(`/Sales/${saleId}/discount`, { discountAmount });
+    return data;
+  },
+
+  /** Attach (or detach with null) the customer on the sale. */
+  attachCustomer: async (saleId: string, customerId: string | null): Promise<PosSale> => {
+    const { data } = await apiClient.patch<PosSale>(`/Sales/${saleId}/customer`, { customerId });
+    return data;
+  },
+
+  /** Take a payment. The sale finalizes automatically once paid >= total. */
+  addPayment: async (saleId: string, body: AddPaymentBody): Promise<PosPayment> => {
+    const { data } = await apiClient.post<PosPayment>(`/Sales/${saleId}/payments`, body);
+    return data;
+  },
+
+  /** Mark the whole sale as debt (fully unpaid). */
+  markDebt: async (saleId: string, dueDate?: string | null): Promise<PosSale> => {
+    const { data } = await apiClient.post<PosSale>(
+      `/Sales/${saleId}/mark-debt`,
+      dueDate ? { dueDate } : {},
+    );
+    return data;
+  },
+
+  /** Look up a single customer by phone. */
+  customerByPhone: async (phone: string): Promise<PosCustomer> => {
+    const { data } = await apiClient.get<PosCustomer>(
+      `/Customers/GetCustomerByPhone/phone/${encodeURIComponent(phone)}`,
+    );
+    return data;
+  },
+
+  /** Paged customer search (by name or phone). */
+  searchCustomers: async (search: string, size = 20): Promise<PagedResult<PosCustomer>> => {
+    const { data } = await apiClient.get<PagedResult<PosCustomer>>('/Customers/GetCustomersPaged', {
+      params: { page: 1, size, search: search || undefined },
+    });
+    return data;
+  },
+
+  /** Create a new customer. */
+  createCustomer: async (body: CreateCustomerBody): Promise<PosCustomer> => {
+    const { data } = await apiClient.post<PosCustomer>('/Customers/CreateCustomer', body);
+    return data;
+  },
+};

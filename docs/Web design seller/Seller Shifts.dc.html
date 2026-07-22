@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Seller Shifts" style="width:100%;min-width:1360px;min-height:100vh;display:flex;flex-direction:column;background:#f6f8fb;color:#0f172a">
+
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:62px;background:#0f2557;color:#ffffff">
+    <div style="display:flex;align-items:center;gap:14px">
+      
+      <div style="display:flex;align-items:center;gap:4px;font-size:13.5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:3px;flex:none">
+        <a href="Seller POS.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Касса</a>
+        <a href="Seller Sales.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>Мои продажи</a>
+        <a href="Seller Products.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары</a>
+        <a href="Seller Clients.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Клиенты</a>
+        <a href="Seller Debts.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+        <a href="Seller Supplies.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Поставки</a>
+      </div>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:12px">
+      <a href="Seller Shifts.dc.html" title="Мои смены" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:8px;background:rgba(22,163,74,.18);border:1px solid rgba(74,222,128,.4);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;color:#86efac;cursor:pointer" style-hover="background:rgba(22,163,74,.32);border:1px solid rgba(74,222,128,.7);color:#a7f3d0"><span style="width:6px;height:6px;border-radius:999px;background:#4ade80;flex:none"></span>Смена открыта · 08:00</a>
+      <a href="Seller Notifications.dc.html" title="Уведомления" style="flex:none;position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75)" style-hover="background:rgba(255,255,255,.16);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:999px;background:#dc2626;color:#ffffff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;box-sizing:border-box">3</span></a>
+      <div style="flex:none;display:flex;align-items:center;gap:10px;border-left:1px solid rgba(255,255,255,.2);padding-left:12px">
+        <a href="Seller Account.dc.html" title="Мой аккаунт" style="display:flex;align-items:center;gap:10px;border-radius:8px;padding:4px 8px;margin:-4px 0;color:#ffffff" style-hover="background:rgba(255,255,255,.1)">
+          <div style="width:32px;height:32px;border-radius:999px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">ЖТ</div>
+          <div><div style="font-size:12.5px;font-weight:600;white-space:nowrap">Жасур Тошев</div><div style="font-size:10.5px;color:rgba(255,255,255,.5)">Продавец</div></div>
+        </a>
+        <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55);margin-left:6px" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;padding:24px 28px 36px;display:flex;flex-direction:column;gap:18px;max-width:1240px;width:100%;margin:0 auto;box-sizing:border-box">
+
+    <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:14px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;background:linear-gradient(90deg,#f0fdf4,#ffffff 60%);border-bottom:1px solid #f1f5f9">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;border-radius:11px;background:#dcfce7;display:flex;align-items:center;justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></div>
+          <div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="font-size:16px;font-weight:600">Текущая смена</div><span style="padding:3px 11px;border-radius:999px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:11px;font-weight:600;color:#15803d">открыта</span></div>
+            <div style="font-size:12.5px;color:#64748b;margin-top:3px">Суббота, 19 июля · открыта в 08:00 · длится 6 ч 32 мин</div>
+          </div>
+        </div>
+        <button type="button" style="height:44px;padding:0 22px;border:none;border-radius:10px;background:#dc2626;color:#ffffff;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#b91c1c">Закрыть смену</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr)">
+        <div style="padding:18px 24px;border-right:1px solid #f1f5f9"><div style="font-size:12px;color:#64748b;margin-bottom:7px">Продажи</div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px">12 480 000</div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">сум · 46 чеков</div></div>
+        <div style="padding:18px 24px;border-right:1px solid #f1f5f9"><div style="font-size:12px;color:#64748b;margin-bottom:7px">Наличные</div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px">7 940 000</div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">сум · 29 чеков</div></div>
+        <div style="padding:18px 24px;border-right:1px solid #f1f5f9"><div style="font-size:12px;color:#64748b;margin-bottom:7px">Карта</div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px">3 580 000</div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">сум · 14 чеков</div></div>
+        <div style="padding:18px 24px;border-right:1px solid #f1f5f9"><div style="font-size:12px;color:#64748b;margin-bottom:7px">В долг</div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px">960 000</div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">сум · 3 чека</div></div>
+        <div style="padding:18px 24px"><div style="font-size:12px;color:#64748b;margin-bottom:7px">Средний чек</div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px">271 000</div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">сум</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:600">История смен</div>
+      <div style="display:inline-flex;background:#ffffff;border:1px solid #e2e8f0;border-radius:999px;padding:3px">
+        <div style="padding:6px 16px;border-radius:999px;font-size:12.5px;font-weight:600;color:#ffffff;background:#2563eb;cursor:pointer">Неделя</div>
+        <div style="padding:6px 16px;border-radius:999px;font-size:12.5px;font-weight:500;color:#64748b;cursor:pointer" style-hover="color:#0f172a">Месяц</div>
+        <div style="padding:6px 16px;border-radius:999px;font-size:12.5px;font-weight:500;color:#64748b;cursor:pointer" style-hover="color:#0f172a">Всё время</div>
+      </div>
+    </div>
+
+    <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:14px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:150px 130px 1fr 130px 130px 120px 90px;gap:14px;padding:11px 24px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ДАТА</div><div>ВРЕМЯ</div><div>ПРОДАЖИ</div><div>НАЛИЧНЫЕ</div><div>КАРТА</div><div>ЧЕКОВ</div><div style="text-align:right">СТАТУС</div></div>
+      <sc-for list="{{ shifts }}" as="s" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:150px 130px 1fr 130px 130px 120px 90px;gap:14px;align-items:center;padding:14px 24px;border-bottom:1px solid #f1f5f9;font-size:13.5px;cursor:pointer" style-hover="background:#f8fafc">
+          <div style="font-weight:600">{{ s.date }}</div>
+          <div style="color:#64748b">{{ s.time }}</div>
+          <div style="font-weight:700">{{ s.total }} <span style="font-size:11px;font-weight:500;color:#94a3b8">сум</span></div>
+          <div style="color:#475569">{{ s.cash }}</div>
+          <div style="color:#475569">{{ s.card }}</div>
+          <div style="color:#475569">{{ s.checks }}</div>
+          <div style="text-align:right"><span style="padding:3px 11px;border-radius:999px;background:{{ s.stBg }};border:1px solid {{ s.stBd }};font-size:11px;font-weight:600;color:{{ s.stC }}">{{ s.status }}</span></div>
+        </div>
+      </sc-for>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 24px;background:#f8fafc">
+        <div style="font-size:12.5px;color:#64748b">Итого за неделю</div>
+        <div style="display:flex;gap:28px;font-size:13px">
+          <div style="color:#64748b">Продажи: <span style="font-weight:700;color:#0f172a">84 300 000 сум</span></div>
+          <div style="color:#64748b">Чеков: <span style="font-weight:700;color:#0f172a">278</span></div>
+          <div style="color:#64748b">Средний чек: <span style="font-weight:700;color:#0f172a">303 000 сум</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const OPEN = { status: 'открыта', stBg: '#f0fdf4', stBd: '#bbf7d0', stC: '#15803d' };
+    const CLOSED = { status: 'закрыта', stBg: '#f1f5f9', stBd: '#e2e8f0', stC: '#64748b' };
+    return {
+      shifts: [
+        { date: 'Сегодня, 19 июля', time: '08:00 — …', total: '12 480 000', cash: '7 940 000', card: '3 580 000', checks: '46', ...OPEN },
+        { date: 'Пятница, 18 июля', time: '08:02 — 20:11', total: '11 020 000', cash: '6 800 000', card: '3 720 000', checks: '41', ...CLOSED },
+        { date: 'Четверг, 17 июля', time: '07:58 — 20:04', total: '14 210 000', cash: '9 100 000', card: '4 260 000', checks: '52', ...CLOSED },
+        { date: 'Среда, 16 июля', time: '08:05 — 20:00', total: '7 830 000', cash: '4 400 000', card: '2 980 000', checks: '33', ...CLOSED },
+        { date: 'Вторник, 15 июля', time: '08:00 — 20:07', total: '11 480 000', cash: '7 200 000', card: '3 640 000', checks: '48', ...CLOSED },
+        { date: 'Понедельник, 14 июля', time: '08:03 — 20:02', total: '8 620 000', cash: '5 340 000', card: '2 760 000', checks: '38', ...CLOSED },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

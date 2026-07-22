@@ -1,0 +1,12 @@
+# Web image build context is ./Buildix.Web.
+node_modules/
+dist/
+.vite/
+.git/
+.vscode/
+.idea/
+*.log
+# Local env overrides (never bake into the image; the app is same-origin anyway)
+.env
+.env.*
+!.env.example

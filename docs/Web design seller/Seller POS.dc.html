@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+</style>
+</helmet>
+<div data-screen-label="Seller POS" style="width:100%;min-width:1360px;height:100vh;display:flex;flex-direction:column;background:#f6f8fb;color:#0f172a;overflow:hidden;position:relative">
+
+  <sc-if value="{{ closeDialogOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,15,35,.55);display:flex;align-items:center;justify-content:center;z-index:50" onClick="{{ cancelCloseShift }}">
+      <div style="width:460px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);padding:28px;color:#0f172a" onClick="{{ stopBubble }}">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="width:44px;height:44px;border-radius:11px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex:none"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></div>
+          <div>
+            <div style="font-size:17px;font-weight:600">Закрыть смену?</div>
+            <div style="font-size:12.5px;color:#64748b;margin-top:2px">Открыта в 08:00 · длится 6 ч 32 мин</div>
+          </div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:11px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:13px;margin-bottom:20px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Продажи за смену</span><span style="font-weight:700">12 480 000 сум</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Наличные в кассе</span><span style="font-weight:700">7 940 000 сум</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Чеков</span><span style="font-weight:700">46</span></div>
+        </div>
+        <div style="font-size:12.5px;color:#94a3b8;line-height:1.5;margin-bottom:20px">После закрытия оформление продаж будет недоступно до открытия новой смены. Отчёт по смене отправится владельцу.</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onClick="{{ cancelCloseShift }}" type="button" style="height:46px;padding:0 20px;border:1px solid #cbd5e1;border-radius:10px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Отмена</button>
+          <button onClick="{{ confirmCloseShift }}" type="button" style="height:46px;padding:0 22px;border:none;border-radius:10px;background:#dc2626;color:#ffffff;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#b91c1c">Закрыть смену</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ clientPickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,15,35,.55);display:flex;align-items:center;justify-content:center;z-index:60" onClick="{{ closeClientPicker }}">
+      <div style="width:520px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);padding:24px;color:#0f172a" onClick="{{ stopBubble }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:17px;font-weight:600">Выбор клиента</div>
+          <div onClick="{{ closeClientPicker }}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#f1f5f9;color:#0f172a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;border:1.5px solid #e2e8f0;border-radius:10px;height:46px;padding:0 14px;margin-bottom:12px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+          <input type="text" placeholder="Имя или телефон…" value="{{ clientQuery }}" onChange="{{ setClientQuery }}" style="flex:1;border:none;outline:none;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;background:transparent">
+        </div>
+        <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;margin-bottom:12px">
+          <sc-for list="{{ clientList }}" as="cl" hint-placeholder-count="4">
+            <div onClick="{{ cl.pick }}" style="display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:10px;cursor:pointer" style-hover="background:#f5f9ff">
+              <div style="width:38px;height:38px;border-radius:999px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#1e40af;flex:none">{{ cl.initials }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cl.name }}</div>
+                <div style="font-size:12px;color:#94a3b8;margin-top:1px">{{ cl.phone }}</div>
+              </div>
+              <sc-if value="{{ cl.hasDebt }}" hint-placeholder-val="{{ false }}"><span style="padding:3px 10px;border-radius:999px;background:#fff7ed;font-size:11px;font-weight:600;color:#9a3412;flex:none">долг {{ cl.debt }}</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <button type="button" style="width:100%;height:44px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#2563eb;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px dashed #2563eb;background:#eff6ff">+ Новый клиент (имя и телефон)</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ checkoutOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,15,35,.55);display:flex;align-items:center;justify-content:center;z-index:50" onClick="{{ closeCheckout }}">
+      <div style="width:560px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);padding:26px;color:#0f172a" onClick="{{ stopBubble }}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
+          <div>
+            <div style="font-size:17px;font-weight:600">Оплата · Чек {{ curNum }}</div>
+            <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">{{ itemsCount }} позиций · клиент: {{ checkoutClient }}</div>
+          </div>
+          <div style="text-align:right"><div style="font-size:11.5px;color:#94a3b8;margin-bottom:2px">К оплате</div><div style="font-size:26px;font-weight:700;letter-spacing:-.4px;color:#2563eb">{{ total }} <span style="font-size:13px;font-weight:500;color:#94a3b8">сум</span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:18px">
+          <div onClick="{{ setPayCash }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1.5px solid {{ cashBd }};background:{{ cashBg }};font-size:13px;font-weight:600;color:{{ cashC }};cursor:pointer">💵 Наличные</div>
+          <div onClick="{{ setPayCard }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1.5px solid {{ cardBd }};background:{{ cardBg }};font-size:13px;font-weight:600;color:{{ cardC }};cursor:pointer">💳 Карта</div>
+          <div onClick="{{ setPaySplit }}" style="height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;border:1.5px solid {{ splitBd }};background:{{ splitBg }};font-size:13px;font-weight:600;color:{{ splitC }};cursor:pointer;line-height:1.2">🔀 Микс<span style="font-size:9.5px;font-weight:500;opacity:.75">нал. + карта</span></div>
+          <div onClick="{{ setPayDebt }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1.5px solid {{ debtBd }};background:{{ debtBg }};font-size:13px;font-weight:600;color:{{ debtC }};cursor:pointer">📒 В долг</div>
+        </div>
+        <sc-if value="{{ payIsCash }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:13px;font-weight:500;color:#334155">Получено от клиента</label>
+              <input type="number" placeholder="0" value="{{ cashGiven }}" onChange="{{ setCashGiven }}" style="height:54px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 16px;font-size:19px;font-weight:700;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ quickAmounts }}" as="q" hint-placeholder-count="3">
+                <div onClick="{{ q.set }}" style="padding:9px 16px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:600;color:#475569;cursor:pointer" style-hover="border:1px solid #2563eb;color:#2563eb;background:#eff6ff">{{ q.label }}</div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ changeOk }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:13px 16px"><span style="font-size:13.5px;font-weight:600;color:#15803d">Сдача</span><span style="font-size:19px;font-weight:700;color:#15803d">{{ change }} сум</span></div>
+            </sc-if>
+            <sc-if value="{{ changeShort }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:13px 16px"><span style="font-size:13.5px;font-weight:600;color:#991b1b">Не хватает</span><span style="font-size:19px;font-weight:700;color:#dc2626">{{ shortBy }} сум</span></div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ payIsCard }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:11px;padding:16px 18px;margin-bottom:18px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
+            <div style="font-size:13px;line-height:1.55;color:#1e40af">Проведите оплату <span style="font-weight:700">{{ total }} сум</span> по терминалу и подтвердите после успешной транзакции.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ payIsSplit }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:13px;font-weight:500;color:#334155">Наличными</label>
+              <input type="number" placeholder="0" value="{{ cashPart }}" onChange="{{ setCashPart }}" style="height:54px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 16px;font-size:19px;font-weight:700;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ splitQuick }}" as="sq" hint-placeholder-count="3">
+                <div onClick="{{ sq.set }}" style="padding:9px 16px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:600;color:#475569;cursor:pointer" style-hover="border:1px solid #2563eb;color:#2563eb;background:#eff6ff">{{ sq.label }}</div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ splitOk }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 16px"><span style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#1e40af"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Картой (остаток)</span><span style="font-size:19px;font-weight:700;color:#1e40af">{{ cardPart }} сум</span></div>
+            </sc-if>
+            <sc-if value="{{ splitOver }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:13px 16px"><span style="font-size:13.5px;font-weight:600;color:#991b1b">Наличными больше суммы чека</span><span style="font-size:13px;font-weight:600;color:#dc2626">выберите «Наличные»</span></div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ payIsDebt }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+            <sc-if value="{{ noClient }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:11px;padding:14px 16px">
+                <div style="font-size:13px;color:#9a3412"><span style="font-weight:700">!</span> Для продажи в долг нужен клиент из базы</div>
+                <button onClick="{{ openClientPicker }}" type="button" style="height:38px;padding:0 16px;border:none;border-radius:9px;background:#2563eb;color:#ffffff;font-size:12.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="background:#1e40af">Выбрать клиента</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasClient }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:12px;background:#f8fafc;border:1px solid #e8edf4;border-radius:11px;padding:12px 16px">
+                <div style="width:38px;height:38px;border-radius:999px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#1e40af;flex:none">{{ clientInitials }}</div>
+                <div style="flex:1"><div style="font-size:13.5px;font-weight:600">{{ clientName }}</div><div style="font-size:12px;color:#94a3b8;margin-top:1px">{{ clientPhone }}</div></div>
+                <button onClick="{{ openClientPicker }}" type="button" style="height:34px;padding:0 13px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#475569;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="border:1px solid #2563eb;color:#2563eb">Сменить</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <label style="font-size:13px;font-weight:500;color:#334155">Оплачено сейчас</label>
+                  <input type="number" placeholder="0" value="{{ paidNow }}" onChange="{{ setPaidNow }}" style="height:48px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 14px;font-size:16px;font-weight:700;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <label style="font-size:13px;font-weight:500;color:#334155">Срок возврата</label>
+                  <input type="date" value="{{ dueDate }}" onChange="{{ setDueDate }}" style="height:48px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 14px;font-size:14.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;box-sizing:border-box;width:100%" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+                </div>
+              </div>
+              <sc-if value="{{ debtOk }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:13px 16px"><span style="font-size:13.5px;font-weight:600;color:#9a3412">В долг (остаток)</span><span style="font-size:19px;font-weight:700;color:#9a3412">{{ debtRest }} сум</span></div>
+              </sc-if>
+              <sc-if value="{{ debtOver }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:13px 16px"><span style="font-size:13.5px;font-weight:600;color:#991b1b">Оплачена вся сумма — долг не нужен</span><span style="font-size:13px;font-weight:600;color:#dc2626">выберите «Наличные»</span></div>
+              </sc-if>
+            </sc-if>
+          </div>
+        </sc-if>
+        <div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:18px">
+          <button onClick="{{ closeCheckout }}" type="button" style="height:52px;padding:0 22px;border:1px solid #cbd5e1;border-radius:11px;background:#ffffff;color:#0f172a;font-size:14.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Отмена</button>
+          <button onClick="{{ confirmSale }}" type="button" style="height:52px;padding:0 30px;border:none;border-radius:11px;background:{{ confirmBg }};color:#ffffff;font-size:15.5px;font-weight:700;font-family:'Golos Text',sans-serif;cursor:{{ confirmCur }};box-shadow:0 8px 20px rgba(37,99,235,.25)" style-hover="background:{{ confirmHov }}">Подтвердить продажу</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ successOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,15,35,.55);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:440px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);padding:32px;color:#0f172a;text-align:center">
+        <div style="width:68px;height:68px;border-radius:999px;background:#f0fdf4;border:1.5px solid #bbf7d0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+        <div style="font-size:19px;font-weight:600;margin-bottom:14px">Продажа оформлена</div>
+        <div style="background:#f8fafc;border:1px solid #e8edf4;border-radius:11px;padding:12px;margin-bottom:20px;max-height:340px;overflow-y:auto">
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:4px;padding:14px 13px;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.6;color:#1e293b;text-align:left;box-shadow:0 4px 10px rgba(15,23,42,.06)">
+            <div style="text-align:center;font-weight:700;font-size:11px">СТРОЙБАЗА №1</div>
+            <div style="text-align:center;color:#64748b">Ташкент, Сергели · +998 71 200 40 50</div>
+            <div style="border-top:1px dashed #cbd5e1;margin:7px 0"></div>
+            <div style="display:flex;justify-content:space-between"><span>Чек {{ lastNum }}</span><span>{{ lastTime }}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#64748b"><span>19.07.2026</span><span>Смена №112</span></div>
+            <div style="color:#64748b">Продавец: Жасур Т.</div>
+            <div style="border-top:1px dashed #cbd5e1;margin:7px 0"></div>
+            <sc-for list="{{ lastItems }}" as="li" hint-placeholder-count="2">
+              <div style="display:flex;justify-content:space-between;gap:8px"><span style="min-width:0">{{ li.name }} ×{{ li.qty }}</span><span style="flex:none">{{ li.sum }}</span></div>
+            </sc-for>
+            <div style="border-top:1px dashed #cbd5e1;margin:7px 0"></div>
+            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:11px"><span>ИТОГО</span><span>{{ lastTotal }}</span></div>
+            <sc-for list="{{ lastPayLines }}" as="pl" hint-placeholder-count="1">
+              <div style="display:flex;justify-content:space-between;color:#64748b"><span>{{ pl.label }}</span><span>{{ pl.amount }}</span></div>
+            </sc-for>
+            <sc-if value="{{ lastHasClient }}" hint-placeholder-val="{{ false }}">
+              <div style="border-top:1px dashed #cbd5e1;margin:7px 0"></div>
+              <div style="display:flex;justify-content:space-between;color:#64748b"><span>Клиент</span><span>{{ lastClient }}</span></div>
+            </sc-if>
+            <div style="border-top:1px dashed #cbd5e1;margin:7px 0"></div>
+            <div style="text-align:center">Спасибо за покупку!</div>
+            <div style="text-align:center;color:#64748b">Обмен и возврат — 10 дней с чеком</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button type="button" style="height:54px;border:1px solid #cbd5e1;border-radius:11px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" style-hover="border:1px solid #2563eb;color:#2563eb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"></path><rect x="3" y="9" width="18" height="8" rx="2"></rect><path d="M6 14h12v7H6z"></path></svg>Печать чека</button>
+          <button onClick="{{ newSale }}" type="button" style="height:54px;border:none;border-radius:11px;background:#2563eb;color:#ffffff;font-size:14.5px;font-weight:700;font-family:'Golos Text',sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.25)" style-hover="background:#1e40af">Новая продажа</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:62px;background:#0f2557;color:#ffffff">
+    <div style="display:flex;align-items:center;gap:14px">
+      
+      <div style="display:flex;align-items:center;gap:4px;font-size:13.5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:3px;flex:none">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;background:#2563eb;white-space:nowrap;font-weight:600;color:#ffffff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Касса</div>
+        <a href="Seller Sales.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>Мои продажи</a>
+        <a href="Seller Products.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары</a>
+        <a href="Seller Clients.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Клиенты</a>
+        <a href="Seller Debts.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+        <a href="Seller Supplies.dc.html" style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;white-space:nowrap;font-weight:500;color:rgba(255,255,255,.6)" style-hover="color:#ffffff;background:rgba(255,255,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Поставки</a>
+      </div>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:12px">
+      <a href="Seller Shifts.dc.html" title="Мои смены" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:8px;background:rgba(22,163,74,.18);border:1px solid rgba(74,222,128,.4);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;color:#86efac;cursor:pointer" style-hover="background:rgba(22,163,74,.32);border:1px solid rgba(74,222,128,.7);color:#a7f3d0"><span style="width:6px;height:6px;border-radius:999px;background:#4ade80;flex:none"></span>Смена открыта · 08:00</a>
+      <a href="Seller Notifications.dc.html" title="Уведомления" style="flex:none;position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75)" style-hover="background:rgba(255,255,255,.16);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:999px;background:#dc2626;color:#ffffff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;box-sizing:border-box">3</span></a>
+      <div style="flex:none;white-space:nowrap;font-size:12.5px;color:rgba(255,255,255,.7)"><span style="font-weight:700;color:#ffffff">46</span> чеков</div>
+      <div style="flex:none;display:flex;align-items:center;gap:10px;border-left:1px solid rgba(255,255,255,.2);padding-left:12px">
+        <a href="Seller Account.dc.html" title="Мой аккаунт" style="display:flex;align-items:center;gap:10px;border-radius:8px;padding:4px 8px;margin:-4px 0;color:#ffffff" style-hover="background:rgba(255,255,255,.1)">
+          <div style="width:32px;height:32px;border-radius:999px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">ЖТ</div>
+          <div><div style="font-size:12.5px;font-weight:600;white-space:nowrap">Жасур Тошев</div><div style="font-size:10.5px;color:rgba(255,255,255,.5)">Продавец</div></div>
+        </a>
+        <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55);margin-left:6px" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;min-height:0">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:18px 20px 20px">
+      <div style="flex:none;display:flex;gap:10px;margin-bottom:14px">
+        <div style="flex:1;display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;height:48px;padding:0 16px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+          <input type="text" placeholder="Поиск товара или сканируйте штрих-код…" style="flex:1;border:none;outline:none;font-size:14.5px;font-family:'Golos Text',sans-serif;color:#0f172a;background:transparent">
+          <span style="font-size:11px;color:#94a3b8;background:#f1f5f9;border-radius:6px;padding:3px 8px">F2</span>
+        </div>
+        <button type="button" style="height:48px;padding:0 18px;border:1px solid #cbd5e1;border-radius:10px;background:#ffffff;color:#0f172a;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="border:1px solid #2563eb;color:#2563eb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14"></path><path d="M8 5v14"></path><path d="M12 5v14"></path><path d="M17 5v14"></path><path d="M21 5v14"></path></svg>Штрих-код</button>
+      </div>
+      <div style="flex:none;display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <div onClick="{{ setCatAll }}" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:{{ allW }};color:{{ allC }};background:{{ allBg }};border:1px solid {{ allBd }};cursor:pointer">Все товары</div>
+        <div onClick="{{ setCatCement }}" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:{{ cementW }};color:{{ cementC }};background:{{ cementBg }};border:1px solid {{ cementBd }};cursor:pointer">Сыпучие</div>
+        <div onClick="{{ setCatMetal }}" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:{{ metalW }};color:{{ metalC }};background:{{ metalBg }};border:1px solid {{ metalBd }};cursor:pointer">Металл</div>
+        <div onClick="{{ setCatRoof }}" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:{{ roofW }};color:{{ roofC }};background:{{ roofBg }};border:1px solid {{ roofBd }};cursor:pointer">Кровля</div>
+        <div onClick="{{ setCatFinish }}" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:{{ finishW }};color:{{ finishC }};background:{{ finishBg }};border:1px solid {{ finishBd }};cursor:pointer">Отделка</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-bottom:8px">
+          <sc-for list="{{ products }}" as="p" hint-placeholder-count="12">
+            <div onClick="{{ p.add }}" style="background:#ffffff;border:1px solid #e8edf4;border-radius:12px;padding:16px;cursor:pointer;user-select:none" style-hover="border:1px solid #2563eb;box-shadow:0 6px 16px rgba(37,99,235,.12)" style-active="transform:scale(.98)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="width:38px;height:38px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:17px">{{ p.icon }}</div>
+                <div style="font-size:11px;font-weight:600;color:{{ p.stockC }}">{{ p.stock }}</div>
+              </div>
+              <div style="font-size:13.5px;font-weight:600;line-height:1.35;margin-bottom:4px;min-height:36px">{{ p.name }}</div>
+              <div style="font-size:14.5px;font-weight:700;color:#2563eb">{{ p.priceLabel }} <span style="font-size:11px;font-weight:500;color:#94a3b8">сум/{{ p.unit }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:420px;flex:none;background:#ffffff;border-left:1px solid #e8edf4;display:flex;flex-direction:column;min-height:0">
+      <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f1f5f9">
+        <div style="font-size:15px;font-weight:600">Чек {{ curNum }}</div>
+        <button onClick="{{ clearCart }}" type="button" style="height:32px;padding:0 13px;border:1px solid #e2e8f0;border-radius:8px;background:#ffffff;color:#64748b;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #dc2626;color:#dc2626">Очистить</button>
+      </div>
+      <sc-if value="{{ heldAny }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:none;padding:10px 20px 12px;border-bottom:1px solid #f1f5f9;background:#fffbeb">
+          <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;letter-spacing:.3px;color:#92400e;margin-bottom:8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round"><path d="M10 5v14"></path><path d="M15 5v14"></path></svg>ОТЛОЖЕННЫЕ ЧЕКИ · {{ heldCount }}</div>
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px">
+            <sc-for list="{{ held }}" as="h" hint-placeholder-count="2">
+              <div onClick="{{ h.resume }}" title="Нажмите, чтобы вернуть в кассу" style="flex:none;display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #fcd34d;border-radius:10px;padding:9px 12px;cursor:pointer;user-select:none" style-hover="border:1px solid #b45309;box-shadow:0 4px 12px rgba(180,83,9,.15)">
+                <div>
+                  <div style="display:flex;align-items:baseline;gap:7px"><span style="font-size:12.5px;font-weight:700">{{ h.num }}</span><span style="font-size:10.5px;color:#94a3b8">{{ h.time }}</span></div>
+                  <div style="font-size:11px;color:#64748b;margin-top:2px">{{ h.info }}</div>
+                </div>
+                <div onClick="{{ h.remove }}" title="Удалить отложенный чек" style="width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#94a3b8;flex:none" style-hover="background:#fef2f2;color:#dc2626"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div style="flex:none;padding:12px 20px;border-bottom:1px solid #f1f5f9">
+        <sc-if value="{{ noClient }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ openClientPicker }}" style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:9px;padding:10px 14px;cursor:pointer" style-hover="border:1px dashed #2563eb">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M18 8v6"></path><path d="M15 11h6"></path></svg>
+            <div style="font-size:13px;color:#64748b">Клиент не выбран · <span style="font-weight:600;color:#2563eb">добавить</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasClient }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ openClientPicker }}" style="display:flex;align-items:center;gap:10px;background:#f5f9ff;border:1px solid #bfdbfe;border-radius:9px;padding:9px 12px;cursor:pointer" style-hover="border:1px solid #2563eb">
+            <div style="width:30px;height:30px;border-radius:999px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:#1e40af;flex:none">{{ clientInitials }}</div>
+            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ clientName }}</div><div style="font-size:11px;color:#94a3b8">{{ clientPhone }}</div></div>
+            <div onClick="{{ clearClient }}" title="Убрать клиента" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#94a3b8;flex:none" style-hover="background:#fef2f2;color:#dc2626"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0;padding:6px 20px">
+        <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center">
+            <div style="width:56px;height:56px;border-radius:999px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin-bottom:14px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6"></path></svg></div>
+            <div style="font-size:14px;font-weight:600;color:#64748b">Чек пуст</div>
+            <div style="font-size:12.5px;color:#94a3b8;margin-top:4px">Нажмите на товар слева, чтобы добавить</div>
+          </div>
+        </sc-if>
+        <sc-for list="{{ cart }}" as="c" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9">
+            <div style="width:34px;height:34px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none">{{ c.icon }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</div>
+              <div style="font-size:11.5px;color:#94a3b8;margin-top:1px">{{ c.priceLabel }} сум/{{ c.unit }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex:none">
+              <div onClick="{{ c.dec }}" style="width:40px;height:40px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-weight:600;color:#475569;user-select:none" style-hover="border:1.5px solid #2563eb;color:#2563eb;background:#eff6ff" style-active="transform:scale(.94)">−</div>
+              <input type="number" value="{{ c.qty }}" onChange="{{ c.setQty }}" min="1" style="width:56px;height:40px;text-align:center;font-size:15px;font-weight:700;border:1.5px solid #e2e8f0;border-radius:10px;outline:none;font-family:'Golos Text',sans-serif;color:#0f172a;background:#ffffff;cursor:text" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14)">
+              <div onClick="{{ c.inc }}" style="width:40px;height:40px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-weight:600;color:#475569;user-select:none" style-hover="border:1.5px solid #2563eb;color:#2563eb;background:#eff6ff" style-active="transform:scale(.94)">+</div>
+            </div>
+            <div style="width:86px;text-align:right;font-size:13.5px;font-weight:700;flex:none">{{ c.sum }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:none;border-top:1px solid #f1f5f9;padding:16px 20px 18px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;color:#64748b"><span>Позиций</span><span style="font-weight:600;color:#0f172a">{{ itemsCount }}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:600">Итого</span><span style="font-size:22px;font-weight:700;letter-spacing:-.3px">{{ total }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <div onClick="{{ setPayCash }}" style="height:50px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid {{ cashBd }};background:{{ cashBg }};font-size:12px;font-weight:600;color:{{ cashC }};cursor:pointer">Наличные</div>
+          <div onClick="{{ setPayCard }}" style="height:50px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid {{ cardBd }};background:{{ cardBg }};font-size:12px;font-weight:600;color:{{ cardC }};cursor:pointer">Карта</div>
+          <div onClick="{{ setPaySplit }}" title="Наличные + карта" style="height:50px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid {{ splitBd }};background:{{ splitBg }};font-size:12px;font-weight:600;color:{{ splitC }};cursor:pointer">Микс</div>
+          <div onClick="{{ setPayDebt }}" style="height:50px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid {{ debtBd }};background:{{ debtBg }};font-size:12px;font-weight:600;color:{{ debtC }};cursor:pointer">В долг</div>
+        </div>
+        <sc-if value="{{ debtWarn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:9px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:10px 13px;font-size:12px;color:#9a3412"><span style="font-weight:700">!</span>Для продажи в долг выберите клиента из базы</div>
+        </sc-if>
+        <div style="display:grid;grid-template-columns:150px 1fr;gap:10px">
+          <button onClick="{{ holdCart }}" type="button" title="Отложить чек и обслужить другого клиента" style="height:54px;border:1.5px solid #fcd34d;border-radius:11px;background:#fffbeb;color:#92400e;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" style-hover="border:1.5px solid #b45309;background:#fef3c7"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 5v14"></path><path d="M15 5v14"></path></svg>Отложить</button>
+          <button onClick="{{ openCheckout }}" type="button" style="height:54px;border:none;border-radius:11px;background:#2563eb;color:#ffffff;font-size:16px;font-weight:700;font-family:'Golos Text',sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.25)" style-hover="background:#1e40af">Оформить продажу</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    cat: 'all', pay: 'cash', cart: { CEM: 10, ARM: 20 }, closeDialogOpen: false,
+    clientPickerOpen: false, checkoutOpen: false, successOpen: false,
+    clientId: null, clientQuery: '', cashGiven: '', cashPart: '', paidNow: '', dueDate: '2026-08-04',
+    lastSale: null,
+    nextNum: 1047,
+    held: [
+      { hid: 1, num: '№1044', time: '13:52', client: 'Бекзод Алимов', cart: { PRF: 6 } },
+      { hid: 2, num: '№1041', time: '12:30', client: '—', cart: { KRA: 2, PRO: 10 } },
+    ],
+  };
+  renderVals() {
+    const fmt = (n) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+    const CATALOG = [
+      { id: 'CEM', icon: '🧱', name: 'Цемент М500, 50 кг', price: 38000, unit: 'меш', key: 'cement', stock: '840 меш.', stockC: '#15803d' },
+      { id: 'CM4', icon: '🧱', name: 'Цемент М400, 50 кг', price: 32000, unit: 'меш', key: 'cement', stock: '620 меш.', stockC: '#15803d' },
+      { id: 'ARM', icon: '⚙️', name: 'Арматура Ø12, 12 м', price: 125000, unit: 'шт', key: 'metal', stock: 'мало · 3,2 т', stockC: '#b45309' },
+      { id: 'TRU', icon: '⚙️', name: 'Труба проф. 40×20', price: 21000, unit: 'м', key: 'metal', stock: 'мало · 120 м', stockC: '#b45309' },
+      { id: 'KIR', icon: '🧱', name: 'Кирпич керамический', price: 1400, unit: 'шт', key: 'cement', stock: '14 500 шт', stockC: '#15803d' },
+      { id: 'PRF', icon: '🏠', name: 'Профнастил 0,45 мм', price: 80000, unit: 'лист', key: 'roof', stock: '86 лист.', stockC: '#b45309' },
+      { id: 'SHF', icon: '🏠', name: 'Шифер 8-волновой', price: 54000, unit: 'лист', key: 'roof', stock: '40 лист.', stockC: '#b45309' },
+      { id: 'KRA', icon: '🎨', name: 'Краска фасадная, 25 кг', price: 130000, unit: 'вед', key: 'finish', stock: '64 вед.', stockC: '#15803d' },
+      { id: 'PES', icon: '🧱', name: 'Песок строительный, 1 т', price: 120000, unit: 'т', key: 'cement', stock: '46 т', stockC: '#15803d' },
+      { id: 'SHC', icon: '🧱', name: 'Щебень 5–20, 1 т', price: 140000, unit: 'т', key: 'cement', stock: '38 т', stockC: '#15803d' },
+      { id: 'PRO', icon: '🎨', name: 'Профиль 60×27, 3 м', price: 22000, unit: 'шт', key: 'finish', stock: '410 шт', stockC: '#15803d' },
+      { id: 'SET', icon: '⚙️', name: 'Сетка сварная 1×2 м', price: 45000, unit: 'шт', key: 'metal', stock: '96 шт', stockC: '#15803d' },
+    ];
+    const { cat, pay, cart } = this.state;
+    const mut = (id, d) => this.setState(s => {
+      const q = (s.cart[id] || 0) + d;
+      const next = { ...s.cart };
+      if (q <= 0) delete next[id]; else next[id] = q;
+      return { cart: next };
+    });
+    const products = CATALOG.filter(p => cat === 'all' || p.key === cat).map(p => ({
+      ...p, priceLabel: fmt(p.price), add: () => mut(p.id, 1),
+    }));
+    const cartRows = Object.entries(cart).map(([id, qty]) => {
+      const p = CATALOG.find(x => x.id === id);
+      return {
+        ...p, qty, priceLabel: fmt(p.price), sum: fmt(p.price * qty),
+        inc: () => mut(id, 1), dec: () => mut(id, -1),
+        setQty: (e) => {
+          const v = parseInt(e.target.value, 10);
+          this.setState(s => ({ cart: { ...s.cart, [id]: (isNaN(v) || v < 1) ? 1 : v } }));
+        },
+      };
+    });
+    const totalN = cartRows.reduce((a, c) => a + c.price * c.qty, 0);
+    const CLIENTS = [
+      { id: 1, name: 'Бекзод Алимов', phone: '+998 90 234 56 78', debtN: 3800000 },
+      { id: 2, name: 'ООО «Курилиш Сервис»', phone: '+998 71 200 44 55', debtN: 12400000 },
+      { id: 3, name: 'ФХ «Олтин Дала»', phone: '+998 93 511 22 33', debtN: 5200000 },
+      { id: 4, name: 'Фуркат Юлдашев', phone: '+998 97 700 18 42', debtN: 0 },
+      { id: 5, name: 'Ахмад Салимов', phone: '+998 90 811 65 09', debtN: 0 },
+    ];
+    const inits = (n) => n.replace(/«|»/g, '').replace(/\b(ООО|ФХ)\b/g, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const client = CLIENTS.find(c => c.id === this.state.clientId) || null;
+    const q = this.state.clientQuery.toLowerCase();
+    const clientList = CLIENTS.filter(c => !q || c.name.toLowerCase().includes(q) || c.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))).map(c => ({
+      ...c, initials: inits(c.name), hasDebt: c.debtN > 0, debt: fmt(c.debtN),
+      pick: () => this.setState({ clientId: c.id, clientPickerOpen: false }),
+    }));
+    const givenN = parseInt(this.state.cashGiven, 10) || 0;
+    const changeN = givenN - totalN;
+    const roundUp = (n, step) => Math.ceil(n / step) * step;
+    const quickSet = new Set([totalN, roundUp(totalN, 100000), roundUp(totalN, 500000), roundUp(totalN, 1000000)]);
+    const quickAmounts = [...quickSet].filter(v => v > 0).map(v => ({
+      label: v === totalN ? 'Без сдачи' : fmt(v),
+      set: () => this.setState({ cashGiven: String(v) }),
+    }));
+    const payLabels = { cash: 'Наличные', card: 'Карта', debt: 'В долг', split: 'Наличные + Карта' };
+    const cashPartN = parseInt(this.state.cashPart, 10) || 0;
+    const cardPartN = totalN - cashPartN;
+    const splitQuick = [0.3, 0.5, 0.7].map(k => {
+      const v = Math.round(totalN * k / 10000) * 10000;
+      return { label: fmt(v), set: () => this.setState({ cashPart: String(v) }) };
+    }).filter(x => x.label !== '0');
+    const paidNowN = parseInt(this.state.paidNow, 10) || 0;
+    const debtRestN = totalN - paidNowN;
+    const canConfirm = totalN > 0
+      && (this.state.pay !== 'debt' || (!!client && debtRestN > 0))
+      && (this.state.pay !== 'cash' || givenN >= totalN)
+      && (this.state.pay !== 'split' || (cashPartN > 0 && cardPartN > 0));
+    const ls = this.state.lastSale;
+    const chip = (k, active) => ({
+      [`${k}W`]: active ? '600' : '500',
+      [`${k}C`]: active ? '#ffffff' : '#475569',
+      [`${k}Bg`]: active ? '#2563eb' : '#ffffff',
+      [`${k}Bd`]: active ? '#2563eb' : '#e2e8f0',
+    });
+    const payBtn = (k, active) => ({
+      [`${k}Bd`]: active ? '#2563eb' : '#e2e8f0',
+      [`${k}Bg`]: active ? '#eff6ff' : '#ffffff',
+      [`${k}C`]: active ? '#1e40af' : '#475569',
+    });
+    return {
+      products, cart: cartRows, cartEmpty: cartRows.length === 0,
+      itemsCount: cartRows.length, total: fmt(totalN),
+      debtWarn: pay === 'debt',
+      ...chip('all', cat === 'all'), ...chip('cement', cat === 'cement'), ...chip('metal', cat === 'metal'), ...chip('roof', cat === 'roof'), ...chip('finish', cat === 'finish'),
+      ...payBtn('cash', pay === 'cash'), ...payBtn('card', pay === 'card'), ...payBtn('debt', pay === 'debt'), ...payBtn('split', pay === 'split'),
+      setPaySplit: () => this.setState({ pay: 'split' }),
+      payIsSplit: pay === 'split',
+      cashPart: this.state.cashPart,
+      setCashPart: (e) => this.setState({ cashPart: e.target.value }),
+      splitQuick,
+      splitOk: pay === 'split' && cashPartN >= 0 && cardPartN > 0,
+      splitOver: pay === 'split' && cashPartN > 0 && cardPartN <= 0,
+      cardPart: fmt(Math.max(cardPartN, 0)),
+      paidNow: this.state.paidNow,
+      setPaidNow: (e) => this.setState({ paidNow: e.target.value }),
+      debtOk: pay === 'debt' && debtRestN > 0,
+      debtOver: pay === 'debt' && paidNowN > 0 && debtRestN <= 0,
+      debtRest: fmt(Math.max(debtRestN, 0)),
+      setCatAll: () => this.setState({ cat: 'all' }),
+      setCatCement: () => this.setState({ cat: 'cement' }),
+      setCatMetal: () => this.setState({ cat: 'metal' }),
+      setCatRoof: () => this.setState({ cat: 'roof' }),
+      setCatFinish: () => this.setState({ cat: 'finish' }),
+      setPayCash: () => this.setState({ pay: 'cash' }),
+      setPayCard: () => this.setState({ pay: 'card' }),
+      setPayDebt: () => this.setState({ pay: 'debt' }),
+      clearCart: () => this.setState({ cart: {} }),
+      noClient: !client, hasClient: !!client,
+      clientName: client ? client.name : '', clientPhone: client ? client.phone : '',
+      clientInitials: client ? inits(client.name) : '',
+      checkoutClient: client ? client.name : 'не выбран',
+      clientPickerOpen: this.state.clientPickerOpen, clientQuery: this.state.clientQuery, clientList,
+      openClientPicker: (e) => { if (e) e.stopPropagation(); this.setState({ clientPickerOpen: true, clientQuery: '' }); },
+      closeClientPicker: () => this.setState({ clientPickerOpen: false }),
+      setClientQuery: (e) => this.setState({ clientQuery: e.target.value }),
+      clearClient: (e) => { e.stopPropagation(); this.setState({ clientId: null }); },
+      checkoutOpen: this.state.checkoutOpen,
+      openCheckout: () => { if (Object.keys(this.state.cart).length > 0) this.setState({ checkoutOpen: true, cashGiven: '', cashPart: '', paidNow: '' }); },
+      closeCheckout: () => this.setState({ checkoutOpen: false }),
+      payIsCash: pay === 'cash', payIsCard: pay === 'card', payIsDebt: pay === 'debt',
+      cashGiven: this.state.cashGiven,
+      setCashGiven: (e) => this.setState({ cashGiven: e.target.value }),
+      quickAmounts,
+      changeOk: givenN >= totalN && givenN > 0 && changeN >= 0,
+      changeShort: givenN > 0 && changeN < 0,
+      change: fmt(Math.max(changeN, 0)), shortBy: fmt(Math.abs(Math.min(changeN, 0))),
+      dueDate: this.state.dueDate,
+      setDueDate: (e) => this.setState({ dueDate: e.target.value }),
+      confirmBg: canConfirm ? '#2563eb' : '#94a3b8',
+      confirmHov: canConfirm ? '#1e40af' : '#94a3b8',
+      confirmCur: canConfirm ? 'pointer' : 'not-allowed',
+      confirmSale: () => {
+        if (!canConfirm) return;
+        const pay = this.state.pay;
+        let payLines;
+        if (pay === 'cash') {
+          payLines = [{ label: 'Наличные', amount: fmt(totalN) }];
+          if (changeN > 0) payLines.push({ label: 'Получено', amount: fmt(givenN) }, { label: 'Сдача', amount: fmt(changeN) });
+        } else if (pay === 'card') {
+          payLines = [{ label: 'Карта', amount: fmt(totalN) }];
+        } else if (pay === 'split') {
+          payLines = [{ label: 'Наличные', amount: fmt(cashPartN) }, { label: 'Карта', amount: fmt(cardPartN) }];
+        } else {
+          payLines = paidNowN > 0
+            ? [{ label: 'Оплачено', amount: fmt(paidNowN) }, { label: 'В долг', amount: fmt(debtRestN) }]
+            : [{ label: 'В долг', amount: fmt(totalN) }];
+        }
+        this.setState(s => ({
+          checkoutOpen: false, successOpen: true,
+          lastSale: {
+            num: '№' + s.nextNum, total: fmt(totalN), payLines,
+            time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            items: cartRows.map(c => ({ name: c.name, qty: c.qty, sum: c.sum })),
+            client: client ? client.name : null,
+          },
+        }));
+      },
+      successOpen: this.state.successOpen,
+      lastNum: ls ? ls.num : '', lastTotal: ls ? ls.total : '', lastTime: ls ? ls.time : '',
+      lastItems: ls ? ls.items : [], lastPayLines: ls ? ls.payLines : [],
+      lastHasClient: !!(ls && ls.client), lastClient: ls && ls.client ? ls.client : '',
+      newSale: () => this.setState(s => ({ successOpen: false, cart: {}, clientId: null, cashGiven: '', cashPart: '', paidNow: '', pay: 'cash', nextNum: s.nextNum + 1 })),
+      closeDialogOpen: this.state.closeDialogOpen,
+      askCloseShift: () => this.setState({ closeDialogOpen: true }),
+      cancelCloseShift: () => this.setState({ closeDialogOpen: false }),
+      confirmCloseShift: () => this.setState({ closeDialogOpen: false }),
+      stopBubble: (e) => e.stopPropagation(),
+      curNum: '№' + this.state.nextNum,
+      heldAny: this.state.held.length > 0,
+      heldCount: this.state.held.length,
+      held: this.state.held.map(h => {
+        const totalH = Object.entries(h.cart).reduce((a, [id, q]) => a + (CATALOG.find(x => x.id === id)?.price || 0) * q, 0);
+        const posCount = Object.keys(h.cart).length;
+        return {
+          ...h,
+          info: (h.client !== '—' ? h.client + ' · ' : '') + posCount + ' поз. · ' + fmt(totalH),
+          resume: () => this.setState(s => {
+            const rest = s.held.filter(x => x.hid !== h.hid);
+            const hasCur = Object.keys(s.cart).length > 0;
+            const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            const parked = hasCur ? [{ hid: Date.now(), num: '№' + s.nextNum, time: now, client: '—', cart: s.cart }] : [];
+            return { held: [...parked, ...rest], cart: h.cart, nextNum: hasCur ? s.nextNum + 1 : s.nextNum };
+          }),
+          remove: (e) => { e.stopPropagation(); this.setState(s => ({ held: s.held.filter(x => x.hid !== h.hid) })); },
+        };
+      }),
+      holdCart: () => this.setState(s => {
+        if (Object.keys(s.cart).length === 0) return null;
+        const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        return {
+          held: [{ hid: Date.now(), num: '№' + s.nextNum, time: now, client: '—', cart: s.cart }, ...s.held],
+          cart: {}, nextNum: s.nextNum + 1,
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+# Buildix full stack: PostgreSQL + .NET API + nginx (SPA + reverse proxy).
+#
+#   cp .env.example .env   # then fill in real secrets
+#   docker compose up -d --build
+#
+# The API applies EF migrations at startup (Program.cs), so the schema is created
+# on first boot. Only the web container publishes ports; db + api are reachable
+# only on the internal network. TLS: see deploy/README.md.
+name: buildix
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Not published — only the api container reaches it on the compose network.
+
+  api:
+    build:
+      context: .
+      dockerfile: Buildix.API/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PORT: "8080"
+      # Points at the db service on the internal network.
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      # REQUIRED: the API fails fast if Jwt__Key is missing or < 32 chars.
+      Jwt__Key: ${JWT_KEY}
+      # Optional Telegram integration (empty = disabled).
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+      Telegram__WebhookSecret: ${TELEGRAM_WEBHOOK_SECRET:-}
+    volumes:
+      # Product images persist across deploys in a named volume.
+      - uploads:/app/wwwroot/uploads
+    # No ports published — reached only via the web/nginx reverse proxy.
+
+  web:
+    build:
+      context: ./Buildix.Web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      # - "443:443"   # enable together with the TLS nginx config (deploy/README.md)
+    volumes:
+      # Authoritative, swappable server config (HTTP by default; TLS variant in
+      # deploy/nginx/default.ssl.conf.example).
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./deploy/nginx/certs:/etc/nginx/certs:ro   # mount certs for TLS
+
+volumes:
+  pgdata:
+  uploads:

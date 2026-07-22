@@ -1,0 +1,76 @@
+using Buildix.Domain.Enums;
+
+namespace Buildix.Domain.Constants;
+
+/// <summary>
+/// Default permission sets per role.
+///
+/// These sets are chosen to reproduce the system's *current* hard-coded
+/// authorization behaviour exactly, so that turning on RBAC does not silently
+/// grant or revoke anything:
+///
+///   • Admin  — passes the old "AdminOrOwner" policy: full operational access
+///              except the two Owner-exclusive financial report metrics.
+///   • Seller — passes only the old "AllRoles" policy: view + own-sale create,
+///              no management/destructive actions, no cost/profit visibility.
+///
+/// A new user is seeded with the set for its role. An existing user whose
+/// explicit set is still empty falls back to these (see User.HasPermission),
+/// so the migration needs no data step. Owner/SuperAdmin are never gated.
+/// </summary>
+public static class PermissionDefaults
+{
+    /// <summary>Admin = everything except the Owner-only sensitive views:
+    /// profit summary, cash-balance report (legacy OwnerOnly gate), and the
+    /// audit log (Plan 07 Bosqich 2 — Owner can grant it to a trusted Admin).</summary>
+    public static readonly IReadOnlyList<string> Admin = PermissionKeys.All
+        .Where(k => k != PermissionKeys.DataProfit
+                 && k != PermissionKeys.DataCashBalance
+                 && k != PermissionKeys.DataAuditLog
+                 && k != PermissionKeys.ProductsImport)
+        .ToArray();
+
+    /// <summary>Seller = view access + create-sale + customer create/edit +
+    /// debt payment + the exports that were open to all roles. No product /
+    /// category / user management, no users list (the Foydalanuvchilar section
+    /// is Owner/Admin only — the self-service profile/shift endpoints need no
+    /// permission), no customer delete, no cost/profit, no cash register.
+    /// Note: no <c>reports.access</c> — the Reports controller was AdminOrOwner,
+    /// so a Seller could only ever reach its export and daily-list endpoints
+    /// (gated below by reports.export / sales.access).</summary>
+    public static readonly IReadOnlyList<string> Seller = new[]
+    {
+        PermissionKeys.DashboardAccess,
+        PermissionKeys.ProductsAccess, PermissionKeys.ProductsExport,
+        PermissionKeys.CategoriesAccess,
+        PermissionKeys.SalesAccess, PermissionKeys.SalesCreate, PermissionKeys.SalesExport, PermissionKeys.SalesInvoice,
+        PermissionKeys.CustomersAccess, PermissionKeys.CustomersManage, PermissionKeys.CustomersExport,
+        PermissionKeys.ZakupAccess,
+        PermissionKeys.ReportsExport,
+        PermissionKeys.DebtsAccess, PermissionKeys.DebtsManage, PermissionKeys.DebtsDueDate,
+        PermissionKeys.DataAllSalesView,
+    };
+
+    /// <summary>
+    /// Confidential keys a <see cref="Role.Seller"/> may NEVER hold, even if an
+    /// Owner toggles them on in the permission matrix. Cost price and profit are
+    /// the shop's private margins — a hard role-level guarantee, not just a
+    /// default. Owner/SuperAdmin bypass all gating; Admin keeps cost-price
+    /// visibility (a trusted manager role) so it is intentionally absent here.
+    /// </summary>
+    public static readonly IReadOnlyList<string> SellerForbidden = new[]
+    {
+        PermissionKeys.DataCostPrice,
+        PermissionKeys.DataProfit,
+    };
+
+    /// <summary>Default effective set for a freshly created user of
+    /// <paramref name="role"/>. Owner/SuperAdmin get the full catalogue
+    /// (they are not gated, but a complete set keeps the data consistent).</summary>
+    public static IReadOnlyList<string> ForRole(Role role) => role switch
+    {
+        Role.Admin => Admin,
+        Role.Seller => Seller,
+        _ => PermissionKeys.All,
+    };
+}
