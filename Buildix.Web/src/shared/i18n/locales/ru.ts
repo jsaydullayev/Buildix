@@ -30,6 +30,19 @@ export const ru = {
     account: 'Мой аккаунт',
     logout: 'Выйти',
   },
+  seller: {
+    nav: {
+      pos: 'Касса',
+      sales: 'Мои продажи',
+      products: 'Товары',
+      clients: 'Клиенты',
+      debts: 'Долги',
+      supplies: 'Поставки',
+      shifts: 'Смены',
+      account: 'Аккаунт',
+      notifications: 'Уведомления',
+    },
+  },
   auth: {
     title: 'Вход в систему',
     subtitle: 'Введите данные, выданные владельцем или администратором магазина.',

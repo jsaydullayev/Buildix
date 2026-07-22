@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
+import { SellerLayout } from './layouts/SellerLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
 import {
   RequireAuth,
@@ -9,6 +10,16 @@ import {
   RequireSubscription,
   IndexRedirect,
 } from '@/shared/auth/guards';
+import {
+  SellerPosPage,
+  SellerSalesPage,
+  SellerShiftsPage,
+  SellerProductsPage,
+  SellerClientsPage,
+  SellerDebtsPage,
+  SellerSuppliesPage,
+  SellerNotificationsPage,
+} from '@/features/seller/SellerStubs';
 import { FullscreenLoader } from '@/shared/ui';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 
@@ -71,6 +82,29 @@ export const router = createBrowserRouter([
         element: <RequireRole roles={[ROLES.Owner, ROLES.SuperAdmin]}>{<SettingsPage />}</RequireRole>,
       },
       { path: 'account', element: <AccountPage /> },
+    ],
+  },
+  {
+    // Seller (cashier) shell — horizontal top-nav, outside AppLayout. Sellers
+    // land here after login (useFirstAccessiblePath); Owner/Admin can preview.
+    path: '/:subdomain/seller',
+    element: (
+      <RequireAuth>
+        <SellerLayout />
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <Navigate to="pos" replace /> },
+      { path: 'pos', element: perm(PERMISSIONS.sales.create, <SellerPosPage />) },
+      { path: 'sales', element: perm(PERMISSIONS.sales.access, <SellerSalesPage />) },
+      // Shift open/close is self-service (no permission gate) — matches backend.
+      { path: 'shifts', element: <SellerShiftsPage /> },
+      { path: 'products', element: perm(PERMISSIONS.products.access, <SellerProductsPage />) },
+      { path: 'clients', element: perm(PERMISSIONS.customers.access, <SellerClientsPage />) },
+      { path: 'debts', element: perm(PERMISSIONS.debts.access, <SellerDebtsPage />) },
+      { path: 'supplies', element: perm(PERMISSIONS.zakup.access, <SellerSuppliesPage />) },
+      { path: 'account', element: <AccountPage /> },
+      { path: 'notifications', element: perm(PERMISSIONS.notifications.access, <SellerNotificationsPage />) },
     ],
   },
   { path: '*', element: publicElement(<NotFoundPage />) },
