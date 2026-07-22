@@ -32,6 +32,19 @@ export const uz: TranslationSchema = {
     account: 'Mening hisobim',
     logout: 'Chiqish',
   },
+  seller: {
+    nav: {
+      pos: 'Kassa',
+      sales: 'Sotuvlarim',
+      products: 'Tovarlar',
+      clients: 'Mijozlar',
+      debts: 'Qarzlar',
+      supplies: 'Postavka',
+      shifts: 'Smenalar',
+      account: 'Akkaunt',
+      notifications: 'Bildirishnomalar',
+    },
+  },
   auth: {
     title: 'Tizimga kirish',
     subtitle: 'Do‘kon egasi yoki administrator bergan ma’lumotlarni kiriting.',

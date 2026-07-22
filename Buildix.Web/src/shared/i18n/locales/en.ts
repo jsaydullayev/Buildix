@@ -32,6 +32,19 @@ export const en: TranslationSchema = {
     account: 'My account',
     logout: 'Log out',
   },
+  seller: {
+    nav: {
+      pos: 'Register',
+      sales: 'My Sales',
+      products: 'Products',
+      clients: 'Clients',
+      debts: 'Debts',
+      supplies: 'Supplies',
+      shifts: 'Shifts',
+      account: 'Account',
+      notifications: 'Notifications',
+    },
+  },
   auth: {
     title: 'Sign in',
     subtitle: 'Enter the credentials issued by the store owner or administrator.',
