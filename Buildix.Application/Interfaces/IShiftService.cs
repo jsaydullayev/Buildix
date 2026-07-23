@@ -29,4 +29,12 @@ public interface IShiftService
     /// Lets an Owner/Admin review how long a seller actually worked; market-scoped
     /// so it never leaks shifts from another tenant.</summary>
     Task<IReadOnlyList<ShiftDto>> GetUserShiftsAsync(Guid userId, int limit = 30, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The CALLER's own shift history for a period plus its totals — the seller
+    /// Смены screen. Self-service (no users.shift permission, which sellers do
+    /// not hold); <paramref name="range"/> is week (default) | month | all,
+    /// anchored to Tashkent business days.
+    /// </summary>
+    Task<MyShiftsDto> GetMyShiftsAsync(Guid userId, string? range = null, CancellationToken cancellationToken = default);
 }

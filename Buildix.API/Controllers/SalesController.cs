@@ -198,6 +198,21 @@ public class SalesController : ApiControllerBase
     }
 
     /// <summary>
+    /// Close a sale with one or more tenders in ONE transaction — the split
+    /// ("Микс") checkout. Not expressible as two /payments calls: those are not
+    /// atomic, and the first partial tender is rejected on a walk-in sale
+    /// (no customer ⇒ cannot leave a debt).
+    /// </summary>
+    [HttpPost("{saleId}/checkout")]
+    [RequirePermission(PermissionKeys.SalesCreate)]
+    [Idempotent("sale-checkout")]
+    public async Task<ActionResult<PaymentDto>> Checkout(Guid saleId, [FromBody] CheckoutSaleDto request, CancellationToken ct = default)
+    {
+        var result = await _salePaymentService.CheckoutAsync(saleId, request, ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>
     /// Sotuvga sale-level chegirma (skidka) qo'llash. Kassa to'lov oynasidan
     /// chaqiriladi — mahsulotlar qo'shilgach, to'lovdan oldin. Item narxlariga
     /// tegmaydi; faqat umumiy hisobni (TotalAmount) kamaytiradi, keyingi

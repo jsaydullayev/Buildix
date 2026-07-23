@@ -42,30 +42,33 @@ public class SaleService : ISaleService
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
 
+        // The seller's open drawer session, if any. Used for two things: the
+        // shift-open business rule below, and stamping the sale with the shift
+        // it belongs to so the receipt can print "Смена №N".
+        var openShiftId = await _context.Shifts
+            .Where(x => x.UserId == sellerId && x.MarketId == marketId && x.ClosedAt == null)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
         // Business rule: sales only with an open shift (Sellers only — Admin/Owner
         // may sell without one). Gated by MarketSettings.SalesOnlyWhenShiftOpen.
         var settings = await _settings.GetOrCreateAsync(marketId, cancellationToken);
-        if (settings.SalesOnlyWhenShiftOpen)
+        if (settings.SalesOnlyWhenShiftOpen && openShiftId is null)
         {
             var sellerRole = await _context.Users
                 .Where(u => u.Id == sellerId)
                 .Select(u => (Role?)u.Role)
                 .FirstOrDefaultAsync(cancellationToken);
             if (sellerRole == Role.Seller)
-            {
-                var hasOpenShift = await _context.Shifts.AnyAsync(
-                    x => x.UserId == sellerId && x.MarketId == marketId && x.ClosedAt == null,
-                    cancellationToken);
-                if (!hasOpenShift)
-                    return Result.Failure<SaleDto>(
-                        "Смена не открыта. Откройте смену перед продажей.", "SHIFT_NOT_OPEN");
-            }
+                return Result.Failure<SaleDto>(
+                    "Смена не открыта. Откройте смену перед продажей.", "SHIFT_NOT_OPEN");
         }
 
         var sale = new Sale
         {
             Id = Guid.NewGuid(),
             SellerId = sellerId,
+            ShiftId = openShiftId,   // drawer session this receipt belongs to
             CustomerId = request.CustomerId,
             Status = SaleStatus.Draft,
             TotalAmount = 0,

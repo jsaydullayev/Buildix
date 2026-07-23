@@ -13,7 +13,10 @@ export interface PosSaleItem {
   salePrice: number;
   totalPrice: number;
   profit: number;
+  /** Server-side Uzbek abbreviation — prefer `unitValue` + unitLabel() for display. */
   unit: string;
+  /** UnitType number; 0 for external lines. Localise from this. */
+  unitValue: number;
   comment: string | null;
   isExternal: boolean;
 }
@@ -130,6 +133,23 @@ export const posApi = {
   /** Take a payment. The sale finalizes automatically once paid >= total. */
   addPayment: async (saleId: string, body: AddPaymentBody): Promise<PosPayment> => {
     const { data } = await apiClient.post<PosPayment>(`/Sales/${saleId}/payments`, body);
+    return data;
+  },
+
+  /**
+   * Close the sale with several tenders at once (Микс). One transaction on the
+   * server — two sequential addPayment calls would be rejected on a walk-in sale
+   * and would transiently mark the sale as debt in between.
+   */
+  checkout: async (
+    saleId: string,
+    tenders: { paymentType: string; amount: number }[],
+    dueDate?: string | null,
+  ): Promise<PosPayment> => {
+    const { data } = await apiClient.post<PosPayment>(`/Sales/${saleId}/checkout`, {
+      tenders,
+      dueDate: dueDate ?? null,
+    });
     return data;
   },
 

@@ -17,7 +17,7 @@ namespace Buildix.Application.Services;
 /// </summary>
 internal static class SaleMapper
 {
-    public static SaleItemDto MapItem(SaleItem item, string productName, string unit = "")
+    public static SaleItemDto MapItem(SaleItem item, string productName, string unit = "", int unitValue = 0)
     {
         // Effective cost: external lines carry their own cost, ordinary lines
         // use the product cost captured on the line.
@@ -37,7 +37,8 @@ internal static class SaleMapper
             (item.SalePrice - effectiveCostPrice) * item.Quantity,
             unit,
             item.Comment,
-            item.IsExternal
+            item.IsExternal,
+            unitValue
         );
     }
 
@@ -59,16 +60,18 @@ internal static class SaleMapper
         {
             string productName;
             string unit = "";
+            var unitValue = 0;
             if (!si.IsExternal)
             {
                 productName = si.Product?.Name ?? "Unknown";
                 unit = si.Product?.GetUnitName() ?? "";
+                unitValue = (int)(si.Product?.Unit ?? 0);
             }
             else
             {
                 productName = si.ExternalProductName ?? "Tashqi mahsulot";
             }
-            return MapItem(si, productName, unit);
+            return MapItem(si, productName, unit, unitValue);
         }).ToList(),
         s.Payments.Select(p => new PaymentDto(
             p.Id,
@@ -111,6 +114,7 @@ internal static class SaleMapper
         {
             string? productName = null;
             string unit = "";
+            var unitValue = 0;
 
             if (!item.IsExternal)
             {
@@ -121,6 +125,7 @@ internal static class SaleMapper
                 {
                     productName = product.Name;
                     unit = product.GetUnitName();
+                    unitValue = (int)product.Unit;
                 }
             }
             else
@@ -128,7 +133,7 @@ internal static class SaleMapper
                 productName = item.ExternalProductName;
             }
 
-            itemsDto.Add(MapItem(item, productName ?? "Unknown", unit));
+            itemsDto.Add(MapItem(item, productName ?? "Unknown", unit, unitValue));
         }
 
         var payments = await unitOfWork.Payments.FindAsync(p => p.SaleId == sale.Id, cancellationToken);

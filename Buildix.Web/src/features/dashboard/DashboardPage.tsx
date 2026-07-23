@@ -97,11 +97,13 @@ export default function DashboardPage() {
     queryKey: ['dash-lowstock'],
     queryFn: () => purchasesApi.reorderSuggestions(4),
     enabled: canZakup,
+    ...slow,
   });
   const debtorsQuery = useQuery({
     queryKey: ['dash-debtors'],
     queryFn: () => debtsApi.debtors(),
     enabled: canDebts,
+    ...slow,
   });
 
   const todaySales = todayQuery.data;

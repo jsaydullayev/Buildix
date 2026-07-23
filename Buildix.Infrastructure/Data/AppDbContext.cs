@@ -300,6 +300,13 @@ public class AppDbContext : DbContext, IAppDbContext
             // max+1 read, so concurrent creates can't reuse a number.
             b.HasIndex(x => new { x.MarketId, x.SaleNumber });
 
+            // The drawer session this sale was rung up in (receipt "Смена №N").
+            // Optional + Restrict: shift history must never cascade-delete sales.
+            b.HasOne(x => x.Shift).WithMany().HasForeignKey(x => x.ShiftId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => x.ShiftId);
+
             // Xmin concurrency token disabled for Sale — too many modifications
             // in a single transaction (items add/remove, status change, debt update)
             // cause false conflicts. Use database-level constraints instead (FK, CHECK).
@@ -397,10 +404,19 @@ public class AppDbContext : DbContext, IAppDbContext
 
             b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
 
+            // Who actually took the money (debt collected by another cashier).
+            // Optional + Restrict: removing a user must never cascade-delete
+            // financial records, and NULL keeps the "sale's seller" fallback.
+            b.HasOne(x => x.CollectedByUser).WithMany().HasForeignKey(x => x.CollectedByUserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Index for performance
             b.HasIndex(x => x.SaleId)
                 .HasDatabaseName("IX_Payment_SaleId");
             b.HasIndex(x => x.MarketId);
+            // Shift reconciliation filters payments by collector + time window.
+            b.HasIndex(x => x.CollectedByUserId);
         });
 
         // Configure Debt
@@ -452,6 +468,10 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasIndex(x => x.MarketId);
             // Fast "is there an open shift for this user" lookup.
             b.HasIndex(x => new { x.UserId, x.ClosedAt });
+            // Per-market Смена № — ordering/lookup helper. Non-unique for the same
+            // reason as SaleNumber: allocation is already serialised by the
+            // per-market advisory lock (MarketSequenceLock) in ShiftService.
+            b.HasIndex(x => new { x.MarketId, x.ShiftNumber });
         });
 
         // Configure DebtAuditLog

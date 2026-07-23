@@ -128,6 +128,10 @@ public class DebtService : IDebtService
                 PaymentType = paymentType,
                 Amount = request.Amount,
                 MarketId = marketId,
+                // The money lands in THIS cashier's drawer, not the original
+                // seller's — record it so shift reconciliation credits the right
+                // person (otherwise B collects and A's closed shift "owns" it).
+                CollectedByUserId = actorUserId,
                 CreatedAt = DateTime.UtcNow
             };
             _context.Payments.Add(payment);

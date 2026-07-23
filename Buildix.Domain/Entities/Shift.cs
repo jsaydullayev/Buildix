@@ -17,6 +17,14 @@ public class Shift : BaseEntity
     public Guid UserId { get; set; }
     public User? User { get; set; }
 
+    /// <summary>
+    /// Per-market sequential shift number ("Смена №112" on the printed receipt).
+    /// Assigned as max+1 within the market when the shift opens. Same accepted
+    /// trade-off as SaleNumber: the index is non-unique, so a rare concurrent
+    /// open in one market could reuse a number rather than fail the open.
+    /// </summary>
+    public int ShiftNumber { get; set; }
+
     /// <summary>When the seller opened the shift (UTC).</summary>
     public DateTime OpenedAt { get; set; }
 

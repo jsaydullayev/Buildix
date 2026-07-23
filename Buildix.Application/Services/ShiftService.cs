@@ -1,3 +1,4 @@
+using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Constants;
@@ -18,6 +19,7 @@ public class ShiftService : IShiftService
     private readonly IAuditLogService _auditLogService;
     private readonly IMarketSettingsService _settings;
     private readonly ITelegramNotifier _telegram;
+    private readonly ITashkentClock _clock;
 
     public ShiftService(
         IUnitOfWork unitOfWork,
@@ -25,7 +27,8 @@ public class ShiftService : IShiftService
         ICurrentMarketService currentMarketService,
         IAuditLogService auditLogService,
         IMarketSettingsService settings,
-        ITelegramNotifier telegram)
+        ITelegramNotifier telegram,
+        ITashkentClock clock)
     {
         _unitOfWork = unitOfWork;
         _db = db;
@@ -33,6 +36,7 @@ public class ShiftService : IShiftService
         _auditLogService = auditLogService;
         _settings = settings;
         _telegram = telegram;
+        _clock = clock;
     }
 
     public async Task<ShiftDto?> GetCurrentShiftAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -71,8 +75,22 @@ public class ShiftService : IShiftService
             OpeningCash = lastCounted ?? 0m,
             ReconStatus = CashShiftStatus.Open,
         };
-        await _unitOfWork.Shifts.AddAsync(shift, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Смена № is customer-facing (it prints on the receipt), so allocate it
+        // under the same per-market advisory lock the ЧЕК № uses: two cashiers
+        // opening at once serialise here instead of computing the same max+1.
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            await MarketSequenceLock.AcquireAsync(
+                _db, MarketSequenceLock.ShiftNumberClass, marketId, cancellationToken);
+
+            shift.ShiftNumber = (await _db.Shifts
+                .Where(s => s.MarketId == marketId)
+                .MaxAsync(s => (int?)s.ShiftNumber, cancellationToken) ?? 0) + 1;
+
+            await _unitOfWork.Shifts.AddAsync(shift, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
 
         await _auditLogService.LogActionAsync(
             AuditEntityTypes.Shift, shift.Id, AuditActions.Open, userId,
@@ -156,6 +174,39 @@ public class ShiftService : IShiftService
         return await MapManyAsync(shifts, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<MyShiftsDto> GetMyShiftsAsync(
+        Guid userId, string? range = null, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        // Anchor the period to the Tashkent business day like every other dated
+        // query — "this week" must not slide by the UTC offset.
+        DateTime? fromUtc = (range ?? "week").ToLowerInvariant() switch
+        {
+            "all" => null,
+            "month" => _clock.LocalDayToUtcRange(_clock.TodayLocal.AddDays(-29)).UtcStart,
+            _ => _clock.LocalDayToUtcRange(_clock.TodayLocal.AddDays(-6)).UtcStart,
+        };
+
+        var query = _db.Shifts.AsNoTracking()
+            .Include(s => s.User)
+            .Where(s => s.UserId == userId && s.MarketId == marketId);
+        if (fromUtc is { } from)
+            query = query.Where(s => s.OpenedAt >= from);
+
+        var shifts = await query
+            .OrderByDescending(s => s.OpenedAt)
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        var items = await MapManyAsync(shifts, cancellationToken);
+        var totalRevenue = items.Sum(i => i.Revenue);
+        var totalChecks = items.Sum(i => i.CheckCount);
+        var avgCheck = totalChecks > 0 ? Math.Round(totalRevenue / totalChecks, 2) : 0m;
+        return new MyShiftsDto(items, totalRevenue, totalChecks, avgCheck);
+    }
+
     private async Task<IReadOnlyList<ShiftDto>> MapManyAsync(List<Shift> shifts, CancellationToken cancellationToken)
     {
         var result = new List<ShiftDto>(shifts.Count);
@@ -167,7 +218,9 @@ public class ShiftService : IShiftService
         return result;
     }
 
-    private record ShiftFinancials(decimal CashIn, decimal CardIn, decimal Withdrawals, decimal Revenue, int CheckCount, decimal ExpectedCash);
+    private record ShiftFinancials(
+        decimal CashIn, decimal CardIn, decimal Withdrawals, decimal Revenue, int CheckCount, decimal ExpectedCash,
+        decimal DebtIn, int CashCount, int CardCount, int DebtCount, decimal ReturnAmount, int ReturnCount);
 
     /// <summary>Aggregates the money that moved through the drawer during a shift window.</summary>
     private async Task<ShiftFinancials> ComputeFinancialsAsync(Shift s, DateTime windowEnd, CancellationToken cancellationToken)
@@ -179,14 +232,37 @@ public class ShiftService : IShiftService
         // H-11: attribute to THIS shift's cashier only. Without the seller filter,
         // two cashiers with concurrent open shifts on one market each counted the
         // other's sales/payments → phantom discrepancy + ~2x market totals.
+        //
+        // The cashier is whoever COLLECTED the money: CollectedByUserId is stamped
+        // when a debt is paid off later (possibly by a different cashier), and is
+        // NULL for the ordinary at-checkout case — then the sale's own seller took
+        // it. Without this, cash collected by B on A's sale sat in B's drawer but
+        // was counted into A's shift.
         var payments = _db.Payments.AsNoTracking()
-            .Where(p => p.Sale != null && p.Sale.MarketId == marketId && p.Sale.SellerId == seller
+            .Where(p => p.Sale != null && p.Sale.MarketId == marketId
+                && (p.CollectedByUserId == seller || (p.CollectedByUserId == null && p.Sale.SellerId == seller))
                 && p.CreatedAt >= start && p.CreatedAt <= windowEnd);
 
+        // NOTE: these sums stay NET (refunds are negative payments) because
+        // ExpectedCash is what should physically be in the drawer — a refund
+        // takes cash back out. The return figures below are display-only.
         var cashIn = await payments.Where(p => p.PaymentType == PaymentType.Cash)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
         var cardIn = await payments.Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+
+        // Receipt counts per tender (positive movements only — a refund is not a
+        // new receipt), and the refunds themselves for the "Возвратов" tile.
+        var cashCount = await payments
+            .Where(p => p.PaymentType == PaymentType.Cash && p.Amount > 0)
+            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+        var cardCount = await payments
+            .Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit && p.Amount > 0)
+            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+
+        var refunds = payments.Where(p => p.Amount < 0);
+        var returnAmount = -(await refunds.SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m);
+        var returnCount = await refunds.Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
 
         // H-10 + H-11: this cashier's own cash withdrawals, windowed by EFFECTIVE
         // cash-out time — an owner-approved request debits the till at approval
@@ -206,8 +282,18 @@ public class ShiftService : IShiftService
         var revenue = await salesInWindow.SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
         var checkCount = await salesInWindow.CountAsync(cancellationToken);
 
+        // Credit still outstanding from this shift's sales. Reads current status,
+        // so a debt sale later paid off in full stops counting here — "what this
+        // shift put on the tab and is still owed", which is what the drawer view
+        // needs. Cash collected against it lands in the collecting shift instead.
+        var debtSales = salesInWindow.Where(x => x.Status == SaleStatus.Debt);
+        var debtIn = await debtSales.SumAsync(x => (decimal?)(x.TotalAmount - x.PaidAmount), cancellationToken) ?? 0m;
+        var debtCount = await debtSales.CountAsync(cancellationToken);
+
         var expected = s.OpeningCash + cashIn - withdrawals;
-        return new ShiftFinancials(cashIn, cardIn, withdrawals, revenue, checkCount, expected);
+        return new ShiftFinancials(
+            cashIn, cardIn, withdrawals, revenue, checkCount, expected,
+            debtIn, cashCount, cardCount, debtCount, returnAmount, returnCount);
     }
 
     private async Task<Shift?> FindOpenShiftAsync(Guid userId, CancellationToken cancellationToken)
@@ -221,5 +307,7 @@ public class ShiftService : IShiftService
     private static ShiftDto ToDto(Shift s, ShiftFinancials fin) => new(
         s.Id, s.UserId, s.User?.FullName ?? "", s.OpenedAt, s.ClosedAt, s.IsOpen, s.DurationMinutes,
         s.OpeningCash, s.CountedCash, s.Discrepancy, s.ReconStatus.ToString(),
-        fin.CheckCount, fin.Revenue, fin.CashIn, fin.CardIn, fin.Withdrawals, fin.ExpectedCash);
+        fin.CheckCount, fin.Revenue, fin.CashIn, fin.CardIn, fin.Withdrawals, fin.ExpectedCash,
+        fin.DebtIn, fin.CashCount, fin.CardCount, fin.DebtCount, fin.ReturnAmount, fin.ReturnCount,
+        s.ShiftNumber);
 }

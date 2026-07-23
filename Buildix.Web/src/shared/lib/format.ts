@@ -30,7 +30,9 @@ export function formatSum(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   const n = typeof value === 'string' ? Number(value) : value;
   if (Number.isNaN(n)) return '—';
-  return groupNumber(n, 0);
+  // Negating an empty total (e.g. `-withdrawals` when nothing was withdrawn)
+  // yields -0, which Intl renders as "-0". Show a plain 0.
+  return groupNumber(Object.is(n, -0) ? 0 : n, 0);
 }
 
 /** A decimal quantity (e.g. 3.2 т) — up to 3 fraction digits, trimmed. */

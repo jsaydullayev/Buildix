@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Buildix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Buildix.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723081952_AddPaymentCollectedByUser")]
+    partial class AddPaymentCollectedByUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -954,9 +957,6 @@ namespace Buildix.Infrastructure.Migrations
                     b.Property<Guid>("SellerId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ShiftId")
-                        .HasColumnType("uuid");
-
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -973,8 +973,6 @@ namespace Buildix.Infrastructure.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("IX_Sale_CustomerId");
-
-                    b.HasIndex("ShiftId");
 
                     b.HasIndex("MarketId", "CreatedAt")
                         .IsDescending(false, true)
@@ -1080,17 +1078,12 @@ namespace Buildix.Infrastructure.Migrations
                     b.Property<int>("ReconStatus")
                         .HasColumnType("integer");
 
-                    b.Property<int>("ShiftNumber")
-                        .HasColumnType("integer");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("MarketId");
-
-                    b.HasIndex("MarketId", "ShiftNumber");
 
                     b.HasIndex("UserId", "ClosedAt");
 
@@ -1591,18 +1584,11 @@ namespace Buildix.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Buildix.Domain.Entities.Shift", "Shift")
-                        .WithMany()
-                        .HasForeignKey("ShiftId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Customer");
 
                     b.Navigation("Market");
 
                     b.Navigation("Seller");
-
-                    b.Navigation("Shift");
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.SaleItem", b =>

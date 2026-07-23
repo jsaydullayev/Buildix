@@ -18,7 +18,31 @@ public record SaleItemDto(
     [property: JsonPropertyName("profit")] decimal Profit,
     [property: JsonPropertyName("unit")] string Unit,
     [property: JsonPropertyName("comment")] string? Comment,
-    [property: JsonPropertyName("isExternal")] bool IsExternal
+    [property: JsonPropertyName("isExternal")] bool IsExternal,
+    /// <summary>
+    /// The unit as its <c>UnitType</c> number. <see cref="Unit"/> is a fixed
+    /// Uzbek abbreviation ("dona"/"kg"), which reads wrong in a Russian or
+    /// English UI — clients localise from this value instead. 0 = unknown
+    /// (external line, or a row from before this field existed).
+    /// </summary>
+    [property: JsonPropertyName("unitValue")] int UnitValue = 0
+);
+
+/// <summary>One tender in a split ("Микс") checkout.</summary>
+public record CheckoutTenderDto(
+    [property: JsonPropertyName("paymentType")] string PaymentType,
+    [property: JsonPropertyName("amount")] decimal Amount
+);
+
+/// <summary>
+/// Close a sale with one or more tenders in a single transaction. Needed because
+/// a split cannot be expressed as two AddPayment calls: the first partial tender
+/// is rejected on a walk-in sale (no customer ⇒ cannot leave a debt) and, with a
+/// customer, transiently flips the sale to Debt between the two calls.
+/// </summary>
+public record CheckoutSaleDto(
+    [property: JsonPropertyName("tenders")] IReadOnlyList<CheckoutTenderDto> Tenders,
+    [property: JsonPropertyName("dueDate")] DateTime? DueDate = null
 );
 
 public record PaymentDto(

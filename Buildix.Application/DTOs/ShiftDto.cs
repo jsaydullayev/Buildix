@@ -22,7 +22,29 @@ public record ShiftDto(
     [property: JsonPropertyName("cashIn")] decimal CashIn = 0,
     [property: JsonPropertyName("cardIn")] decimal CardIn = 0,
     [property: JsonPropertyName("withdrawals")] decimal Withdrawals = 0,
-    [property: JsonPropertyName("expectedCash")] decimal ExpectedCash = 0
+    [property: JsonPropertyName("expectedCash")] decimal ExpectedCash = 0,
+    // Per-tender breakdown for the Смены screen. CashIn/CardIn above stay NET of
+    // refunds (they drive ExpectedCash); the counts below are receipts, and
+    // returns are reported separately rather than folded into a tender.
+    [property: JsonPropertyName("debtIn")] decimal DebtIn = 0,
+    [property: JsonPropertyName("cashCount")] int CashCount = 0,
+    [property: JsonPropertyName("cardCount")] int CardCount = 0,
+    [property: JsonPropertyName("debtCount")] int DebtCount = 0,
+    [property: JsonPropertyName("returnAmount")] decimal ReturnAmount = 0,
+    [property: JsonPropertyName("returnCount")] int ReturnCount = 0,
+    /// <summary>Per-market sequential number printed on the receipt ("Смена №112").</summary>
+    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0
+);
+
+/// <summary>
+/// A seller's own shift history for a period, plus the period totals the
+/// Смены screen shows under the table ("Итого за неделю").
+/// </summary>
+public record MyShiftsDto(
+    [property: JsonPropertyName("items")] IReadOnlyList<ShiftDto> Items,
+    [property: JsonPropertyName("totalRevenue")] decimal TotalRevenue,
+    [property: JsonPropertyName("totalChecks")] int TotalChecks,
+    [property: JsonPropertyName("avgCheck")] decimal AvgCheck
 );
 
 /// <summary>Smenani yopish tanasi — kassir faktik sanagan naqd.</summary>
