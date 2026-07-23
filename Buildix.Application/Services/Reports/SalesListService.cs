@@ -43,8 +43,10 @@ public sealed class SalesListService(
                               s.MarketId == marketId &&
                               (userRole != Role.Seller.ToString() || s.SellerId == userId);
 
+        // SaleItems.Product ham yuklanadi — ro'yxatdagi "ТОВАРЫ" ustuni uchun
+        // mahsulot nomi kerak (tashqi mahsulotda nom item'ning o'zida turadi).
         var sales = await _unitOfWork.Sales.FindAsync(
-            salesQuery, q => q.Include(e => e.SaleItems).Include(e => e.Payments).Include(e => e.Seller).Include(e => e.Customer), cancellationToken);
+            salesQuery, q => q.Include(e => e.SaleItems).ThenInclude(i => i.Product).Include(e => e.Payments).Include(e => e.Seller).Include(e => e.Customer), cancellationToken);
 
         var salesListItems = new List<DailySalesListItemDto>();
 
@@ -102,6 +104,14 @@ public sealed class SalesListService(
                 paymentType = paymentTypeRaw.ToLowerInvariant();
             }
 
+            // Nom: oddiy mahsulotda Product.Name, tashqi (bir martalik) mahsulotda
+            // item'ga yozib qo'yilgan ExternalProductName.
+            var lines = sale.SaleItems
+                .Select(i => new DailySalesListLineDto(
+                    (i.IsExternal ? i.ExternalProductName : i.Product?.Name) ?? string.Empty,
+                    i.Quantity))
+                .ToList();
+
             salesListItems.Add(new DailySalesListItemDto(
                 sale.Id,
                 sale.CreatedAt,
@@ -110,7 +120,8 @@ public sealed class SalesListService(
                 paymentType,
                 sale.Status.ToString(),
                 profit,
-                sale.Customer?.FullName
+                sale.Customer?.FullName,
+                lines
             ));
         }
 

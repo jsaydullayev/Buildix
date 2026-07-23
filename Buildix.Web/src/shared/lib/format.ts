@@ -55,6 +55,18 @@ export function formatShortDate(value: string | Date, lang = 'ru'): string {
   return format(toDate(value), 'd MMMM', { locale: resolveLocale(lang) });
 }
 
+/**
+ * Short weekday like "Пн" / "Du" — the dashboard chart's X axis. A full date
+ * ("19 июля") does not fit seven times across that chart's width; the design
+ * labels the bars by weekday.
+ */
+export function formatWeekday(value: string | Date, lang = 'ru'): string {
+  // date-fns yields lowercase abbreviations for ru/uz ("пн"); the design
+  // capitalises them ("Пн").
+  const label = format(toDate(value), 'EEEEEE', { locale: resolveLocale(lang) });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /** Time like "14:32". */
 export function formatTime(value: string | Date): string {
   return format(toDate(value), 'HH:mm');

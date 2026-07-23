@@ -1,10 +1,10 @@
-import { useMemo, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { format, startOfDay, isSameDay, parseISO, differenceInCalendarDays } from 'date-fns';
-import { Plus } from 'lucide-react';
+import { Plus, Receipt, TrendingUp, Wallet, CreditCard } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -16,11 +16,12 @@ import {
 } from 'recharts';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty, formatFullDate, formatShortDate, formatTime } from '@/shared/lib/format';
+import { formatSum, formatQty, formatFullDate, formatShortDate, formatWeekday, formatTime } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import { purchasesApi, type ReorderSuggestion } from '@/features/purchases/api';
 import { debtsApi, type DebtorSummary } from '@/features/debts/api';
+import { shiftsApi, type Shift } from '@/features/shifts/api';
 import { dashboardApi, type DailySale, type WeeklyPoint } from './api';
 
 const PAY_BADGE: Record<string, { key: string; tone: 'success' | 'info' | 'warn' | 'neutral' }> = {
@@ -53,23 +54,45 @@ export default function DashboardPage() {
   // H-13: send the Tashkent calendar date (no time/offset) so the server's
   // LocalDayToUtcRange resolves the correct business day. A UTC instant would
   // shift Tashkent 00:00–05:00 to the previous UTC day on a UTC server.
-  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  //
+  // Recomputed on a timer rather than frozen at mount: a dashboard left open on
+  // the shop's wall screen used to keep asking for yesterday after midnight,
+  // and the header kept printing yesterday's date.
+  const today = useTodayDate();
 
-  const todayQuery = useQuery({ queryKey: ['dash-today'], queryFn: dashboardApi.todaySales, enabled: canCash });
-  const cashQuery = useQuery({ queryKey: ['dash-cash'], queryFn: dashboardApi.cashRegister, enabled: canCash });
-  const profitQuery = useQuery({ queryKey: ['dash-profit'], queryFn: dashboardApi.profitSummary, enabled: canProfit });
-  const summaryQuery = useQuery({ queryKey: ['dash-summary'], queryFn: dashboardApi.summary, enabled: canReports });
+  // Jonli ko'rsatkichlar — dashboard doim ochiq turadi, shuning uchun o'zi
+  // yangilanadi. Tez o'zgaradiganlari (sotuv, kassa, smena, so'nggi cheklar)
+  // 60 soniyada, sekinlari (haftalik grafik, qarz/mijoz yig'indisi, ombor)
+  // 5 daqiqada.
+  const live = { refetchInterval: 60_000, refetchIntervalInBackground: false } as const;
+  const slow = { refetchInterval: 300_000, refetchIntervalInBackground: false } as const;
+
+  const todayQuery = useQuery({ queryKey: ['dash-today'], queryFn: dashboardApi.todaySales, enabled: canCash, ...live });
+  const cashQuery = useQuery({ queryKey: ['dash-cash'], queryFn: dashboardApi.cashRegister, enabled: canCash, ...live });
+  const profitQuery = useQuery({ queryKey: ['dash-profit'], queryFn: dashboardApi.profitSummary, enabled: canProfit, ...live });
+  const summaryQuery = useQuery({ queryKey: ['dash-summary'], queryFn: dashboardApi.summary, enabled: canReports, ...slow });
   const weeklyQuery = useQuery({
     queryKey: ['dash-weekly'],
     queryFn: () => dashboardApi.weeklySeries(7, true),
     enabled: canReports,
+    ...slow,
   });
   const salesQuery = useQuery({
     queryKey: ['dash-daily-sales', today],
     queryFn: () => dashboardApi.dailySales(today),
     enabled: canSales,
+    ...live,
   });
-  const shiftQuery = useQuery({ queryKey: ['dash-shift'], queryFn: dashboardApi.currentShift, enabled: canShift });
+  // Do'kondagi OCHIQ smena — kassirniki. `/Shifts/current` chaqiruvchining
+  // o'zinikini qaytaradi, ya'ni smena ochmaydigan Owner uchun bu karta doim
+  // bo'sh turardi. Market bo'yicha ro'yxat (users.shift bilan himoyalangan —
+  // ayni shu `canShift`) eng so'nggi ochiq sessiyani beradi.
+  const shiftQuery = useQuery({
+    queryKey: ['dash-shift'],
+    queryFn: async () => (await shiftsApi.history(10)).find((s) => s.closedAt === null) ?? null,
+    enabled: canShift,
+    ...live,
+  });
   const lowStockQuery = useQuery({
     queryKey: ['dash-lowstock'],
     queryFn: () => purchasesApi.reorderSuggestions(4),
@@ -125,7 +148,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title={t('dashboard.title')}
-        subtitle={formatFullDate(new Date(), i18n.language)}
+        subtitle={formatFullDate(today, i18n.language)}
         actions={
           <>
             {canShift && <ShiftPill isOpen={shift?.isOpen ?? false} openedAt={shift?.openedAt} />}
@@ -140,11 +163,14 @@ export default function DashboardPage() {
       />
 
       <div className="flex flex-1 flex-col gap-[18px] p-8">
-        {/* Stat cards */}
-        <div className="grid grid-cols-4 gap-4">
+        {/* Stat cards — auto-fit so a role that lacks a permission (e.g. Admin
+            without data.profit) gets an evenly filled row instead of a hole
+            where the hidden card used to sit. */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
           {canCash && (
             <StatCard
               label={t('dashboard.stats.salesToday')}
+              icon={<Receipt size={16} strokeWidth={1.9} />}
               value={formatSum(todaySales?.totalAmount ?? 0)}
               suffix={t('common.currency')}
               hint={
@@ -161,6 +187,7 @@ export default function DashboardPage() {
           {canProfit && (
             <StatCard
               label={t('dashboard.stats.profitToday')}
+              icon={<TrendingUp size={16} strokeWidth={1.9} />}
               value={formatSum(profitQuery.data?.todayProfit ?? 0)}
               suffix={t('common.currency')}
               hint={margin !== null ? t('dashboard.stats.margin', { value: pct(margin) }) : undefined}
@@ -170,6 +197,7 @@ export default function DashboardPage() {
           {canCash && (
             <StatCard
               label={t('dashboard.stats.cashInRegister')}
+              icon={<Wallet size={16} strokeWidth={1.9} />}
               value={formatSum(cash?.currentBalance ?? 0)}
               suffix={t('common.currency')}
               hint={
@@ -186,6 +214,7 @@ export default function DashboardPage() {
           {canReports && (
             <StatCard
               label={t('dashboard.stats.customerDebts')}
+              icon={<CreditCard size={16} strokeWidth={1.9} />}
               value={formatSum(summary?.pendingDebtsTotal ?? 0)}
               suffix={t('common.currency')}
               tone={summary && summary.pendingDebtsTotal > 0 ? 'warn' : 'default'}
@@ -207,19 +236,45 @@ export default function DashboardPage() {
           {/* Left column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
             {canReports && <WeeklyChartCard points={weekly?.points ?? []} total={weekly?.currentTotal ?? 0} loading={weeklyQuery.isLoading} />}
-            {canSales && <RecentSalesCard sales={recentSales} loading={salesQuery.isLoading} />}
+            {canSales && <RecentSalesCard sales={recentSales} loading={salesQuery.isLoading} to={`/${subdomain}/sales`} />}
           </div>
 
           {/* Right column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
-            {canZakup && <LowStockCard items={lowStockQuery.data ?? []} loading={lowStockQuery.isLoading} canOrder={hasPermission(PERMISSIONS.zakup.create)} />}
-            {canDebts && <UpcomingPaymentsCard debtors={upcoming} loading={debtorsQuery.isLoading} />}
+            {canZakup && (
+              <LowStockCard
+                items={lowStockQuery.data ?? []}
+                loading={lowStockQuery.isLoading}
+                onOrder={hasPermission(PERMISSIONS.zakup.create) ? () => navigate(`/${subdomain}/purchases`) : undefined}
+              />
+            )}
+            {canDebts && <UpcomingPaymentsCard debtors={upcoming} loading={debtorsQuery.isLoading} to={`/${subdomain}/debts`} />}
             {canShift && <ShiftCard shift={shift} loading={shiftQuery.isLoading} />}
           </div>
         </div>
       </div>
     </>
   );
+}
+
+/**
+ * Today's calendar date as "yyyy-MM-dd", re-evaluated every minute so a
+ * dashboard left open on the shop's screen rolls over to the new business day
+ * instead of pinning the date it was mounted on.
+ */
+function useTodayDate(): string {
+  const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  useEffect(() => {
+    const id = setInterval(
+      () => setDate((prev) => {
+        const next = format(new Date(), 'yyyy-MM-dd');
+        return next === prev ? prev : next; // keep the reference stable within a day
+      }),
+      60_000,
+    );
+    return () => clearInterval(id);
+  }, []);
+  return date;
 }
 
 function ShiftPill({ isOpen, openedAt }: { isOpen: boolean; openedAt?: string }) {
@@ -253,9 +308,11 @@ function GrowthTag({ value }: { value: number | null }) {
 function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) {
   const { t } = useTranslation();
   if (!active || !payload?.length) return null;
+  // Bar yorlig'i qisqa ("Пн") — tooltip'da to'liq sanani ko'rsatamiz.
+  const fullDate = (payload[0]?.payload as { fullDate?: string } | undefined)?.fullDate;
   return (
     <div className="rounded-input border border-border bg-surface px-3 py-2 text-[12px] shadow-card">
-      <div className="mb-0.5 text-muted-2">{label}</div>
+      <div className="mb-0.5 text-muted-2">{fullDate ?? label}</div>
       <div className="font-semibold nums">
         {formatSum(payload[0]!.value ?? 0)} {t('common.currency')}
       </div>
@@ -265,7 +322,13 @@ function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) 
 
 function WeeklyChartCard({ points, total, loading }: { points: WeeklyPoint[]; total: number; loading: boolean }) {
   const { t, i18n } = useTranslation();
-  const data = points.map((p) => ({ label: formatShortDate(p.date, i18n.language), revenue: p.revenue }));
+  // Yorliq — hafta kuni ("Пн"), dizayndagidek. To'liq sana ("19 июля") 7 marta
+  // bu kenglikka sig'maydi va ustma-ust tushib ketardi. To'liq sana tooltip'da.
+  const data = points.map((p) => ({
+    label: formatWeekday(p.date, i18n.language),
+    fullDate: formatShortDate(p.date, i18n.language),
+    revenue: p.revenue,
+  }));
   const lastIdx = data.length - 1;
 
   return (
@@ -308,13 +371,15 @@ function WeeklyChartCard({ points, total, loading }: { points: WeeklyPoint[]; to
   );
 }
 
-function RecentSalesCard({ sales, loading }: { sales: DailySale[]; loading: boolean }) {
+function RecentSalesCard({ sales, loading, to }: { sales: DailySale[]; loading: boolean; to: string }) {
   const { t } = useTranslation();
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between px-6 pb-3.5 pt-[18px]">
         <h3 className="text-[15px] font-semibold">{t('dashboard.recent.title')}</h3>
-        <span className="text-[12.5px] font-semibold text-primary">{t('dashboard.recent.all')} →</span>
+        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+          {t('dashboard.recent.all')} →
+        </Link>
       </div>
       <div className="grid grid-cols-dashboard-sales items-center gap-[14px] border-t border-hairline bg-bg/40 px-6 py-2.5 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
         <span>{t('dashboard.recent.cols.time')}</span>
@@ -336,6 +401,20 @@ function RecentSalesCard({ sales, loading }: { sales: DailySale[]; loading: bool
   );
 }
 
+/**
+ * "Цемент М500 ×10, Арматура Ø12" — the design's ТОВАРЫ cell. Two names, then
+ * a "+N" tail, so the line stays readable inside a 1.4fr column.
+ */
+function itemsText(sale: DailySale): string {
+  const lines = sale.items ?? [];
+  if (lines.length === 0) return '—';
+  const head = lines
+    .slice(0, 2)
+    .map((i) => `${i.productName} ×${formatQty(i.quantity)}`)
+    .join(', ');
+  return lines.length > 2 ? `${head} +${lines.length - 2}` : head;
+}
+
 function RecentSaleRow({ sale }: { sale: DailySale }) {
   const { t } = useTranslation();
   const badge = PAY_BADGE[sale.paymentType] ?? { key: sale.paymentType, tone: 'neutral' as const };
@@ -343,7 +422,11 @@ function RecentSaleRow({ sale }: { sale: DailySale }) {
     <div className="grid grid-cols-dashboard-sales items-center gap-[14px] border-t border-hairline px-6 py-3 text-[13px]">
       <span className="text-muted-2 nums">{formatTime(sale.createdAt)}</span>
       <span className="truncate font-medium">{sale.sellerName}</span>
-      <span className="truncate text-muted">{sale.customerName ?? t('sales.walkIn')}</span>
+      {/* Design's 5 columns have no customer cell — the buyer is surfaced in
+          the hover title so the row keeps that context without a 6th column. */}
+      <span className="truncate text-muted" title={`${itemsText(sale)} · ${sale.customerName ?? t('sales.walkIn')}`}>
+        {itemsText(sale)}
+      </span>
       <span>
         <Badge tone={badge.tone}>{t(`sales.payment.${badge.key}` as never)}</Badge>
       </span>
@@ -352,7 +435,7 @@ function RecentSaleRow({ sale }: { sale: DailySale }) {
   );
 }
 
-function LowStockCard({ items, loading, canOrder }: { items: ReorderSuggestion[]; loading: boolean; canOrder: boolean }) {
+function LowStockCard({ items, loading, onOrder }: { items: ReorderSuggestion[]; loading: boolean; onOrder?: () => void }) {
   const { t } = useTranslation();
   return (
     <Card className="p-[22px]">
@@ -388,8 +471,8 @@ function LowStockCard({ items, loading, canOrder }: { items: ReorderSuggestion[]
               );
             })}
           </div>
-          {canOrder && (
-            <Button variant="secondary" fullWidth className="mt-4">
+          {onOrder && (
+            <Button variant="secondary" fullWidth className="mt-4" onClick={onOrder}>
               {t('dashboard.lowStock.order')}
             </Button>
           )}
@@ -406,13 +489,15 @@ function dueMeta(due: string, t: TFunction): { label: string; cls: string } {
   return { label: t('dashboard.payments.inDays', { count: days }), cls: 'text-muted' };
 }
 
-function UpcomingPaymentsCard({ debtors, loading }: { debtors: DebtorSummary[]; loading: boolean }) {
+function UpcomingPaymentsCard({ debtors, loading, to }: { debtors: DebtorSummary[]; loading: boolean; to: string }) {
   const { t, i18n } = useTranslation();
   return (
     <Card className="p-[22px]">
       <div className="mb-3.5 flex items-center justify-between">
         <h3 className="text-[15px] font-semibold">{t('dashboard.payments.title')}</h3>
-        <span className="text-[12.5px] font-semibold text-primary">{t('dashboard.payments.all')} →</span>
+        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+          {t('dashboard.payments.all')} →
+        </Link>
       </div>
       {loading ? (
         <div className="flex justify-center py-8 text-primary">
@@ -450,7 +535,7 @@ function UpcomingPaymentsCard({ debtors, loading }: { debtors: DebtorSummary[]; 
   );
 }
 
-function ShiftCard({ shift, loading }: { shift: { cashierName: string; openedAt: string; checkCount: number; revenue: number } | null; loading: boolean }) {
+function ShiftCard({ shift, loading }: { shift: Shift | null; loading: boolean }) {
   const { t } = useTranslation();
   if (loading) {
     return (
