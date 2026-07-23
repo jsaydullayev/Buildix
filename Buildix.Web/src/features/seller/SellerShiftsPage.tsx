@@ -88,7 +88,10 @@ export default function SellerShiftsPage() {
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <h2 className="text-[16px] font-semibold">
-                  {t('shifts.currentShift')} · {formatShortDate(current.openedAt, i18n.language)}
+                  {t('shifts.currentShift')}
+                  {current.shiftNumber > 0 && <span className="nums"> №{current.shiftNumber}</span>}
+                  {' · '}
+                  {formatShortDate(current.openedAt, i18n.language)}
                 </h2>
                 <Badge tone="success" className="gap-1.5">
                   <span className="h-[7px] w-[7px] rounded-full bg-success" />

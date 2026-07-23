@@ -27,6 +27,8 @@ public static class MarketSequenceLock
     // ZakupReceipt-number lock for the same market never contend with each other.
     public const int SaleNumberClass = 1;
     public const int ZakupReceiptNumberClass = 2;
+    /// <summary>Смена № printed on the receipt — same allocation contract.</summary>
+    public const int ShiftNumberClass = 3;
 
     public static async Task AcquireAsync(
         IAppDbContext context, int lockClass, int marketId, CancellationToken ct)

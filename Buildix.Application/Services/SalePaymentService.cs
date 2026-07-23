@@ -74,11 +74,56 @@ public class SalePaymentService : ISalePaymentService
         return Result.Success<PaymentDto>(null!); // ok — value never read
     }
 
+    /// <summary>One tender being applied to a sale.</summary>
+    private sealed record Tender(PaymentType Type, decimal Amount);
+
+    /// <summary>Validate + normalise the client's tenders ("CARD" ⇒ Terminal).</summary>
+    private static (List<Tender>? Tenders, string? Error) ParseTenders(
+        IReadOnlyList<(string Type, decimal Amount)> raw)
+    {
+        if (raw.Count == 0) return (null, "To'lov turlari ko'rsatilmagan.");
+
+        var tenders = new List<Tender>(raw.Count);
+        foreach (var (typeStr, amount) in raw)
+        {
+            if (amount <= 0) return (null, "Payment amount must be greater than 0");
+            var normalised = string.Equals(typeStr, "CARD", StringComparison.OrdinalIgnoreCase)
+                ? "Terminal"
+                : typeStr;
+            if (!Enum.TryParse<PaymentType>(normalised, ignoreCase: true, out var type))
+                return (null, $"Noto'g'ri to'lov turi: {typeStr}");
+            tenders.Add(new Tender(type, amount));
+        }
+        return (tenders, null);
+    }
+
     public async Task<Result<PaymentDto>> AddPaymentAsync(Guid saleId, AddPaymentDto request, CancellationToken cancellationToken = default)
     {
-        if (request.Amount <= 0)
-            return Result.Failure<PaymentDto>("Payment amount must be greater than 0");
+        var (tenders, error) = ParseTenders(new[] { (request.PaymentType, request.Amount) });
+        if (error is not null) return Result.Failure<PaymentDto>(error);
+        return await ApplyTendersAsync(saleId, tenders!, request.DueDate, cancellationToken);
+    }
 
+    /// <inheritdoc />
+    public async Task<Result<PaymentDto>> CheckoutAsync(Guid saleId, CheckoutSaleDto request, CancellationToken cancellationToken = default)
+    {
+        var (tenders, error) = ParseTenders(
+            (request.Tenders ?? Array.Empty<CheckoutTenderDto>()).Select(x => (x.PaymentType, x.Amount)).ToList());
+        if (error is not null) return Result.Failure<PaymentDto>(error);
+        return await ApplyTendersAsync(saleId, tenders!, request.DueDate, cancellationToken);
+    }
+
+    /// <summary>
+    /// The single money path behind both AddPayment and Checkout. Every tender is
+    /// applied inside ONE transaction and the resulting PaidAmount drives status +
+    /// debt exactly once — so a split that covers the bill never passes through an
+    /// intermediate "partial ⇒ debt" state, and the no-customer guard sees the
+    /// full tendered amount rather than the first instalment.
+    /// </summary>
+    private async Task<Result<PaymentDto>> ApplyTendersAsync(
+        Guid saleId, IReadOnlyList<Tender> tenders, DateTime? dueDate, CancellationToken cancellationToken)
+    {
+        var totalTendered = tenders.Sum(x => x.Amount);
         var marketId = _currentMarketService.GetCurrentMarketId();
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -115,9 +160,9 @@ public class SalePaymentService : ISalePaymentService
                 return Result.Failure<PaymentDto>($"Cannot add payment to sale with status: {sale.Status}");
 
             // Log payment details with structured properties
-            _logger.LogInformation("Adding payment {PaymentAmount} to sale {SaleId}, " +
+            _logger.LogInformation("Applying {TenderCount} tender(s) totalling {PaymentAmount} to sale {SaleId}, " +
                 "TotalAmount: {TotalAmount}, PaidAmount: {PaidAmount}, Status: {Status}, ItemsCount: {ItemsCount}",
-                request.Amount, sale.Id, sale.TotalAmount, sale.PaidAmount, sale.Status, sale.SaleItems?.Count ?? 0);
+                tenders.Count, totalTendered, sale.Id, sale.TotalAmount, sale.PaidAmount, sale.Status, sale.SaleItems?.Count ?? 0);
 
             if (sale.SaleItems != null)
             {
@@ -143,11 +188,11 @@ public class SalePaymentService : ISalePaymentService
             // Over-payment guard: never accept more than the outstanding balance.
             // Without this, PaidAmount could exceed TotalAmount and the overage
             // would silently resurface later as phantom customer credit.
-            if (sale.TotalAmount > 0 && request.Amount > sale.TotalAmount - sale.PaidAmount)
+            if (sale.TotalAmount > 0 && totalTendered > sale.TotalAmount - sale.PaidAmount)
                 return Result.Failure<PaymentDto>("To'lov summasi qoldiq summadan oshib ketdi.");
 
             // VALIDATION: Mijozsiz qarzga savdo taqiqlanadi
-            var newPaidAmount = sale.PaidAmount + request.Amount;
+            var newPaidAmount = sale.PaidAmount + totalTendered;
             if (newPaidAmount < sale.TotalAmount && (!sale.CustomerId.HasValue || sale.CustomerId.Value == Guid.Empty))
             {
                 return Result.Failure<PaymentDto>("Mijoz tanlanmagan savdoni qarzga yopib bo'lmaydi. Iltimos, mijoz tanlang yoki to'liq to'lov qiling.");
@@ -163,26 +208,27 @@ public class SalePaymentService : ISalePaymentService
                 if (debtCheck.IsFailure) return debtCheck;
             }
 
-            // Map frontend's "CARD" to backend's "Terminal"
-            var paymentTypeStr = request.PaymentType;
-            if (string.Equals(paymentTypeStr, "CARD", StringComparison.OrdinalIgnoreCase))
+            // One Payment row per tender, so a split stays visible in the sale's
+            // payment history instead of collapsing into a single line.
+            var payments = new List<Payment>(tenders.Count);
+            foreach (var tender in tenders)
             {
-                paymentTypeStr = "Terminal";
+                var payment = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    SaleId = saleId,
+                    PaymentType = tender.Type,
+                    Amount = tender.Amount,
+                    MarketId = sale.MarketId  // Multi-tenancy - inherit from Sale
+                };
+                await _unitOfWork.Payments.AddAsync(payment, cancellationToken);
+                payments.Add(payment);
             }
 
-            var payment = new Payment
-            {
-                Id = Guid.NewGuid(),
-                SaleId = saleId,
-                PaymentType = Enum.Parse<PaymentType>(paymentTypeStr, true),
-                Amount = request.Amount,
-                MarketId = sale.MarketId  // Multi-tenancy - inherit from Sale
-            };
-
-            await _unitOfWork.Payments.AddAsync(payment, cancellationToken);
-
-            // Update cash register balance for cash payments — scoped to this sale's market.
-            if (payment.PaymentType == PaymentType.Cash)
+            // Only the cash portion moves the drawer — card / transfer / click
+            // settle on external rails and never touch the register.
+            var cashPortion = tenders.Where(x => x.Type == PaymentType.Cash).Sum(x => x.Amount);
+            if (cashPortion > 0)
             {
                 var cashRegister = await _context.CashRegisters
                     .FirstOrDefaultAsync(cr => cr.MarketId == sale.MarketId, cancellationToken);
@@ -199,13 +245,13 @@ public class SalePaymentService : ISalePaymentService
                     _context.CashRegisters.Add(cashRegister);
                 }
 
-                cashRegister.CurrentBalance += request.Amount;
+                cashRegister.CurrentBalance += cashPortion;
                 cashRegister.LastUpdated = DateTime.UtcNow;
             }
 
             // Update sale paid amount. TotalAmount is already authoritative
             // (SaleTotals.RecalculateAsync ran above), so no in-memory recompute here.
-            sale.PaidAmount += request.Amount;
+            sale.PaidAmount += totalTendered;
 
             _logger.LogDebug("Final values for sale {SaleId} - TotalAmount: {TotalAmount}, PaidAmount: {PaidAmount}",
                 sale.Id, sale.TotalAmount, sale.PaidAmount);
@@ -270,8 +316,8 @@ public class SalePaymentService : ISalePaymentService
                             TotalDebt = sale.TotalAmount,
                             RemainingDebt = sale.TotalAmount - sale.PaidAmount,
                             Status = DebtStatus.Open,
-                            DueDate = request.DueDate.HasValue
-                                ? DateTime.SpecifyKind(request.DueDate.Value.Date, DateTimeKind.Utc)
+                            DueDate = dueDate.HasValue
+                                ? DateTime.SpecifyKind(dueDate.Value.Date, DateTimeKind.Utc)
                                 : (DateTime?)null,
                             MarketId = sale.MarketId
                         };
@@ -303,13 +349,16 @@ public class SalePaymentService : ISalePaymentService
             _logger.LogInformation("Sale {SaleId} final status: {Status}", sale.Id, sale.Status);
 
             // Audit log
-            await _auditLogService.LogPaymentActionAsync(payment.Id, sale.SellerId, cancellationToken);
+            var primary = payments[0];
+            await _auditLogService.LogPaymentActionAsync(primary.Id, sale.SellerId, cancellationToken);
 
             return Result.Success(new PaymentDto(
-                payment.Id,
-                payment.PaymentType.ToString().ToLowerInvariant(),
-                payment.Amount,
-                payment.CreatedAt,
+                primary.Id,
+                // A split has no single tender type — report it as "mixed" so the
+                // client does not label the whole sale by its first instalment.
+                tenders.Count > 1 ? "mixed" : primary.PaymentType.ToString().ToLowerInvariant(),
+                totalTendered,
+                primary.CreatedAt,
                 sale.Status.ToString().ToLowerInvariant(), // Yangilangan sale status
                 sale.PaidAmount, // Yangilangan paid amount
                 sale.TotalAmount // Total amount

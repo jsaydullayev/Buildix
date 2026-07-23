@@ -5,6 +5,7 @@ import { Search } from 'lucide-react';
 import { PageHeader, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { productsApi, categoriesApi, type Product } from '@/features/warehouse/api';
 
@@ -98,7 +99,7 @@ function Row({ product: p }: { product: Product }) {
       <div className="min-w-0">
         <div className="truncate font-medium">{p.name}</div>
         <div className="truncate text-[11.5px] text-muted-2">
-          {p.categoryName ?? '—'} · {p.unitName}
+          {p.categoryName ?? '—'} · {unitLabel(t, p.unit, p.unitName)}
         </div>
       </div>
       <span className="truncate text-muted-2 nums">{p.sku ?? '—'}</span>

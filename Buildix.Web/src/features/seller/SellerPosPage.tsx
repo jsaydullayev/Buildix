@@ -5,15 +5,18 @@ import { Search, Plus, Minus, X, Package, Check, UserPlus, Clock, Printer, Pause
 import { Button, Card, Spinner, Badge, Modal } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatTime } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { categoriesApi } from '@/features/warehouse/api';
+import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
 
-type Method = 'Cash' | 'Terminal' | 'Debt';
+type Method = 'Cash' | 'Terminal' | 'Mixed' | 'Debt';
 const METHODS: { key: string; value: Method }[] = [
   { key: 'cash', value: 'Cash' },
   { key: 'card', value: 'Terminal' },
+  { key: 'mixed', value: 'Mixed' },
   { key: 'debt', value: 'Debt' },
 ];
 
@@ -95,6 +98,9 @@ export default function SellerPosPage() {
     enabled: !!saleId,
   });
   const draftsQuery = useQuery({ queryKey: ['pos-drafts'], queryFn: posApi.myDrafts });
+  // Only for printing "Смена №N" on the receipt — the sale itself is stamped
+  // with the shift server-side at creation.
+  const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
 
   const sale = saleQuery.data;
   const items = sale?.items ?? [];
@@ -257,14 +263,14 @@ export default function SellerPosPage() {
                           out ? 'text-danger' : p.isLowStock ? 'text-warn' : 'text-muted-2',
                         )}
                       >
-                        {out ? t('seller.pos.outOfStock') : `${formatQty(p.quantity)} ${p.unitName}`}
+                        {out ? t('seller.pos.outOfStock') : `${formatQty(p.quantity)} ${unitLabel(t, p.unit, p.unitName)}`}
                       </span>
                     </div>
                     <span className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</span>
                     <span className="text-[14px] font-semibold text-primary nums">
                       {formatSum(p.salePrice)}
                       <span className="ml-1 text-[11px] font-normal text-muted-2">
-                        {t('common.currency')}/{p.unitName}
+                        {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
                       </span>
                     </span>
                   </button>
@@ -352,7 +358,7 @@ export default function SellerPosPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-medium">{it.productName}</div>
                   <div className="text-[11.5px] text-muted-2 nums">
-                    {formatSum(it.salePrice)} {t('common.currency')}/{it.unit}
+                    {formatSum(it.salePrice)} {t('common.currency')}/{unitLabel(t, it.unitValue, it.unit)}
                   </div>
                 </div>
                 <div className="flex flex-none items-center gap-1">
@@ -393,7 +399,7 @@ export default function SellerPosPage() {
             </span>
           </div>
 
-          <div className="mb-3 grid grid-cols-3 gap-2">
+          <div className="mb-3 grid grid-cols-4 gap-2">
             {METHODS.map((m) => (
               <button
                 key={m.value}
@@ -451,7 +457,12 @@ export default function SellerPosPage() {
         />
       )}
 
-      <ReceiptModal sale={done} onClose={() => setDone(null)} onPrint={printReceipt} />
+      <ReceiptModal
+        sale={done}
+        shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
+        onClose={() => setDone(null)}
+        onPrint={printReceipt}
+      />
     </div>
   );
 }
@@ -583,6 +594,7 @@ function CheckoutModal({
 }) {
   const { t } = useTranslation();
   const [received, setReceived] = useState('');
+  const [cashPart, setCashPart] = useState('');
   const [paidNow, setPaidNow] = useState('');
   const [due, setDue] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -591,6 +603,7 @@ function CheckoutModal({
   useEffect(() => {
     if (open) {
       setReceived('');
+      setCashPart('');
       setPaidNow('');
       setDue('');
       setError(null);
@@ -601,13 +614,17 @@ function CheckoutModal({
   const change = got - total;
   const paid = Number(paidNow) || 0;
   const debtRest = Math.max(0, total - paid);
+  // Микс: the cashier types the cash half, the card covers the remainder.
+  const cashHalf = Number(cashPart) || 0;
+  const cardHalf = Math.max(0, total - cashHalf);
 
   const canConfirm = useMemo(() => {
     if (total <= 0) return false;
     if (method === 'Debt') return !!customer && debtRest > 0;
     if (method === 'Cash') return got >= total;
+    if (method === 'Mixed') return cashHalf > 0 && cardHalf > 0;
     return true;
-  }, [method, total, got, customer, debtRest]);
+  }, [method, total, got, customer, debtRest, cashHalf, cardHalf]);
 
   const confirm = useMutation({
     mutationFn: async () => {
@@ -619,6 +636,13 @@ function CheckoutModal({
         } else {
           await posApi.markDebt(sale.id, due || null);
         }
+      } else if (method === 'Mixed') {
+        // Both halves in ONE request: the server applies them atomically, so the
+        // sale never passes through a "partially paid ⇒ debt" state.
+        await posApi.checkout(sale.id, [
+          { paymentType: 'Cash', amount: cashHalf },
+          { paymentType: 'Terminal', amount: cardHalf },
+        ]);
       } else {
         // Never send more than the total — the server rejects over-payment, so
         // the change stays a counter-side calculation.
@@ -657,7 +681,7 @@ function CheckoutModal({
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {METHODS.map((m) => (
             <button
               key={m.value}
@@ -706,6 +730,36 @@ function CheckoutModal({
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {method === 'Mixed' && (
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-label">{t('seller.pos.cashPart')}</label>
+            <input
+              type="number"
+              step="any"
+              autoFocus
+              placeholder="0"
+              value={cashPart}
+              onChange={(e) => setCashPart(e.target.value)}
+              className={inputCls}
+            />
+            <div className="flex flex-wrap gap-2">
+              {[30, 50, 70].map((pct) => (
+                <ChipSm
+                  key={pct}
+                  label={`${pct}%`}
+                  onClick={() => setCashPart(String(Math.round((total * pct) / 100)))}
+                />
+              ))}
+            </div>
+            <div className="flex items-center justify-between rounded-input bg-primary-soft px-4 py-2.5 text-[14px] text-primary-hover">
+              <span>{t('seller.pos.cardPart')}</span>
+              <span className="font-semibold nums">
+                {formatSum(cardHalf)} {t('common.currency')}
+              </span>
+            </div>
           </div>
         )}
 
@@ -781,10 +835,12 @@ function ChipSm({ label, onClick }: { label: string; onClick: () => void }) {
 
 function ReceiptModal({
   sale,
+  shiftNumber,
   onClose,
   onPrint,
 }: {
   sale: PosSale | null;
+  shiftNumber: number;
   onClose: () => void;
   onPrint: (id: string) => void;
 }) {
@@ -815,6 +871,11 @@ function ReceiptModal({
           <Card className="p-4 font-mono text-[12.5px]">
             <div className="mb-2 flex justify-between text-muted-2">
               <span>{formatTime(sale.createdAt)}</span>
+              {shiftNumber > 0 && (
+                <span className="nums">
+                  {t('seller.pos.shift')} №{shiftNumber}
+                </span>
+              )}
               <span>{sale.sellerName}</span>
             </div>
             {sale.items.map((it) => (

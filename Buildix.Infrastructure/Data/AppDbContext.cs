@@ -300,6 +300,13 @@ public class AppDbContext : DbContext, IAppDbContext
             // max+1 read, so concurrent creates can't reuse a number.
             b.HasIndex(x => new { x.MarketId, x.SaleNumber });
 
+            // The drawer session this sale was rung up in (receipt "Смена №N").
+            // Optional + Restrict: shift history must never cascade-delete sales.
+            b.HasOne(x => x.Shift).WithMany().HasForeignKey(x => x.ShiftId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => x.ShiftId);
+
             // Xmin concurrency token disabled for Sale — too many modifications
             // in a single transaction (items add/remove, status change, debt update)
             // cause false conflicts. Use database-level constraints instead (FK, CHECK).
@@ -461,6 +468,10 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasIndex(x => x.MarketId);
             // Fast "is there an open shift for this user" lookup.
             b.HasIndex(x => new { x.UserId, x.ClosedAt });
+            // Per-market Смена № — ordering/lookup helper. Non-unique for the same
+            // reason as SaleNumber: allocation is already serialised by the
+            // per-market advisory lock (MarketSequenceLock) in ShiftService.
+            b.HasIndex(x => new { x.MarketId, x.ShiftNumber });
         });
 
         // Configure DebtAuditLog

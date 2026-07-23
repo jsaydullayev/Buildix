@@ -13,6 +13,17 @@ public class Sale : BaseEntity, ISoftDelete
     public int SaleNumber { get; set; }
 
     public Guid SellerId { get; set; }
+
+    /// <summary>
+    /// The cash shift this sale was rung up in — stamped from the seller's open
+    /// shift at creation. Lets a receipt print "Смена №N" and ties a sale to the
+    /// drawer session it belongs to instead of inferring it from timestamps.
+    /// Null for sales made with no shift open (Admin/Owner) and for rows created
+    /// before this column existed.
+    /// </summary>
+    public Guid? ShiftId { get; set; }
+    public Shift? Shift { get; set; }
+
     public Guid? CustomerId { get; set; }
     public SaleStatus Status { get; set; } = SaleStatus.Draft;
     public decimal TotalAmount { get; set; }

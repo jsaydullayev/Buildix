@@ -2,6 +2,8 @@ import { apiClient } from '@/shared/api/client';
 
 export interface Shift {
   id: string;
+  /** Per-market sequential number printed on the receipt ("Смена №112"). */
+  shiftNumber: number;
   userId: string;
   cashierName: string;
   openedAt: string;

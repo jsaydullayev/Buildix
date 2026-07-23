@@ -1,3 +1,4 @@
+using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Constants;
@@ -74,8 +75,22 @@ public class ShiftService : IShiftService
             OpeningCash = lastCounted ?? 0m,
             ReconStatus = CashShiftStatus.Open,
         };
-        await _unitOfWork.Shifts.AddAsync(shift, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Смена № is customer-facing (it prints on the receipt), so allocate it
+        // under the same per-market advisory lock the ЧЕК № uses: two cashiers
+        // opening at once serialise here instead of computing the same max+1.
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            await MarketSequenceLock.AcquireAsync(
+                _db, MarketSequenceLock.ShiftNumberClass, marketId, cancellationToken);
+
+            shift.ShiftNumber = (await _db.Shifts
+                .Where(s => s.MarketId == marketId)
+                .MaxAsync(s => (int?)s.ShiftNumber, cancellationToken) ?? 0) + 1;
+
+            await _unitOfWork.Shifts.AddAsync(shift, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
 
         await _auditLogService.LogActionAsync(
             AuditEntityTypes.Shift, shift.Id, AuditActions.Open, userId,
@@ -293,5 +308,6 @@ public class ShiftService : IShiftService
         s.Id, s.UserId, s.User?.FullName ?? "", s.OpenedAt, s.ClosedAt, s.IsOpen, s.DurationMinutes,
         s.OpeningCash, s.CountedCash, s.Discrepancy, s.ReconStatus.ToString(),
         fin.CheckCount, fin.Revenue, fin.CashIn, fin.CardIn, fin.Withdrawals, fin.ExpectedCash,
-        fin.DebtIn, fin.CashCount, fin.CardCount, fin.DebtCount, fin.ReturnAmount, fin.ReturnCount);
+        fin.DebtIn, fin.CashCount, fin.CardCount, fin.DebtCount, fin.ReturnAmount, fin.ReturnCount,
+        s.ShiftNumber);
 }

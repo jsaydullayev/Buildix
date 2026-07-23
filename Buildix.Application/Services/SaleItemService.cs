@@ -223,7 +223,7 @@ public class SaleItemService : ISaleItemService
                 _logger.LogInformation("[AddSaleItem] AFTER DB SAVE - Quantity: {Quantity}, ProductId: {ProductId}",
                     resultSaleItem.Quantity, resultSaleItem.ProductId);
 
-                return Result.Success(SaleMapper.MapItem(resultSaleItem, product.Name, product.GetUnitName()));
+                return Result.Success(SaleMapper.MapItem(resultSaleItem, product.Name, product.GetUnitName(), (int)product.Unit));
             }
             else
             {
@@ -402,7 +402,7 @@ public class SaleItemService : ISaleItemService
                 await RecalculateSaleTotalAsync(sale, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                return Result.Success(SaleMapper.MapItem(resultSaleItem, product.Name, product.GetUnitName()));
+                return Result.Success(SaleMapper.MapItem(resultSaleItem, product.Name, product.GetUnitName(), (int)product.Unit));
             }
             else
             {

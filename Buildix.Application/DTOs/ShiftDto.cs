@@ -31,7 +31,9 @@ public record ShiftDto(
     [property: JsonPropertyName("cardCount")] int CardCount = 0,
     [property: JsonPropertyName("debtCount")] int DebtCount = 0,
     [property: JsonPropertyName("returnAmount")] decimal ReturnAmount = 0,
-    [property: JsonPropertyName("returnCount")] int ReturnCount = 0
+    [property: JsonPropertyName("returnCount")] int ReturnCount = 0,
+    /// <summary>Per-market sequential number printed on the receipt ("Смена №112").</summary>
+    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0
 );
 
 /// <summary>
