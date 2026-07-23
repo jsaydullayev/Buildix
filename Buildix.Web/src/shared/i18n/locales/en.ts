@@ -86,6 +86,10 @@ export const en: TranslationSchema = {
       print: 'Print receipt',
       newSale: 'New sale',
     },
+    shifts: {
+      range: { week: 'Week', month: 'Month', all: 'All time' },
+      total: 'Period total',
+    },
   },
   auth: {
     title: 'Sign in',

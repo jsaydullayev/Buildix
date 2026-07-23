@@ -18,7 +18,25 @@ export interface Shift {
   cardIn: number;
   withdrawals: number;
   expectedCash: number;
+  // Per-tender breakdown. cashIn/cardIn stay NET of refunds (they drive
+  // expectedCash); returns are reported separately.
+  debtIn: number;
+  cashCount: number;
+  cardCount: number;
+  debtCount: number;
+  returnAmount: number;
+  returnCount: number;
 }
+
+/** The caller's own shift history for a period + its totals. */
+export interface MyShifts {
+  items: Shift[];
+  totalRevenue: number;
+  totalChecks: number;
+  avgCheck: number;
+}
+
+export type ShiftRange = 'week' | 'month' | 'all';
 
 export interface Withdrawal {
   id: string;
@@ -73,6 +91,13 @@ export const shiftsApi = {
 
   history: async (limit = 20): Promise<Shift[]> => {
     const { data } = await apiClient.get<Shift[]>('/Shifts', { params: { limit } });
+    return data;
+  },
+
+  /** The caller's OWN history — self-service, so a Seller (who lacks
+   *  users.shift and cannot call /Shifts) still sees their shifts. */
+  myHistory: async (range: ShiftRange): Promise<MyShifts> => {
+    const { data } = await apiClient.get<MyShifts>('/Shifts/my', { params: { range } });
     return data;
   },
 };

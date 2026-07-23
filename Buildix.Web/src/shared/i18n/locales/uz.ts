@@ -86,6 +86,10 @@ export const uz: TranslationSchema = {
       print: 'Chekni chop etish',
       newSale: 'Yangi sotuv',
     },
+    shifts: {
+      range: { week: 'Hafta', month: 'Oy', all: 'Butun davr' },
+      total: 'Davr uchun jami',
+    },
   },
   auth: {
     title: 'Tizimga kirish',

@@ -84,6 +84,10 @@ export const ru = {
       print: 'Печать чека',
       newSale: 'Новая продажа',
     },
+    shifts: {
+      range: { week: 'Неделя', month: 'Месяц', all: 'Всё время' },
+      total: 'Итого за период',
+    },
   },
   auth: {
     title: 'Вход в систему',

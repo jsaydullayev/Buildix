@@ -58,6 +58,18 @@ public class ShiftsController : ControllerBase
         }
     }
 
+    /// <summary>The caller's OWN shift history + period totals — the seller
+    /// Смены screen. Self-service like current/open/close: a Seller does not hold
+    /// users.shift, so the market-wide endpoints below are closed to them.
+    /// <paramref name="range"/>: week (default) | month | all.</summary>
+    [HttpGet("my")]
+    public async Task<ActionResult<MyShiftsDto>> GetMyShifts(
+        [FromQuery] string? range = null, CancellationToken ct = default)
+    {
+        if (CurrentUserId() is not { } userId) return Unauthorized();
+        return Ok(await _shiftService.GetMyShiftsAsync(userId, range, ct));
+    }
+
     /// <summary>Market-wide shift history (all cashiers) — Смены history table.
     /// Owner/Admin gated by users.shift; market-scoped inside the service.</summary>
     [HttpGet]

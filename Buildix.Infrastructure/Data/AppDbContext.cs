@@ -397,10 +397,19 @@ public class AppDbContext : DbContext, IAppDbContext
 
             b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
 
+            // Who actually took the money (debt collected by another cashier).
+            // Optional + Restrict: removing a user must never cascade-delete
+            // financial records, and NULL keeps the "sale's seller" fallback.
+            b.HasOne(x => x.CollectedByUser).WithMany().HasForeignKey(x => x.CollectedByUserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Index for performance
             b.HasIndex(x => x.SaleId)
                 .HasDatabaseName("IX_Payment_SaleId");
             b.HasIndex(x => x.MarketId);
+            // Shift reconciliation filters payments by collector + time window.
+            b.HasIndex(x => x.CollectedByUserId);
         });
 
         // Configure Debt

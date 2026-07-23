@@ -7,7 +7,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime, formatShortDate } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
-import { shiftsApi, type Shift } from '@/features/shifts/api';
+import { shiftsApi, type Shift, type ShiftRange } from '@/features/shifts/api';
 import { CloseShiftModal } from '@/features/shifts/CloseShiftModal';
 import { WithdrawModal } from '@/features/shifts/WithdrawModal';
 
@@ -17,33 +17,38 @@ const STATUS: Record<string, { key: 'open' | 'balanced' | 'discrepancy'; tone: '
   Discrepancy: { key: 'discrepancy', tone: 'danger' },
 };
 
-/** Seller's own shift: open/close, live per-tender breakdown, and (if permitted) history. */
+const RANGES: ShiftRange[] = ['week', 'month', 'all'];
+const HISTORY_GRID = 'grid-cols-[1.1fr_1.1fr_1fr_1fr_1fr_70px_100px]';
+
+/** Seller's own shift: open/close, per-tender breakdown, and self-service history. */
 export default function SellerShiftsPage() {
   const { t, i18n } = useTranslation();
   const { hasPermission, hasRole } = useAuth();
-  const canViewHistory = hasPermission(PERMISSIONS.users.shift);
   const canManageCash = hasPermission(PERMISSIONS.cashregister.manage);
   const isOwner = hasRole(ROLES.Owner, ROLES.SuperAdmin);
   const qc = useQueryClient();
   const [closing, setClosing] = useState<Shift | null>(null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [range, setRange] = useState<ShiftRange>('week');
 
   const currentQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  // Self-service: /Shifts (market-wide) needs users.shift, which sellers lack.
   const historyQuery = useQuery({
-    queryKey: ['shift-history'],
-    queryFn: () => shiftsApi.history(20),
-    enabled: canViewHistory,
+    queryKey: ['shift-my', range],
+    queryFn: () => shiftsApi.myHistory(range),
   });
 
   const openMutation = useMutation({
     mutationFn: shiftsApi.open,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['shift-current'] });
-      void qc.invalidateQueries({ queryKey: ['shift-history'] });
+      void qc.invalidateQueries({ queryKey: ['shift-my'] });
     },
   });
 
   const current = currentQuery.data;
+  const history = historyQuery.data;
+  const avgCurrent = current && current.checkCount > 0 ? Math.round(current.revenue / current.checkCount) : 0;
 
   return (
     <>
@@ -73,6 +78,7 @@ export default function SellerShiftsPage() {
       />
 
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-8">
+        {/* Current shift */}
         {currentQuery.isLoading ? (
           <Card className="flex items-center justify-center py-16 text-primary">
             <Spinner size={24} />
@@ -93,12 +99,27 @@ export default function SellerShiftsPage() {
                 {t('shifts.cashier')}: <span className="font-medium text-text">{current.cashierName}</span>
               </span>
             </div>
+
+            {/* Per-tender breakdown — matches the design's 5 tiles. */}
             <div className="grid grid-cols-5 gap-4">
-              <Metric label={t('shifts.metrics.opening')} value={current.openingCash} />
-              <Metric label={t('shifts.metrics.cashIn')} value={current.cashIn} positive />
-              <Metric label={t('shifts.metrics.cardIn')} value={current.cardIn} />
-              <Metric label={t('shifts.metrics.withdrawals')} value={-current.withdrawals} />
-              <Metric label={t('shifts.metrics.expected')} value={current.expectedCash} highlight />
+              <Metric label={t('sales.stats.sum')} value={current.revenue} hint={`${current.checkCount}`} />
+              <Metric label={t('pos.payment.cash')} value={current.cashIn} hint={`${current.cashCount}`} positive />
+              <Metric label={t('pos.payment.card')} value={current.cardIn} hint={`${current.cardCount}`} />
+              <Metric label={t('pos.payment.debt')} value={current.debtIn} hint={`${current.debtCount}`} tone="warn" />
+              <Metric label={t('sales.stats.avg')} value={avgCurrent} highlight />
+            </div>
+
+            {/* Drawer reconciliation + returns */}
+            <div className="mt-4 grid grid-cols-4 gap-4 border-t border-hairline pt-4">
+              <Metric label={t('shifts.metrics.opening')} value={current.openingCash} small />
+              <Metric label={t('shifts.metrics.withdrawals')} value={-current.withdrawals} small />
+              <Metric
+                label={t('sales.status.returned')}
+                value={-current.returnAmount}
+                hint={`${current.returnCount}`}
+                small
+              />
+              <Metric label={t('shifts.metrics.expected')} value={current.expectedCash} small highlight />
             </div>
           </Card>
         ) : (
@@ -108,29 +129,59 @@ export default function SellerShiftsPage() {
           </Card>
         )}
 
-        {canViewHistory && (
-          <Card className="overflow-hidden">
-            <div className="border-b border-hairline px-6 py-4 text-[15px] font-semibold">{t('shifts.history')}</div>
-            <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
-              <span>{t('shifts.cols.date')}</span>
-              <span>{t('shifts.cols.cashier')}</span>
-              <span>{t('shifts.cols.period')}</span>
-              <span className="text-center">{t('shifts.cols.checks')}</span>
-              <span className="text-right">{t('shifts.cols.revenue')}</span>
-              <span className="text-right">{t('shifts.cols.discrepancy')}</span>
-              <span>{t('shifts.cols.status')}</span>
+        {/* History */}
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
+            <span className="text-[15px] font-semibold">{t('shifts.history')}</span>
+            <div className="inline-flex rounded-input bg-hairline p-1">
+              {RANGES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    'rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors',
+                    range === r ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
+                  )}
+                >
+                  {t(`seller.shifts.range.${r}` as never)}
+                </button>
+              ))}
             </div>
-            {historyQuery.isLoading ? (
-              <div className="flex justify-center py-16 text-primary">
-                <Spinner size={22} />
+          </div>
+
+          <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', HISTORY_GRID)}>
+            <span>{t('shifts.cols.date')}</span>
+            <span>{t('shifts.cols.period')}</span>
+            <span className="text-right">{t('shifts.cols.revenue')}</span>
+            <span className="text-right">{t('pos.payment.cash')}</span>
+            <span className="text-right">{t('pos.payment.card')}</span>
+            <span className="text-center">{t('shifts.cols.checks')}</span>
+            <span className="text-right">{t('shifts.cols.status')}</span>
+          </div>
+
+          {historyQuery.isLoading ? (
+            <div className="flex justify-center py-16 text-primary">
+              <Spinner size={22} />
+            </div>
+          ) : history && history.items.length > 0 ? (
+            <>
+              {history.items.map((s) => (
+                <HistoryRow key={s.id} shift={s} lang={i18n.language} />
+              ))}
+              <div className={cn('grid items-center gap-3 bg-bg/60 px-6 py-3 text-[12.5px] font-semibold', HISTORY_GRID)}>
+                <span className="col-span-2 text-muted">{t('seller.shifts.total')}</span>
+                <span className="text-right nums">{formatSum(history.totalRevenue)}</span>
+                <span />
+                <span />
+                <span className="text-center nums">{history.totalChecks}</span>
+                <span className="text-right text-muted nums">{formatSum(history.avgCheck)}</span>
               </div>
-            ) : historyQuery.data && historyQuery.data.length > 0 ? (
-              historyQuery.data.map((s) => <HistoryRow key={s.id} shift={s} lang={i18n.language} />)
-            ) : (
-              <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.empty')}</div>
-            )}
-          </Card>
-        )}
+            </>
+          ) : (
+            <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.empty')}</div>
+          )}
+        </Card>
       </div>
 
       <CloseShiftModal shift={closing} onClose={() => setClosing(null)} />
@@ -139,14 +190,42 @@ export default function SellerShiftsPage() {
   );
 }
 
-function Metric({ label, value, positive, highlight }: { label: string; value: number; positive?: boolean; highlight?: boolean }) {
+function Metric({
+  label,
+  value,
+  hint,
+  positive,
+  highlight,
+  small,
+  tone,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  positive?: boolean;
+  highlight?: boolean;
+  small?: boolean;
+  tone?: 'warn';
+}) {
   return (
-    <div className={cn('rounded-card border px-4 py-4', highlight ? 'border-primary/25 bg-primary-soft' : 'border-border bg-bg/40')}>
-      <div className="text-[12px] text-muted">{label}</div>
+    <div className={cn('rounded-card border px-4 py-3.5', highlight ? 'border-primary/25 bg-primary-soft' : 'border-border bg-bg/40')}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[12px] text-muted">{label}</span>
+        {hint && <span className="text-[11px] text-muted-2 nums">{hint}</span>}
+      </div>
       <div
         className={cn(
-          'mt-1.5 text-[19px] font-bold nums',
-          highlight ? 'text-primary-hover' : positive && value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text',
+          'mt-1.5 font-bold nums',
+          small ? 'text-[16px]' : 'text-[19px]',
+          highlight
+            ? 'text-primary-hover'
+            : tone === 'warn'
+              ? 'text-warn-text'
+              : positive && value > 0
+                ? 'text-success'
+                : value < 0
+                  ? 'text-danger'
+                  : 'text-text',
         )}
       >
         {value > 0 && positive ? '+ ' : ''}
@@ -159,18 +238,17 @@ function Metric({ label, value, positive, highlight }: { label: string; value: n
 function HistoryRow({ shift: s, lang }: { shift: Shift; lang: string }) {
   const { t } = useTranslation();
   const st = STATUS[s.reconStatus] ?? STATUS.Open!;
-  const period = `${formatTime(s.openedAt)}–${s.closedAt ? formatTime(s.closedAt) : '…'}`;
   return (
-    <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40">
+    <div className={cn('grid items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40', HISTORY_GRID)}>
       <span className="font-medium">{formatShortDate(s.openedAt, lang)}</span>
-      <span className="truncate">{s.cashierName}</span>
-      <span className="text-muted-2 nums">{period}</span>
-      <span className="text-center text-muted nums">{s.checkCount}</span>
-      <span className="text-right font-semibold nums">{formatSum(s.revenue)}</span>
-      <span className={cn('text-right nums', s.reconStatus === 'Discrepancy' ? 'font-semibold text-danger' : 'text-muted-2')}>
-        {s.isOpen ? '—' : s.discrepancy === 0 ? '0' : `${s.discrepancy > 0 ? '+' : ''}${formatSum(s.discrepancy)}`}
+      <span className="text-muted-2 nums">
+        {formatTime(s.openedAt)}–{s.closedAt ? formatTime(s.closedAt) : '…'}
       </span>
-      <span>
+      <span className="text-right font-semibold nums">{formatSum(s.revenue)}</span>
+      <span className="text-right text-muted nums">{formatSum(s.cashIn)}</span>
+      <span className="text-right text-muted nums">{formatSum(s.cardIn)}</span>
+      <span className="text-center text-muted nums">{s.checkCount}</span>
+      <span className="text-right">
         <Badge tone={st.tone}>{t(`shifts.status.${st.key}`)}</Badge>
       </span>
     </div>
