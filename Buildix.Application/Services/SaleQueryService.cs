@@ -42,16 +42,40 @@ public class SaleQueryService : ISaleQueryService
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
 
-        var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.Id == id && s.MarketId == marketId,
-            cancellationToken);
-
-        var sale = sales.FirstOrDefault();
+        // Loaded as a full graph (not via the repository + MapToDtoAsync) because
+        // this is the receipt-detail read: it needs the shift number and, on a
+        // debt paid off later, WHO collected each payment — neither of which the
+        // bare-entity mapper resolves.
+        // NOTE: Seller is deliberately NOT Include()d. Sale.SellerId is
+        // non-nullable, so the navigation is a REQUIRED relationship and
+        // Include() turns the read into an inner join against a User table that
+        // carries a `!IsDeleted` query filter — a receipt sold by a since-removed
+        // cashier would then vanish from the detail view entirely instead of
+        // simply losing its name. Every other navigation here is optional
+        // (nullable FK), so those are safe to include.
+        var sale = await _context.Sales
+            .Include(s => s.Customer)
+            .Include(s => s.Shift)
+            .Include(s => s.SaleItems)
+                .ThenInclude(si => si.Product)
+            .Include(s => s.Payments)
+                .ThenInclude(p => p.CollectedByUser)
+            .AsNoTracking()
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(s => s.Id == id && s.MarketId == marketId, cancellationToken);
 
         if (sale is null)
             return null;
 
-        return await SaleMapper.MapToDtoAsync(sale, _unitOfWork, cancellationToken);
+        // Resolved separately, and past the soft-delete filter, so a receipt keeps
+        // printing the name of the cashier who rang it up even after that account
+        // is gone. The sale's market was already checked above.
+        sale.Seller = (await _context.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == sale.SellerId, cancellationToken))!;
+
+        return SaleMapper.MapSale(sale);
     }
 
     public async Task<IEnumerable<SaleDto>> GetAllSalesAsync(CancellationToken cancellationToken = default)

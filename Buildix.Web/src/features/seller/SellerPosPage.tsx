@@ -37,9 +37,6 @@ function cashChips(total: number): number[] {
  *
  * The Draft receipt is created lazily by the first added product (same rule as
  * the admin POS), so opening the register never burns a ЧЕК № on an empty sale.
- * Split ("Микс") tender is intentionally absent in v1: the backend takes one
- * PaymentType per call and a two-call split is non-atomic (see
- * docs/SELLER-INTEGRATION-PLAN.md §3.1 P4).
  */
 export default function SellerPosPage() {
   const { t, i18n } = useTranslation();
@@ -56,6 +53,9 @@ export default function SellerPosPage() {
   const [done, setDone] = useState<PosSale | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Blank, not '0', so the field shows a faint placeholder instead of a zero
+  // the cashier has to delete first.
+  const [discountInput, setDiscountInput] = useState('');
 
   const searchRef = useRef<HTMLInputElement>(null);
   const draftRef = useRef<Promise<PosSale> | null>(null);
@@ -105,6 +105,17 @@ export default function SellerPosPage() {
   const sale = saleQuery.data;
   const items = sale?.items ?? [];
   const total = sale?.totalAmount ?? 0;
+  // Chegirmasiz oraliq summa — chegirma qatorini ko'rsatish uchun kerak
+  // (total allaqachon chegirma ayirilgan holda keladi).
+  const gross = items.reduce((acc, it) => acc + it.totalPrice, 0);
+
+  // Kutayotgan chekda chegirma bo'lishi mumkin — uni davom ettirganda input
+  // serverdagi qiymatni ko'rsatsin, aks holda maydon bo'sh turib, jami esa
+  // kamaytirilgan bo'lardi. Yozayotganda qayta ishga tushmaydi: saleId ham,
+  // discountAmount ham o'zgarmaydi (faqat muvaffaqiyatli qo'llashdan keyin).
+  useEffect(() => {
+    setDiscountInput(sale?.discountAmount ? String(sale.discountAmount) : '');
+  }, [saleId, sale?.discountAmount]);
 
   const refreshAll = () => {
     void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
@@ -159,6 +170,26 @@ export default function SellerPosPage() {
       void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+
+  /**
+   * Sale-level chegirma. Server tomonda auditlanadi (kim, eski→yangi) va jami
+   * item summasidan oshib keta olmaydi, shuning uchun bu yerda faqat manfiy
+   * qiymat to'siladi — qolgan chegaralarni server qo'yadi va uning xabari
+   * ko'rsatiladi.
+   */
+  const applyDiscount = useMutation({
+    mutationFn: (amount: number) => posApi.setDiscount(saleId!, amount),
+    onSuccess: () => {
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
+    },
+    onError: (e) => {
+      setActionError((e as unknown as ApiError).message ?? '');
+      // Rad etilgan chegirmani inputda qoldirish "qo'llandi" degan taassurot
+      // berardi — serverdagi haqiqiy qiymatga qaytaramiz.
+      setDiscountInput(sale?.discountAmount ? String(sale.discountAmount) : '');
+    },
   });
 
   const attachCustomer = useMutation({
@@ -430,6 +461,45 @@ export default function SellerPosPage() {
             <span>{t('seller.pos.positions')}</span>
             <span className="nums">{items.length}</span>
           </div>
+
+          {/* Chegirma. Faqat chek qurilgandan keyin — Draft yo'q bo'lsa
+              serverda qo'llaydigan sotuv ham yo'q. Server auditlaydi
+              (kim, eski→yangi) va jami summadan oshirmaydi. */}
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="pos-discount" className="text-[12.5px] text-muted">
+              {t('pos.discount')}
+            </label>
+            <div className="flex items-center gap-1.5">
+              <input
+                id="pos-discount"
+                type="number"
+                step="any"
+                min="0"
+                placeholder="0"
+                disabled={!saleId || applyDiscount.isPending}
+                value={discountInput}
+                onChange={(e) => setDiscountInput(e.target.value)}
+                onBlur={() => {
+                  const next = Math.max(0, Number(discountInput) || 0);
+                  // Faqat haqiqatan o'zgargan bo'lsa yuboramiz — har fokus
+                  // yo'qotishda audit qatori yozilishining oldini oladi.
+                  if (saleId && next !== (sale?.discountAmount ?? 0)) applyDiscount.mutate(next);
+                }}
+                className="h-9 w-[110px] rounded-input border border-input-border bg-surface px-3 text-right text-[13px] outline-none focus:border-primary disabled:opacity-50 nums"
+              />
+              <span className="text-[11.5px] text-muted-2">{t('common.currency')}</span>
+            </div>
+          </div>
+
+          {/* Chegirma qo'llangandagina oraliq summa ko'rsatiladi — aks holda u
+              pastdagi "Jami" ning aynan nusxasi bo'lardi. */}
+          {!!sale?.discountAmount && (
+            <div className="mb-2 flex items-baseline justify-between text-[12.5px]">
+              <span className="text-muted-2">{t('sales.detail.subtotal')}</span>
+              <span className="text-muted-2 line-through nums">{formatSum(gross)}</span>
+            </div>
+          )}
+
           <div className="mb-3 flex items-baseline justify-between">
             <span className="text-[13px] text-muted">{t('pos.total')}</span>
             <span className="text-[22px] font-bold nums">
