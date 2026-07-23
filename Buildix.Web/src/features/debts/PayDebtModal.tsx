@@ -93,6 +93,7 @@ export function PayDebtModal({
             <input
               type="number"
               step="any"
+              placeholder="0"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="h-11 flex-1 rounded-input border border-input-border bg-surface px-3.5 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"

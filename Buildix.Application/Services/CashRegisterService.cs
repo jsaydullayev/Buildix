@@ -441,8 +441,18 @@ public class CashRegisterService : ICashRegisterService
             var todayLocal = _clock.TodayLocal;
             var (todayUtcStart, todayUtcEnd) = _clock.LocalDayToUtcRange(todayLocal);
 
+            // Draft — hali yakunlanmagan savat, chek emas: uni "Чеков" soniga
+            // qo'shsak, kassa oynasi ochilib yopilgani ham sotuv bo'lib ko'rinadi.
+            // Cancelled — bekor qilingan sotuv: bekor qilish faqat Status'ni
+            // o'zgartiradi, TotalAmount va Payments joyida qoladi, shuning uchun
+            // filtrsiz ular tushumga qo'shilib ketardi. Boshqa hamma hisobot
+            // (dashboard, moliyaviy, smena) ikkalasini ham chiqarib tashlaydi —
+            // profit ham shunday hisoblanadi, ya'ni filtrsiz dashboard'dagi
+            // marja % surat va maxrajni turli bazada bo'lardi.
             var todaySales = await _context.Sales
-                .Where(s => s.CreatedAt >= todayUtcStart && s.CreatedAt < todayUtcEnd && s.MarketId == marketId)
+                .Where(s => s.CreatedAt >= todayUtcStart && s.CreatedAt < todayUtcEnd && s.MarketId == marketId
+                            && s.Status != Domain.Enums.SaleStatus.Draft
+                            && s.Status != Domain.Enums.SaleStatus.Cancelled)
                 .Include(s => s.Payments)
                 .ToListAsync(cancellationToken);
 

@@ -60,6 +60,12 @@ export interface WeeklySeries {
   previousTotal: number | null;
 }
 
+/** One line of a sale — name + quantity only, never cost/profit. */
+export interface DailySaleLine {
+  productName: string;
+  quantity: number;
+}
+
 export interface DailySale {
   id: string;
   createdAt: string;
@@ -69,6 +75,7 @@ export interface DailySale {
   status: string;
   profit: number | null; // data.profit gated
   customerName: string | null;
+  items: DailySaleLine[];
 }
 
 /** GET /api/Reports/daily-sales-list — DailySalesListDto */
@@ -82,26 +89,10 @@ export interface DailySalesList {
   summaryProfit: number | null;
 }
 
-/** GET /api/Shifts/current — ShiftDto (nullable) */
-export interface Shift {
-  id: string;
-  userId: string;
-  cashierName: string;
-  openedAt: string;
-  closedAt: string | null;
-  isOpen: boolean;
-  durationMinutes: number;
-  openingCash: number;
-  countedCash: number | null;
-  discrepancy: number;
-  reconStatus: string;
-  checkCount: number;
-  revenue: number;
-  cashIn: number;
-  cardIn: number;
-  withdrawals: number;
-  expectedCash: number;
-}
+// Smena tiplari/chaqiruvlari `@/features/shifts/api` da — bu yerda nusxasi bor
+// edi va u /Shifts/current ning 204 javobini hisobga olmasdi (axios bo'sh satr
+// qaytarardi, tip esa `Shift | null` deb turardi). Dashboard endi o'sha yagona
+// manbadan foydalanadi.
 
 export const dashboardApi = {
   todaySales: async (): Promise<TodaySalesSummary> => {
@@ -135,11 +126,6 @@ export const dashboardApi = {
     const { data } = await apiClient.get<DailySalesList>('/Reports/daily-sales-list', {
       params: { date },
     });
-    return data;
-  },
-
-  currentShift: async (): Promise<Shift | null> => {
-    const { data } = await apiClient.get<Shift | null>('/Shifts/current');
     return data;
   },
 };

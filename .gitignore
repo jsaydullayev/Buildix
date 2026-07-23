@@ -64,3 +64,6 @@ Desktop.ini
 $RECYCLE.BIN/
 *.tmp
 *.bak
+
+# TypeScript incremental build artifact (regenerated on every build)
+*.tsbuildinfo

@@ -10,16 +10,7 @@ import {
   RequireSubscription,
   IndexRedirect,
 } from '@/shared/auth/guards';
-import {
-  SellerPosPage,
-  SellerSalesPage,
-  SellerShiftsPage,
-  SellerProductsPage,
-  SellerClientsPage,
-  SellerDebtsPage,
-  SellerSuppliesPage,
-  SellerNotificationsPage,
-} from '@/features/seller/SellerStubs';
+import { SellerSuppliesPage, SellerNotificationsPage } from '@/features/seller/SellerStubs';
 import { FullscreenLoader } from '@/shared/ui';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 
@@ -37,6 +28,14 @@ const EmployeesPage = lazy(() => import('@/features/employees/EmployeesPage'));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 const AccountPage = lazy(() => import('@/features/account/AccountPage'));
 const PosPage = lazy(() => import('@/features/pos/PosPage'));
+
+// Seller (cashier) shell pages — Bosqich 1.
+const SellerProductsPage = lazy(() => import('@/features/seller/SellerProductsPage'));
+const SellerDebtsPage = lazy(() => import('@/features/seller/SellerDebtsPage'));
+const SellerSalesPage = lazy(() => import('@/features/seller/SellerSalesPage'));
+const SellerShiftsPage = lazy(() => import('@/features/seller/SellerShiftsPage'));
+const SellerClientsPage = lazy(() => import('@/features/seller/SellerClientsPage'));
+const SellerPosPage = lazy(() => import('@/features/seller/SellerPosPage'));
 
 const publicElement = (node: ReactNode) => <Suspense fallback={<FullscreenLoader />}>{node}</Suspense>;
 

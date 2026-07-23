@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Clock, Bell, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { SELLER_NAV_ITEMS } from '@/shared/config/navigation';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
@@ -67,9 +68,14 @@ export function SellerTopNav() {
           {t('seller.nav.shifts')}
         </NavLink>
 
-        <NavLink to={`${base}/notifications`} className={iconLinkClass} aria-label={t('seller.nav.notifications')}>
-          <Bell size={17} />
-        </NavLink>
+        {/* Only shown when the user can actually open it — the Seller role has no
+            notifications.access by default, and a bell that lands on a
+            "no access" screen is a dead end. */}
+        {hasPermission(PERMISSIONS.notifications.access) && (
+          <NavLink to={`${base}/notifications`} className={iconLinkClass} aria-label={t('seller.nav.notifications')}>
+            <Bell size={17} />
+          </NavLink>
+        )}
 
         <div className="mx-1 h-7 w-px bg-white/[0.14]" />
 

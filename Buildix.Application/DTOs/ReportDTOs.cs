@@ -89,6 +89,17 @@ public record ComprehensiveReportDto(
     [property: JsonPropertyName("outOfStockCount")] int OutOfStockCount
 );
 
+/// <summary>
+/// One line of a sale, reduced to what a list view needs: what was sold and how
+/// much of it. Deliberately carries NO cost/profit — unlike
+/// <see cref="DailySaleItemDto"/> this shape is returned to every caller of the
+/// daily sales list, including sellers who must never see cost prices.
+/// </summary>
+public record DailySalesListLineDto(
+    [property: JsonPropertyName("productName")] string ProductName,
+    [property: JsonPropertyName("quantity")] decimal Quantity
+);
+
 public record DailySalesListItemDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
@@ -97,7 +108,11 @@ public record DailySalesListItemDto(
     [property: JsonPropertyName("paymentType")] string PaymentType,
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("profit")] decimal? Profit,
-    [property: JsonPropertyName("customerName")] string? CustomerName
+    [property: JsonPropertyName("customerName")] string? CustomerName,
+    // Sotilgan mahsulotlar — dashboard'dagi "ТОВАРЫ" ustuni uchun. Ilgari bu
+    // yerda hech narsa yo'q edi, shuning uchun UI o'sha ustunga mijoz nomini
+    // qo'yib turardi (sarlavha bilan mazmun mos emas edi).
+    [property: JsonPropertyName("items")] List<DailySalesListLineDto> Items
 );
 
 public record DailySalesListDto(

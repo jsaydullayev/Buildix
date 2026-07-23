@@ -104,8 +104,21 @@ public class SaleQueryService : ISaleQueryService
         if (to.HasValue) baseQuery = baseQuery.Where(s => s.CreatedAt <= to.Value);
         if (sellerId.HasValue) baseQuery = baseQuery.Where(s => s.SellerId == sellerId.Value);
 
-        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<SaleStatus>(status, true, out var st))
-            baseQuery = baseQuery.Where(s => s.Status == st);
+        var statusFilter = !string.IsNullOrWhiteSpace(status) && Enum.TryParse<SaleStatus>(status, true, out var st)
+            ? (SaleStatus?)st
+            : null;
+
+        if (statusFilter.HasValue)
+            baseQuery = baseQuery.Where(s => s.Status == statusFilter.Value);
+        else
+            // Draft = kassada hali yakunlanmagan, qurilayotgan savat — u hali
+            // "chek" emas, faqat band qilingan ЧЕК № . Sotuvlar ro'yxati moliyaviy
+            // hujjatlar ro'yxati, shuning uchun draftlar u yerda ko'rinmaydi
+            // (ularni kassir /my-drafts orqali davom ettiradi). Aks holda kassa
+            // oynasi ochilib yopilganda paydo bo'lgan 0 so'mlik satrlar ro'yxatni
+            // ifloslantirar va "chek yaratilmagan bo'lsa ham saqlanyapti" ko'rinishini
+            // berardi. `status=Draft` bilan ataylab so'ralsa — ko'rsatamiz.
+            baseQuery = baseQuery.Where(s => s.Status != SaleStatus.Draft);
 
         if (!string.IsNullOrWhiteSpace(paymentType))
         {

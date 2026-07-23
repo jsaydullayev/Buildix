@@ -142,6 +142,26 @@ export const posApi = {
     return data;
   },
 
+  /**
+   * The seller's own parked (Draft) sales — the "Отложенные чеки" strip. A
+   * parked receipt is just a Draft left in place: nothing extra is stored, and
+   * resuming one is a plain getSale on its id.
+   */
+  myDrafts: async (): Promise<PosSale[]> => {
+    const { data } = await apiClient.get<PosSale[]>('/Sales/my-drafts');
+    return data;
+  },
+
+  /** Printable receipt (PDF). Fetched through apiClient so the JWT is attached —
+   *  a bare window.open would hit the endpoint unauthenticated. */
+  invoicePdf: async (saleId: string, lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get(`/Sales/${saleId}/invoice`, {
+      params: { lang },
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
   /** Look up a single customer by phone. */
   customerByPhone: async (phone: string): Promise<PosCustomer> => {
     const { data } = await apiClient.get<PosCustomer>(

@@ -215,6 +215,17 @@ function NumberRow({
   suffix?: string;
   wide?: boolean;
 }) {
+  // Mirror the numeric value as text so 0 can render as an empty field (with a
+  // faint "0" placeholder) instead of a literal 0 the user must delete first.
+  // Keeping the raw text also preserves in-progress input like "0." or "1.5".
+  const [text, setText] = useState(value === 0 ? '' : String(value));
+
+  useEffect(() => {
+    // Only resync from the outside when it really differs from what's typed —
+    // otherwise a re-render would wipe a partially typed decimal.
+    setText((prev) => (Number(prev || 0) === value ? prev : value === 0 ? '' : String(value)));
+  }, [value]);
+
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
@@ -225,8 +236,12 @@ function NumberRow({
         <input
           type="number"
           step="any"
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          placeholder="0"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            onChange(Number(e.target.value) || 0);
+          }}
           className={`h-10 rounded-input border border-input-border bg-surface px-3 text-right text-[14px] outline-none focus:border-primary focus:shadow-focus-ring nums ${wide ? 'w-[150px]' : 'w-[90px]'}`}
         />
         {suffix && <span className="text-[13px] text-muted-2">{suffix}</span>}

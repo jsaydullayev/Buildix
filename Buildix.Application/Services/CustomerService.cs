@@ -86,12 +86,19 @@ public class CustomerService : ICustomerService
             .Select(g => new { CustomerId = g.Key, Total = g.Sum(d => d.RemainingDebt) })
             .ToDictionaryAsync(x => x.CustomerId, x => x.Total, cancellationToken);
 
+        // CustomerType / IsRegular / DebtLimit are persisted on write but used to
+        // be dropped here, so every read returned the DTO defaults
+        // ("Individual"/false/null) — the seller Clients screen and the debt
+        // rules both need the real values.
         return customers.Select(c => new CustomerDto(
             c.Id,
             c.Phone,
             c.FullName,
             c.Comment,
-            debtsByCustomer.TryGetValue(c.Id, out var debt) ? debt : 0m
+            debtsByCustomer.TryGetValue(c.Id, out var debt) ? debt : 0m,
+            c.CustomerType.ToString(),
+            c.IsRegular,
+            c.DebtLimit
         )).ToList();
     }
 
@@ -138,7 +145,10 @@ public class CustomerService : ICustomerService
             c.Phone,
             c.FullName,
             c.Comment,
-            debtsByCustomer.TryGetValue(c.Id, out var debt) ? debt : 0m
+            debtsByCustomer.TryGetValue(c.Id, out var debt) ? debt : 0m,
+            c.CustomerType.ToString(),
+            c.IsRegular,
+            c.DebtLimit
         )).ToList();
 
         return PagedResult<CustomerDto>.From(items, page, size, total);
@@ -436,7 +446,10 @@ public class CustomerService : ICustomerService
             customer.Phone,
             customer.FullName,
             customer.Comment,
-            totalDebt
+            totalDebt,
+            customer.CustomerType.ToString(),
+            customer.IsRegular,
+            customer.DebtLimit
         );
     }
 
