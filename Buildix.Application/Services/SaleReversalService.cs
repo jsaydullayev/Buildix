@@ -178,7 +178,7 @@ public class SaleReversalService : ISaleReversalService
         }, cancellationToken);
     }
 
-    public async Task<Result<SaleDto>> DeleteSaleAsync(Guid saleId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<Result<SaleDto>> DeleteSaleAsync(Guid saleId, Guid userId, Guid? requireOwnDraftOf = null, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
 
@@ -202,6 +202,19 @@ public class SaleReversalService : ISaleReversalService
             {
                 _logger.LogWarning("Sale already deleted: {SaleId}", saleId);
                 return Result.Failure<SaleDto>("Sale already deleted", "NOT_FOUND");
+            }
+
+            // Restricted delete: a cashier without sales.delete may discard the
+            // parked receipt they themselves built, and nothing else. Checked
+            // INSIDE the transaction, after the row lock — a status read taken
+            // before the lock could be stale by the time the delete lands, which
+            // on this path would mean deleting a paid sale without the permission.
+            if (requireOwnDraftOf.HasValue &&
+                (sale.Status != SaleStatus.Draft || sale.SellerId != requireOwnDraftOf.Value))
+            {
+                _logger.LogWarning("Own-draft delete refused: {SaleId}, Status: {Status}, Seller: {SellerId}, Caller: {Caller}",
+                    saleId, sale.Status, sale.SellerId, requireOwnDraftOf.Value);
+                return Result.Failure<SaleDto>("Faqat o'zingiz yaratgan yakunlanmagan chekni o'chira olasiz.", "FORBIDDEN");
             }
 
             if (sale.Status != SaleStatus.Draft && sale.Status != SaleStatus.Paid)

@@ -15,12 +15,16 @@ import { shiftsApi } from '@/features/shifts/api';
 
 const PAGE_SIZE = 20;
 const GRID = 'grid-cols-[0.7fr_0.7fr_1.5fr_1.1fr_0.9fr_1fr]';
-type Period = 'today' | 'week' | 'month';
+// 'shift' scopes to the CURRENT open shift via Sale.ShiftId — the cashier's own
+// question is "what have I rung up since I opened the till", which a calendar
+// day cannot answer for a shift that started yesterday evening.
+type Period = 'shift' | 'today' | 'week' | 'month';
 const PAYMENT_FILTERS = ['all', 'cash', 'card', 'debt'] as const;
 type PayFilter = (typeof PAYMENT_FILTERS)[number];
 const PAY_PARAM: Record<PayFilter, string | null> = { all: null, cash: 'Cash', card: 'Terminal', debt: 'Debt' };
 
-function periodRange(period: Period): { from: string; to: string } {
+function periodRange(period: Period): { from: string; to: string } | null {
+  if (period === 'shift') return null; // scoped by shiftId instead of a date range
   const now = new Date();
   const start =
     period === 'today' ? startOfDay(now) : period === 'week' ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now);
@@ -35,7 +39,7 @@ export default function SellerSalesPage() {
   const { hasPermission } = useAuth();
   const canCreate = hasPermission(PERMISSIONS.sales.create);
 
-  const [period, setPeriod] = useState<Period>('today');
+  const [period, setPeriod] = useState<Period>('shift');
   const [pay, setPay] = useState<PayFilter>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -47,17 +51,23 @@ export default function SellerSalesPage() {
   // have (it 403'd and left every card at 0). /Shifts/current is self-service
   // and is also what the design shows ("за смену").
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  const shiftId = shiftQuery.data?.id ?? null;
+
   const listQuery = useQuery({
-    queryKey: ['seller-sales', { page, search: debouncedSearch, pay, period }],
+    queryKey: ['seller-sales', { page, search: debouncedSearch, pay, period, shiftId }],
     queryFn: () =>
       salesApi.listPaged({
         page,
         size: PAGE_SIZE,
         search: debouncedSearch,
         paymentType: PAY_PARAM[pay],
-        from: range.from,
-        to: range.to,
+        from: range?.from,
+        to: range?.to,
+        shiftId: period === 'shift' ? shiftId : null,
       }),
+    // Без открытой смены нечего фильтровать — an unscoped request would quietly
+    // fall back to "all sales ever", which reads as someone else's receipts.
+    enabled: period !== 'shift' || !!shiftId,
     placeholderData: keepPreviousData,
   });
 
@@ -119,7 +129,7 @@ export default function SellerSalesPage() {
             ))}
           </div>
           <div className="ml-auto inline-flex rounded-input bg-hairline p-1">
-            {(['today', 'week', 'month'] as Period[]).map((p) => (
+            {(['shift', 'today', 'week', 'month'] as Period[]).map((p) => (
               <button
                 key={p}
                 type="button"
@@ -152,6 +162,8 @@ export default function SellerSalesPage() {
             <div className="flex items-center justify-center py-20 text-primary">
               <Spinner size={24} />
             </div>
+          ) : period === 'shift' && !shiftId ? (
+            <div className="py-20 text-center text-[14px] text-muted-2">{t('shifts.noOpenShift')}</div>
           ) : listQuery.data && listQuery.data.items.length > 0 ? (
             listQuery.data.items.map((sale) => <SaleRow key={sale.id} sale={sale} />)
           ) : (

@@ -141,6 +141,26 @@ export default function SellerPosPage() {
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
 
+  /** Throw a parked receipt away for good. Server-side this is the narrow
+   *  "own Draft only" delete — a cashier has no sales.delete and cannot touch
+   *  a paid receipt this way. */
+  const discardDraft = useMutation({
+    mutationFn: (id: string) => posApi.deleteMyDraft(id),
+    onSuccess: (_res, id) => {
+      // Clearing the ACTIVE receipt has to reset the register too, or the UI
+      // keeps polling a sale that no longer exists.
+      if (id === saleId) {
+        draftRef.current = null;
+        setSaleId(null);
+        setCustomer(null);
+        setMethod('Cash');
+      }
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+
   const attachCustomer = useMutation({
     mutationFn: (c: PosCustomer | null) => posApi.attachCustomer(saleId!, c?.id ?? null),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] }),
@@ -288,10 +308,18 @@ export default function SellerPosPage() {
             {t('seller.pos.receipt')} {sale ? <span className="nums">№{sale.saleNumber}</span> : ''}
           </h2>
           {!!saleId && (
+            // This used to call park(), so "Очистить" silently left the receipt
+            // sitting in the parked strip — the cashier had no way to throw an
+            // abandoned basket away. It now really discards it; parking is the
+            // separate «Отложить» button below.
             <button
               type="button"
-              onClick={park}
-              className="text-[12.5px] text-muted-2 transition-colors hover:text-danger"
+              disabled={discardDraft.isPending}
+              onClick={() => {
+                if (items.length === 0 || window.confirm(t('seller.pos.discardConfirm')))
+                  discardDraft.mutate(saleId);
+              }}
+              className="text-[12.5px] text-muted-2 transition-colors hover:text-danger disabled:opacity-40"
             >
               {t('seller.pos.clear')}
             </button>
@@ -306,17 +334,28 @@ export default function SellerPosPage() {
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {heldDrafts.map((d) => (
-                <button
+                <div
                   key={d.id}
-                  type="button"
-                  onClick={() => resume(d)}
-                  className="flex-none rounded-lg border border-warn/30 bg-surface px-3 py-2 text-left transition-colors hover:border-warn"
+                  className="group relative flex-none rounded-lg border border-warn/30 bg-surface transition-colors hover:border-warn"
                 >
-                  <div className="text-[12.5px] font-semibold nums">№{d.saleNumber}</div>
-                  <div className="text-[11px] text-muted-2 nums">
-                    {d.items.length} · {formatSum(d.totalAmount)}
-                  </div>
-                </button>
+                  <button type="button" onClick={() => resume(d)} className="px-3 py-2 pr-7 text-left">
+                    <div className="text-[12.5px] font-semibold nums">№{d.saleNumber}</div>
+                    <div className="text-[11px] text-muted-2 nums">
+                      {d.items.length} · {formatSum(d.totalAmount)}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    title={t('seller.pos.discard')}
+                    disabled={discardDraft.isPending}
+                    onClick={() => {
+                      if (window.confirm(t('seller.pos.discardConfirm'))) discardDraft.mutate(d.id);
+                    }}
+                    className="absolute right-1 top-1 rounded p-0.5 text-muted-2 opacity-0 transition-opacity hover:bg-danger-soft hover:text-danger focus:opacity-100 group-hover:opacity-100"
+                  >
+                    <X size={13} strokeWidth={2.4} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>

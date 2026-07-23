@@ -28,6 +28,13 @@ export interface Shift {
   debtCount: number;
   returnAmount: number;
   returnCount: number;
+  // Cashless split. cardIn above stays the FULL cashless total, so
+  // terminalIn + clickIn === cardIn. Counts may overlap: one mixed receipt
+  // paid part-terminal part-Click is counted in both.
+  terminalIn: number;
+  clickIn: number;
+  terminalCount: number;
+  clickCount: number;
 }
 
 /** The caller's own shift history for a period + its totals. */

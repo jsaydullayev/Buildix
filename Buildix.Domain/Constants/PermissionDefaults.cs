@@ -41,6 +41,11 @@ public static class PermissionDefaults
     public static readonly IReadOnlyList<string> Seller = new[]
     {
         PermissionKeys.DashboardAccess,
+        // The cashier's bell. This key is only a client-side gate — the alerts
+        // themselves are assembled from low-stock and debt endpoints the Seller
+        // already holds, so granting it exposes nothing new. Without it the bell
+        // in the seller shell led to a "no access" screen.
+        PermissionKeys.NotificationsAccess,
         PermissionKeys.ProductsAccess, PermissionKeys.ProductsExport,
         PermissionKeys.CategoriesAccess,
         PermissionKeys.SalesAccess, PermissionKeys.SalesCreate, PermissionKeys.SalesExport, PermissionKeys.SalesInvoice,

@@ -18,7 +18,7 @@ public interface ISaleQueryService
     /// at 10 000 rows; for paged API consumption use <see cref="GetSalesPagedAsync"/>.
     /// </summary>
     Task<IEnumerable<SaleDto>> GetAllSalesAsync(CancellationToken cancellationToken = default);
-    Task<PagedResult<SaleDto>> GetSalesPagedAsync(int page, int size, string? search = null, Guid? sellerId = null, string? paymentType = null, string? status = null, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
+    Task<PagedResult<SaleDto>> GetSalesPagedAsync(int page, int size, string? search = null, Guid? sellerId = null, string? paymentType = null, string? status = null, DateTime? from = null, DateTime? to = null, Guid? shiftId = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<SaleDto>> GetSalesByDateRangeAsync(DateTime start, DateTime end, CancellationToken cancellationToken = default);
     // sellerId null → whole-shop (all sellers'), for seller collaboration with
     // the data.allSalesView permission; otherwise only that seller's rows.

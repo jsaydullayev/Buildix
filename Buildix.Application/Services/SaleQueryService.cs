@@ -85,7 +85,7 @@ public class SaleQueryService : ISaleQueryService
         return sales.Select(SaleMapper.MapSale);
     }
 
-    public async Task<PagedResult<SaleDto>> GetSalesPagedAsync(int page, int size, string? search = null, Guid? sellerId = null, string? paymentType = null, string? status = null, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<SaleDto>> GetSalesPagedAsync(int page, int size, string? search = null, Guid? sellerId = null, string? paymentType = null, string? status = null, DateTime? from = null, DateTime? to = null, Guid? shiftId = null, CancellationToken cancellationToken = default)
     {
         // Clamp inputs — clients cannot ask for arbitrarily large pages or negative offsets.
         // Upper bound on `page` prevents (page - 1) * size int overflow on hostile input.
@@ -103,6 +103,11 @@ public class SaleQueryService : ISaleQueryService
         if (from.HasValue) baseQuery = baseQuery.Where(s => s.CreatedAt >= from.Value);
         if (to.HasValue) baseQuery = baseQuery.Where(s => s.CreatedAt <= to.Value);
         if (sellerId.HasValue) baseQuery = baseQuery.Where(s => s.SellerId == sellerId.Value);
+        // Смена scoping: Sale.ShiftId is stamped from the open shift at creation,
+        // so this alone already narrows to that shift's cashier — no extra seller
+        // filter needed. Sales made before the column existed carry NULL and are
+        // simply not part of any shift.
+        if (shiftId.HasValue) baseQuery = baseQuery.Where(s => s.ShiftId == shiftId.Value);
 
         var statusFilter = !string.IsNullOrWhiteSpace(status) && Enum.TryParse<SaleStatus>(status, true, out var st)
             ? (SaleStatus?)st

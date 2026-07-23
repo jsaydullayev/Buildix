@@ -110,10 +110,14 @@ export default function ShiftsPage() {
                 {t('shifts.cashier')}: <span className="font-medium text-text">{current.cashierName}</span>
               </span>
             </div>
-            <div className="grid grid-cols-5 gap-4">
+            {/* Терминал and Click are split apart — they settle to different
+                accounts, so a merged "Картой" figure could not be reconciled
+                against either statement. cardIn is still their sum. */}
+            <div className="grid grid-cols-6 gap-4">
               <Metric label={t('shifts.metrics.opening')} value={current.openingCash} />
               <Metric label={t('shifts.metrics.cashIn')} value={current.cashIn} positive />
-              <Metric label={t('shifts.metrics.cardIn')} value={current.cardIn} />
+              <Metric label={t('shifts.metrics.terminal')} value={current.terminalIn} />
+              <Metric label={t('shifts.metrics.click')} value={current.clickIn} />
               <Metric label={t('shifts.metrics.withdrawals')} value={-current.withdrawals} />
               <Metric label={t('shifts.metrics.expected')} value={current.expectedCash} highlight />
             </div>

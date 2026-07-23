@@ -10,7 +10,6 @@ import {
   RequireSubscription,
   IndexRedirect,
 } from '@/shared/auth/guards';
-import { SellerSuppliesPage, SellerNotificationsPage } from '@/features/seller/SellerStubs';
 import { FullscreenLoader } from '@/shared/ui';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 
@@ -36,6 +35,8 @@ const SellerSalesPage = lazy(() => import('@/features/seller/SellerSalesPage'));
 const SellerShiftsPage = lazy(() => import('@/features/seller/SellerShiftsPage'));
 const SellerClientsPage = lazy(() => import('@/features/seller/SellerClientsPage'));
 const SellerPosPage = lazy(() => import('@/features/seller/SellerPosPage'));
+const SellerSuppliesPage = lazy(() => import('@/features/seller/SellerSuppliesPage'));
+const SellerNotificationsPage = lazy(() => import('@/features/seller/SellerNotificationsPage'));
 
 const publicElement = (node: ReactNode) => <Suspense fallback={<FullscreenLoader />}>{node}</Suspense>;
 

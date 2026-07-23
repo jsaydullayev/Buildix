@@ -172,6 +172,13 @@ export const posApi = {
     return data;
   },
 
+  /** Discard one of the caller's own parked (Draft) receipts. Separate from the
+   *  general DELETE /Sales/{id}, which needs sales.delete — a permission that
+   *  also reverses PAID sales and is deliberately withheld from cashiers. */
+  deleteMyDraft: async (saleId: string): Promise<void> => {
+    await apiClient.delete(`/Sales/my-drafts/${saleId}`);
+  },
+
   /** Printable receipt (PDF). Fetched through apiClient so the JWT is attached —
    *  a bare window.open would hit the endpoint unauthenticated. */
   invoicePdf: async (saleId: string, lang: string): Promise<Blob> => {
