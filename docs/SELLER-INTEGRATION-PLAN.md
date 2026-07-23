@@ -185,6 +185,15 @@ Har bosqich: additiv (Flutter buzilmaydi), backend build + frontend tsc/lint/bui
 | **10** | `ClickIn/TerminalIn` + `ClickCount/TerminalCount`. `CardIn` **o'zgarmadi** (to'liq naqdsiz jami) — Flutter klient uni «Картой» deb o'qiydi; invariant: `TerminalIn + ClickIn == CardIn`. Kassir va owner Смены ekranlarida alohida plitka. |
 | **12** | Smena-yopish Telegram hisobotida: `Наличными · Терминал · Click` + **«В долг»** (summa+soni) + «Возвратов» (faqat bo'lsa). |
 
+### ✅ 2026-07-23 (ikkinchi to'lqin) — chegirma, chek detali, qarzga sotish
+| Ish | Nima qilindi |
+|---|---|
+| **Chek detali** | Ro'yxat qatori bosilganda to'liq chek: tovarlar, chegirma, to'lovlar tarixi. Kassir sahifasiga ham ulandi. Ro'yxat qatori placeholder → oyna darhol chiziladi, so'ng id bo'yicha to'liq o'qish **«Смена №N»**, har to'lov **vaqti** va qarzni **kim yig'gani**ni to'ldiradi. `SaleDto.shiftNumber` + `PaymentDto.collectedByName` (additiv). |
+| **Chek detali — bug** | `GetSaleById`da `Include(s => s.Seller)` INNER JOIN edi (`SellerId` nullable emas), `User`da esa `!IsDeleted` filtri bor → **ishdan bo'shatilgan kassirning cheki ochilmay qolardi**. Ism endi alohida, filtrsiz olinadi. Testda ushlandi. |
+| **Chegirma (kassir)** | Savat footerida chegirma maydoni + «Сумма без скидки». Ruxsat o'zgarmadi (endpoint allaqachon `sales.create`), server auditlaydi va jamidan oshirmaydi. |
+| **Qarzga sotish (kassir)** | `POST /Sales/{id}/mark-debt` `sales.edit` → **`sales.create`**. Kassirda `sales.edit` yo'q edi, shuning uchun «В долг» boshlang'ich to'lovsiz **403** berardi (qisman to'lov esa boshqa endpoint orqali ishlardi — kassa o'zi bilan ziddiyatda edi). `sales.edit` ostida narx-override va qaytarish **qoldi** — kassirga faqat qarzga sotish ochildi. Pul qoidalari (doimiy mijoz, qarz limiti, audit) servisda, ruxsatda emas. |
+| **2 tarjima teshigi** | `sales.payment.terminal`, `sales.status.closed` — detal xom `terminal`/`Closed` chiqarardi. |
+
 **Yon topilma (tuzatilmagan):** `SaleNumber = MAX(SaleNumber) + 1` — eng katta raqamli sotuv o'chirilsa, raqam qayta ishlatiladi. Draft uchun zararsiz, lekin **to'langan** chek `sales.delete` bilan o'chirilsa, ikki chop etilgan chek bir xil «ЧЕК №N» ga ega bo'lishi mumkin. Tuzatish: `MAX` ni `IgnoreQueryFilters()` bilan olish (soft-delete qilinganlarni ham hisobga olish).
 
 ## 6. Ochiq qarorlar (boshlashdan oldin kelishish)
