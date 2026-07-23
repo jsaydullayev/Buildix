@@ -75,6 +75,21 @@ export const en: TranslationSchema = {
       cols: { client: 'CLIENT', phone: 'PHONE', debt: 'DEBT' },
       form: { name: 'Name / company', phone: 'Phone', type: 'Client type' },
     },
+    supplies: {
+      title: 'Supplies',
+      subtitle: 'Incoming goods · created by the administrator',
+      readOnly: 'View only — editing and receiving are handled by the administrator',
+      received: 'received',
+    },
+    notifications: {
+      subtitle: 'Active alerts: {{count}}',
+      empty: 'All clear — no alerts',
+      liveHint: 'This list reflects the current state: an entry disappears once the issue is resolved.',
+      debtOverdue: 'Debt overdue',
+      debtDueToday: 'Debt due today',
+      lowStock: 'Low stock',
+      outOfStock: 'Out of stock',
+    },
     pos: {
       allProducts: 'All products',
       outOfStock: 'out',

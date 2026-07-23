@@ -75,6 +75,21 @@ export const uz: TranslationSchema = {
       cols: { client: 'MIJOZ', phone: 'TELEFON', debt: 'QARZ' },
       form: { name: 'Ism / nomi', phone: 'Telefon', type: 'Mijoz turi' },
     },
+    supplies: {
+      title: 'Postavka',
+      subtitle: 'Tovar kirimi · administrator tomonidan yaratiladi',
+      readOnly: 'Ko‘rish — o‘zgartirish va qabul qilish administratorda',
+      received: 'qabul qilingan',
+    },
+    notifications: {
+      subtitle: 'Faol bildirishnomalar: {{count}}',
+      empty: 'Hammasi joyida — bildirishnoma yo‘q',
+      liveHint: 'Ro‘yxat joriy holatni ko‘rsatadi: masala hal bo‘lishi bilan yozuv yo‘qoladi.',
+      debtOverdue: 'Qarz muddati o‘tgan',
+      debtDueToday: 'Qarz to‘lash muddati — bugun',
+      lowStock: 'Omborda kam qoldi',
+      outOfStock: 'Tovar tugagan',
+    },
     pos: {
       allProducts: 'Barcha tovarlar',
       outOfStock: 'yo‘q',
