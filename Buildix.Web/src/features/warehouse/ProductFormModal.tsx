@@ -15,6 +15,14 @@ import {
   type CreateProductBody,
 } from './api';
 
+/**
+ * A money/quantity field. The input is left BLANK when the value is 0 so the
+ * user sees a faint "0" placeholder instead of a literal 0 they must delete
+ * before typing. An empty field means 0, so '' is coerced back to 0 here.
+ */
+const numField = () =>
+  z.preprocess((v) => (v === '' || v === null || v === undefined ? 0 : v), z.coerce.number().min(0));
+
 const schema = z.object({
   name: z.string().min(1),
   sku: z.string().max(50).optional(),
@@ -23,14 +31,20 @@ const schema = z.object({
     z.number().int().nullable(),
   ),
   unit: z.coerce.number().int().min(1),
-  salePrice: z.coerce.number().min(0),
-  minSalePrice: z.coerce.number().min(0),
-  costPrice: z.coerce.number().min(0),
-  quantity: z.coerce.number().min(0),
-  minThreshold: z.coerce.number().min(0),
+  salePrice: numField(),
+  minSalePrice: numField(),
+  costPrice: numField(),
+  quantity: numField(),
+  minThreshold: numField(),
   hidePriceFromSellers: z.boolean(),
 });
 type FormValues = z.infer<typeof schema>;
+
+/** Blank (placeholder-showing) value for a numeric field. Typed as number so it
+ *  fits FormValues; the schema turns it back into 0 on submit. */
+const BLANK = '' as unknown as number;
+/** Show a real stored value, but blank a 0 so the placeholder shows instead. */
+const numOrBlank = (n: number): number => (n === 0 ? BLANK : n);
 
 export function ProductFormModal({
   open,
@@ -65,10 +79,10 @@ export function ProductFormModal({
       sku: '',
       categoryId: null,
       unit: 1,
-      salePrice: 0,
-      minSalePrice: 0,
-      costPrice: 0,
-      quantity: 0,
+      salePrice: BLANK,
+      minSalePrice: BLANK,
+      costPrice: BLANK,
+      quantity: BLANK,
       minThreshold: 5,
       hidePriceFromSellers: false,
     },
@@ -83,11 +97,11 @@ export function ProductFormModal({
             sku: product.sku ?? '',
             categoryId: product.categoryId,
             unit: product.unit,
-            salePrice: product.salePrice,
-            minSalePrice: product.minSalePrice,
-            costPrice: product.costPrice,
-            quantity: product.quantity,
-            minThreshold: product.minThreshold,
+            salePrice: numOrBlank(product.salePrice),
+            minSalePrice: numOrBlank(product.minSalePrice),
+            costPrice: numOrBlank(product.costPrice),
+            quantity: numOrBlank(product.quantity),
+            minThreshold: numOrBlank(product.minThreshold),
             hidePriceFromSellers: product.hidePriceFromSellers,
           }
         : {
@@ -95,10 +109,10 @@ export function ProductFormModal({
             sku: '',
             categoryId: null,
             unit: 1,
-            salePrice: 0,
-            minSalePrice: 0,
-            costPrice: 0,
-            quantity: 0,
+            salePrice: BLANK,
+            minSalePrice: BLANK,
+            costPrice: BLANK,
+            quantity: BLANK,
             minThreshold: 5,
             hidePriceFromSellers: false,
           },
@@ -210,24 +224,24 @@ export function ProductFormModal({
           </select>
         </Field>
         <Field label={t('warehouse.form.minThreshold')}>
-          <input type="number" step="any" className={inputCls} {...register('minThreshold')} />
+          <input type="number" step="any" placeholder="0" className={inputCls} {...register('minThreshold')} />
         </Field>
 
         <Field label={t('warehouse.form.salePrice')}>
-          <input type="number" step="any" className={cn(inputCls, belowCost && 'border-danger')} {...register('salePrice')} />
+          <input type="number" step="any" placeholder="0" className={cn(inputCls, belowCost && 'border-danger')} {...register('salePrice')} />
         </Field>
         <Field label={t('warehouse.form.minSalePrice')}>
-          <input type="number" step="any" className={inputCls} {...register('minSalePrice')} />
+          <input type="number" step="any" placeholder="0" className={inputCls} {...register('minSalePrice')} />
         </Field>
 
         {canViewCost && (
           <Field label={t('warehouse.form.costPrice')}>
-            <input type="number" step="any" className={inputCls} {...register('costPrice')} />
+            <input type="number" step="any" placeholder="0" className={inputCls} {...register('costPrice')} />
           </Field>
         )}
         {(!isEdit || canEditStock) && (
           <Field label={t('warehouse.form.quantity')}>
-            <input type="number" step="any" className={inputCls} {...register('quantity')} />
+            <input type="number" step="any" placeholder="0" className={inputCls} {...register('quantity')} />
           </Field>
         )}
 

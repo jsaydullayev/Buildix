@@ -57,6 +57,7 @@ export function CloseShiftModal({ shift, onClose }: { shift: Shift | null; onClo
           <input
             type="number"
             step="any"
+            placeholder="0"
             value={counted}
             onChange={(e) => setCounted(e.target.value)}
             className="h-12 rounded-input border border-input-border bg-surface px-4 text-[16px] outline-none focus:border-primary focus:shadow-focus-ring nums"

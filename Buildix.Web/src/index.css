@@ -28,6 +28,14 @@
     box-shadow: theme('boxShadow.focus-ring');
     border-color: theme('colors.primary.DEFAULT');
   }
+
+  /* Placeholders are hints, never values. Numeric fields show a faint "0" so
+     the user can type straight away instead of deleting a literal zero — this
+     keeps that hint clearly dimmer than real input in every browser. */
+  ::placeholder {
+    color: theme('colors.muted-2');
+    opacity: 1; /* Firefox dims placeholders on its own; normalise it. */
+  }
 }
 
 @layer utilities {

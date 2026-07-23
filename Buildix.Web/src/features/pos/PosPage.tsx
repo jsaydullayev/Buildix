@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
-import { posApi, type PosCustomer } from './api';
+import { posApi, type PosCustomer, type PosSale } from './api';
 
 const METHODS = [
   { key: 'cash', value: 'Cash' },
@@ -30,28 +30,34 @@ export default function PosPage() {
   const [method, setMethod] = useState<string>('Cash');
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [custOpen, setCustOpen] = useState(false);
-  const [discountInput, setDiscountInput] = useState('0');
+  // Blank, not '0' — the field shows a faint "0" placeholder so the cashier can
+  // type straight away instead of deleting a literal zero first.
+  const [discountInput, setDiscountInput] = useState('');
   const [success, setSuccess] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [startKey, setStartKey] = useState(0); // bump to retry draft creation
 
-  // Create a fresh draft sale on mount (retried when startKey changes).
-  useEffect(() => {
-    let active = true;
-    setStartError(null);
-    posApi
-      .createDraft()
-      .then((s) => {
-        if (active) setSaleId(s.id);
-      })
-      .catch((e) => {
-        if (active) setStartError((e as ApiError).message ?? '');
-      });
-    return () => {
-      active = false;
-    };
-  }, [startKey]);
+  // Chek (Draft) YARATILMAYDI, toki birinchi mahsulot savatga tushmaguncha.
+  // Ilgari u mount'da yaratilardi — kassir POS'ni ochib, hech narsa sotmasdan
+  // chiqib ketsa ham bazada ЧЕК № olgan bo'sh sotuv qolardi (StrictMode'da
+  // effekt ikki marta ishlab, har kirishda ikkitadan), va checkout'dan keyin
+  // darhol yana bittasi. Endi raqam faqat haqiqiy chek uchun sarflanadi.
+  //
+  // Promise ref'da saqlanadi: ikkita tez klik ham bitta createDraft'ni kutadi,
+  // ya'ni ikkita parallel chek ochilmaydi.
+  const draftRef = useRef<Promise<PosSale> | null>(null);
+  const ensureSale = async (): Promise<string> => {
+    if (saleId) return saleId;
+    draftRef.current ??= posApi.createDraft(customer?.id ?? null);
+    try {
+      const s = await draftRef.current;
+      setSaleId(s.id);
+      return s.id;
+    } catch (e) {
+      draftRef.current = null; // keyingi urinish yangidan boshlansin
+      throw e;
+    }
+  };
 
   const saleQuery = useQuery({
     queryKey: ['pos-sale', saleId],
@@ -76,24 +82,37 @@ export default function PosPage() {
   // M-4: add a line by productId + price only — works from the product grid AND
   // from the cart "+" (which no longer depends on the current search results).
   const addItem = useMutation({
-    mutationFn: (p: { productId: string; salePrice: number; minSalePrice: number }) =>
-      posApi.addItem(saleId!, {
+    mutationFn: async (p: { productId: string; salePrice: number; minSalePrice: number }) => {
+      // Birinchi mahsulot chekni ham yaratadi (lazy draft).
+      const id = await ensureSale();
+      return posApi.addItem(id, {
         isExternal: false,
         productId: p.productId,
         quantity: 1,
         salePrice: p.salePrice,
         minSalePrice: p.minSalePrice,
-      }),
+      });
+    },
     onSuccess: () => {
       setActionError(null);
       refreshAll();
     },
-    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+    onError: (e) => {
+      const err = e as unknown as ApiError;
+      // Smena ochilmagan bo'lsa — bu butun kassani bloklaydigan holat, shuning
+      // uchun savat ustidagi kichik xato emas, to'liq ekranli ogohlantirish.
+      if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
+      else setActionError(err.message ?? '');
+    },
   });
   const removeOne = useMutation({
     mutationFn: (itemId: string) => posApi.removeItem(saleId!, itemId, 1),
     onSuccess: refreshAll,
   });
+  // Chegirma va mijoz chek hali yaratilmagan bo'lsa serverga bormaydi — qiymat
+  // lokal state'da turadi. Mijoz keyin createDraft'ga uzatiladi; chegirma esa
+  // savat to'lgach, kassir maydondan chiqqanda (blur) yuboriladi — baribir
+  // backend bo'sh chekka chegirmani qabul qilmaydi (chegirma > jami summa).
   const applyDiscount = useMutation({
     mutationFn: (amount: number) => posApi.setDiscount(saleId!, amount),
     onSuccess: refresh,
@@ -112,15 +131,17 @@ export default function PosPage() {
         await posApi.addPayment(saleId!, { paymentType: method, amount: sale.totalAmount });
       }
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       setSuccess(true);
       setActionError(null);
       void qc.invalidateQueries({ queryKey: ['pos-products'] });
-      // Start a fresh sale.
-      const fresh = await posApi.createDraft();
-      setSaleId(fresh.id);
+      // Kassani bo'shatamiz, lekin YANGI chek ochmaymiz — keyingi chek o'zining
+      // birinchi mahsuloti bilan tug'iladi. Aks holda har yakunlangan sotuvdan
+      // keyin bazada bo'sh, raqam olgan chek qolib ketardi.
+      draftRef.current = null;
+      setSaleId(null);
       setCustomer(null);
-      setDiscountInput('0');
+      setDiscountInput('');
       setMethod('Cash');
       setTimeout(() => setSuccess(false), 2500);
     },
@@ -166,7 +187,7 @@ export default function PosPage() {
             <Button variant="secondary" onClick={() => navigate(`/${subdomain}/shifts`)}>
               {t('shifts.openShift')}
             </Button>
-            <Button onClick={() => setStartKey((k) => k + 1)}>{t('common.retry')}</Button>
+            <Button onClick={() => setStartError(null)}>{t('common.retry')}</Button>
           </div>
         </div>
       ) : (
@@ -194,7 +215,7 @@ export default function PosPage() {
                   <button
                     key={p.id}
                     type="button"
-                    disabled={!saleId || p.quantity <= 0}
+                    disabled={p.quantity <= 0}
                     onClick={() => addItem.mutate({ productId: p.id, salePrice: p.salePrice, minSalePrice: p.minSalePrice })}
                     className="flex flex-col rounded-card border border-border bg-surface p-3 text-left transition-colors hover:border-primary disabled:opacity-50"
                   >
@@ -229,7 +250,7 @@ export default function PosPage() {
                   type="button"
                   onClick={() => {
                     setCustomer(null);
-                    attachCustomer.mutate(null);
+                    if (saleId) attachCustomer.mutate(null);
                   }}
                   className="text-muted-2 hover:text-danger"
                 >
@@ -299,9 +320,10 @@ export default function PosPage() {
                 <input
                   type="number"
                   step="any"
+                  placeholder="0"
                   value={discountInput}
                   onChange={(e) => setDiscountInput(e.target.value)}
-                  onBlur={() => applyDiscount.mutate(Math.max(0, Number(discountInput) || 0))}
+                  onBlur={() => saleId && applyDiscount.mutate(Math.max(0, Number(discountInput) || 0))}
                   className="h-9 w-[120px] rounded-input border border-input-border bg-surface px-3 text-right text-[14px] outline-none focus:border-primary nums"
                 />
                 <span className="text-[12px] text-muted-2">{t('common.currency')}</span>
@@ -365,7 +387,7 @@ export default function PosPage() {
           onClose={() => setCustOpen(false)}
           onPick={(c) => {
             setCustomer(c);
-            attachCustomer.mutate(c);
+            if (saleId) attachCustomer.mutate(c);
             setCustOpen(false);
           }}
         />
