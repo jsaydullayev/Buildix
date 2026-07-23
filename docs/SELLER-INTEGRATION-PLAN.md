@@ -147,6 +147,46 @@ Har bosqich: additiv (Flutter buzilmaydi), backend build + frontend tsc/lint/bui
 
 ---
 
+## 5b. Holat — B0…B4 dan keyin (kod bilan tekshirilgan, 2026-07-23)
+
+### ✅ Yopilgan gaplar
+| Gap | Nima qilindi |
+|---|---|
+| **S7** (pul-bug) | `Payment.CollectedByUserId` + `DebtService.PayAsync` uni to'ldiradi + `ComputeFinancials` yig'uvchi bo'yicha biriktiradi. NULL = "sotuvchining o'zi oldi" → eski qatorlar o'zgarmaydi |
+| **P4** Микс | `ApplyTendersAsync` umumiy yadro + `POST /Sales/{id}/checkout` (atomik, walk-in'da ham ishlaydi) |
+| **P8** Смена № | `Shift.ShiftNumber` (advisory lock bilan) + `Sale.ShiftId` |
+| **S2** per-tender | `debtIn`, `cashCount`, `cardCount`, `debtCount` (*Click hali Карта ichida*) |
+| **P10** Возвратов | `returnAmount` + `returnCount` smenada |
+| **S3** kassir tarixi | `GET /Shifts/my?range=week\|month\|all` + davr jamlari (self-service) |
+| **C2** mijoz turi | `CustomerService`ning 3 read-mapperi `CustomerType/IsRegular/DebtLimit` qaytaradi |
+| **§3.5** ruxsat | Seller default'iga `notifications.access` |
+| *(rejadan tashqari)* | Birlik nomi i18n: `SaleItemDto.unitValue` + klient tarjimasi |
+
+### ⏳ Ochiq qolgan gaplar (tekshirilgan)
+**Katta — yangi subsystem:**
+1. **PV1 — Поставки delivery-pipeline.** `inTransit/DeliveryStatus/DriverPhone/StartReceiving` — kodda **yo'q**. Kerak: lifecycle, stok qo'shilishini yaratilishdan ajratish, приёмка amali, seller-DTO shaping, migratsiya. *(B4 read-only bilan vaqtincha qoplandi.)*
+2. **N1 — In-app Notifications.** `Notification` entity/controller **yo'q**. Kerak: entity + generatsiya-triggerlar + list/read endpointlar. *(B4 klient-feed bilan vaqtincha qoplandi; read/unread yo'q.)*
+
+**O'rta:**
+3. **P7/T3 — Shtrix-kod.** `Product.Barcode` yo'q, `by-sku/by-barcode` endpoint yo'q (faqat non-unique `Sku` substring qidiruvi). Skaner uchun kerak.
+4. **S9 — «Принятые сегодня».** Bugungi qarz-to'lovlar **ro'yxati** yo'q (faqat `PaidToday` yig'indisi).
+5. **P11 — Qaytarishlar feed'i.** Qaytarish sotuvni joyida o'zgartiradi + manfiy `Payment` yozadi; ro'yxatlanadigan qator sifatida chiqmaydi.
+6. **T2/T4 — Tovar maydonlari.** `WarehouseLocation` (МЕСТО), per-product supplier, oxirgi kelish, oyiga sotilgan — hech biri yo'q.
+7. **C3 — Mijoz statistikasi.** Oylik xaridlar (soni+summasi), oxirgi xarid hisoblanmaydi.
+
+**Kichik:**
+8. `PaidToday` biroz oshirib ko'rsatadi — qarzli sotuvdagi boshlang'ich to'lovni ham qo'shadi.
+
+### ✅ 2026-07-23 da yopilgan (6/9/10/12)
+| № | Nima qilindi |
+|---|---|
+| **6 · P9** | `GetSalesPagedAsync(… shiftId)` + `GET /api/Sales?shiftId=`. «Мои продажи»da yangi **«Смена»** filtri (default). Smena yopiq bo'lsa so'rov **yuborilmaydi** — filtrsiz so'rov jimgina «butun tarix»ga aylanib ketardi. Tekshirildi: smena → 3 chek, oy → 7 chek. |
+| **9** | `DELETE /api/Sales/my-drafts/{id}` — `sales.delete` **berilmadi** (u to'langan chekni ham qaytaradi = aynan fraud yuzasi). O'rniga `DeleteSaleAsync(… requireOwnDraftOf)` tranzaksiya **ichida**, qator qulfidan **keyin** tekshiradi. Kassadagi «Очистить» tugmasi ilgari faqat `park()` chaqirardi (chek kutayotganlar ichida qolib ketardi) — endi haqiqatan o'chiradi; kutayotgan cheklarda ✕ tugmasi. Chegara testi: to'langan chek → 403, boshqaning drafti → 403, o'ziniki → 200. |
+| **10** | `ClickIn/TerminalIn` + `ClickCount/TerminalCount`. `CardIn` **o'zgarmadi** (to'liq naqdsiz jami) — Flutter klient uni «Картой» deb o'qiydi; invariant: `TerminalIn + ClickIn == CardIn`. Kassir va owner Смены ekranlarida alohida plitka. |
+| **12** | Smena-yopish Telegram hisobotida: `Наличными · Терминал · Click` + **«В долг»** (summa+soni) + «Возвратов» (faqat bo'lsa). |
+
+**Yon topilma (tuzatilmagan):** `SaleNumber = MAX(SaleNumber) + 1` — eng katta raqamli sotuv o'chirilsa, raqam qayta ishlatiladi. Draft uchun zararsiz, lekin **to'langan** chek `sales.delete` bilan o'chirilsa, ikki chop etilgan chek bir xil «ЧЕК №N» ga ega bo'lishi mumkin. Tuzatish: `MAX` ni `IgnoreQueryFilters()` bilan olish (soft-delete qilinganlarni ham hisobga olish).
+
 ## 6. Ochiq qarorlar (boshlashdan oldin kelishish)
 1. **Микс (split) to'lov** — atomik multi-tender endpoint quramizmi, yoki v1 uchun faqat Наличные/Карта/В долг (Микс keyinroq)?
 2. **Chegirma (скидка)** — backendда bor; POS'ga chegirma boshqaruvi qo'shamizmi yoki dizayndek yashiramizmi?

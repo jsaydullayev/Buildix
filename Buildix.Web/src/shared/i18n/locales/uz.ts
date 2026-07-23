@@ -26,6 +26,7 @@ export const uz: TranslationSchema = {
     roll: 'rulon',
     box: 'quti',
     pack: 'pachka',
+    liter: 'l',
   },
   brand: {
     name: 'Buildix',
@@ -95,6 +96,8 @@ export const uz: TranslationSchema = {
       outOfStock: 'yo‘q',
       receipt: 'Chek',
       clear: 'Tozalash',
+      discard: 'Chekni o‘chirish',
+      discardConfirm: 'Yakunlanmagan chek o‘chirilsinmi? Tovarlar omborga qaytadi.',
       held: 'Kutayotgan cheklar',
       park: 'Keyinga qoldirish',
       positions: 'Pozitsiya',
@@ -220,7 +223,7 @@ export const uz: TranslationSchema = {
       debt: 'Qarzga',
       today: 'bugun',
     },
-    period: { today: 'Bugun', week: 'Hafta', month: 'Oy' },
+    period: { shift: 'Smena', today: 'Bugun', week: 'Hafta', month: 'Oy' },
     payment: {
       all: 'Hammasi',
       cash: 'Naqd',
@@ -229,6 +232,8 @@ export const uz: TranslationSchema = {
       transfer: 'O‘tkazma',
       click: 'Click',
       mixed: 'Aralash',
+      credit: 'Avans',
+      returned: 'Qaytarilgan',
     },
     cols: {
       number: 'CHEK №',
@@ -312,6 +317,8 @@ export const uz: TranslationSchema = {
       opening: 'Boshlang‘ich naqd',
       cashIn: 'Smenada naqd',
       cardIn: 'Smenada karta',
+      terminal: 'Terminal',
+      click: 'Click',
       withdrawals: 'Yechishlar',
       expected: 'Kassada bo‘lishi kerak',
     },
@@ -562,6 +569,8 @@ export const uz: TranslationSchema = {
     },
     total: 'Jami',
     amount: 'To‘lovga summa',
+    cashPart: 'Naqd bilan',
+    cardPart: 'Karta bilan (qoldiq)',
     payment: {
       title: 'To‘lov usuli',
       cash: 'Naqd',

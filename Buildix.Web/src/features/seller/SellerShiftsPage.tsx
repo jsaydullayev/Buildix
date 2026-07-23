@@ -103,11 +103,14 @@ export default function SellerShiftsPage() {
               </span>
             </div>
 
-            {/* Per-tender breakdown — matches the design's 5 tiles. */}
-            <div className="grid grid-cols-5 gap-4">
+            {/* Per-tender breakdown. Терминал and Click are shown apart: they
+                settle to different accounts, so a cashier reconciling the shift
+                needs each figure on its own, not one merged "Картой". */}
+            <div className="grid grid-cols-6 gap-4">
               <Metric label={t('sales.stats.sum')} value={current.revenue} hint={`${current.checkCount}`} />
               <Metric label={t('pos.payment.cash')} value={current.cashIn} hint={`${current.cashCount}`} positive />
-              <Metric label={t('pos.payment.card')} value={current.cardIn} hint={`${current.cardCount}`} />
+              <Metric label={t('shifts.metrics.terminal')} value={current.terminalIn} hint={`${current.terminalCount}`} />
+              <Metric label={t('shifts.metrics.click')} value={current.clickIn} hint={`${current.clickCount}`} />
               <Metric label={t('pos.payment.debt')} value={current.debtIn} hint={`${current.debtCount}`} tone="warn" />
               <Metric label={t('sales.stats.avg')} value={avgCurrent} highlight />
             </div>

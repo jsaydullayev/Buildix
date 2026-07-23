@@ -23,7 +23,12 @@ public interface ISaleReversalService
     /// be the authenticated caller's id from the JWT claim — it's the actor on
     /// the fraud-audit row, never a client-supplied value.
     /// </summary>
-    Task<Result<SaleDto>> DeleteSaleAsync(Guid saleId, Guid userId, CancellationToken cancellationToken = default);
+    /// <param name="requireOwnDraftOf">
+    /// When set, the delete only succeeds if the sale is still a Draft created by
+    /// this user — the narrow path for a cashier discarding their own parked
+    /// receipt without holding <c>sales.delete</c>. Null = unrestricted.
+    /// </param>
+    Task<Result<SaleDto>> DeleteSaleAsync(Guid saleId, Guid userId, Guid? requireOwnDraftOf = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Return a line (partial/full), refunding money + returning stock.

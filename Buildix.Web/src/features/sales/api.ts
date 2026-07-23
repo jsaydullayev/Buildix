@@ -41,6 +41,8 @@ export interface SalesQuery {
   status?: string | null;
   from?: string | null;
   to?: string | null;
+  /** Narrow to one cash shift's receipts ("Мои продажи за смену"). */
+  shiftId?: string | null;
 }
 
 export interface TodaySalesSummary {
@@ -64,6 +66,7 @@ export const salesApi = {
         status: q.status || undefined,
         from: q.from || undefined,
         to: q.to || undefined,
+        shiftId: q.shiftId || undefined,
       },
     });
     return data;

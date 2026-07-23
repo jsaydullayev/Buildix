@@ -140,7 +140,12 @@ public class ShiftService : IShiftService
                 $"Кассир: {open.User?.FullName ?? "—"}\n" +
                 $"Чеков: {fin.CheckCount}\n" +
                 $"Выручка: {fin.Revenue:N0} сум\n" +
-                $"Наличными: {fin.CashIn:N0} · Картой: {fin.CardIn:N0}\n" +
+                $"Наличными: {fin.CashIn:N0} · Терминал: {fin.TerminalIn:N0} · Click: {fin.ClickIn:N0}\n" +
+                // Credit sold on this shift and returns are part of how the shift
+                // closed — without them the owner saw revenue that never became
+                // money and could not tell a refunded receipt from a missing one.
+                $"В долг: {fin.DebtIn:N0} сум ({fin.DebtCount})\n" +
+                (fin.ReturnCount > 0 ? $"Возвратов: {fin.ReturnAmount:N0} сум ({fin.ReturnCount})\n" : "") +
                 $"Расхождение: {open.Discrepancy:N0} сум";
             await _telegram.SendToOwnerAsync(open.MarketId, text, cancellationToken);
         }
@@ -220,7 +225,8 @@ public class ShiftService : IShiftService
 
     private record ShiftFinancials(
         decimal CashIn, decimal CardIn, decimal Withdrawals, decimal Revenue, int CheckCount, decimal ExpectedCash,
-        decimal DebtIn, int CashCount, int CardCount, int DebtCount, decimal ReturnAmount, int ReturnCount);
+        decimal DebtIn, int CashCount, int CardCount, int DebtCount, decimal ReturnAmount, int ReturnCount,
+        decimal TerminalIn, decimal ClickIn, int TerminalCount, int ClickCount);
 
     /// <summary>Aggregates the money that moved through the drawer during a shift window.</summary>
     private async Task<ShiftFinancials> ComputeFinancialsAsync(Shift s, DateTime windowEnd, CancellationToken cancellationToken)
@@ -251,6 +257,14 @@ public class ShiftService : IShiftService
         var cardIn = await payments.Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
 
+        // Click split out of the cashless bucket. CardIn deliberately stays the
+        // FULL cashless total (Terminal + Transfer + Click) — the Flutter client
+        // reads it as "Картой" and must keep reconciling; ClickIn/TerminalIn are
+        // an additive breakdown of it, so TerminalIn + ClickIn == CardIn.
+        var clickIn = await payments.Where(p => p.PaymentType == PaymentType.Click)
+            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        var terminalIn = cardIn - clickIn;
+
         // Receipt counts per tender (positive movements only — a refund is not a
         // new receipt), and the refunds themselves for the "Возвратов" tile.
         var cashCount = await payments
@@ -258,6 +272,14 @@ public class ShiftService : IShiftService
             .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
         var cardCount = await payments
             .Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit && p.Amount > 0)
+            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+        // Counted separately rather than subtracted: one mixed receipt can carry
+        // both a Terminal and a Click line, so it belongs to both counts.
+        var clickCount = await payments
+            .Where(p => p.PaymentType == PaymentType.Click && p.Amount > 0)
+            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+        var terminalCount = await payments
+            .Where(p => (p.PaymentType == PaymentType.Terminal || p.PaymentType == PaymentType.Transfer) && p.Amount > 0)
             .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
 
         var refunds = payments.Where(p => p.Amount < 0);
@@ -293,7 +315,8 @@ public class ShiftService : IShiftService
         var expected = s.OpeningCash + cashIn - withdrawals;
         return new ShiftFinancials(
             cashIn, cardIn, withdrawals, revenue, checkCount, expected,
-            debtIn, cashCount, cardCount, debtCount, returnAmount, returnCount);
+            debtIn, cashCount, cardCount, debtCount, returnAmount, returnCount,
+            terminalIn, clickIn, terminalCount, clickCount);
     }
 
     private async Task<Shift?> FindOpenShiftAsync(Guid userId, CancellationToken cancellationToken)
@@ -309,5 +332,6 @@ public class ShiftService : IShiftService
         s.OpeningCash, s.CountedCash, s.Discrepancy, s.ReconStatus.ToString(),
         fin.CheckCount, fin.Revenue, fin.CashIn, fin.CardIn, fin.Withdrawals, fin.ExpectedCash,
         fin.DebtIn, fin.CashCount, fin.CardCount, fin.DebtCount, fin.ReturnAmount, fin.ReturnCount,
-        s.ShiftNumber);
+        s.ShiftNumber,
+        fin.TerminalIn, fin.ClickIn, fin.TerminalCount, fin.ClickCount);
 }

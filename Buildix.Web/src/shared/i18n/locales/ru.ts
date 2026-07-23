@@ -24,6 +24,7 @@ export const ru = {
     roll: 'рул',
     box: 'кор',
     pack: 'уп',
+    liter: 'л',
   },
   brand: {
     name: 'Buildix',
@@ -93,6 +94,8 @@ export const ru = {
       outOfStock: 'нет',
       receipt: 'Чек',
       clear: 'Очистить',
+      discard: 'Удалить чек',
+      discardConfirm: 'Удалить незавершённый чек? Позиции вернутся на склад.',
       held: 'Отложенные чеки',
       park: 'Отложить',
       positions: 'Позиций',
@@ -218,7 +221,7 @@ export const ru = {
       debt: 'В долг',
       today: 'за сегодня',
     },
-    period: { today: 'Сегодня', week: 'Неделя', month: 'Месяц' },
+    period: { shift: 'Смена', today: 'Сегодня', week: 'Неделя', month: 'Месяц' },
     payment: {
       all: 'Все',
       cash: 'Наличные',
@@ -227,6 +230,8 @@ export const ru = {
       transfer: 'Перевод',
       click: 'Click',
       mixed: 'Смешанно',
+      credit: 'Аванс',
+      returned: 'Возврат',
     },
     cols: {
       number: 'ЧЕК №',
@@ -310,6 +315,8 @@ export const ru = {
       opening: 'В кассе на начало',
       cashIn: 'Наличными за смену',
       cardIn: 'Картой за смену',
+      terminal: 'Терминал',
+      click: 'Click',
       withdrawals: 'Снятия',
       expected: 'Должно быть в кассе',
     },
@@ -560,6 +567,8 @@ export const ru = {
     },
     total: 'Итого',
     amount: 'Сумма к оплате',
+    cashPart: 'Наличными',
+    cardPart: 'Картой (остаток)',
     payment: {
       title: 'Способ оплаты',
       cash: 'Наличные',

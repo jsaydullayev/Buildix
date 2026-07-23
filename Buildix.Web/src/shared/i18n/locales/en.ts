@@ -26,6 +26,7 @@ export const en: TranslationSchema = {
     roll: 'roll',
     box: 'box',
     pack: 'pack',
+    liter: 'l',
   },
   brand: {
     name: 'Buildix',
@@ -95,6 +96,8 @@ export const en: TranslationSchema = {
       outOfStock: 'out',
       receipt: 'Receipt',
       clear: 'Clear',
+      discard: 'Delete receipt',
+      discardConfirm: 'Delete this unfinished receipt? Items return to stock.',
       held: 'Parked receipts',
       park: 'Park',
       positions: 'Items',
@@ -220,7 +223,7 @@ export const en: TranslationSchema = {
       debt: 'On credit',
       today: 'today',
     },
-    period: { today: 'Today', week: 'Week', month: 'Month' },
+    period: { shift: 'Shift', today: 'Today', week: 'Week', month: 'Month' },
     payment: {
       all: 'All',
       cash: 'Cash',
@@ -229,6 +232,8 @@ export const en: TranslationSchema = {
       transfer: 'Transfer',
       click: 'Click',
       mixed: 'Mixed',
+      credit: 'Credit',
+      returned: 'Refunded',
     },
     cols: {
       number: 'RECEIPT №',
@@ -312,6 +317,8 @@ export const en: TranslationSchema = {
       opening: 'Opening cash',
       cashIn: 'Cash this shift',
       cardIn: 'Card this shift',
+      terminal: 'Terminal',
+      click: 'Click',
       withdrawals: 'Withdrawals',
       expected: 'Expected in drawer',
     },
@@ -562,6 +569,8 @@ export const en: TranslationSchema = {
     },
     total: 'Total',
     amount: 'Amount due',
+    cashPart: 'In cash',
+    cardPart: 'By card (remainder)',
     payment: {
       title: 'Payment method',
       cash: 'Cash',

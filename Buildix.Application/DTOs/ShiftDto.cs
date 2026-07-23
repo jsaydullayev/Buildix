@@ -33,7 +33,14 @@ public record ShiftDto(
     [property: JsonPropertyName("returnAmount")] decimal ReturnAmount = 0,
     [property: JsonPropertyName("returnCount")] int ReturnCount = 0,
     /// <summary>Per-market sequential number printed on the receipt ("Смена №112").</summary>
-    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0
+    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0,
+    // Cashless split. CardIn above stays the FULL cashless total so existing
+    // clients keep reconciling; these break it down: TerminalIn + ClickIn == CardIn.
+    // The counts are receipts and may overlap — one mixed receipt can hold both.
+    [property: JsonPropertyName("terminalIn")] decimal TerminalIn = 0,
+    [property: JsonPropertyName("clickIn")] decimal ClickIn = 0,
+    [property: JsonPropertyName("terminalCount")] int TerminalCount = 0,
+    [property: JsonPropertyName("clickCount")] int ClickCount = 0
 );
 
 /// <summary>

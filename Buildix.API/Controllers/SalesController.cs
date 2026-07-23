@@ -64,14 +64,16 @@ public class SalesController : ApiControllerBase
         [FromQuery] string? status = null,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
+        [FromQuery] Guid? shiftId = null,
         CancellationToken ct = default)
     {
         // Returns a paged envelope: { items, page, size, total, totalPages }.
         // Defaults: page=1, size=50. Max size: 200 (clamped server-side).
         // Filters: search (chek №/mijoz/telefon/sotuvchi/mahsulot), sellerId,
-        // paymentType (Cash|Terminal|Transfer|Click|Debt), status, from/to.
+        // paymentType (Cash|Terminal|Transfer|Click|Debt), status, from/to,
+        // shiftId (bitta smena ichidagi cheklar — «Мои продажи за смену»).
         var result = await _saleQueryService.GetSalesPagedAsync(
-            page, size, search, sellerId, paymentType, status, from, to, ct);
+            page, size, search, sellerId, paymentType, status, from, to, shiftId, ct);
         return Ok(result);
     }
 
@@ -246,7 +248,7 @@ public class SalesController : ApiControllerBase
 
         try
         {
-            var result = await _saleReversalService.DeleteSaleAsync(saleId, userId, ct);
+            var result = await _saleReversalService.DeleteSaleAsync(saleId, userId, cancellationToken: ct);
             if (result.IsSuccess)
                 return Ok(result.Value);
             if (result.Code == NotFoundCode)
@@ -259,6 +261,33 @@ public class SalesController : ApiControllerBase
             _logger.LogError(ex, "Error deleting sale {SaleId}", saleId);
             return StatusCode(500, "Savdoni o'chirishda xatolik yuz berdi");
         }
+    }
+
+    /// <summary>
+    /// Kassir o'zi yaratgan, hali yakunlanmagan (Draft) chekni bekor qiladi.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately NOT gated by <c>sales.delete</c>: that permission also allows
+    /// deleting PAID receipts, which reverses stock and cash — exactly the fraud
+    /// surface a cashier should not have. Разрешение here is narrower than the
+    /// permission: the service refuses anything that is not the caller's own
+    /// Draft, so the blast radius is one abandoned basket.
+    /// </remarks>
+    [HttpDelete("my-drafts/{saleId}")]
+    [RequirePermission(PermissionKeys.SalesCreate)]
+    public async Task<ActionResult<SaleDto>> DeleteMyDraft(Guid saleId, CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            return Unauthorized();
+
+        var result = await _saleReversalService.DeleteSaleAsync(saleId, userId, requireOwnDraftOf: userId, cancellationToken: ct);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+        if (result.Code == NotFoundCode)
+            return NotFound();
+        if (result.Code == "FORBIDDEN")
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = result.Error });
+        return BadRequest(new { message = result.Error });
     }
 
     [HttpPost("{saleId}/cancel")]
