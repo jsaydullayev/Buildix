@@ -16,14 +16,16 @@ public class ZakupService : IZakupService
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IStockLedger _stockLedger;
+    private readonly INotificationService _notifications;
 
-    public ZakupService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ICurrentMarketService currentMarketService, IStockLedger stockLedger)
+    public ZakupService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ICurrentMarketService currentMarketService, IStockLedger stockLedger, INotificationService notifications)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
         _context = context;
         _currentMarketService = currentMarketService;
         _stockLedger = stockLedger;
+        _notifications = notifications;
     }
 
     // ── Single-line reads (unchanged) ────────────────────────────────────────
@@ -269,6 +271,11 @@ public class ZakupService : IZakupService
             await _auditLogService.LogActionAsync(
                 AuditEntityTypes.ZakupReceipt, receipt.Id, AuditActions.Update, adminId,
                 new { accepted = true, receipt.ReceiptNumber, ItemCount = lines.Count }, cancellationToken);
+
+            // In-app bildirishnoma: postavka qabul qilindi (Поставки).
+            await _notifications.RecordAsync(marketId, NotificationCategory.Supply, NotificationSeverity.Success,
+                "Поставка принята", $"З-{receipt.ReceiptNumber} · {lines.Count} товаров на склад", "purchases",
+                cancellationToken: cancellationToken);
 
             return await BuildReceiptDtoAsync(receipt.Id, marketId, cancellationToken);
         }, cancellationToken);

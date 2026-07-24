@@ -28,14 +28,22 @@ export default function CustomersPage() {
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<'all' | 'withDebt' | 'legal'>('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [detail, setDetail] = useState<Customer | null>(null);
   const debouncedSearch = useDebounce(search);
 
   const listQuery = useQuery({
-    queryKey: ['customers', { search: debouncedSearch, page }],
-    queryFn: () => customersApi.listPaged({ page, size: PAGE_SIZE, search: debouncedSearch }),
+    queryKey: ['customers', { search: debouncedSearch, page, filter }],
+    queryFn: () =>
+      customersApi.listPaged({
+        page,
+        size: PAGE_SIZE,
+        search: debouncedSearch,
+        withDebt: filter === 'withDebt' || undefined,
+        customerType: filter === 'legal' ? 'Legal' : undefined,
+      }),
     placeholderData: keepPreviousData,
   });
 
@@ -96,17 +104,39 @@ export default function CustomersPage() {
       />
 
       <div className="flex flex-1 flex-col gap-[18px] p-8">
-        <div className="relative max-w-md">
-          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder={t('customers.searchPlaceholder')}
-            className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative max-w-md flex-1">
+            <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder={t('customers.searchPlaceholder')}
+              className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            {(['all', 'withDebt', 'legal'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  setFilter(f);
+                  setPage(1);
+                }}
+                className={cn(
+                  'h-11 rounded-input border px-4 text-[13px] font-medium transition-colors',
+                  filter === f
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-input-border bg-surface text-muted hover:text-text',
+                )}
+              >
+                {t(`customers.filters.${f}`)}
+              </button>
+            ))}
+          </div>
         </div>
 
         <Card className="overflow-hidden">

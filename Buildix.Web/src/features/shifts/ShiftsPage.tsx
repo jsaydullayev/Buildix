@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Lock, Unlock, Check, Banknote } from 'lucide-react';
+import { Lock, Unlock, Check, Banknote, ChevronRight } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime, formatShortDate, formatRelative } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import { employeesApi } from '@/features/employees/api';
-import { shiftsApi, cashApi, type Shift } from './api';
+import { shiftsApi, cashApi, type Shift, type AttendanceRow } from './api';
 import { CloseShiftModal } from './CloseShiftModal';
 import { WithdrawModal } from './WithdrawModal';
+import { ShiftDetailModal } from './ShiftDetailModal';
+
+type ShiftsTab = 'journal' | 'attendance';
+type JournalFilter = 'all' | 'open' | 'discrepancy';
 
 const STATUS: Record<string, { key: 'open' | 'balanced' | 'discrepancy'; tone: 'success' | 'warn' | 'danger' | 'neutral' }> = {
   Open: { key: 'open', tone: 'neutral' },
@@ -31,6 +35,10 @@ export default function ShiftsPage() {
   const [forceClosing, setForceClosing] = useState<Shift | null>(null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [historyUser, setHistoryUser] = useState<string>('');
+  const [tab, setTab] = useState<ShiftsTab>('journal');
+  const [journalFilter, setJournalFilter] = useState<JournalFilter>('all');
+  const [attRange, setAttRange] = useState<'week' | 'month'>('month');
+  const [detail, setDetail] = useState<Shift | null>(null);
 
   const currentQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
   const historyQuery = useQuery({
@@ -47,6 +55,11 @@ export default function ShiftsPage() {
     queryKey: ['withdrawals', 'Pending'],
     queryFn: () => cashApi.withdrawals('Pending'),
     enabled: canCash,
+  });
+  const attendanceQuery = useQuery({
+    queryKey: ['shift-attendance', attRange],
+    queryFn: () => shiftsApi.attendance(attRange),
+    enabled: canViewHistory && tab === 'attendance',
   });
 
   const openMutation = useMutation({
@@ -187,72 +200,124 @@ export default function ShiftsPage() {
           </Card>
         )}
 
-        {/* History + rules */}
+        {/* Журнал смен / Посещаемость */}
         {canViewHistory && (
-          <div className="grid grid-cols-[2.2fr_1fr] items-start gap-[18px]">
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
-                <span className="text-[15px] font-semibold">{t('shifts.history')}</span>
-                {hasPermission(PERMISSIONS.users.access) && (
-                  <select
-                    value={historyUser}
-                    onChange={(e) => setHistoryUser(e.target.value)}
-                    className="h-9 rounded-input border border-input-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
-                  >
-                    <option value="">{t('sales.allSellers')}</option>
-                    {(usersQuery.data ?? []).map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.fullName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
-                <span>{t('shifts.cols.date')}</span>
-                <span>{t('shifts.cols.cashier')}</span>
-                <span>{t('shifts.cols.period')}</span>
-                <span className="text-center">{t('shifts.cols.checks')}</span>
-                <span className="text-right">{t('shifts.cols.revenue')}</span>
-                <span className="text-right">{t('shifts.cols.discrepancy')}</span>
-                <span>{t('shifts.cols.status')}</span>
-              </div>
-              {historyQuery.isLoading ? (
-                <div className="flex justify-center py-16 text-primary">
-                  <Spinner size={22} />
-                </div>
-              ) : historyQuery.data && historyQuery.data.length > 0 ? (
-                historyQuery.data.map((s) => (
-                  <HistoryRow
-                    key={s.id}
-                    shift={s}
-                    lang={i18n.language}
-                    onForceClose={s.isOpen ? () => setForceClosing(s) : undefined}
-                  />
-                ))
-              ) : (
-                <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.empty')}</div>
-              )}
-            </Card>
+          <>
+            <div className="flex items-center gap-1 rounded-input border border-input-border bg-surface p-1 self-start">
+              {(['journal', 'attendance'] as const).map((tk) => (
+                <button
+                  key={tk}
+                  type="button"
+                  onClick={() => setTab(tk)}
+                  className={cn(
+                    'rounded-[7px] px-4 py-2 text-[13px] font-medium transition-colors',
+                    tab === tk ? 'bg-primary text-white' : 'text-muted hover:text-text',
+                  )}
+                >
+                  {t(`shifts.tabs.${tk}`)}
+                </button>
+              ))}
+            </div>
 
-            <Card className="p-5">
-              <h3 className="mb-4 text-[15px] font-semibold">{t('shifts.rules.title')}</h3>
-              <div className="flex flex-col gap-3">
-                {(['r1', 'r2', 'r3', 'r4'] as const).map((r) => (
-                  <div key={r} className="flex items-start gap-2.5 text-[13px] text-label">
-                    <Check size={16} className="mt-0.5 flex-none text-success" />
-                    <span>{t(`shifts.rules.${r}`)}</span>
+            {tab === 'journal' ? (
+              <div className="grid grid-cols-[2.2fr_1fr] items-start gap-[18px]">
+                <Card className="overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
+                    <div className="flex items-center gap-1.5">
+                      {(['all', 'open', 'discrepancy'] as const).map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setJournalFilter(f)}
+                          className={cn(
+                            'rounded-pill border px-3 py-1.5 text-[12px] font-medium transition-colors',
+                            journalFilter === f
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-input-border bg-surface text-muted hover:text-text',
+                          )}
+                        >
+                          {t(`shifts.filter.${f}`)}
+                        </button>
+                      ))}
+                    </div>
+                    {hasPermission(PERMISSIONS.users.access) && (
+                      <select
+                        value={historyUser}
+                        onChange={(e) => setHistoryUser(e.target.value)}
+                        className="h-9 rounded-input border border-input-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+                      >
+                        <option value="">{t('sales.allSellers')}</option>
+                        {(usersQuery.data ?? []).map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
-                ))}
+                  <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+                    <span>{t('shifts.cols.date')}</span>
+                    <span>{t('shifts.cols.cashier')}</span>
+                    <span>{t('shifts.cols.period')}</span>
+                    <span className="text-center">{t('shifts.cols.checks')}</span>
+                    <span className="text-right">{t('shifts.cols.revenue')}</span>
+                    <span className="text-right">{t('shifts.cols.discrepancy')}</span>
+                    <span>{t('shifts.cols.status')}</span>
+                  </div>
+                  {historyQuery.isLoading ? (
+                    <div className="flex justify-center py-16 text-primary">
+                      <Spinner size={22} />
+                    </div>
+                  ) : (
+                    (() => {
+                      const rows = (historyQuery.data ?? []).filter((s) =>
+                        journalFilter === 'open' ? s.isOpen : journalFilter === 'discrepancy' ? s.reconStatus === 'Discrepancy' : true,
+                      );
+                      return rows.length > 0 ? (
+                        rows.map((s) => (
+                          <HistoryRow
+                            key={s.id}
+                            shift={s}
+                            lang={i18n.language}
+                            onOpen={() => setDetail(s)}
+                            onForceClose={s.isOpen ? () => setForceClosing(s) : undefined}
+                          />
+                        ))
+                      ) : (
+                        <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.empty')}</div>
+                      );
+                    })()
+                  )}
+                </Card>
+
+                <Card className="p-5">
+                  <h3 className="mb-4 text-[15px] font-semibold">{t('shifts.rules.title')}</h3>
+                  <div className="flex flex-col gap-3">
+                    {(['r1', 'r2', 'r3', 'r4'] as const).map((r) => (
+                      <div key={r} className="flex items-start gap-2.5 text-[13px] text-label">
+                        <Check size={16} className="mt-0.5 flex-none text-success" />
+                        <span>{t(`shifts.rules.${r}`)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
               </div>
-            </Card>
-          </div>
+            ) : (
+              <AttendanceCard
+                data={attendanceQuery.data}
+                loading={attendanceQuery.isLoading}
+                range={attRange}
+                onRange={setAttRange}
+              />
+            )}
+          </>
         )}
       </div>
 
       <CloseShiftModal shift={closing} onClose={() => setClosing(null)} />
       <CloseShiftModal shift={forceClosing} forced onClose={() => setForceClosing(null)} />
       <WithdrawModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} isOwner={isOwner} />
+      <ShiftDetailModal shift={detail} lang={i18n.language} onClose={() => setDetail(null)} />
     </>
   );
 }
@@ -284,13 +349,32 @@ function Metric({
   );
 }
 
-function HistoryRow({ shift: s, lang, onForceClose }: { shift: Shift; lang: string; onForceClose?: () => void }) {
+function HistoryRow({
+  shift: s,
+  lang,
+  onOpen,
+  onForceClose,
+}: {
+  shift: Shift;
+  lang: string;
+  onOpen: () => void;
+  onForceClose?: () => void;
+}) {
   const { t } = useTranslation();
   const st = STATUS[s.reconStatus] ?? STATUS.Open!;
   const period = `${formatTime(s.openedAt)}–${s.closedAt ? formatTime(s.closedAt) : '…'}`;
   return (
-    <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40">
-      <span className="font-medium">{formatShortDate(s.openedAt, lang)}</span>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen())}
+      className="grid grid-cols-shifts items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 cursor-pointer hover:bg-bg/40"
+    >
+      <span className="flex items-center gap-1.5 font-medium">
+        <ChevronRight size={13} className="flex-none text-muted-2" />
+        {formatShortDate(s.openedAt, lang)}
+      </span>
       <span className="truncate">{s.cashierName}</span>
       <span className="text-muted-2 nums">{period}</span>
       <span className="text-center text-muted nums">{s.checkCount}</span>
@@ -307,7 +391,10 @@ function HistoryRow({ shift: s, lang, onForceClose }: { shift: Shift; lang: stri
       {s.isOpen && onForceClose ? (
         <button
           type="button"
-          onClick={onForceClose}
+          onClick={(e) => {
+            e.stopPropagation();
+            onForceClose();
+          }}
           className="flex items-center gap-1.5 rounded-input border border-warn/40 bg-warn-soft px-2.5 py-1 text-[12px] font-medium text-warn-text hover:border-warn"
         >
           <Lock size={12} />
@@ -318,6 +405,109 @@ function HistoryRow({ shift: s, lang, onForceClose }: { shift: Shift; lang: stri
           <Badge tone={st.tone}>{t(`shifts.status.${st.key}`)}</Badge>
         </span>
       )}
+    </div>
+  );
+}
+
+/** Посещаемость — davomat jadvali (smena vaqtlaridan hisoblangan). */
+function AttendanceCard({
+  data,
+  loading,
+  range,
+  onRange,
+}: {
+  data: import('./api').Attendance | undefined;
+  loading: boolean;
+  range: 'week' | 'month';
+  onRange: (r: 'week' | 'month') => void;
+}) {
+  const { t } = useTranslation();
+  const planHours = data?.planHours ?? 0;
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
+        <div>
+          <div className="text-[15px] font-semibold">{t('shifts.attendance.title')}</div>
+          {data && (
+            <div className="mt-0.5 text-[12px] text-muted-2">
+              {t('shifts.attendance.scheduleHint', {
+                from: data.scheduleFrom,
+                to: data.scheduleTo,
+                plan: planHours,
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 rounded-input border border-input-border bg-surface p-0.5">
+          {(['week', 'month'] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => onRange(r)}
+              className={cn(
+                'rounded-[6px] px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+                range === r ? 'bg-primary text-white' : 'text-muted hover:text-text',
+              )}
+            >
+              {t(`shifts.attendance.range.${r}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-attendance items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+        <span>{t('shifts.attendance.cols.employee')}</span>
+        <span className="text-right">{t('shifts.attendance.cols.shifts')}</span>
+        <span className="text-right">{t('shifts.attendance.cols.days')}</span>
+        <span className="text-right">{t('shifts.attendance.cols.hours')}</span>
+        <span className="text-right">{t('shifts.attendance.cols.avg')}</span>
+        <span className="text-right">{t('shifts.attendance.cols.late')}</span>
+        <span>{t('shifts.attendance.cols.plan')}</span>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-16 text-primary">
+          <Spinner size={22} />
+        </div>
+      ) : data && data.items.length > 0 ? (
+        data.items.map((a) => <AttendanceRowView key={a.userId} row={a} planHours={planHours} />)
+      ) : (
+        <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.attendance.empty')}</div>
+      )}
+    </Card>
+  );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
+}
+
+function AttendanceRowView({ row: a, planHours }: { row: AttendanceRow; planHours: number }) {
+  const { t } = useTranslation();
+  const pct = planHours > 0 ? Math.min(100, Math.round((a.totalHours / planHours) * 100)) : 0;
+  const barTone = pct >= 95 ? 'bg-success' : pct >= 85 ? 'bg-warn-amber' : 'bg-danger';
+  const pctTone = pct >= 95 ? 'text-success' : pct >= 85 ? 'text-warn-strong' : 'text-danger';
+  const lateTone = a.lateCount === 0 ? 'text-success' : a.lateCount > 2 ? 'text-danger' : 'text-warn-strong';
+  return (
+    <div className="grid grid-cols-attendance items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40">
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-primary-soft text-[11px] font-semibold text-primary">
+          {initials(a.name)}
+        </span>
+        <span className="truncate font-medium">{a.name}</span>
+      </span>
+      <span className="text-right text-muted nums">{a.shiftCount}</span>
+      <span className="text-right text-muted nums">{a.dayCount}</span>
+      <span className="text-right font-semibold nums">{t('shifts.attendance.hoursValue', { value: a.totalHours })}</span>
+      <span className="text-right text-muted nums">{t('shifts.attendance.hoursValue', { value: a.avgShiftHours })}</span>
+      <span className={cn('text-right font-medium nums', lateTone)}>
+        {a.lateCount === 0 ? t('shifts.attendance.noLate') : t('shifts.attendance.lateTimes', { count: a.lateCount })}
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="h-1.5 flex-1 rounded-pill bg-hairline">
+          <span className={cn('block h-1.5 rounded-pill', barTone)} style={{ width: `${pct}%` }} />
+        </span>
+        <span className={cn('w-9 flex-none text-right text-[12px] font-semibold nums', pctTone)}>{pct}%</span>
+      </span>
     </div>
   );
 }

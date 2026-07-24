@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { format, startOfDay, isSameDay, parseISO, differenceInCalendarDays } from 'date-fns';
-import { Plus, Receipt, TrendingUp, Wallet, CreditCard } from 'lucide-react';
+import { format, startOfDay, parseISO, differenceInCalendarDays } from 'date-fns';
+import { Plus, Receipt, TrendingUp, CreditCard, Boxes, Clock, Truck, ChevronRight, Users, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -20,9 +21,14 @@ import { formatSum, formatQty, formatFullDate, formatShortDate, formatWeekday, f
 import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
-import { purchasesApi, type ReorderSuggestion } from '@/features/purchases/api';
+import { purchasesApi, type ReorderSuggestion, type ZakupReceipt } from '@/features/purchases/api';
 import { debtsApi, type DebtorSummary } from '@/features/debts/api';
 import { shiftsApi, type Shift } from '@/features/shifts/api';
+import { productsApi } from '@/features/warehouse/api';
+import { employeesApi, type Employee } from '@/features/employees/api';
+import { notificationsApi, type NotificationItem } from '@/features/notifications/api';
+import { SaleDetailModal } from '@/features/sales/SaleDetailModal';
+import { type Sale } from '@/features/sales/api';
 import { dashboardApi, type DailySale, type WeeklyPoint } from './api';
 
 /**
@@ -64,6 +70,8 @@ export default function DashboardPage() {
   const { subdomain } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  // «Все продажи» qatori bosilganda ochiladigan chek detali (Изменить/Аннулировать/Вернуть).
+  const [openSale, setOpenSale] = useState<Sale | null>(null);
 
   const canCash = hasPermission(PERMISSIONS.cashregister.access);
   const canReports = hasPermission(PERMISSIONS.reports.access);
@@ -72,6 +80,9 @@ export default function DashboardPage() {
   const canShift = hasPermission(PERMISSIONS.users.shift);
   const canZakup = hasPermission(PERMISSIONS.zakup.access);
   const canDebts = hasPermission(PERMISSIONS.debts.access);
+  const canProducts = hasPermission(PERMISSIONS.products.access);
+  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
+  const canUsers = hasPermission(PERMISSIONS.users.access);
   const canCreateSale = hasPermission(PERMISSIONS.sales.create);
 
   // H-13: send the Tashkent calendar date (no time/offset) so the server's
@@ -91,9 +102,7 @@ export default function DashboardPage() {
   const slow = { refetchInterval: 300_000, refetchIntervalInBackground: false } as const;
 
   const todayQuery = useQuery({ queryKey: ['dash-today'], queryFn: dashboardApi.todaySales, enabled: canCash, ...live });
-  const cashQuery = useQuery({ queryKey: ['dash-cash'], queryFn: dashboardApi.cashRegister, enabled: canCash, ...live });
   const profitQuery = useQuery({ queryKey: ['dash-profit'], queryFn: dashboardApi.profitSummary, enabled: canProfit, ...live });
-  const summaryQuery = useQuery({ queryKey: ['dash-summary'], queryFn: dashboardApi.summary, enabled: canReports, ...slow });
   const weeklyQuery = useQuery({
     queryKey: ['dash-weekly'],
     queryFn: () => dashboardApi.weeklySeries(7, true),
@@ -104,16 +113,6 @@ export default function DashboardPage() {
     queryKey: ['dash-daily-sales', today],
     queryFn: () => dashboardApi.dailySales(today),
     enabled: canSales,
-    ...live,
-  });
-  // Do'kondagi OCHIQ smena — kassirniki. `/Shifts/current` chaqiruvchining
-  // o'zinikini qaytaradi, ya'ni smena ochmaydigan Owner uchun bu karta doim
-  // bo'sh turardi. Market bo'yicha ro'yxat (users.shift bilan himoyalangan —
-  // ayni shu `canShift`) eng so'nggi ochiq sessiyani beradi.
-  const shiftQuery = useQuery({
-    queryKey: ['dash-shift'],
-    queryFn: async () => (await shiftsApi.history(10)).find((s) => s.closedAt === null) ?? null,
-    enabled: canShift,
     ...live,
   });
   const lowStockQuery = useQuery({
@@ -128,12 +127,52 @@ export default function DashboardPage() {
     enabled: canDebts,
     ...slow,
   });
+  // «Требует внимания» — the server notification feed, narrowed to items that
+  // still need an owner decision (Warning/Danger). Same source as the sidebar
+  // bell, so a resolved alert drops off both places at once.
+  const attentionQuery = useQuery({
+    queryKey: ['dash-attention'],
+    queryFn: () => notificationsApi.feed(null),
+    enabled: canNotifications,
+    ...slow,
+  });
+  // Market smenalari — «Продавцы на смене» KPI (ochiq smenalar soni) va o'ng
+  // paneldagi «Смена · сегодня» kartasi shu bir manbadan.
+  const openShiftsQuery = useQuery({
+    queryKey: ['dash-open-shifts'],
+    queryFn: () => shiftsApi.history(50),
+    enabled: canShift,
+    ...live,
+  });
+  // «Сигналы склада» — low-stock + out-of-stock positions.
+  const stockQuery = useQuery({
+    queryKey: ['dash-stock-summary'],
+    queryFn: () => productsApi.summary(),
+    enabled: canProducts,
+    ...slow,
+  });
+  // «Закупы» — so'nggi xaridlar (status bilan; в пути → qabul qilish mumkin).
+  const purchasesQuery = useQuery({
+    queryKey: ['dash-purchases'],
+    queryFn: () => purchasesApi.receiptsPaged(1, 5),
+    enabled: canZakup,
+    ...slow,
+  });
+  // «Доступы продавцов» — kassirlar ro'yxati (tez ko'rinish + Сотрудники link).
+  const sellersQuery = useQuery({
+    queryKey: ['dash-sellers'],
+    queryFn: () => employeesApi.list(),
+    enabled: canUsers,
+    ...slow,
+  });
 
   const todaySales = todayQuery.data;
-  const cash = cashQuery.data;
-  const summary = summaryQuery.data;
   const weekly = weeklyQuery.data;
-  const shift = shiftQuery.data ?? null;
+  // Eng so'nggi ochiq smena — o'ng paneldagi «Смена · сегодня» kartasi uchun.
+  const shift = useMemo(
+    () => (openShiftsQuery.data ?? []).find((s) => s.closedAt === null) ?? null,
+    [openShiftsQuery.data],
+  );
 
   // Sales growth vs yesterday from the weekly series (last two points).
   const salesGrowth = useMemo(() => {
@@ -144,13 +183,6 @@ export default function DashboardPage() {
     if (prev <= 0) return null;
     return (last - prev) / prev;
   }, [weekly]);
-
-  // Withdrawals made today, for the cash card hint.
-  const todayWithdrawals = useMemo(() => {
-    const now = new Date();
-    const list = (cash?.withdrawals ?? []).filter((w) => isSameDay(parseISO(w.withdrawalDate), now));
-    return { count: list.length, amount: list.reduce((s, w) => s + w.amount, 0) };
-  }, [cash]);
 
   const recentSales = useMemo(() => {
     const list = salesQuery.data?.sales ?? [];
@@ -163,6 +195,27 @@ export default function DashboardPage() {
       .sort((a, b) => (a.nearestDueDate! < b.nearestDueDate! ? -1 : 1))
       .slice(0, 4);
   }, [debtorsQuery.data]);
+
+  // Only actionable alerts on the dashboard; Info/Success events stay in the
+  // full feed. Danger first, then Warning, capped so the panel stays glanceable.
+  const attention = useMemo(() => {
+    const items = attentionQuery.data?.items ?? [];
+    const rank = (s: string) => (s === 'Danger' ? 0 : s === 'Warning' ? 1 : 2);
+    return items
+      .filter((n) => n.severity === 'Danger' || n.severity === 'Warning')
+      .sort((a, b) => rank(a.severity) - rank(b.severity))
+      .slice(0, 4);
+  }, [attentionQuery.data]);
+
+  // Distinct cashiers currently on an open shift.
+  const openSellers = useMemo(() => {
+    const ids = new Set((openShiftsQuery.data ?? []).filter((s) => s.isOpen).map((s) => s.userId));
+    return ids.size;
+  }, [openShiftsQuery.data]);
+
+  const stockLow = stockQuery.data?.lowStock ?? 0;
+  const stockOut = stockQuery.data?.outOfStock ?? 0;
+  const stockSignals = stockLow + stockOut;
 
   const margin =
     todaySales && todaySales.totalAmount > 0 && profitQuery.data
@@ -219,39 +272,38 @@ export default function DashboardPage() {
             />
           )}
 
-          {canCash && (
+          {canShift && (
             <StatCard
-              label={t('dashboard.stats.cashInRegister')}
-              icon={<Wallet size={16} strokeWidth={1.9} />}
-              value={formatSum(cash?.currentBalance ?? 0)}
-              suffix={t('common.currency')}
+              label={t('dashboard.stats.sellersOnShift')}
+              icon={<Users size={16} strokeWidth={1.9} />}
+              value={String(openSellers)}
               hint={
-                todayWithdrawals.count > 0
-                  ? t('dashboard.stats.withdrawalsToday', {
-                      count: todayWithdrawals.count,
-                      amount: formatSum(todayWithdrawals.amount),
-                    })
-                  : t('dashboard.stats.noWithdrawals')
+                openSellers > 0
+                  ? t('dashboard.stats.onShiftNow', { count: openSellers })
+                  : t('dashboard.stats.noOpenShift')
               }
             />
           )}
 
-          {canReports && (
+          {canProducts && (
             <StatCard
-              label={t('dashboard.stats.customerDebts')}
-              icon={<CreditCard size={16} strokeWidth={1.9} />}
-              value={formatSum(summary?.pendingDebtsTotal ?? 0)}
-              suffix={t('common.currency')}
-              tone={summary && summary.pendingDebtsTotal > 0 ? 'warn' : 'default'}
+              label={t('dashboard.stats.stockSignals')}
+              icon={<Boxes size={16} strokeWidth={1.9} />}
+              value={String(stockSignals)}
+              tone={stockOut > 0 ? 'warn' : 'default'}
               hint={
-                <span className="flex items-center gap-1.5">
-                  {summary && summary.overdueDebtsCount > 0 && (
-                    <span className="font-semibold text-danger">
-                      {t('dashboard.stats.overdueCount', { count: summary.overdueDebtsCount })}
-                    </span>
-                  )}
-                  <span>· {t('dashboard.stats.totalCustomers', { count: summary?.customerCount ?? 0 })}</span>
-                </span>
+                stockSignals > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    {stockOut > 0 && (
+                      <span className="font-semibold text-danger">
+                        {t('dashboard.stats.outCount', { count: stockOut })}
+                      </span>
+                    )}
+                    <span>{stockOut > 0 ? '· ' : ''}{t('dashboard.stats.lowCount', { count: stockLow })}</span>
+                  </span>
+                ) : (
+                  t('dashboard.stats.stockOk')
+                )
               }
             />
           )}
@@ -261,11 +313,38 @@ export default function DashboardPage() {
           {/* Left column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
             {canReports && <WeeklyChartCard points={weekly?.points ?? []} total={weekly?.currentTotal ?? 0} loading={weeklyQuery.isLoading} />}
-            {canSales && <RecentSalesCard sales={recentSales} loading={salesQuery.isLoading} to={`/${subdomain}/sales`} />}
+            {canSales && (
+              <RecentSalesCard
+                sales={recentSales}
+                loading={salesQuery.isLoading}
+                to={`/${subdomain}/sales`}
+                onOpen={canSales ? (s) => setOpenSale(dailyToSaleRow(s)) : undefined}
+              />
+            )}
+            {canZakup && (
+              <PurchasesCard
+                receipts={purchasesQuery.data?.items ?? []}
+                loading={purchasesQuery.isLoading}
+                to={`/${subdomain}/purchases`}
+              />
+            )}
           </div>
 
           {/* Right column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
+            {canNotifications && attention.length > 0 && (
+              <AttentionCard
+                items={attention}
+                onOpen={(n) => n.actionTarget && navigate(`/${subdomain}/${n.actionTarget}`)}
+              />
+            )}
+            {canUsers && (
+              <SellerAccessCard
+                sellers={(sellersQuery.data ?? []).filter((e) => e.role === 'Seller')}
+                loading={sellersQuery.isLoading}
+                to={`/${subdomain}/employees`}
+              />
+            )}
             {canZakup && (
               <LowStockCard
                 items={lowStockQuery.data ?? []}
@@ -274,12 +353,39 @@ export default function DashboardPage() {
               />
             )}
             {canDebts && <UpcomingPaymentsCard debtors={upcoming} loading={debtorsQuery.isLoading} to={`/${subdomain}/debts`} />}
-            {canShift && <ShiftCard shift={shift} loading={shiftQuery.isLoading} />}
+            {canShift && <ShiftCard shift={shift} loading={openShiftsQuery.isLoading} />}
           </div>
         </div>
       </div>
+
+      <SaleDetailModal sale={openSale} onClose={() => setOpenSale(null)} />
     </>
   );
+}
+
+/**
+ * Dashboard `DailySale` → Sales `Sale` placeholder for SaleDetailModal. The
+ * modal re-fetches full detail by id immediately; this only fills the header
+ * for the first paint, so the unknown fields get safe defaults.
+ */
+function dailyToSaleRow(d: DailySale): Sale {
+  return {
+    id: d.id,
+    saleNumber: 0,
+    sellerId: '',
+    sellerName: d.sellerName,
+    customerId: null,
+    customerName: d.customerName,
+    customerPhone: null,
+    status: d.status,
+    totalAmount: d.totalAmount,
+    paidAmount: 0,
+    remainingAmount: 0,
+    discountAmount: 0,
+    createdAt: d.createdAt,
+    items: [],
+    payments: [],
+  };
 }
 
 /**
@@ -396,7 +502,17 @@ function WeeklyChartCard({ points, total, loading }: { points: WeeklyPoint[]; to
   );
 }
 
-function RecentSalesCard({ sales, loading, to }: { sales: DailySale[]; loading: boolean; to: string }) {
+function RecentSalesCard({
+  sales,
+  loading,
+  to,
+  onOpen,
+}: {
+  sales: DailySale[];
+  loading: boolean;
+  to: string;
+  onOpen?: (s: DailySale) => void;
+}) {
   const { t } = useTranslation();
   return (
     <Card className="overflow-hidden">
@@ -420,7 +536,7 @@ function RecentSalesCard({ sales, loading, to }: { sales: DailySale[]; loading: 
       ) : sales.length === 0 ? (
         <div className="py-14 text-center text-[14px] text-muted-2">{t('dashboard.recent.empty')}</div>
       ) : (
-        sales.map((s) => <RecentSaleRow key={s.id} sale={s} />)
+        sales.map((s) => <RecentSaleRow key={s.id} sale={s} onOpen={onOpen ? () => onOpen(s) : undefined} />)
       )}
     </Card>
   );
@@ -440,24 +556,178 @@ function itemsText(sale: DailySale): string {
   return lines.length > 2 ? `${head} +${lines.length - 2}` : head;
 }
 
-function RecentSaleRow({ sale }: { sale: DailySale }) {
+function RecentSaleRow({ sale, onOpen }: { sale: DailySale; onOpen?: () => void }) {
   const { t } = useTranslation();
   const badge = payBadge(sale);
+  const clickable = !!onOpen;
   return (
-    <div className="grid grid-cols-dashboard-sales items-center gap-[14px] border-t border-hairline px-6 py-3 text-[13px]">
+    <div
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={clickable ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen!()) : undefined}
+      className={cn(
+        'grid grid-cols-dashboard-sales items-center gap-[14px] border-t border-hairline px-6 py-3 text-[13px]',
+        clickable && 'cursor-pointer hover:bg-bg/50',
+      )}
+      title={clickable ? t('dashboard.recent.openHint') : undefined}
+    >
       <span className="text-muted-2 nums">{formatTime(sale.createdAt)}</span>
       <span className="truncate font-medium">{sale.sellerName}</span>
       {/* Design's 5 columns have no customer cell — the buyer is surfaced in
           the hover title so the row keeps that context without a 6th column. */}
-      <span className="truncate text-muted" title={`${itemsText(sale)} · ${sale.customerName ?? t('sales.walkIn')}`}>
-        {itemsText(sale)}
-      </span>
+      <span className="truncate text-muted">{itemsText(sale)}</span>
       <span>
         <Badge tone={badge.tone}>{t(`sales.payment.${badge.key}` as never)}</Badge>
       </span>
       <span className="text-right font-semibold nums">{formatSum(sale.totalAmount)}</span>
     </div>
   );
+}
+
+const ATTN_CAT_ICON: Record<string, LucideIcon> = { Warehouse: Boxes, Debt: CreditCard, Shift: Clock, Supply: Truck };
+const ATTN_TONE: Record<string, { row: string; icon: string; title: string; text: string }> = {
+  Danger: { row: 'bg-danger-soft border-danger/25', icon: 'text-danger', title: 'text-danger', text: 'text-danger/80' },
+  Warning: { row: 'bg-warn-soft border-warn-amber/30', icon: 'text-warn-strong', title: 'text-warn-strong', text: 'text-warn-strong/85' },
+};
+
+/**
+ * «Требует внимания» — the actionable slice of the notification feed, shown as
+ * severity-tinted rows. Clicking a row deep-links to where it gets resolved
+ * (склад / долги / смены), matching the sidebar bell's target.
+ */
+function AttentionCard({ items, onOpen }: { items: NotificationItem[]; onOpen: (n: NotificationItem) => void }) {
+  const { t } = useTranslation();
+  return (
+    <Card className="p-[22px]">
+      <h3 className="mb-3.5 text-[15px] font-semibold">{t('dashboard.attention.title')}</h3>
+      <div className="flex flex-col gap-2.5">
+        {items.map((n) => {
+          const tone = ATTN_TONE[n.severity] ?? ATTN_TONE.Warning!;
+          const Icon = ATTN_CAT_ICON[n.category] ?? AlertTriangle;
+          return (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => onOpen(n)}
+              className={cn(
+                'flex w-full items-start gap-2.5 rounded-input border px-3.5 py-3 text-left transition-opacity',
+                tone.row,
+                n.actionTarget ? 'hover:opacity-80' : 'cursor-default',
+              )}
+            >
+              <Icon size={16} className={cn('mt-0.5 flex-none', tone.icon)} />
+              <span className="min-w-0 flex-1">
+                <span className={cn('block truncate text-[13px] font-semibold', tone.title)}>{n.title}</span>
+                <span className={cn('mt-0.5 block truncate text-[12px]', tone.text)}>{n.text}</span>
+              </span>
+              {n.actionTarget && <ChevronRight size={15} className={cn('mt-0.5 flex-none', tone.icon)} />}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/** «Закупы» — so'nggi xaridlar, status bilan; «в пути» qatorini qabul qilish. */
+function PurchasesCard({ receipts, loading, to }: { receipts: ZakupReceipt[]; loading: boolean; to: string }) {
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const qc = useQueryClient();
+  const accept = useMutation({
+    mutationFn: (id: string) => purchasesApi.accept(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['dash-purchases'] });
+      void qc.invalidateQueries({ queryKey: ['dash-stock-summary'] });
+    },
+  });
+  const canAccept = hasPermission(PERMISSIONS.zakup.create);
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between px-6 pb-3.5 pt-[18px]">
+        <h3 className="text-[15px] font-semibold">{t('dashboard.purchases.title')}</h3>
+        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+          {t('dashboard.purchases.all')} →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-primary">
+          <Spinner size={22} />
+        </div>
+      ) : receipts.length === 0 ? (
+        <div className="py-12 text-center text-[14px] text-muted-2">{t('dashboard.purchases.empty')}</div>
+      ) : (
+        receipts.map((r) => {
+          const inTransit = r.deliveryStatus === 'InTransit';
+          return (
+            <div
+              key={r.id}
+              className="flex items-center gap-3 border-t border-hairline px-6 py-3 text-[13px]"
+            >
+              <span className="w-[64px] flex-none font-semibold nums">З-{r.receiptNumber}</span>
+              <span className="min-w-0 flex-1 truncate">{r.supplierName ?? '—'}</span>
+              <Badge tone={inTransit ? 'warn' : 'success'}>
+                {t(inTransit ? 'dashboard.purchases.inTransit' : 'dashboard.purchases.accepted')}
+              </Badge>
+              <span className="w-[110px] flex-none text-right font-semibold nums">{formatSum(r.totalAmount)}</span>
+              {inTransit && canAccept && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={accept.isPending && accept.variables === r.id}
+                  onClick={() => accept.mutate(r.id)}
+                >
+                  {t('dashboard.purchases.accept')}
+                </Button>
+              )}
+            </div>
+          );
+        })
+      )}
+    </Card>
+  );
+}
+
+/** «Доступы продавцов» — kassirlar tez ko'rinishi (read-only) + Сотрудники link. */
+function SellerAccessCard({ sellers, loading, to }: { sellers: Employee[]; loading: boolean; to: string }) {
+  const { t } = useTranslation();
+  return (
+    <Card className="p-[22px]">
+      <div className="mb-3.5 flex items-center justify-between">
+        <h3 className="text-[15px] font-semibold">{t('dashboard.sellerAccess.title')}</h3>
+        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+          {t('dashboard.sellerAccess.configure')} →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-6 text-primary">
+          <Spinner size={20} />
+        </div>
+      ) : sellers.length === 0 ? (
+        <p className="py-4 text-center text-[13px] text-muted-2">{t('dashboard.sellerAccess.empty')}</p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {sellers.slice(0, 5).map((s) => (
+            <div key={s.id} className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-primary-soft text-[11px] font-semibold text-primary">
+                {initials(s.fullName)}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{s.fullName}</span>
+              <Badge tone={s.isActive ? 'success' : 'danger'}>
+                {t(s.isActive ? 'dashboard.sellerAccess.active' : 'dashboard.sellerAccess.blocked')}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function initials(name: string): string {
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
 }
 
 function LowStockCard({ items, loading, onOrder }: { items: ReorderSuggestion[]; loading: boolean; onOrder?: () => void }) {

@@ -638,6 +638,57 @@ namespace Buildix.Infrastructure.Migrations
                     b.ToTable("MarketSettings");
                 });
 
+            modelBuilder.Entity("Buildix.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionTarget")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DedupKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MarketId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MarketId", "CreatedAt");
+
+                    b.HasIndex("MarketId", "DedupKey");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Buildix.Domain.Entities.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1099,6 +1150,89 @@ namespace Buildix.Infrastructure.Migrations
                     b.ToTable("SaleItems");
                 });
 
+            modelBuilder.Entity("Buildix.Domain.Entities.SaleReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MarketId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RefundMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MarketId", "CreatedAt");
+
+                    b.ToTable("SaleReturns");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.SaleReturnItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid?>("SaleItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SaleReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SaleReturnId");
+
+                    b.ToTable("SaleReturnItems");
+                });
+
             modelBuilder.Entity("Buildix.Domain.Entities.Shift", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1281,6 +1415,21 @@ namespace Buildix.Infrastructure.Migrations
 
                     b.Property<int?>("MarketId")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("MaxDebtPerCheck")
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("MaxDiscountPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("NotifyDebt")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyShift")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyStock")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -1619,6 +1768,17 @@ namespace Buildix.Infrastructure.Migrations
                     b.Navigation("Market");
                 });
 
+            modelBuilder.Entity("Buildix.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("Buildix.Domain.Entities.Market", "Market")
+                        .WithMany()
+                        .HasForeignKey("MarketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Market");
+                });
+
             modelBuilder.Entity("Buildix.Domain.Entities.Payment", b =>
                 {
                     b.HasOne("Buildix.Domain.Entities.User", "CollectedByUser")
@@ -1753,6 +1913,43 @@ namespace Buildix.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.SaleReturn", b =>
+                {
+                    b.HasOne("Buildix.Domain.Entities.Market", "Market")
+                        .WithMany()
+                        .HasForeignKey("MarketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Buildix.Domain.Entities.Sale", "Sale")
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Buildix.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Market");
+
+                    b.Navigation("Sale");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.SaleReturnItem", b =>
+                {
+                    b.HasOne("Buildix.Domain.Entities.SaleReturn", "SaleReturn")
+                        .WithMany("Items")
+                        .HasForeignKey("SaleReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SaleReturn");
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.Shift", b =>
@@ -1923,6 +2120,11 @@ namespace Buildix.Infrastructure.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("SaleItems");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.SaleReturn", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.Supplier", b =>

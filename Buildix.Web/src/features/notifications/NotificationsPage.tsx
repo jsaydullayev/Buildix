@@ -1,172 +1,179 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, PackageX, CalendarClock, Banknote, ChevronRight, BellOff } from 'lucide-react';
-import { PageHeader, Card, Badge, Spinner } from '@/shared/ui';
+import { CheckCheck, Boxes, CreditCard, Clock, Truck, Bell, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { PageHeader, Button, Card, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
-import { unitLabel } from '@/shared/lib/units';
-import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
-import { productsApi } from '@/features/warehouse/api';
-import { debtsApi } from '@/features/debts/api';
-import { cashApi } from '@/features/shifts/api';
+import { formatTime } from '@/shared/lib/format';
+import { notificationsApi, type NotificationItem } from './api';
 
-type Alert = {
-  id: string;
-  tone: 'danger' | 'warn';
-  icon: typeof AlertTriangle;
-  title: string;
-  body: string;
-  to: string;
+const CATEGORIES = ['all', 'Warehouse', 'Debt', 'Shift', 'Supply'] as const;
+type CatFilter = (typeof CATEGORIES)[number];
+const CAT_KEY: Record<string, string> = { Warehouse: 'warehouse', Debt: 'debt', Shift: 'shift', Supply: 'supply' };
+const CAT_ICON: Record<string, LucideIcon> = { Warehouse: Boxes, Debt: CreditCard, Shift: Clock, Supply: Truck };
+const SEV_TONE: Record<string, { dot: string; icon: string; bg: string }> = {
+  Danger: { dot: 'bg-danger', icon: 'text-danger', bg: 'bg-danger-soft' },
+  Warning: { dot: 'bg-warn-strong', icon: 'text-warn-strong', bg: 'bg-warn-soft' },
+  Success: { dot: 'bg-success', icon: 'text-success', bg: 'bg-success-soft' },
+  Info: { dot: 'bg-primary', icon: 'text-primary', bg: 'bg-primary-soft' },
 };
 
+const TASHKENT_TZ = 'Asia/Tashkent';
+const dayKey = (d: string) => new Intl.DateTimeFormat('en-CA', { timeZone: TASHKENT_TZ }).format(new Date(d));
+
 /**
- * Owner alert feed, assembled on the client from data the Owner can already
- * read: pending cash-withdrawal requests, overdue / due-today debts, and low /
- * out-of-stock products.
- *
- * Like the seller feed, there is no Notification entity server-side (no
- * read/unread state), so this is a live view of current conditions: it never
- * claims something is "unread" and an item disappears once resolved.
+ * Уведомления — the server-backed notification feed. Stock/debt alerts are
+ * reconciled server-side on each load; shift-close and delivery events are
+ * pushed at the moment they happen. Grouped by day, filterable by category,
+ * with real read/unread state.
  */
 export default function NotificationsPage() {
   const { t, i18n } = useTranslation();
   const { subdomain } = useParams();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
-  const canProducts = hasPermission(PERMISSIONS.products.access);
-  const canDebts = hasPermission(PERMISSIONS.debts.access);
-  const canCash = hasPermission(PERMISSIONS.cashregister.access);
-  const base = `/${subdomain}`;
+  const qc = useQueryClient();
+  const [cat, setCat] = useState<CatFilter>('all');
 
-  const pendingQuery = useQuery({
-    queryKey: ['withdrawals', 'Pending'],
-    queryFn: () => cashApi.withdrawals('Pending'),
-    enabled: canCash,
+  const feedQuery = useQuery({
+    queryKey: ['notifications', cat],
+    queryFn: () => notificationsApi.feed(cat === 'all' ? null : cat),
   });
-  const lowStockQuery = useQuery({
-    queryKey: ['owner-alerts-lowstock'],
-    queryFn: () => productsApi.listPaged({ page: 1, size: 20, lowStockOnly: true }),
-    enabled: canProducts,
-  });
-  const overdueQuery = useQuery({
-    queryKey: ['owner-alerts-debts', 'overdue'],
-    queryFn: () => debtsApi.debtors(undefined, 'overdue'),
-    enabled: canDebts,
-  });
-  const dueTodayQuery = useQuery({
-    queryKey: ['owner-alerts-debts', 'today'],
-    queryFn: () => debtsApi.debtors(undefined, 'today'),
-    enabled: canDebts,
-  });
+  const data = feedQuery.data;
 
-  const alerts = useMemo<Alert[]>(() => {
-    const out: Alert[] = [];
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['notifications'] });
+    void qc.invalidateQueries({ queryKey: ['notifications-unread'] });
+  };
+  const markRead = useMutation({ mutationFn: (id: string) => notificationsApi.markRead(id), onSuccess: invalidate });
+  const markAll = useMutation({ mutationFn: () => notificationsApi.markAllRead(), onSuccess: invalidate });
 
-    // Pull-money requests first — they need an owner decision to unblock the till.
-    for (const w of pendingQuery.data ?? []) {
-      out.push({
-        id: `withdraw-${w.id}`,
-        tone: 'warn',
-        icon: Banknote,
-        title: t('notifications.withdrawRequest'),
-        body: `${formatSum(w.amount)} ${t('common.currency')}${
-          w.requestedByName ? ` · ${w.requestedByName}` : ''
-        }${w.comment ? ` · ${w.comment}` : ''}`,
-        to: `${base}/shifts`,
-      });
+  // Group items by Tashkent day (Сегодня / Вчера / date).
+  const groups = useMemo(() => {
+    const items = data?.items ?? [];
+    const todayK = dayKey(new Date().toISOString());
+    const yK = dayKey(new Date(Date.now() - 86_400_000).toISOString());
+    const map = new Map<string, NotificationItem[]>();
+    for (const n of items) {
+      const k = dayKey(n.createdAt);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(n);
     }
+    return [...map.entries()].map(([k, list]) => ({
+      key: k,
+      label:
+        k === todayK
+          ? t('notifications.today')
+          : k === yK
+            ? t('notifications.yesterday')
+            : new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'long' }).format(new Date(list[0]!.createdAt)),
+      list,
+    }));
+  }, [data, t, i18n.language]);
 
-    for (const d of overdueQuery.data ?? []) {
-      out.push({
-        id: `overdue-${d.customerId}`,
-        tone: 'danger',
-        icon: AlertTriangle,
-        title: t('notifications.debtOverdue'),
-        body: `${d.customerName ?? d.customerPhone} · ${formatSum(d.remainingDebt)} ${t('common.currency')}${
-          d.nearestDueDate ? ` · ${formatShortDate(d.nearestDueDate, i18n.language)}` : ''
-        }`,
-        to: `${base}/debts`,
-      });
-    }
+  function open(n: NotificationItem) {
+    if (!n.isRead) markRead.mutate(n.id);
+    if (n.actionTarget) navigate(`/${subdomain}/${n.actionTarget}`);
+  }
 
-    for (const d of dueTodayQuery.data ?? []) {
-      out.push({
-        id: `today-${d.customerId}`,
-        tone: 'warn',
-        icon: CalendarClock,
-        title: t('notifications.debtDueToday'),
-        body: `${d.customerName ?? d.customerPhone} · ${formatSum(d.remainingDebt)} ${t('common.currency')}`,
-        to: `${base}/debts`,
-      });
-    }
-
-    for (const p of lowStockQuery.data?.items ?? []) {
-      const isOut = p.quantity <= 0;
-      out.push({
-        id: `stock-${p.id}`,
-        tone: isOut ? 'danger' : 'warn',
-        icon: PackageX,
-        title: isOut ? t('notifications.outOfStock') : t('notifications.lowStock'),
-        body: `${p.name} · ${formatQty(p.quantity)} ${unitLabel(t, p.unit, p.unitName)}`,
-        to: `${base}/warehouse`,
-      });
-    }
-
-    return out;
-  }, [pendingQuery.data, overdueQuery.data, dueTodayQuery.data, lowStockQuery.data, t, i18n.language, base]);
-
-  const loading =
-    pendingQuery.isLoading || lowStockQuery.isLoading || overdueQuery.isLoading || dueTodayQuery.isLoading;
+  const unread = data?.unreadCount ?? 0;
 
   return (
     <>
-      <PageHeader title={t('nav.notifications')} subtitle={t('notifications.subtitle', { count: alerts.length })} />
+      <PageHeader
+        title={t('nav.notifications')}
+        subtitle={t('notifications.subtitle', { count: unread })}
+        actions={
+          unread > 0 ? (
+            <Button variant="secondary" size="sm" loading={markAll.isPending} onClick={() => markAll.mutate()}>
+              <CheckCheck size={15} />
+              {t('notifications.markAll')}
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col gap-[18px] p-8">
-        {loading ? (
-          <Card className="flex items-center justify-center py-20 text-primary">
+      <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-[18px] p-8">
+        {/* Category tabs */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCat(c)}
+              className={cn(
+                'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                cat === c
+                  ? 'bg-primary text-white'
+                  : 'border border-input-border bg-surface text-muted hover:text-text',
+              )}
+            >
+              {c === 'all' ? t('common.all') : t(`notifications.cat.${CAT_KEY[c]}` as never)}
+            </button>
+          ))}
+        </div>
+
+        {feedQuery.isLoading ? (
+          <div className="flex items-center justify-center py-20 text-primary">
             <Spinner size={24} />
-          </Card>
-        ) : alerts.length === 0 ? (
+          </div>
+        ) : groups.length === 0 ? (
           <Card className="flex flex-col items-center gap-3 py-16 text-muted-2">
-            <BellOff size={26} />
+            <Bell size={26} />
             <p className="text-[14px]">{t('notifications.empty')}</p>
           </Card>
         ) : (
-          <Card className="overflow-hidden">
-            {alerts.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => navigate(a.to)}
-                className="flex w-full items-center gap-3.5 border-b border-hairline px-5 py-3.5 text-left last:border-0 hover:bg-bg/50"
-              >
-                <span
-                  className={cn(
-                    'flex h-9 w-9 flex-none items-center justify-center rounded-lg',
-                    a.tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warn-soft text-warn-strong',
-                  )}
-                >
-                  <a.icon size={17} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="text-[13.5px] font-medium">{a.title}</span>
-                    {a.tone === 'danger' && <Badge tone="danger">{t('debts.overdueTag')}</Badge>}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[12.5px] text-muted-2">{a.body}</span>
-                </span>
-                <ChevronRight size={16} className="flex-none text-muted-2" />
-              </button>
-            ))}
-          </Card>
+          groups.map((g) => (
+            <div key={g.key}>
+              <h3 className="mb-2 px-1 text-[11.5px] font-semibold uppercase tracking-[0.5px] text-muted-2">
+                {g.label}
+              </h3>
+              <Card className="overflow-hidden">
+                {g.list.map((n) => (
+                  <NotificationRow key={n.id} n={n} onClick={() => open(n)} />
+                ))}
+              </Card>
+            </div>
+          ))
         )}
 
         <p className="text-[12px] text-muted-2">{t('notifications.liveHint')}</p>
       </div>
     </>
+  );
+}
+
+function NotificationRow({ n, onClick }: { n: NotificationItem; onClick: () => void }) {
+  const { t } = useTranslation();
+  const tone = SEV_TONE[n.severity] ?? SEV_TONE.Info!;
+  const Icon = CAT_ICON[n.category] ?? Bell;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-start gap-3.5 border-b border-hairline px-5 py-3.5 text-left transition-colors last:border-0 hover:bg-bg/50',
+        !n.isRead && 'bg-primary-soft/25',
+      )}
+    >
+      <span className={cn('mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-lg', tone.bg, tone.icon)}>
+        <Icon size={17} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[13.5px] font-medium">{n.title}</span>
+          {!n.isRead && <span className={cn('h-2 w-2 flex-none rounded-full', tone.dot)} />}
+        </span>
+        <span className="mt-0.5 block truncate text-[12.5px] text-muted-2">{n.text}</span>
+      </span>
+      <span className="flex flex-none flex-col items-end gap-0.5">
+        <span className="text-[11.5px] text-muted-2 nums">{formatTime(n.createdAt)}</span>
+        <span className="text-[10.5px] font-medium text-muted-2">
+          {t(`notifications.cat.${CAT_KEY[n.category] ?? 'shift'}` as never)}
+        </span>
+      </span>
+      {n.actionTarget && <ChevronRight size={15} className="mt-1 flex-none text-muted-2" />}
+    </button>
   );
 }

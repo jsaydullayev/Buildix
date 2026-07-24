@@ -44,6 +44,10 @@ export interface UserPermissions {
   roleDefaults: string[];
   /** Every permission key that exists — the full catalogue to render. */
   catalog: string[];
+  /** Per-user discount cap (%). null = unlimited. */
+  maxDiscountPercent: number | null;
+  /** Per-user debt cap per receipt. null = unlimited. */
+  maxDebtPerCheck: number | null;
 }
 
 export const employeesApi = {
@@ -91,10 +95,16 @@ export const employeesApi = {
     return data;
   },
 
-  /** Overwrite a user's explicit set; empty list resets to the role default. */
-  updatePermissions: async (id: string, permissions: string[]): Promise<UserPermissions> => {
+  /** Overwrite a user's explicit set + limits; empty list resets to the role default. */
+  updatePermissions: async (
+    id: string,
+    permissions: string[],
+    limits?: { maxDiscountPercent: number | null; maxDebtPerCheck: number | null },
+  ): Promise<UserPermissions> => {
     const { data } = await apiClient.put<UserPermissions>(`/Users/UpdateUserPermissions/${id}`, {
       permissions,
+      maxDiscountPercent: limits?.maxDiscountPercent ?? null,
+      maxDebtPerCheck: limits?.maxDebtPerCheck ?? null,
     });
     return data;
   },

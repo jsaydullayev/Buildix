@@ -47,6 +47,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ZakupReceipt> ZakupReceipts => Set<ZakupReceipt>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
+    public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
+    public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
@@ -525,6 +528,43 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasIndex(x => new { x.MarketId, x.ProductId, x.CreatedAt });
         });
 
+        modelBuilder.Entity<SaleReturn>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TotalAmount).HasPrecision(18, 2);
+            b.Property(x => x.Reason).HasConversion<int>();
+            b.Property(x => x.RefundMethod).HasConversion<int>();
+
+            b.HasOne(x => x.Sale).WithMany().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+            b.HasMany(x => x.Items).WithOne(i => i.SaleReturn!).HasForeignKey(i => i.SaleReturnId).OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.MarketId, x.CreatedAt });
+        });
+        modelBuilder.Entity<SaleReturnItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Quantity).HasPrecision(18, 3);
+            b.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            b.Property(x => x.ProductName).HasMaxLength(200);
+            b.Ignore(x => x.LineTotal);
+        });
+
+        modelBuilder.Entity<Notification>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Category).HasConversion<int>();
+            b.Property(x => x.Severity).HasConversion<int>();
+            b.Property(x => x.Title).HasMaxLength(200);
+            b.Property(x => x.Text).HasMaxLength(500);
+            b.Property(x => x.ActionTarget).HasMaxLength(64);
+            b.Property(x => x.DedupKey).HasMaxLength(128);
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+            b.HasIndex(x => new { x.MarketId, x.CreatedAt });
+            b.HasIndex(x => new { x.MarketId, x.DedupKey });
+        });
+
         modelBuilder.Entity<CashMovement>(b =>
         {
             b.HasKey(x => x.Id);
@@ -794,6 +834,8 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<ZakupReceipt>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<StockMovement>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashMovement>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
+        modelBuilder.Entity<SaleReturn>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
+        modelBuilder.Entity<Notification>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<AuditLog>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashRegister>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashWithdrawal>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);

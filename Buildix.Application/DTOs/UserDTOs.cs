@@ -30,7 +30,11 @@ public record UserDto(
     // Сотрудники ekrani uchun: telefon va oxirgi faollik (online/был...).
     [property: JsonPropertyName("phone")] string? Phone = null,
     [property: JsonPropertyName("lastActiveAt")] DateTime? LastActiveAt = null,
-    [property: JsonPropertyName("telegram")] string? Telegram = null
+    [property: JsonPropertyName("telegram")] string? Telegram = null,
+    // Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9).
+    [property: JsonPropertyName("notifyDebt")] bool NotifyDebt = true,
+    [property: JsonPropertyName("notifyStock")] bool NotifyStock = true,
+    [property: JsonPropertyName("notifyShift")] bool NotifyShift = true
 );
 
 /// <summary>
@@ -47,12 +51,19 @@ public record UserPermissionsDto(
     [property: JsonPropertyName("isCustomized")] bool IsCustomized,
     [property: JsonPropertyName("effectivePermissions")] IReadOnlyList<string> EffectivePermissions,
     [property: JsonPropertyName("roleDefaults")] IReadOnlyList<string> RoleDefaults,
-    [property: JsonPropertyName("catalog")] IReadOnlyList<string> Catalog
+    [property: JsonPropertyName("catalog")] IReadOnlyList<string> Catalog,
+    // Per-user limitlar. Null = cheksiz.
+    [property: JsonPropertyName("maxDiscountPercent")] int? MaxDiscountPercent = null,
+    [property: JsonPropertyName("maxDebtPerCheck")] decimal? MaxDebtPerCheck = null
 );
 
-/// <summary>Owner request to overwrite a user's explicit permission set.</summary>
+/// <summary>Owner request to overwrite a user's explicit permission set + limits.</summary>
 public record UpdatePermissionsDto(
-    [property: JsonPropertyName("permissions")] List<string> Permissions
+    [property: JsonPropertyName("permissions")] List<string> Permissions,
+    // null yuborilsa — limit tegilmaydi... amalda front doim yuboradi:
+    // qiymat yoki null (cheksiz). Shuning uchun bu yerda ham null = cheksiz.
+    [property: JsonPropertyName("maxDiscountPercent")] int? MaxDiscountPercent = null,
+    [property: JsonPropertyName("maxDebtPerCheck")] decimal? MaxDebtPerCheck = null
 );
 
 public record CreateUserDto(
@@ -139,7 +150,12 @@ public record UpdateProfileDto(
     // o'z sozlamasi — do'kon bo'yicha MarketSettings.DefaultLanguage'dan alohida.
     [property: JsonPropertyName("language")]
     [param: StringLength(10)]
-    string? Language = null
+    string? Language = null,
+
+    // Per-user Telegram bildirishnoma toggle'lari. null = tegilmaydi (BE-9).
+    [property: JsonPropertyName("notifyDebt")] bool? NotifyDebt = null,
+    [property: JsonPropertyName("notifyStock")] bool? NotifyStock = null,
+    [property: JsonPropertyName("notifyShift")] bool? NotifyShift = null
 );
 
 public record UpdateProfileImageDto(

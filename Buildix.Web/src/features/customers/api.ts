@@ -46,12 +46,22 @@ export interface CustomerQuery {
   page?: number;
   size?: number;
   search?: string;
+  /** «С долгом» chip — only customers with an open debt. */
+  withDebt?: boolean;
+  /** «Организации» chip — "Legal" | "Individual". */
+  customerType?: string;
 }
 
 export const customersApi = {
   listPaged: async (q: CustomerQuery): Promise<PagedResult<Customer>> => {
     const { data } = await apiClient.get<PagedResult<Customer>>('/Customers/GetCustomersPaged', {
-      params: { page: q.page ?? 1, size: q.size ?? 50, search: q.search || undefined },
+      params: {
+        page: q.page ?? 1,
+        size: q.size ?? 50,
+        search: q.search || undefined,
+        withDebt: q.withDebt || undefined,
+        customerType: q.customerType || undefined,
+      },
     });
     return data;
   },

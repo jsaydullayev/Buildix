@@ -49,4 +49,11 @@ public interface IShiftService
     /// anchored to Tashkent business days.
     /// </summary>
     Task<MyShiftsDto> GetMyShiftsAsync(Guid userId, string? range = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Посещаемость — market bo'yicha davomat hisoboti (owner Смены ekrani).
+    /// Smena vaqtlaridan hisoblanadi: smen/kun/soat/o'rtacha/kechikish + reja %.
+    /// <paramref name="range"/> = week | month (default), Tashkent kuniga bog'langan.
+    /// </summary>
+    Task<AttendanceDto> GetAttendanceAsync(string? range = null, CancellationToken cancellationToken = default);
 }

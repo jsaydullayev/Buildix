@@ -21,6 +21,7 @@ public class ShiftService : IShiftService
     private readonly ITelegramNotifier _telegram;
     private readonly ITashkentClock _clock;
     private readonly ICashLedger _cashLedger;
+    private readonly INotificationService _notifications;
 
     public ShiftService(
         IUnitOfWork unitOfWork,
@@ -30,7 +31,8 @@ public class ShiftService : IShiftService
         IMarketSettingsService settings,
         ITelegramNotifier telegram,
         ITashkentClock clock,
-        ICashLedger cashLedger)
+        ICashLedger cashLedger,
+        INotificationService notifications)
     {
         _unitOfWork = unitOfWork;
         _db = db;
@@ -40,6 +42,7 @@ public class ShiftService : IShiftService
         _telegram = telegram;
         _clock = clock;
         _cashLedger = cashLedger;
+        _notifications = notifications;
     }
 
     public async Task<ShiftDto?> GetCurrentShiftAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -167,9 +170,25 @@ public class ShiftService : IShiftService
             new { open.OpenedAt, open.ClosedAt, open.DurationMinutes, open.CountedCash, open.Discrepancy, expected = fin.ExpectedCash, forced, cashierId = open.UserId },
             cancellationToken);
 
+        // In-app bildirishnoma: smena yopildi; kassa farqi bo'lsa — ogohlantirish.
+        var cashier = open.User?.FullName ?? "Кассир";
+        if (open.ReconStatus == CashShiftStatus.Discrepancy)
+            await _notifications.RecordAsync(open.MarketId, NotificationCategory.Shift, NotificationSeverity.Danger,
+                "Расхождение кассы", $"Смена С-{open.ShiftNumber} · {cashier} · {open.Discrepancy:N0} сум", "shifts",
+                cancellationToken: cancellationToken);
+        else
+            await _notifications.RecordAsync(open.MarketId, NotificationCategory.Shift, NotificationSeverity.Success,
+                "Смена закрыта", $"Смена С-{open.ShiftNumber} · {cashier} · выручка {fin.Revenue:N0} сум", "shifts",
+                cancellationToken: cancellationToken);
+
         // Day summary to the owner's Telegram (best-effort, gated by settings).
+        // Additionally honour the recipient's per-user toggle (BE-9): suppress
+        // only if an Owner explicitly turned "Закрытие смены" off — default true
+        // keeps the existing behaviour when no one opted out.
         var marketSettings = await _settings.GetOrCreateAsync(open.MarketId, cancellationToken);
-        if (marketSettings.NotifyDaySummary)
+        var ownerMutedShift = await _db.Users.AsNoTracking()
+            .AnyAsync(u => u.MarketId == open.MarketId && u.Role == Role.Owner && !u.NotifyShift, cancellationToken);
+        if (marketSettings.NotifyDaySummary && !ownerMutedShift)
         {
             var text =
                 $"<b>Смена закрыта</b>\n" +
@@ -253,6 +272,64 @@ public class ShiftService : IShiftService
         var totalChecks = items.Sum(i => i.CheckCount);
         var avgCheck = totalChecks > 0 ? Math.Round(totalRevenue / totalChecks, 2) : 0m;
         return new MyShiftsDto(items, totalRevenue, totalChecks, avgCheck);
+    }
+
+    // Do'kon ish grafigi — davomat rejasi shu asosda (dizayn: 08:00–20:00 · kech 08:15).
+    private static readonly TimeSpan ScheduleStart = new(8, 0, 0);
+    private static readonly TimeSpan ScheduleEnd = new(20, 0, 0);
+    private static readonly TimeSpan LateThreshold = new(8, 15, 0);
+    private static readonly decimal PlanHoursPerDay = (decimal)(ScheduleEnd - ScheduleStart).TotalHours;
+
+    public async Task<AttendanceDto> GetAttendanceAsync(string? range = null, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        // Trailing Tashkent-day window, same anchoring as GetMyShiftsAsync so the
+        // two Смены tabs cover the same period. "all" isn't offered — a plan %
+        // needs a bounded horizon.
+        var normalized = (range ?? "month").ToLowerInvariant();
+        var windowDays = normalized == "week" ? 7 : 30;
+        var period = normalized == "week" ? "week" : "month";
+        var fromUtc = _clock.LocalDayToUtcRange(_clock.TodayLocal.AddDays(-(windowDays - 1))).UtcStart;
+
+        var shifts = await _db.Shifts.AsNoTracking()
+            .Include(s => s.User)
+            .Where(s => s.MarketId == marketId && s.OpenedAt >= fromUtc)
+            .ToListAsync(cancellationToken);
+
+        // Plan "to this day" — every calendar day in the window counts (retail
+        // works 7 days a week), each worth a full scheduled day.
+        var planHours = Math.Round(windowDays * PlanHoursPerDay, 1);
+
+        var items = shifts
+            .GroupBy(s => s.UserId)
+            .Select(g =>
+            {
+                var totalHours = (decimal)g.Sum(s => s.DurationMinutes) / 60m;
+                var shiftCount = g.Count();
+                // Distinct Tashkent calendar days worked — two shifts in one day count once.
+                var dayCount = g.Select(s => _clock.ToLocal(s.OpenedAt).Date).Distinct().Count();
+                // Kechikish — smena 08:15 dan keyin ochilgan bo'lsa (Tashkent vaqti).
+                var lateCount = g.Count(s => _clock.ToLocal(s.OpenedAt).TimeOfDay > LateThreshold);
+                return new AttendanceRowDto(
+                    g.Key,
+                    g.First().User?.FullName ?? "",
+                    shiftCount,
+                    dayCount,
+                    Math.Round(totalHours, 1),
+                    Math.Round(shiftCount > 0 ? totalHours / shiftCount : 0m, 1),
+                    lateCount);
+            })
+            .OrderByDescending(r => r.TotalHours)
+            .ToList();
+
+        return new AttendanceDto(
+            period,
+            ScheduleStart.ToString(@"hh\:mm"),
+            ScheduleEnd.ToString(@"hh\:mm"),
+            LateThreshold.ToString(@"hh\:mm"),
+            planHours,
+            items);
     }
 
     private async Task<IReadOnlyList<ShiftDto>> MapManyAsync(List<Shift> shifts, CancellationToken cancellationToken)

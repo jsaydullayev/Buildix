@@ -243,6 +243,15 @@ public class SaleService : ISaleService
                 return Result.Failure<SaleDto>(
                     "Долг разрешён только постоянным клиентам.", "DEBT_REGULARS_ONLY");
 
+            // Per-user «Долг на чек» limiti: kassir bitta chekka belgilangan
+            // summadan ko'p qarz qoldira olmaydi. Null = cheksiz.
+            var maxDebtPerCheck = await _context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.MaxDebtPerCheck)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (maxDebtPerCheck is { } cap && saleRemaining > cap)
+                return Result.Failure<SaleDto>($"Sizning bir chekka qarz limitingiz {cap:N0} сум.");
+
             // Limit: customer-specific overrides the market default; 0 = unlimited.
             if (customer is not null)
             {
@@ -349,6 +358,19 @@ public class SaleService : ISaleService
                 .SumAsync(si => si.SalePrice * si.Quantity, cancellationToken);
             if (discountAmount > gross)
                 return Result.Failure<SaleDto>("Chegirma jami summadan oshib ketmasligi kerak");
+
+            // Per-user chegirma limiti (%): kassir belgilangan foizdan ko'p
+            // chegirma qo'ya olmaydi. Null = cheksiz (Owner/Admin va limitsizlar).
+            var maxDiscountPct = await _context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.MaxDiscountPercent)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (maxDiscountPct is { } pct && gross > 0)
+            {
+                var maxAllowed = gross * pct / 100m;
+                if (discountAmount > maxAllowed)
+                    return Result.Failure<SaleDto>($"Sizning chegirma limitingiz {pct}% ({maxAllowed:N0} сум).");
+            }
 
             var oldDiscount = sale.DiscountAmount;
             sale.DiscountAmount = discountAmount;

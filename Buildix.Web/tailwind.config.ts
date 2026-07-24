@@ -79,6 +79,7 @@ export default {
         debts: '1.6fr 1.1fr 0.7fr 1.2fr 1fr 0.8fr',
         purchases: '0.55fr 1.4fr 0.9fr 0.9fr 1fr 0.9fr',
         shifts: '0.9fr 1.2fr 1.1fr 0.6fr 1fr 1fr 0.9fr',
+        attendance: 'minmax(0,1.4fr) 70px 70px 90px 100px 110px minmax(0,1.2fr)',
         'dashboard-sales': '64px 1fr 1.4fr 110px 130px',
         'reports-daybar': '44px minmax(0,1fr) 110px',
         'reports-topproducts': 'minmax(0,1.6fr) 90px 120px',

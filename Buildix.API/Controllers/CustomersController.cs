@@ -60,9 +60,11 @@ public class CustomersController : ApiControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int size = 50,
         [FromQuery] string? search = null,
+        [FromQuery] bool? withDebt = null,
+        [FromQuery] string? customerType = null,
         CancellationToken ct = default)
     {
-        var result = await _customerService.GetAllCustomersPagedAsync(page, size, search, ct);
+        var result = await _customerService.GetAllCustomersPagedAsync(page, size, search, withDebt, customerType, ct);
         return Ok(result);
     }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { startOfDay, startOfWeek, startOfMonth } from 'date-fns';
+import { startOfDay, subDays } from 'date-fns';
 import { Plus, Search, FileDown } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
@@ -16,7 +16,7 @@ import { salesApi, type Sale } from './api';
 import { SaleDetailModal } from './SaleDetailModal';
 
 const PAGE_SIZE = 20;
-type Period = 'today' | 'week' | 'month';
+type Period = 'today' | 'yesterday' | 'all';
 const PAYMENT_FILTERS = ['all', 'cash', 'card', 'debt'] as const;
 type PayFilter = (typeof PAYMENT_FILTERS)[number];
 
@@ -27,15 +27,15 @@ const PAY_PARAM: Record<PayFilter, string | null> = {
   debt: 'Debt',
 };
 
-function periodRange(period: Period): { from: string; to: string } {
+function periodRange(period: Period): { from?: string; to?: string } {
   const now = new Date();
-  const start =
-    period === 'today'
-      ? startOfDay(now)
-      : period === 'week'
-        ? startOfWeek(now, { weekStartsOn: 1 })
-        : startOfMonth(now);
-  return { from: start.toISOString(), to: now.toISOString() };
+  // «Все» — vaqt chegarasisiz (butun tarix).
+  if (period === 'all') return {};
+  // «Вчера» — kechagi kunning boshidan bugungi kun boshigacha.
+  if (period === 'yesterday')
+    return { from: startOfDay(subDays(now, 1)).toISOString(), to: startOfDay(now).toISOString() };
+  // «Сегодня».
+  return { from: startOfDay(now).toISOString(), to: now.toISOString() };
 }
 
 export default function SalesPage() {
@@ -169,26 +169,32 @@ export default function SalesPage() {
             ))}
           </div>
 
-          {canFilterSeller && (
-            <select
-              value={sellerId}
-              onChange={(e) => {
-                setSellerId(e.target.value);
-                resetPage();
-              }}
-              className="h-11 rounded-input border border-input-border bg-surface px-3 text-[13.5px] outline-none focus:border-primary"
-            >
-              <option value="">{t('sales.allSellers')}</option>
+          {canFilterSeller && (sellersQuery.data ?? []).length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Chip
+                label={t('sales.allSellers')}
+                active={sellerId === ''}
+                onClick={() => {
+                  setSellerId('');
+                  resetPage();
+                }}
+              />
               {(sellersQuery.data ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName}
-                </option>
+                <Chip
+                  key={u.id}
+                  label={u.fullName}
+                  active={sellerId === u.id}
+                  onClick={() => {
+                    setSellerId(u.id);
+                    resetPage();
+                  }}
+                />
               ))}
-            </select>
+            </div>
           )}
 
           <div className="ml-auto inline-flex rounded-input bg-hairline p-1">
-            {(['today', 'week', 'month'] as Period[]).map((p) => (
+            {(['today', 'yesterday', 'all'] as Period[]).map((p) => (
               <button
                 key={p}
                 type="button"

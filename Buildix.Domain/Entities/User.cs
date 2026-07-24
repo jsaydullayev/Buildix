@@ -18,6 +18,16 @@ public class User : BaseEntity, ISoftDelete
     /// <summary>Telegram @username (Account profilida tahrirlanadi).</summary>
     public string? Telegram { get; set; }
 
+    // ── Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9) ──
+    // Market darajasidagi MarketSettings.Notify* dan farqli — bu foydalanuvchining
+    // o'z tanlovi. Default true → mavjud xatti-harakat o'zgarmaydi.
+    /// <summary>Просроченные долги — qarz muddati bildirishnomalari.</summary>
+    public bool NotifyDebt { get; set; } = true;
+    /// <summary>Товар закончился — kam/tugagan qoldiq bildirishnomalari.</summary>
+    public bool NotifyStock { get; set; } = true;
+    /// <summary>Закрытие смены — smena yopilishi bildirishnomalari.</summary>
+    public bool NotifyShift { get; set; } = true;
+
     /// <summary>
     /// Oxirgi faollik vaqti (UTC) — Сотрудники ekranida "Сейчас в системе / был
     /// вчера". Login va token refresh paytida yangilanadi (har so'rovda emas).
@@ -82,6 +92,18 @@ public class User : BaseEntity, ISoftDelete
     /// False = never customised → fall back to role defaults.
     /// </summary>
     public bool IsPermissionsCustomized { get; set; } = false;
+
+    /// <summary>
+    /// Chegirma limiti (foizda) — kassir bitta chekka qo'ya oladigan maksimal
+    /// chegirma (jami summadan %). Null = cheksiz. Dizayndagi «Лимит скидки 3/5/10%».
+    /// </summary>
+    public int? MaxDiscountPercent { get; set; }
+
+    /// <summary>
+    /// Bitta chekka maksimal qarz summasi. Null = cheksiz. Dizayndagi «Долг на
+    /// чек 5млн/20млн/Без лимита».
+    /// </summary>
+    public decimal? MaxDebtPerCheck { get; set; }
 
     /// <summary>
     /// The permissions actually in force: full catalogue for Owner/SuperAdmin,

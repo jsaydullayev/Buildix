@@ -47,6 +47,26 @@ export interface MyShifts {
 
 export type ShiftRange = 'week' | 'month' | 'all';
 
+/** One employee's attendance over the period (Смены → Посещаемость). */
+export interface AttendanceRow {
+  userId: string;
+  name: string;
+  shiftCount: number;
+  dayCount: number;
+  totalHours: number;
+  avgShiftHours: number;
+  lateCount: number;
+}
+
+export interface Attendance {
+  period: string; // week | month
+  scheduleFrom: string; // "08:00"
+  scheduleTo: string; // "20:00"
+  lateAfter: string; // "08:15"
+  planHours: number;
+  items: AttendanceRow[];
+}
+
 export interface Withdrawal {
   id: string;
   amount: number;
@@ -115,6 +135,12 @@ export const shiftsApi = {
    *  users.shift and cannot call /Shifts) still sees their shifts. */
   myHistory: async (range: ShiftRange): Promise<MyShifts> => {
     const { data } = await apiClient.get<MyShifts>('/Shifts/my', { params: { range } });
+    return data;
+  },
+
+  /** Посещаемость — market attendance report (users.shift). range = week | month. */
+  attendance: async (range: 'week' | 'month'): Promise<Attendance> => {
+    const { data } = await apiClient.get<Attendance>('/Shifts/attendance', { params: { range } });
     return data;
   },
 };

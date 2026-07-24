@@ -555,6 +555,7 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IStockLedger, StockLedger>();
     builder.Services.AddScoped<ICashLedger, CashLedger>();
+    builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
     builder.Services.AddScoped<IProductImageService, ProductImageService>();
@@ -566,6 +567,7 @@ try
     builder.Services.AddScoped<ISaleQueryService, SaleQueryService>();
     builder.Services.AddScoped<ISaleItemService, SaleItemService>();
     builder.Services.AddScoped<ISaleReversalService, SaleReversalService>();
+    builder.Services.AddScoped<ISaleReturnService, SaleReturnService>();
     builder.Services.AddScoped<ISalePaymentService, SalePaymentService>();
     builder.Services.AddScoped<ISaleCreditApplier, SaleCreditApplier>();
     builder.Services.AddScoped<IZakupService, ZakupService>();

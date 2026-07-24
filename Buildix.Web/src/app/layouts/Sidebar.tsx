@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/cn';
 import { BrandLogo } from '@/shared/ui';
 import { NAV_SECTIONS } from '@/shared/config/navigation';
 import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
-import { cashApi } from '@/features/shifts/api';
+import { notificationsApi } from '@/features/notifications/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
@@ -29,14 +29,16 @@ export function Sidebar() {
   })).filter((s) => s.items.length > 0);
 
   const canNotifications = hasPermission(PERMISSIONS.notifications.access);
-  // Badge count = pending cash-withdrawal requests (they need an owner decision).
-  // A cheap, precise signal; the full alert feed lives on the notifications page.
-  const pendingQuery = useQuery({
-    queryKey: ['withdrawals', 'Pending'],
-    queryFn: () => cashApi.withdrawals('Pending'),
-    enabled: canNotifications && hasPermission(PERMISSIONS.cashregister.access),
+  // Badge = unread notifications from the server feed. Polls periodically so a
+  // freshly reconciled stock/debt alert or a pushed shift/supply event shows up
+  // without a manual refresh.
+  const unreadQuery = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: () => notificationsApi.unreadCount(),
+    enabled: canNotifications,
+    refetchInterval: 60_000,
   });
-  const pendingCount = pendingQuery.data?.length ?? 0;
+  const unreadCount = unreadQuery.data ?? 0;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -99,9 +101,9 @@ export function Sidebar() {
           <NavLink to={`${base}/notifications`} className={linkClass}>
             <span className="relative flex">
               <Bell size={17} />
-              {pendingCount > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white">
-                  {pendingCount}
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </span>

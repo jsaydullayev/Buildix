@@ -111,4 +111,12 @@ public class ShiftsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ShiftDto>>> GetUserShifts(
         Guid userId, CancellationToken ct = default)
         => Ok(await _shiftService.GetUserShiftsAsync(userId, 30, ct));
+
+    /// <summary>Посещаемость — davomat hisoboti (Смены → Посещаемость tab).
+    /// Smena vaqtlaridan hisoblanadi. <paramref name="range"/> = week | month.</summary>
+    [HttpGet("attendance")]
+    [RequirePermission(PermissionKeys.UsersShift)]
+    public async Task<ActionResult<AttendanceDto>> GetAttendance(
+        [FromQuery] string? range = null, CancellationToken ct = default)
+        => Ok(await _shiftService.GetAttendanceAsync(range, ct));
 }
