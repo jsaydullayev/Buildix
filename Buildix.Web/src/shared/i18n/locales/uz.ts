@@ -95,6 +95,19 @@ export const uz: TranslationSchema = {
     products: {
       title: 'Tovarlar',
       subtitle: 'Do‘kon katalogi · kelish narxlari egasiga ko‘rinadi',
+      cols: { location: 'JOY' },
+      card: {
+        price: 'Sotuv narxi',
+        stock: 'Qoldiq',
+        minStock: 'Min. qoldiq',
+        sku: 'Artikul',
+        location: 'Omborдаgi joyi',
+        supplier: 'Yetkazib beruvchi',
+        lastIn: 'Oxirgi kirim',
+        soldMonth: 'Oyiga sotilgan',
+        sell: 'Sotish — kassani ochish',
+        costHidden: 'Kelish narxi va ustama faqat egaga ko‘rinadi',
+      },
     },
     debts: {
       title: 'Mijozlar qarzi',

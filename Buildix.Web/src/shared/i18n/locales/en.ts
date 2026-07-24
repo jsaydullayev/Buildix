@@ -95,6 +95,19 @@ export const en: TranslationSchema = {
     products: {
       title: 'Products',
       subtitle: 'Store catalogue · cost prices are visible to the owner',
+      cols: { location: 'LOCATION' },
+      card: {
+        price: 'Sale price',
+        stock: 'In stock',
+        minStock: 'Min. stock',
+        sku: 'SKU',
+        location: 'Warehouse location',
+        supplier: 'Supplier',
+        lastIn: 'Last receipt',
+        soldMonth: 'Sold this month',
+        sell: 'Sell — open the till',
+        costHidden: 'Cost price and markup are visible only to the owner',
+      },
     },
     debts: {
       acceptedToday: 'Accepted today',

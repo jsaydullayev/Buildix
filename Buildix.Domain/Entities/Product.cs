@@ -28,6 +28,12 @@ public class Product : BaseEntity, ISoftDelete
     public string? Description { get; set; }
 
     /// <summary>
+    /// Omborда saqlash joyi ("Место на складе" — masalan «Навес А · ряд 2»).
+    /// Sotuvchi tovar kartochkasida ko'radi; qidirib topishga yordam beradi. Ixtiyoriy.
+    /// </summary>
+    public string? WarehouseLocation { get; set; }
+
+    /// <summary>
     /// True bo'lsa — mahsulot POS (kassa) va sotuvchi katalogidan yashiriladi,
     /// lekin hisobotlar/tarixda qoladi. Bu <see cref="HidePriceFromSellers"/> dan
     /// FARQLI: u faqat NARXNI yashiradi, bu esa TOVARNI butunlay katalogdan

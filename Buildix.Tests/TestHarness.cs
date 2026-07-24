@@ -108,7 +108,7 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, Audit, StockLedger);
 
     public ProductQueryService NewProductQueryService() =>
-        new(Db, Market);
+        new(Db, Market, Clock);
 
     public ProductImageService NewProductImageService() =>
         new(UnitOfWork, Market, ImageStorage, Audit);

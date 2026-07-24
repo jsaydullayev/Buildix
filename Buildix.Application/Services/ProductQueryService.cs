@@ -14,11 +14,13 @@ public class ProductQueryService : IProductQueryService
 {
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
+    private readonly ITashkentClock _clock;
 
-    public ProductQueryService(IAppDbContext context, ICurrentMarketService currentMarketService)
+    public ProductQueryService(IAppDbContext context, ICurrentMarketService currentMarketService, ITashkentClock clock)
     {
         _context = context;
         _currentMarketService = currentMarketService;
+        _clock = clock;
     }
 
     public async Task<IReadOnlyList<StockMovementDto>> GetProductMovementsAsync(Guid productId, int limit = 50, CancellationToken cancellationToken = default)
@@ -59,6 +61,37 @@ public class ProductQueryService : IProductQueryService
             return null;
 
         return ProductMapper.MapToDto(product, canViewCost);
+    }
+
+    public async Task<ProductStatsDto?> GetProductStatsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        var exists = await _context.Products.AsNoTracking()
+            .AnyAsync(p => p.Id == id && p.MarketId == marketId, cancellationToken);
+        if (!exists) return null;
+
+        // «Поставщик» + «Последний приход» — bu tovarni o'z ichiga olgan oxirgi
+        // qabul qilingan postavka. Narх ko'rsatilmaydi (kassir cheklovi).
+        var lastReceipt = await _context.Zakups.AsNoTracking()
+            .Where(z => z.ProductId == id && z.ReceiptId != null
+                && z.Receipt!.MarketId == marketId && z.Receipt.DeliveryStatus == Domain.Enums.DeliveryStatus.Accepted)
+            .OrderByDescending(z => z.Receipt!.CreatedAt)
+            .Select(z => new { z.Receipt!.CreatedAt, z.Receipt.ReceiptNumber, SupplierName = z.Receipt.Supplier != null ? z.Receipt.Supplier.Name : null })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // «Продано за месяц» — joriy Toshkent oyidagi sotilgan miqdor (draft/bekor emas).
+        var monthStartUtc = _clock.LocalDayToUtcRange(new DateTime(_clock.TodayLocal.Year, _clock.TodayLocal.Month, 1)).UtcStart;
+        var soldThisMonth = await _context.SaleItems.AsNoTracking()
+            .Where(si => si.ProductId == id && si.Sale != null && si.Sale.MarketId == marketId
+                && si.Sale.Status != Domain.Enums.SaleStatus.Draft && si.Sale.Status != Domain.Enums.SaleStatus.Cancelled
+                && si.Sale.CreatedAt >= monthStartUtc)
+            .SumAsync(si => (decimal?)si.Quantity, cancellationToken) ?? 0m;
+
+        return new ProductStatsDto(
+            lastReceipt?.SupplierName,
+            lastReceipt?.CreatedAt,
+            lastReceipt?.ReceiptNumber,
+            soldThisMonth);
     }
 
     public async Task<IEnumerable<ProductDto>> GetAllProductsAsync(bool canViewCost = true, CancellationToken cancellationToken = default)
