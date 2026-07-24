@@ -42,6 +42,14 @@ public class CashRegisterController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Касса kunlik ledger'i — balans + приход/расход + tiplangan
+    /// harakatlar ro'yxati. date (local kun) berilmasa — bugun.</summary>
+    [HttpGet("movements")]
+    [RequirePermission(PermissionKeys.CashRegisterAccess)]
+    public async Task<ActionResult<CashLedgerDto>> GetCashLedger(
+        [FromQuery] DateTime? date = null, CancellationToken cancellationToken = default)
+        => Ok(await _cashRegisterService.GetCashLedgerAsync(date, cancellationToken));
+
     [HttpPost("withdraw")]
     [RequirePermission(PermissionKeys.CashRegisterManage)]
     [Idempotent("cash-withdraw")]
@@ -119,7 +127,7 @@ public class CashRegisterController : ControllerBase
             return Unauthorized(new { message = "Invalid user" });
         }
 
-        var success = await _cashRegisterService.AddCashAsync(request.Amount, userId, cancellationToken);
+        var success = await _cashRegisterService.AddCashAsync(request.Amount, userId, request.Comment, cancellationToken);
         if (!success)
             return BadRequest(new { message = "Failed to add cash" });
 

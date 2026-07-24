@@ -554,6 +554,7 @@ try
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IStockLedger, StockLedger>();
+    builder.Services.AddScoped<ICashLedger, CashLedger>();
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
     builder.Services.AddScoped<IProductImageService, ProductImageService>();

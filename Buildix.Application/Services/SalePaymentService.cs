@@ -23,6 +23,7 @@ public class SalePaymentService : ISalePaymentService
     private readonly ILogger<SalePaymentService> _logger;
     private readonly IMarketSettingsService _settings;
     private readonly IStockLedger _stockLedger;
+    private readonly ICashLedger _cashLedger;
 
     public SalePaymentService(
         IUnitOfWork unitOfWork,
@@ -31,7 +32,8 @@ public class SalePaymentService : ISalePaymentService
         IAuditLogService auditLogService,
         ILogger<SalePaymentService> logger,
         IMarketSettingsService settings,
-        IStockLedger stockLedger)
+        IStockLedger stockLedger,
+        ICashLedger cashLedger)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -40,6 +42,7 @@ public class SalePaymentService : ISalePaymentService
         _logger = logger;
         _settings = settings;
         _stockLedger = stockLedger;
+        _cashLedger = cashLedger;
     }
 
     /// <summary>
@@ -255,6 +258,12 @@ public class SalePaymentService : ISalePaymentService
 
                 cashRegister.CurrentBalance += cashPortion;
                 cashRegister.LastUpdated = DateTime.UtcNow;
+
+                // Касса jurnaliga sotuvning naqd ulushi (kirim) — Продажа · Ч-####.
+                // Balansni bu emas, yuqoridagi CurrentBalance belgilaydi; bu faqat
+                // ro'yxat. Kim: sotuvchi; qaysi smena: sotuvniki.
+                _cashLedger.Record(sale.MarketId, cashPortion, CashMovementType.Sale,
+                    userId: sale.SellerId, shiftId: sale.ShiftId, refNumber: sale.SaleNumber);
             }
 
             // Update sale paid amount. TotalAmount is already authoritative

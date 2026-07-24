@@ -23,6 +23,9 @@ public interface ICashRegisterService
     /// Logged as the actor on the resulting audit row so deposits are as
     /// accountable as withdrawals are.
     /// </summary>
-    Task<bool> AddCashAsync(decimal amount, Guid userId, CancellationToken cancellationToken = default);
+    Task<bool> AddCashAsync(decimal amount, Guid userId, string? comment = null, CancellationToken cancellationToken = default);
     Task<TodaySalesSummaryDto?> GetTodaySalesSummaryAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Касса kunlik ledger'i (balans + приход/расход + tiplangan harakatlar ro'yxati).</summary>
+    Task<CashLedgerDto> GetCashLedgerAsync(DateTime? localDate, CancellationToken cancellationToken = default);
 }
