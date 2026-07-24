@@ -510,6 +510,7 @@ export const ru = {
     add: 'Новый клиент',
     empty: 'Клиенты не найдены',
     searchPlaceholder: 'Поиск по имени или телефону…',
+    filters: { all: 'Все', withDebt: 'С долгом', legal: 'Организации' },
     cols: { name: 'КЛИЕНТ', phone: 'ТЕЛЕФОН', debt: 'ДОЛГ', type: 'ТИП' },
     types: { individual: 'Розничный', legal: 'Юр. лицо' },
     deleteConfirm: 'Удалить клиента «{{name}}»?',

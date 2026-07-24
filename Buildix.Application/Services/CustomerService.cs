@@ -102,7 +102,7 @@ public class CustomerService : ICustomerService
         )).ToList();
     }
 
-    public async Task<PagedResult<CustomerDto>> GetAllCustomersPagedAsync(int page, int size, string? search = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CustomerDto>> GetAllCustomersPagedAsync(int page, int size, string? search = null, bool? withDebt = null, string? customerType = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
@@ -120,6 +120,21 @@ public class CustomerService : ICustomerService
             query = query.Where(c =>
                 (c.FullName != null && c.FullName.Contains(search)) ||
                 (c.Phone != null && c.Phone.Contains(search)));
+
+        // «С долгом» chip — ochiq qarzi bor mijozlar (EXISTS subquery, pagination
+        // to'g'ri ishlashi uchun sahifalashdan OLDIN qo'llanadi).
+        if (withDebt == true)
+            query = query.Where(c => _context.Debts.Any(d =>
+                d.CustomerId == c.Id && d.MarketId == marketId && d.Status == DebtStatus.Open));
+
+        // «Организации» chip — Legal/Individual.
+        if (!string.IsNullOrWhiteSpace(customerType))
+        {
+            var type = string.Equals(customerType, "Legal", StringComparison.OrdinalIgnoreCase)
+                ? Buildix.Domain.Enums.CustomerType.Legal
+                : Buildix.Domain.Enums.CustomerType.Individual;
+            query = query.Where(c => c.CustomerType == type);
+        }
 
         var total = await query.CountAsync(cancellationToken);
 

@@ -509,6 +509,7 @@ export const uz: TranslationSchema = {
     empty: 'Mijozlar topilmadi',
     searchPlaceholder: 'Ism yoki telefon bo‘yicha qidiruv…',
     cols: { name: 'MIJOZ', phone: 'TELEFON', debt: 'QARZ', type: 'TUR' },
+    filters: { all: 'Hammasi', withDebt: 'Qarzli', legal: 'Tashkilotlar' },
     types: { individual: 'Chakana', legal: 'Yur. shaxs' },
     deleteConfirm: '«{{name}}» mijoz o‘chirilsinmi?',
     deleteBlocked: 'O‘chirib bo‘lmaydi: {{debts}} ta qarz, {{debt}} so‘m.',

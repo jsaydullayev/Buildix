@@ -509,6 +509,7 @@ export const en: TranslationSchema = {
     empty: 'No customers found',
     searchPlaceholder: 'Search by name or phone…',
     cols: { name: 'CUSTOMER', phone: 'PHONE', debt: 'DEBT', type: 'TYPE' },
+    filters: { all: 'All', withDebt: 'With debt', legal: 'Companies' },
     types: { individual: 'Retail', legal: 'Company' },
     deleteConfirm: 'Delete customer “{{name}}”?',
     deleteBlocked: 'Cannot delete: {{debts}} debts totalling {{debt}} sum.',
