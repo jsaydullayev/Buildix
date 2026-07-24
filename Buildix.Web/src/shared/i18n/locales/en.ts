@@ -416,6 +416,7 @@ export const en: TranslationSchema = {
     payAmount: 'Payment amount',
     payMethod: 'Payment method',
     payFull: 'Full debt',
+    moreDebts: 'This customer has {{count}} debts totaling {{total}} — payment goes to the earliest receipt.',
     remaining: 'Remaining debt',
     methods: { cash: 'Cash', card: 'Card', transfer: 'Transfer', click: 'Click' },
     dueDate: 'Due date',

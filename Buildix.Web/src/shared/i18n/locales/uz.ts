@@ -416,6 +416,7 @@ export const uz: TranslationSchema = {
     payAmount: 'To‘lov summasi',
     payMethod: 'To‘lov usuli',
     payFull: 'To‘liq qarz',
+    moreDebts: 'Mijozda yana {{count}} ta qarz bor — jami {{total}} so‘m — to‘lov eng eski chekdan yopiladi.',
     remaining: 'Qarz qoldig‘i',
     methods: { cash: 'Naqd', card: 'Karta', transfer: 'O‘tkazma', click: 'Click' },
     dueDate: 'Qaytarish muddati',

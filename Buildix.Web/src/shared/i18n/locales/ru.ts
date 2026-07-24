@@ -418,6 +418,7 @@ export const ru = {
     payAmount: 'Сумма оплаты',
     payMethod: 'Способ оплаты',
     payFull: 'Весь долг',
+    moreDebts: 'У клиента ещё {{count}} долгов на {{total}} сум — оплата идёт в счёт самого раннего чека.',
     remaining: 'Остаток долга',
     methods: { cash: 'Наличные', card: 'Карта', transfer: 'Перевод', click: 'Click' },
     dueDate: 'Срок возврата',

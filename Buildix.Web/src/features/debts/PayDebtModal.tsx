@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, AlertTriangle } from 'lucide-react';
 import { Modal, Button } from '@/shared/ui';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
@@ -41,10 +41,11 @@ export function PayDebtModal({
     enabled: open,
   });
 
-  const oldest = debtsQuery.data
-    ?.filter((d) => d.remainingDebt > 0)
-    .slice()
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  const openDebts = (debtsQuery.data ?? []).filter((d) => d.remainingDebt > 0);
+  const oldest = openDebts.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  // «У клиента есть ещё долги» — bir nechta ochiq chek bo'lsa (dizayn banneri).
+  const hasMore = openDebts.length > 1;
+  const totalOwed = openDebts.reduce((sum, d) => sum + d.remainingDebt, 0);
 
   useEffect(() => {
     if (open) {
@@ -98,6 +99,13 @@ export function PayDebtModal({
       }
     >
       <div className="flex flex-col gap-4">
+        {hasMore && (
+          <div className="flex items-start gap-2 rounded-input border border-warn-amber/30 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-warn-strong">
+            <AlertTriangle size={14} className="mt-0.5 flex-none" />
+            <span>{t('debts.moreDebts', { count: openDebts.length, total: formatSum(totalOwed) })}</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between rounded-input bg-bg px-4 py-3 text-[14px]">
           <span className="text-muted">{t('debts.remaining')}</span>
           <span className="font-semibold nums">
