@@ -33,6 +33,8 @@ public interface IAppDbContext
     DbSet<ZakupReceipt> ZakupReceipts { get; }
     DbSet<StockMovement> StockMovements { get; }
     DbSet<CashMovement> CashMovements { get; }
+    DbSet<SaleReturn> SaleReturns { get; }
+    DbSet<SaleReturnItem> SaleReturnItems { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<CashRegister> CashRegisters { get; }

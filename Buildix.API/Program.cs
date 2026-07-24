@@ -566,6 +566,7 @@ try
     builder.Services.AddScoped<ISaleQueryService, SaleQueryService>();
     builder.Services.AddScoped<ISaleItemService, SaleItemService>();
     builder.Services.AddScoped<ISaleReversalService, SaleReversalService>();
+    builder.Services.AddScoped<ISaleReturnService, SaleReturnService>();
     builder.Services.AddScoped<ISalePaymentService, SalePaymentService>();
     builder.Services.AddScoped<ISaleCreditApplier, SaleCreditApplier>();
     builder.Services.AddScoped<IZakupService, ZakupService>();

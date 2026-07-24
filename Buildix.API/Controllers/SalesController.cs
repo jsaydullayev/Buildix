@@ -24,22 +24,58 @@ public class SalesController : ApiControllerBase
     private readonly ISaleItemService _saleItemService;
     private readonly ISaleReversalService _saleReversalService;
     private readonly ISalePaymentService _salePaymentService;
+    private readonly ISaleReturnService _saleReturnService;
     private readonly ILogger<SalesController> _logger;
     private readonly IReportPdfExportService _reportPdfExportService;
     private readonly ISalesExcelExportService _salesExcelExportService;
     private readonly ITashkentClock _clock;
 
-    public SalesController(ISaleService saleService, ISaleQueryService saleQueryService, ISaleItemService saleItemService, ISaleReversalService saleReversalService, ISalePaymentService salePaymentService, ILogger<SalesController> logger, IReportPdfExportService reportPdfExportService, ISalesExcelExportService salesExcelExportService, ITashkentClock clock)
+    public SalesController(ISaleService saleService, ISaleQueryService saleQueryService, ISaleItemService saleItemService, ISaleReversalService saleReversalService, ISalePaymentService salePaymentService, ISaleReturnService saleReturnService, ILogger<SalesController> logger, IReportPdfExportService reportPdfExportService, ISalesExcelExportService salesExcelExportService, ITashkentClock clock)
     {
         _saleService = saleService;
         _saleQueryService = saleQueryService;
         _saleItemService = saleItemService;
         _saleReversalService = saleReversalService;
         _salePaymentService = salePaymentService;
+        _saleReturnService = saleReturnService;
         _logger = logger;
         _reportPdfExportService = reportPdfExportService;
         _salesExcelExportService = salesExcelExportService;
         _clock = clock;
+    }
+
+    // ── Возвраты (first-class return documents, В-##) ────────────────────────
+
+    /// <summary>Qaytarishlar ro'yxati (В-##) — reason/qidiruv filtri bilan.</summary>
+    [HttpGet("~/api/Sales/returns")]
+    [RequirePermission(PermissionKeys.SalesAccess)]
+    public async Task<ActionResult<PagedResult<SaleReturnDto>>> GetReturns(
+        [FromQuery] int page = 1, [FromQuery] int size = 30,
+        [FromQuery] string? reason = null, [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await _saleReturnService.GetReturnsPagedAsync(page, size, reason, search, ct));
+
+    /// <summary>Возвраты sarlavhasi — davr jami + % выручки.</summary>
+    [HttpGet("~/api/Sales/returns/summary")]
+    [RequirePermission(PermissionKeys.SalesAccess)]
+    public async Task<ActionResult<ReturnsSummaryDto>> GetReturnsSummary(
+        [FromQuery] DateTime? from = null, CancellationToken ct = default)
+    {
+        var fromUtc = from ?? _clock.LocalDayToUtcRange(new DateTime(_clock.TodayLocal.Year, _clock.TodayLocal.Month, 1)).UtcStart;
+        return Ok(await _saleReturnService.GetReturnsSummaryAsync(fromUtc, ct));
+    }
+
+    /// <summary>«Оформить возврат» — bir sotuvdan bir necha liniyani qaytaradi.</summary>
+    [HttpPost("~/api/Sales/returns")]
+    [RequirePermission(PermissionKeys.SalesEdit)]
+    public async Task<ActionResult<SaleReturnDto>> CreateReturn([FromBody] CreateReturnDto request, CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            return Unauthorized();
+        var result = await _saleReturnService.CreateReturnAsync(request, userId, ct);
+        if (result.IsFailure)
+            return result.Code == NotFoundCode ? NotFound() : BadRequest(new { message = result.Error });
+        return Ok(result.Value);
     }
 
     [HttpGet("{id}")]

@@ -29,6 +29,8 @@ public static class MarketSequenceLock
     public const int ZakupReceiptNumberClass = 2;
     /// <summary>Смена № printed on the receipt — same allocation contract.</summary>
     public const int ShiftNumberClass = 3;
+    /// <summary>Возврат № (В-##) — collision-free per-market return document number.</summary>
+    public const int SaleReturnNumberClass = 4;
 
     public static async Task AcquireAsync(
         IAppDbContext context, int lockClass, int marketId, CancellationToken ct)
