@@ -86,3 +86,18 @@ Hammasi browser'da tekshirildi (0 xato), 37/37 backend test o'tdi, tsc/eslint/vi
 **Eslatma:** R3 dastlab «frontend only» deb belgilangandi, lekin paged endpoint faqat `search`ni qo'llab-quvvatlagani uchun to'g'rilik (pagination) uchun kichik additiv backend filtr param qo'shishga to'g'ri keldi (default null = filtrsiz).
 
 **Qolgan (ataylab — qaror kutmoqda):** §2.16 til tanlash (parallel refactoring), §6.6 admin-kod override, §6.4 Посещаемость sozlamasi.
+
+---
+
+## ✅ YAKUNIY YOPISH (2026-07-24)
+
+| Ish | Commit | Holat |
+|---|---|---|
+| O'lik scaffold kod (`_shared/ComingSoonPage`, `PagePlaceholder`) | `e6ab6d1` | ✅ olib tashlandi |
+| §6.4 Посещаемость grafigi → `MarketSettings` (WorkDayStart/End/LateThreshold, sozlanadigan) | `69dfcc3` | ✅ backend+UI, migration additiv, 37/37 test |
+
+**Qaror qabul qilingan (endi ochiq savol emas):**
+- **§6.6 admin-kod override** — foydalanuvchi qarori: **qilinmaydi**. v1 standart (toggle o'chiq = amal bloklangan, kodsiz) yetarli — u BE-6'da allaqachon bajarilgan. Override — kelajakdagi v2 ixtiyoriy yaxshilanishi.
+- **§2.16 til tanlash Account'da** — til switch **Settings sahifasida allaqachon bor** (RU/UZ/EN, butun ilova bo'ylab). Account'ga qo'shish foydalanuvchining parallel til-refactoringiga bog'liq — u tugagach ulanadi.
+
+**Xulosa:** Owner panel amaliy jihatdan **yakunlangan** — barcha ekranlar, dizayn integratsiyasi (A1–A9 + R1–R4), va yopiladigan bo'shliqlar tugadi. Yagona qolgani — Account'dagi til (parallel ishga bog'liq).
