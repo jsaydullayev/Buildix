@@ -900,6 +900,13 @@ export const uz: TranslationSchema = {
       noWithdrawals: 'bugun yechishlar yo‘q',
       overdueCount: '{{count}} ta muddati o‘tgan',
       totalCustomers: 'jami {{count}} mijoz',
+      sellersOnShift: 'Smenadagi sotuvchilar',
+      onShiftNow: 'hozir kassada: {{count}}',
+      noOpenShift: 'ochiq smena yo‘q',
+      stockSignals: 'Ombor signallari',
+      outCount: '{{count}} ta tugagan',
+      lowCount: '{{count}} ta tugayapti',
+      stockOk: 'ombor normada',
     },
     chart: {
       title: 'Haftalik tushum',

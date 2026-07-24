@@ -900,6 +900,13 @@ export const en: TranslationSchema = {
       noWithdrawals: 'no withdrawals today',
       overdueCount: '{{count}} overdue',
       totalCustomers: '{{count}} customers total',
+      sellersOnShift: 'Sellers on shift',
+      onShiftNow: 'at the till now: {{count}}',
+      noOpenShift: 'no open shifts',
+      stockSignals: 'Stock signals',
+      outCount: '{{count}} out of stock',
+      lowCount: '{{count}} running low',
+      stockOk: 'stock is fine',
     },
     chart: {
       title: 'Weekly revenue',

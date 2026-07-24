@@ -902,6 +902,13 @@ export const ru = {
       noWithdrawals: 'снятий сегодня нет',
       overdueCount: '{{count}} просрочен',
       totalCustomers: 'всего {{count}} клиентов',
+      sellersOnShift: 'Продавцы на смене',
+      onShiftNow: 'сейчас на кассе: {{count}}',
+      noOpenShift: 'нет открытых смен',
+      stockSignals: 'Сигналы склада',
+      outCount: '{{count}} нет в наличии',
+      lowCount: '{{count}} заканчивается',
+      stockOk: 'склад в норме',
     },
     chart: {
       title: 'Выручка за неделю',

@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { format, startOfDay, isSameDay, parseISO, differenceInCalendarDays } from 'date-fns';
-import { Plus, Receipt, TrendingUp, Wallet, CreditCard, AlertTriangle, Boxes, Clock, Truck, ChevronRight } from 'lucide-react';
+import { format, startOfDay, parseISO, differenceInCalendarDays } from 'date-fns';
+import { Plus, Receipt, TrendingUp, CreditCard, Boxes, Clock, Truck, ChevronRight, Users, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart,
@@ -24,6 +24,7 @@ import { PERMISSIONS } from '@/shared/config/permissions';
 import { purchasesApi, type ReorderSuggestion } from '@/features/purchases/api';
 import { debtsApi, type DebtorSummary } from '@/features/debts/api';
 import { shiftsApi, type Shift } from '@/features/shifts/api';
+import { productsApi } from '@/features/warehouse/api';
 import { notificationsApi, type NotificationItem } from '@/features/notifications/api';
 import { dashboardApi, type DailySale, type WeeklyPoint } from './api';
 
@@ -74,6 +75,7 @@ export default function DashboardPage() {
   const canShift = hasPermission(PERMISSIONS.users.shift);
   const canZakup = hasPermission(PERMISSIONS.zakup.access);
   const canDebts = hasPermission(PERMISSIONS.debts.access);
+  const canProducts = hasPermission(PERMISSIONS.products.access);
   const canNotifications = hasPermission(PERMISSIONS.notifications.access);
   const canCreateSale = hasPermission(PERMISSIONS.sales.create);
 
@@ -94,9 +96,7 @@ export default function DashboardPage() {
   const slow = { refetchInterval: 300_000, refetchIntervalInBackground: false } as const;
 
   const todayQuery = useQuery({ queryKey: ['dash-today'], queryFn: dashboardApi.todaySales, enabled: canCash, ...live });
-  const cashQuery = useQuery({ queryKey: ['dash-cash'], queryFn: dashboardApi.cashRegister, enabled: canCash, ...live });
   const profitQuery = useQuery({ queryKey: ['dash-profit'], queryFn: dashboardApi.profitSummary, enabled: canProfit, ...live });
-  const summaryQuery = useQuery({ queryKey: ['dash-summary'], queryFn: dashboardApi.summary, enabled: canReports, ...slow });
   const weeklyQuery = useQuery({
     queryKey: ['dash-weekly'],
     queryFn: () => dashboardApi.weeklySeries(7, true),
@@ -107,16 +107,6 @@ export default function DashboardPage() {
     queryKey: ['dash-daily-sales', today],
     queryFn: () => dashboardApi.dailySales(today),
     enabled: canSales,
-    ...live,
-  });
-  // Do'kondagi OCHIQ smena — kassirniki. `/Shifts/current` chaqiruvchining
-  // o'zinikini qaytaradi, ya'ni smena ochmaydigan Owner uchun bu karta doim
-  // bo'sh turardi. Market bo'yicha ro'yxat (users.shift bilan himoyalangan —
-  // ayni shu `canShift`) eng so'nggi ochiq sessiyani beradi.
-  const shiftQuery = useQuery({
-    queryKey: ['dash-shift'],
-    queryFn: async () => (await shiftsApi.history(10)).find((s) => s.closedAt === null) ?? null,
-    enabled: canShift,
     ...live,
   });
   const lowStockQuery = useQuery({
@@ -140,12 +130,29 @@ export default function DashboardPage() {
     enabled: canNotifications,
     ...slow,
   });
+  // Market smenalari — «Продавцы на смене» KPI (ochiq smenalar soni) va o'ng
+  // paneldagi «Смена · сегодня» kartasi shu bir manbadan.
+  const openShiftsQuery = useQuery({
+    queryKey: ['dash-open-shifts'],
+    queryFn: () => shiftsApi.history(50),
+    enabled: canShift,
+    ...live,
+  });
+  // «Сигналы склада» — low-stock + out-of-stock positions.
+  const stockQuery = useQuery({
+    queryKey: ['dash-stock-summary'],
+    queryFn: () => productsApi.summary(),
+    enabled: canProducts,
+    ...slow,
+  });
 
   const todaySales = todayQuery.data;
-  const cash = cashQuery.data;
-  const summary = summaryQuery.data;
   const weekly = weeklyQuery.data;
-  const shift = shiftQuery.data ?? null;
+  // Eng so'nggi ochiq smena — o'ng paneldagi «Смена · сегодня» kartasi uchun.
+  const shift = useMemo(
+    () => (openShiftsQuery.data ?? []).find((s) => s.closedAt === null) ?? null,
+    [openShiftsQuery.data],
+  );
 
   // Sales growth vs yesterday from the weekly series (last two points).
   const salesGrowth = useMemo(() => {
@@ -156,13 +163,6 @@ export default function DashboardPage() {
     if (prev <= 0) return null;
     return (last - prev) / prev;
   }, [weekly]);
-
-  // Withdrawals made today, for the cash card hint.
-  const todayWithdrawals = useMemo(() => {
-    const now = new Date();
-    const list = (cash?.withdrawals ?? []).filter((w) => isSameDay(parseISO(w.withdrawalDate), now));
-    return { count: list.length, amount: list.reduce((s, w) => s + w.amount, 0) };
-  }, [cash]);
 
   const recentSales = useMemo(() => {
     const list = salesQuery.data?.sales ?? [];
@@ -186,6 +186,16 @@ export default function DashboardPage() {
       .sort((a, b) => rank(a.severity) - rank(b.severity))
       .slice(0, 4);
   }, [attentionQuery.data]);
+
+  // Distinct cashiers currently on an open shift.
+  const openSellers = useMemo(() => {
+    const ids = new Set((openShiftsQuery.data ?? []).filter((s) => s.isOpen).map((s) => s.userId));
+    return ids.size;
+  }, [openShiftsQuery.data]);
+
+  const stockLow = stockQuery.data?.lowStock ?? 0;
+  const stockOut = stockQuery.data?.outOfStock ?? 0;
+  const stockSignals = stockLow + stockOut;
 
   const margin =
     todaySales && todaySales.totalAmount > 0 && profitQuery.data
@@ -242,39 +252,38 @@ export default function DashboardPage() {
             />
           )}
 
-          {canCash && (
+          {canShift && (
             <StatCard
-              label={t('dashboard.stats.cashInRegister')}
-              icon={<Wallet size={16} strokeWidth={1.9} />}
-              value={formatSum(cash?.currentBalance ?? 0)}
-              suffix={t('common.currency')}
+              label={t('dashboard.stats.sellersOnShift')}
+              icon={<Users size={16} strokeWidth={1.9} />}
+              value={String(openSellers)}
               hint={
-                todayWithdrawals.count > 0
-                  ? t('dashboard.stats.withdrawalsToday', {
-                      count: todayWithdrawals.count,
-                      amount: formatSum(todayWithdrawals.amount),
-                    })
-                  : t('dashboard.stats.noWithdrawals')
+                openSellers > 0
+                  ? t('dashboard.stats.onShiftNow', { count: openSellers })
+                  : t('dashboard.stats.noOpenShift')
               }
             />
           )}
 
-          {canReports && (
+          {canProducts && (
             <StatCard
-              label={t('dashboard.stats.customerDebts')}
-              icon={<CreditCard size={16} strokeWidth={1.9} />}
-              value={formatSum(summary?.pendingDebtsTotal ?? 0)}
-              suffix={t('common.currency')}
-              tone={summary && summary.pendingDebtsTotal > 0 ? 'warn' : 'default'}
+              label={t('dashboard.stats.stockSignals')}
+              icon={<Boxes size={16} strokeWidth={1.9} />}
+              value={String(stockSignals)}
+              tone={stockOut > 0 ? 'warn' : 'default'}
               hint={
-                <span className="flex items-center gap-1.5">
-                  {summary && summary.overdueDebtsCount > 0 && (
-                    <span className="font-semibold text-danger">
-                      {t('dashboard.stats.overdueCount', { count: summary.overdueDebtsCount })}
-                    </span>
-                  )}
-                  <span>· {t('dashboard.stats.totalCustomers', { count: summary?.customerCount ?? 0 })}</span>
-                </span>
+                stockSignals > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    {stockOut > 0 && (
+                      <span className="font-semibold text-danger">
+                        {t('dashboard.stats.outCount', { count: stockOut })}
+                      </span>
+                    )}
+                    <span>{stockOut > 0 ? '· ' : ''}{t('dashboard.stats.lowCount', { count: stockLow })}</span>
+                  </span>
+                ) : (
+                  t('dashboard.stats.stockOk')
+                )
               }
             />
           )}
@@ -303,7 +312,7 @@ export default function DashboardPage() {
               />
             )}
             {canDebts && <UpcomingPaymentsCard debtors={upcoming} loading={debtorsQuery.isLoading} to={`/${subdomain}/debts`} />}
-            {canShift && <ShiftCard shift={shift} loading={shiftQuery.isLoading} />}
+            {canShift && <ShiftCard shift={shift} loading={openShiftsQuery.isLoading} />}
           </div>
         </div>
       </div>
