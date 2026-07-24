@@ -35,6 +35,13 @@ public class ZakupReceipt : BaseEntity
     /// <summary>Derived from Paid vs Total; stored for cheap balance queries.</summary>
     public SupplierPaymentStatus PaymentStatus { get; set; } = SupplierPaymentStatus.Unpaid;
 
+    /// <summary>
+    /// Yetkazish holati (В пути / Принят). Default <see cref="DeliveryStatus.Accepted"/>
+    /// — eski yozuvlar va standart oqim (yaratilishi = qabul, darhol stok).
+    /// InTransit bo'lsa stok faqat <c>accept</c> da qo'shiladi.
+    /// </summary>
+    public DeliveryStatus DeliveryStatus { get; set; } = DeliveryStatus.Accepted;
+
     public string? Comment { get; set; }
 
     public Guid CreatedByAdminId { get; set; }

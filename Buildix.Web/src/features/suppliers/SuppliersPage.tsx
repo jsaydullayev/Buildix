@@ -1,21 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, ArrowLeft, Pencil, Trash2, FileDown } from 'lucide-react';
-import { PageHeader, Button, Card, Spinner } from '@/shared/ui';
+import { Plus, Search, Building2, Pencil, Trash2 } from 'lucide-react';
+import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum } from '@/shared/lib/format';
+import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
-import { purchasesApi, type Supplier } from '@/features/purchases/api';
+import { purchasesApi, type Supplier, type ZakupReceipt } from '@/features/purchases/api';
 import { SupplierFormModal } from '@/features/purchases/SupplierFormModal';
+import { PaySupplierDebtModal } from './PaySupplierDebtModal';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
+/**
+ * Поставщики — master-detail. Left: searchable supplier cards with their debt.
+ * Right (sticky): the selected supplier's contact, delivery term, outstanding
+ * debt (with a FIFO «Погасить долг»), and recent receipts.
+ */
 export default function SuppliersPage() {
   const { t, i18n } = useTranslation();
   const { subdomain } = useParams();
@@ -24,18 +29,31 @@ export default function SuppliersPage() {
   const qc = useQueryClient();
   const canManage = hasPermission(PERMISSIONS.suppliers.manage);
   const canDelete = hasPermission(PERMISSIONS.suppliers.delete);
-  const exporter = useExport(() => purchasesApi.exportSuppliers(i18n.language), 'suppliers.xlsx');
+  const canPurchase = hasPermission(PERMISSIONS.zakup.create);
 
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const listQuery = useQuery({
-    queryKey: ['suppliers', { search: debouncedSearch, page }],
-    queryFn: () => purchasesApi.suppliersPaged(page, PAGE_SIZE, debouncedSearch),
+    queryKey: ['suppliers', { search: debouncedSearch }],
+    queryFn: () => purchasesApi.suppliersPaged(1, PAGE_SIZE, debouncedSearch),
   });
+  const suppliers = useMemo(() => listQuery.data?.items ?? [], [listQuery.data]);
+
+  // Keep a valid selection: default to the first, and follow list changes.
+  useEffect(() => {
+    if (suppliers.length === 0) {
+      setSelectedId(null);
+    } else if (!selectedId || !suppliers.some((s) => s.id === selectedId)) {
+      setSelectedId(suppliers[0]!.id);
+    }
+  }, [suppliers, selectedId]);
+
+  const selected = useMemo(() => suppliers.find((s) => s.id === selectedId) ?? null, [suppliers, selectedId]);
 
   const del = useMutation({
     mutationFn: (s: Supplier) => purchasesApi.deleteSupplier(s.id),
@@ -43,8 +61,6 @@ export default function SuppliersPage() {
   });
 
   async function askDelete(s: Supplier) {
-    // Preflight: the server reports whether receipts / outstanding debt block
-    // the delete, so we can warn instead of firing a doomed request.
     try {
       const info = await purchasesApi.supplierDeleteInfo(s.id);
       const msg = info.canDelete
@@ -58,142 +74,230 @@ export default function SuppliersPage() {
     }
   }
 
-  const openCreate = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
-  const openEdit = (s: Supplier) => {
-    setEditing(s);
-    setFormOpen(true);
-  };
+  const totalDebt = suppliers.reduce((s, x) => s + x.outstandingDebt, 0);
 
   return (
     <>
       <PageHeader
         title={t('suppliers.title')}
-        subtitle={t('suppliers.subtitle')}
+        subtitle={t('suppliers.subtitleDebt', { count: suppliers.length, debt: formatSum(totalDebt) })}
         actions={
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" onClick={() => navigate(`/${subdomain}/purchases`)}>
-              <ArrowLeft size={15} />
-              {t('nav.purchases')}
+          canManage && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus size={15} strokeWidth={2.4} />
+              {t('suppliers.add')}
             </Button>
-            <Button variant="secondary" loading={exporter.downloading} onClick={exporter.download}>
-              <FileDown size={15} />
-              {t('common.export')}
-            </Button>
-            {canManage && (
-              <Button onClick={openCreate}>
-                <Plus size={15} strokeWidth={2.4} />
-                {t('suppliers.add')}
-              </Button>
-            )}
-          </div>
+          )
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
-        <div className="relative max-w-md">
-          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder={t('suppliers.searchPlaceholder')}
-            className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
-          />
-        </div>
-
-        <Card className="overflow-hidden">
-          <div className="grid grid-cols-[1fr_160px_160px_100px] items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
-            <span>{t('suppliers.cols.name')}</span>
-            <span>{t('suppliers.cols.phone')}</span>
-            <span className="text-right">{t('suppliers.cols.debt')}</span>
-            <span className="text-right">{t('suppliers.cols.receipts')}</span>
+      <div className="flex flex-1 gap-[18px] p-8">
+        {/* Master */}
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="relative">
+            <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('suppliers.searchPlaceholder')}
+              className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
+            />
           </div>
 
           {listQuery.isLoading ? (
             <div className="flex items-center justify-center py-20 text-primary">
               <Spinner size={24} />
             </div>
-          ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((s) => (
-              <div
-                key={s.id}
-                className="group grid grid-cols-[1fr_160px_160px_100px] items-center gap-3 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-primary/10 text-[11px] font-semibold uppercase text-primary">
-                    {s.name.slice(0, 2)}
-                  </div>
-                  <span className="truncate font-medium">{s.name}</span>
-                </div>
-                <span className="text-muted-2 nums">{s.phone ?? '—'}</span>
-                <span className={cn('text-right font-semibold nums', s.outstandingDebt > 0 && 'text-warn-text')}>
-                  {formatSum(s.outstandingDebt)}
-                </span>
-                <div className="flex items-center justify-end gap-1">
-                  <span className="text-muted-2 nums">{s.receiptCount}</span>
-                  {(canManage || canDelete) && (
-                    <div className="ml-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => openEdit(s)}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-primary"
-                          aria-label={t('common.save')}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => askDelete(s)}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-danger"
-                          aria-label={t('warehouse.form.delete')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
+          ) : suppliers.length === 0 ? (
+            <Card className="py-20 text-center text-[14px] text-muted-2">{t('suppliers.empty')}</Card>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {suppliers.map((s) => (
+                <SupplierCard
+                  key={s.id}
+                  supplier={s}
+                  active={s.id === selectedId}
+                  onClick={() => setSelectedId(s.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Detail */}
+        <div className="w-[380px] flex-none">
+          {selected && (
+            <Card className="sticky top-8 p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-[16px] font-semibold">{selected.name}</h2>
+                  {selected.comment && (
+                    <p className="mt-0.5 truncate text-[12.5px] text-muted-2">{selected.comment}</p>
                   )}
                 </div>
+                {canPurchase && (
+                  <Button size="sm" onClick={() => navigate(`/${subdomain}/purchases`)}>
+                    {t('purchases.newPurchase')}
+                  </Button>
+                )}
               </div>
-            ))
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('suppliers.empty')}</div>
-          )}
-        </Card>
 
-        {listQuery.data && listQuery.data.totalPages > 1 && (
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
-            >
-              ‹
-            </button>
-            <span className="px-2 text-[13px] text-muted nums">
-              {page} / {listQuery.data.totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={page >= listQuery.data.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
-            >
-              ›
-            </button>
-          </div>
-        )}
+              <dl className="flex flex-col gap-2.5 text-[13px]">
+                <DetailRow label={t('suppliers.cols.phone')} value={selected.phone ?? '—'} />
+                <DetailRow label={t('suppliers.form.contact')} value={selected.contactPerson ?? '—'} />
+                <DetailRow label={t('suppliers.form.deliveryTerm')} value={selected.deliveryTerm ?? '—'} />
+                <div className="flex items-center justify-between border-t border-hairline pt-2.5">
+                  <dt className="text-muted">{t('suppliers.debtLabel')}</dt>
+                  <dd className={cn('font-semibold nums', selected.outstandingDebt > 0 ? 'text-danger' : 'text-success')}>
+                    {selected.outstandingDebt > 0 ? formatSum(selected.outstandingDebt) : t('suppliers.noDebt')}
+                  </dd>
+                </div>
+              </dl>
+
+              {canPurchase && selected.outstandingDebt > 0 && (
+                <Button variant="secondary" fullWidth className="mt-3" onClick={() => setPayOpen(true)}>
+                  {t('suppliers.payDebt')}
+                </Button>
+              )}
+
+              {(canManage || canDelete) && (
+                <div className="mt-3 flex items-center gap-2">
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditing(selected);
+                        setFormOpen(true);
+                      }}
+                    >
+                      <Pencil size={13} />
+                      {t('common.save')}
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button variant="ghost" size="sm" className="text-danger" onClick={() => askDelete(selected)}>
+                      <Trash2 size={13} />
+                      {t('warehouse.form.delete')}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <RecentReceipts supplierId={selected.id} lang={i18n.language} />
+            </Card>
+          )}
+        </div>
       </div>
 
       <SupplierFormModal open={formOpen} editing={editing} onClose={() => setFormOpen(false)} />
+      {selected && (
+        <PaySupplierDebtModal
+          open={payOpen}
+          supplier={selected}
+          onClose={() => setPayOpen(false)}
+        />
+      )}
     </>
+  );
+}
+
+function SupplierCard({
+  supplier: s,
+  active,
+  onClick,
+}: {
+  supplier: Supplier;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-3 rounded-card border bg-surface px-4 py-3 text-left transition-colors',
+        active ? 'border-primary shadow-focus-ring' : 'border-border hover:border-input-border',
+      )}
+    >
+      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Building2 size={17} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13.5px] font-semibold">{s.name}</div>
+        <div className="truncate text-[11.5px] text-muted-2">
+          {s.comment ? `${s.comment} · ` : ''}
+          {t('purchases.itemsCount', { count: s.receiptCount })}
+        </div>
+      </div>
+      <div className="flex-none text-right">
+        {s.outstandingDebt > 0 ? (
+          <>
+            <div className="text-[13px] font-semibold text-danger nums">{formatSum(s.outstandingDebt)}</div>
+            <div className="text-[10.5px] text-muted-2">{t('suppliers.weOwe')}</div>
+          </>
+        ) : (
+          <Badge tone="success">{t('suppliers.noDebt')}</Badge>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="truncate font-medium nums">{value}</dd>
+    </div>
+  );
+}
+
+const DELIVERY_TONE: Record<string, 'success' | 'info'> = { Accepted: 'success', InTransit: 'info' };
+
+function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['supplier-receipts', supplierId],
+    queryFn: () => purchasesApi.receiptsPaged(1, 5, supplierId),
+  });
+  const items = query.data?.items ?? [];
+
+  return (
+    <div className="mt-5 border-t border-hairline pt-4">
+      <h3 className="mb-2.5 text-[13px] font-semibold">{t('suppliers.recentReceipts')}</h3>
+      {query.isLoading ? (
+        <div className="flex justify-center py-4 text-primary">
+          <Spinner size={18} />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="py-3 text-center text-[12.5px] text-muted-2">{t('purchases.empty')}</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((r: ZakupReceipt) => (
+            <div key={r.id} className="flex items-center justify-between gap-3 text-[12.5px]">
+              <div className="min-w-0">
+                <div className="font-semibold text-primary nums">
+                  №{r.receiptNumber} · {formatShortDate(r.createdAt, lang)}
+                </div>
+                <div className="text-muted-2">{t('purchases.itemsCount', { count: r.itemCount })}</div>
+              </div>
+              <div className="flex-none text-right">
+                <div className="font-semibold nums">{formatSum(r.totalAmount)}</div>
+                <Badge tone={DELIVERY_TONE[r.deliveryStatus] ?? 'neutral'}>
+                  {t(`purchases.delivery.${r.deliveryStatus === 'InTransit' ? 'inTransit' : 'accepted'}`)}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

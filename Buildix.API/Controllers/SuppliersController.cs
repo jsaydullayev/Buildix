@@ -19,11 +19,13 @@ public class SuppliersController : ApiControllerBase
 
     private readonly ISupplierService _supplierService;
     private readonly ISuppliersExcelExportService _suppliersExcelExportService;
+    private readonly IZakupService _zakupService;
 
-    public SuppliersController(ISupplierService supplierService, ISuppliersExcelExportService suppliersExcelExportService)
+    public SuppliersController(ISupplierService supplierService, ISuppliersExcelExportService suppliersExcelExportService, IZakupService zakupService)
     {
         _supplierService = supplierService;
         _suppliersExcelExportService = suppliersExcelExportService;
+        _zakupService = zakupService;
     }
 
     [HttpGet("{id}")]
@@ -76,6 +78,20 @@ public class SuppliersController : ApiControllerBase
         if (result.IsFailure)
             return result.Code == NotFoundCode ? NotFound() : BadRequest(new { message = result.Error });
         return Ok(result.Value);
+    }
+
+    /// <summary>«Погасить долг» — yetkazuvchi qarzini FIFO (eng eski chekdan) yopadi.</summary>
+    [HttpPost("~/api/Suppliers/{id}/pay-debt")]
+    [RequirePermission(PermissionKeys.ZakupCreate)]
+    public async Task<IActionResult> PaySupplierDebt(Guid id, [FromBody] RegisterSupplierPaymentDto request, CancellationToken ct)
+    {
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            return Unauthorized();
+
+        var result = await _zakupService.PaySupplierDebtFifoAsync(id, request.Amount, userId, ct);
+        if (result.IsFailure)
+            return BadRequest(new { message = result.Error });
+        return Ok(new { paid = result.Value });
     }
 
     [HttpDelete("{id}")]

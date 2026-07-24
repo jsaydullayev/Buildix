@@ -11,6 +11,7 @@ export interface ZakupReceipt {
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: string; // Unpaid | Partial | Paid
+  deliveryStatus: string; // Accepted | InTransit
   itemCount: number;
   createdAt: string;
 }
@@ -23,6 +24,8 @@ export interface Supplier {
   comment?: string | null;
   outstandingDebt: number;
   receiptCount: number;
+  contactPerson?: string | null;
+  deliveryTerm?: string | null;
 }
 
 /** One product line of a receipt (Owner view — carries cost). */
@@ -46,6 +49,7 @@ export interface ReceiptDetail {
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: string;
+  deliveryStatus: string; // Accepted | InTransit
   comment: string | null;
   itemCount: number;
   createdAt: string;
@@ -66,6 +70,8 @@ export interface CreateReceiptBody {
   paidAmount: number;
   comment: string | null;
   items: CreateReceiptLine[];
+  /** true → created as «В пути» (no stock until accepted). Default immediate. */
+  inTransit?: boolean;
 }
 
 export interface SupplierBody {
@@ -73,6 +79,8 @@ export interface SupplierBody {
   phone?: string | null;
   address?: string | null;
   comment?: string | null;
+  contactPerson?: string | null;
+  deliveryTerm?: string | null;
 }
 
 /** Blocker check before deleting a supplier. */
@@ -98,11 +106,16 @@ export interface ReorderSuggestion {
 }
 
 export const purchasesApi = {
-  receiptsPaged: async (page = 1, size = 20): Promise<PagedResult<ZakupReceipt>> => {
+  receiptsPaged: async (page = 1, size = 20, supplierId?: string): Promise<PagedResult<ZakupReceipt>> => {
     const { data } = await apiClient.get<PagedResult<ZakupReceipt>>('/Zakups/GetReceiptsPaged', {
-      params: { page, size },
+      params: { page, size, supplierId: supplierId || undefined },
     });
     return data;
+  },
+
+  /** «Погасить долг» — FIFO pay across the supplier's unpaid receipts. */
+  paySupplierDebt: async (supplierId: string, amount: number): Promise<void> => {
+    await apiClient.post(`/Suppliers/${supplierId}/pay-debt`, { amount });
   },
 
   allReceipts: async (): Promise<ZakupReceipt[]> => {
@@ -142,6 +155,12 @@ export const purchasesApi = {
   /** One receipt with its lines. */
   receipt: async (id: string): Promise<ReceiptDetail> => {
     const { data } = await apiClient.get<ReceiptDetail>(`/Zakups/GetReceipt/${id}`);
+    return data;
+  },
+
+  /** «Отметить принятым» — accept an in-transit delivery (adds stock). */
+  accept: async (id: string): Promise<ReceiptDetail> => {
+    const { data } = await apiClient.post<ReceiptDetail>(`/Zakups/${id}/accept`, {});
     return data;
   },
 

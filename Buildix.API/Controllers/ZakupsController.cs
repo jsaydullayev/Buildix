@@ -151,9 +151,9 @@ public class ZakupsController : ApiControllerBase
 
     [HttpGet]
     [RequirePermission(PermissionKeys.ZakupAccess)]
-    public async Task<IActionResult> GetReceiptsPaged([FromQuery] int page = 1, [FromQuery] int size = 50)
+    public async Task<IActionResult> GetReceiptsPaged([FromQuery] int page = 1, [FromQuery] int size = 50, [FromQuery] Guid? supplierId = null)
     {
-        var result = await _zakupService.GetAllZakupReceiptsPagedAsync(page, size);
+        var result = await _zakupService.GetAllZakupReceiptsPagedAsync(page, size, supplierId);
         return Ok(_zakupShaper.ShapeReceiptsPaged(result, CanViewCost()));
     }
 
@@ -165,6 +165,28 @@ public class ZakupsController : ApiControllerBase
         if (receipt is null)
             return NotFound();
         return Ok(_zakupShaper.ShapeReceipt(receipt, CanViewCost()));
+    }
+
+    /// <summary>«Отметить принятым» — «В пути» postavkani qabul qiladi (stok kiradi).</summary>
+    [HttpPost("~/api/Zakups/{id}/accept")]
+    [RequirePermission(PermissionKeys.ZakupCreate)]
+    public async Task<IActionResult> AcceptReceipt(Guid id)
+    {
+        var adminIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(adminIdStr) || !Guid.TryParse(adminIdStr, out var adminId))
+            return Unauthorized();
+
+        try
+        {
+            var receipt = await _zakupService.AcceptZakupReceiptAsync(id, adminId);
+            if (receipt is null)
+                return NotFound();
+            return Ok(_zakupShaper.ShapeReceipt(receipt, CanViewCost()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{id}")]

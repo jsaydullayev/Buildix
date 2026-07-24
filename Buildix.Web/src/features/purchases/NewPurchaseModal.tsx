@@ -26,6 +26,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   const [invoice, setInvoice] = useState('');
   const [comment, setComment] = useState('');
   const [paid, setPaid] = useState('');
+  const [inTransit, setInTransit] = useState(false);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +42,13 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     queryFn: () => productsApi.listPaged({ page: 1, size: 20, search: debouncedSearch }),
     enabled: open,
   });
+  // Quick-add: low-stock products one click away (design Card4). Not yet in the cart.
+  const reorderQuery = useQuery({
+    queryKey: ['reorder'],
+    queryFn: () => purchasesApi.reorderSuggestions(8),
+    enabled: open,
+  });
+  const quickAdd = (reorderQuery.data ?? []).filter((r) => !lines.some((l) => l.productId === r.productId));
 
   const total = useMemo(() => lines.reduce((s, l) => s + l.quantity * l.costPrice, 0), [lines]);
 
@@ -49,6 +57,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     setInvoice('');
     setComment('');
     setPaid('');
+    setInTransit(false);
     setLines([]);
     setSearch('');
     setError(null);
@@ -73,6 +82,18 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, ...patch } : l)));
   const removeLine = (productId: string) => setLines((prev) => prev.filter((l) => l.productId !== productId));
 
+  // Quick-add a low-stock product: seed the suggested qty; cost is entered per line.
+  function addSuggestion(s: { productId: string; name: string; unit: number; unitName: string; suggestedQty: number }) {
+    setLines((prev) =>
+      prev.some((l) => l.productId === s.productId)
+        ? prev
+        : [
+            ...prev,
+            { productId: s.productId, name: s.name, unit: s.unit, unitName: s.unitName, quantity: Math.max(1, Math.round(s.suggestedQty)) || 1, costPrice: 0 },
+          ],
+    );
+  }
+
   const create = useMutation({
     mutationFn: () =>
       purchasesApi.createReceipt({
@@ -81,6 +102,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
         paidAmount: Math.min(Math.max(0, Number(paid) || 0), total),
         comment: comment.trim() || null,
         items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, costPrice: l.costPrice })),
+        inTransit,
       }),
     onSuccess: () => {
       // Xarid ombor qoldig'i, tannarx va yetkazib beruvchi qarzini o'zgartiradi —
@@ -139,6 +161,26 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
             <input value={invoice} onChange={(e) => setInvoice(e.target.value)} className={inputCls} />
           </div>
         </div>
+
+        {/* Quick-add: low-stock products (design Card4) */}
+        {quickAdd.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-label">{t('purchases.newModal.quickAdd')}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {quickAdd.map((s) => (
+                <button
+                  key={s.productId}
+                  type="button"
+                  onClick={() => addSuggestion(s)}
+                  className="flex items-center gap-1.5 rounded-pill border border-warn/30 bg-warn-soft/60 px-3 py-1.5 text-[12.5px] font-medium text-warn-strong transition-colors hover:border-warn"
+                >
+                  <Plus size={13} />
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Product search */}
         <div className="flex flex-col gap-2">
@@ -238,6 +280,20 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
               {formatSum(total)} <span className="text-[12px] font-normal text-muted-2">{t('common.currency')}</span>
             </span>
           </div>
+          {/* Delivery mode — «В пути» defers stock until the goods are accepted. */}
+          <label className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-input border border-input-border bg-surface px-3.5 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium">{t('purchases.newModal.inTransit')}</span>
+              <span className="block text-[11.5px] text-muted-2">{t('purchases.newModal.inTransitHint')}</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={inTransit}
+              onChange={(e) => setInTransit(e.target.checked)}
+              className="h-4 w-4 flex-none accent-primary"
+            />
+          </label>
+
           <div className="flex items-center justify-between gap-3">
             <label className="text-[13px] text-muted">{t('purchases.newModal.paidNow')}</label>
             <div className="flex items-center gap-2">

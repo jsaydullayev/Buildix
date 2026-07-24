@@ -164,6 +164,8 @@ public class ZakupService : IZakupService
                 CreatedByAdminId = adminId,
                 MarketId = marketId,
                 CreatedAt = DateTime.UtcNow,
+                // «В пути» — stok accept'da kiradi; aks holda darhol (backward-compat).
+                DeliveryStatus = request.InTransit ? DeliveryStatus.InTransit : DeliveryStatus.Accepted,
             };
             await _context.ZakupReceipts.AddAsync(receipt, cancellationToken);
 
@@ -198,12 +200,17 @@ public class ZakupService : IZakupService
                 };
                 await _context.Zakups.AddAsync(zakup, cancellationToken);
 
-                product.Quantity += line.Quantity;
-                product.CostPrice = line.CostPrice; // latest purchase price
-                // Kelgan tovar — Приход · З-{ReceiptNumber}. Receipt yaratilishi
-                // bilan bir tranzaksiyada yoziladi (quyidagi SaveChanges).
-                _stockLedger.Record(product, line.Quantity, StockMovementType.Purchase,
-                    refNumber: receipt.ReceiptNumber, userId: adminId);
+                // Stok faqat DARHOL qabulda kiradi. «В пути» bo'lsa tovar hali
+                // yo'lda — qoldiq/tannarx/harakat accept'ga qoldiriladi. Total
+                // (yetkazuvchi qarzi) ikkala holatda ham hisoblanadi.
+                if (!request.InTransit)
+                {
+                    product.Quantity += line.Quantity;
+                    product.CostPrice = line.CostPrice; // latest purchase price
+                    // Kelgan tovar — Приход · З-{ReceiptNumber}, bir tranzaksiyada.
+                    _stockLedger.Record(product, line.Quantity, StockMovementType.Purchase,
+                        refNumber: receipt.ReceiptNumber, userId: adminId);
+                }
                 total += line.Quantity * line.CostPrice;
             }
 
@@ -222,6 +229,51 @@ public class ZakupService : IZakupService
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// «Отметить принятым» — «В пути» postavkani qabul qiladi: har liniya stoki
+    /// omborga kiradi, tannarx yangilanadi, Приход harakati yoziladi. Faqat
+    /// InTransit holatidan; Accepted bo'lsa xato.
+    /// </summary>
+    public async Task<ZakupReceiptDto?> AcceptZakupReceiptAsync(Guid receiptId, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        return await _unitOfWork.ExecuteInTransactionAsync<ZakupReceiptDto?>(async () =>
+        {
+            var receipt = await _context.ZakupReceipts
+                .FirstOrDefaultAsync(r => r.Id == receiptId && r.MarketId == marketId, cancellationToken);
+            if (receipt is null)
+                return null;
+            if (receipt.DeliveryStatus == DeliveryStatus.Accepted)
+                throw new InvalidOperationException("Postavka allaqachon qabul qilingan.");
+
+            var lines = await _context.Zakups
+                .Where(z => z.ReceiptId == receiptId && z.MarketId == marketId)
+                .ToListAsync(cancellationToken);
+            var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.Id) && p.MarketId == marketId)
+                .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+            foreach (var line in lines)
+                if (products.TryGetValue(line.ProductId, out var product))
+                {
+                    product.Quantity += line.Quantity;
+                    product.CostPrice = line.CostPrice; // latest purchase price
+                    _stockLedger.Record(product, line.Quantity, StockMovementType.Purchase,
+                        refNumber: receipt.ReceiptNumber, userId: adminId);
+                }
+
+            receipt.DeliveryStatus = DeliveryStatus.Accepted;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogActionAsync(
+                AuditEntityTypes.ZakupReceipt, receipt.Id, AuditActions.Update, adminId,
+                new { accepted = true, receipt.ReceiptNumber, ItemCount = lines.Count }, cancellationToken);
+
+            return await BuildReceiptDtoAsync(receipt.Id, marketId, cancellationToken);
+        }, cancellationToken);
+    }
+
     // ── Receipt reads ─────────────────────────────────────────────────────────
 
     public async Task<IEnumerable<ZakupReceiptDto>> GetAllZakupReceiptsAsync(CancellationToken cancellationToken = default)
@@ -233,13 +285,15 @@ public class ZakupService : IZakupService
         return receipts.Select(MapReceiptToDto).ToList();
     }
 
-    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
 
         var marketId = _currentMarketService.GetCurrentMarketId();
         var baseQuery = ReceiptQuery(marketId);
+        if (supplierId.HasValue)
+            baseQuery = baseQuery.Where(r => r.SupplierId == supplierId.Value);
 
         var total = await baseQuery.CountAsync(cancellationToken);
         var receipts = await baseQuery
@@ -278,9 +332,18 @@ public class ZakupService : IZakupService
             if (zakup is null)
                 return false;
 
+            // «В пути» liniya hech qachon stok qo'shmagan — o'chirishda uni
+            // tiklamaymiz (aks holda qoldiq noto'g'ri kamayardi). Faqat qabul
+            // qilingan (Accepted) postavka stoki qaytariladi.
+            var accepted = !zakup.ReceiptId.HasValue || await _context.ZakupReceipts
+                .Where(r => r.Id == zakup.ReceiptId.Value && r.MarketId == marketId)
+                .Select(r => r.DeliveryStatus)
+                .FirstOrDefaultAsync(cancellationToken) == DeliveryStatus.Accepted;
+
             // Single-line delete: sibling lines of its receipt survive, so they
             // remain valid cost-rollback candidates — pass null.
-            await ReverseLineStockAsync(zakup, marketId, null, cancellationToken);
+            if (accepted)
+                await ReverseLineStockAsync(zakup, marketId, null, cancellationToken);
 
             if (zakup.ReceiptId.HasValue)
                 await AdjustReceiptAfterLineRemovalAsync(zakup.ReceiptId.Value, zakup, marketId, cancellationToken);
@@ -316,11 +379,14 @@ public class ZakupService : IZakupService
                 .Where(z => z.ReceiptId == receiptId && z.MarketId == marketId)
                 .ToListAsync(cancellationToken);
 
+            // «В пути» postavka stok qo'shmagan — o'chirishda tiklanmaydi.
+            var acceptedReceipt = receipt.DeliveryStatus == DeliveryStatus.Accepted;
             foreach (var line in lines)
             {
                 // Exclude the whole receipt from cost-rollback — all its lines are
                 // being deleted in this same (not-yet-flushed) transaction.
-                await ReverseLineStockAsync(line, marketId, receiptId, cancellationToken);
+                if (acceptedReceipt)
+                    await ReverseLineStockAsync(line, marketId, receiptId, cancellationToken);
                 _context.Zakups.Remove(line);
             }
 
@@ -360,6 +426,51 @@ public class ZakupService : IZakupService
                 new { Payment = amount, receipt.PaidAmount, receipt.TotalAmount }, cancellationToken);
 
             return await BuildReceiptDtoAsync(receiptId, marketId, cancellationToken);
+        }, cancellationToken);
+    }
+
+    public async Task<Result<decimal>> PaySupplierDebtFifoAsync(Guid supplierId, decimal amount, Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0)
+            return Result.Failure<decimal>("To'lov summasi 0 dan katta bo'lishi kerak");
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            // Qarzi bor cheklarni ENG ESKISIDAN — eng eski buyurtma birinchi
+            // yopiladi (FIFO). Bir necha chekka taqsimlanadi.
+            var receipts = await _context.ZakupReceipts
+                .Where(r => r.MarketId == marketId && r.SupplierId == supplierId && r.PaidAmount < r.TotalAmount)
+                .OrderBy(r => r.CreatedAt)
+                .ThenBy(r => r.ReceiptNumber)
+                .ToListAsync(cancellationToken);
+
+            var totalDebt = receipts.Sum(r => r.TotalAmount - r.PaidAmount);
+            if (totalDebt <= 0)
+                return Result.Failure<decimal>("Bu yetkazib beruvchida qarz yo'q.");
+            if (amount > totalDebt)
+                amount = totalDebt; // ortiqcha to'lovni qarzgacha qisqartiramiz
+
+            var remaining = amount;
+            foreach (var receipt in receipts)
+            {
+                if (remaining <= 0) break;
+                var owed = receipt.TotalAmount - receipt.PaidAmount;
+                var pay = Math.Min(owed, remaining);
+                receipt.PaidAmount += pay;
+                receipt.PaymentStatus = DeriveStatus(receipt.PaidAmount, receipt.TotalAmount);
+                remaining -= pay;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogActionAsync(
+                AuditEntityTypes.Supplier, supplierId, AuditActions.Update, userId,
+                new { SupplierDebtPayment = amount, ReceiptsAffected = receipts.Count(r => r.PaidAmount >= r.TotalAmount || r.PaidAmount > 0) },
+                cancellationToken);
+
+            return Result.Success(amount);
         }, cancellationToken);
     }
 
@@ -476,6 +587,7 @@ public class ZakupService : IZakupService
         r.PaidAmount,
         r.TotalAmount - r.PaidAmount,
         r.PaymentStatus.ToString(),
+        r.DeliveryStatus.ToString(),
         r.Comment,
         r.Items.Count,
         r.CreatedAt,

@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth } from 'date-fns';
-import { Plus, FileDown } from 'lucide-react';
+import { Plus, FileDown, Truck } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useExport } from '@/shared/hooks/useExport';
@@ -32,6 +33,7 @@ export default function PurchasesPage() {
   const exporter = useExport(() => purchasesApi.exportReceipts(), 'purchases.xlsx');
 
   const [page, setPage] = useState(1);
+  const [delivery, setDelivery] = useState<'all' | 'InTransit' | 'Accepted'>('all');
   const [newOpen, setNewOpen] = useState(false);
   const [openReceiptId, setOpenReceiptId] = useState<string | null>(null);
 
@@ -107,6 +109,24 @@ export default function PurchasesPage() {
         <div className="grid grid-cols-[2fr_1fr] items-start gap-[18px]">
           {/* Receipts */}
           <Card className="overflow-hidden">
+            {/* Delivery-status tabs (filter the loaded page). */}
+            <div className="flex items-center gap-1.5 border-b border-hairline px-5 py-2.5">
+              {(['all', 'InTransit', 'Accepted'] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDelivery(d)}
+                  className={cn(
+                    'rounded-input px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
+                    delivery === d
+                      ? 'bg-primary text-white'
+                      : 'border border-input-border bg-surface text-muted hover:text-text',
+                  )}
+                >
+                  {t(`purchases.delivery.${d === 'all' ? 'all' : d === 'InTransit' ? 'inTransit' : 'accepted'}`)}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-purchases items-center gap-3 border-b border-hairline bg-bg/40 px-5 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
               <span>{t('purchases.cols.number')}</span>
               <span>{t('purchases.cols.supplier')}</span>
@@ -119,13 +139,16 @@ export default function PurchasesPage() {
               <div className="flex items-center justify-center py-20 text-primary">
                 <Spinner size={24} />
               </div>
-            ) : listQuery.data && listQuery.data.items.length > 0 ? (
-              listQuery.data.items.map((r) => (
-                <ReceiptRow key={r.id} receipt={r} onOpen={() => setOpenReceiptId(r.id)} />
-              ))
-            ) : (
-              <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
-            )}
+            ) : (() => {
+              const items = (listQuery.data?.items ?? []).filter(
+                (r) => delivery === 'all' || r.deliveryStatus === delivery,
+              );
+              return items.length > 0 ? (
+                items.map((r) => <ReceiptRow key={r.id} receipt={r} onOpen={() => setOpenReceiptId(r.id)} />)
+              ) : (
+                <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
+              );
+            })()}
             {listQuery.data && listQuery.data.totalPages > 1 && (
               <div className="flex items-center justify-end gap-1.5 border-t border-hairline px-5 py-3">
                 <button
@@ -178,10 +201,17 @@ function ReceiptRow({ receipt: r, onOpen }: { receipt: ZakupReceipt; onOpen: () 
       <span className="text-muted-2">{t('purchases.itemsCount', { count: r.itemCount })}</span>
       <span className="text-muted-2 nums">{formatShortDate(r.createdAt, i18n.language)}</span>
       <span className="text-right font-semibold nums">{formatSum(r.totalAmount)}</span>
-      <span>
-        <Badge tone={STATUS_TONE[r.paymentStatus] ?? 'neutral'}>
-          {t(`purchases.status.${STATUS_KEY[r.paymentStatus] ?? 'unpaid'}`)}
-        </Badge>
+      <span className="flex items-center gap-1.5">
+        {r.deliveryStatus === 'InTransit' ? (
+          <Badge tone="info" className="gap-1">
+            <Truck size={11} />
+            {t('purchases.delivery.inTransit')}
+          </Badge>
+        ) : (
+          <Badge tone={STATUS_TONE[r.paymentStatus] ?? 'neutral'}>
+            {t(`purchases.status.${STATUS_KEY[r.paymentStatus] ?? 'unpaid'}`)}
+          </Badge>
+        )}
       </span>
     </button>
   );

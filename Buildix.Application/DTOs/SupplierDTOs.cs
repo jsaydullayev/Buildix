@@ -13,7 +13,9 @@ public record SupplierDto(
     // much the shop still owes. Cost-sensitive; the controller redacts it for
     // Sellers just like customer debt.
     [property: JsonPropertyName("outstandingDebt")] decimal OutstandingDebt,
-    [property: JsonPropertyName("receiptCount")] int ReceiptCount
+    [property: JsonPropertyName("receiptCount")] int ReceiptCount,
+    [property: JsonPropertyName("contactPerson")] string? ContactPerson = null,
+    [property: JsonPropertyName("deliveryTerm")] string? DeliveryTerm = null
 );
 
 public record CreateSupplierDto(
@@ -32,7 +34,15 @@ public record CreateSupplierDto(
 
     [property: JsonPropertyName("comment")]
     [param: StringLength(500, ErrorMessage = "Izoh 500 belgidan oshmasligi kerak")]
-    string? Comment
+    string? Comment,
+
+    [property: JsonPropertyName("contactPerson")]
+    [param: StringLength(200)]
+    string? ContactPerson = null,
+
+    [property: JsonPropertyName("deliveryTerm")]
+    [param: StringLength(100)]
+    string? DeliveryTerm = null
 );
 
 public record UpdateSupplierDto(
@@ -52,7 +62,15 @@ public record UpdateSupplierDto(
 
     [property: JsonPropertyName("comment")]
     [param: StringLength(500, ErrorMessage = "Izoh 500 belgidan oshmasligi kerak")]
-    string? Comment
+    string? Comment,
+
+    [property: JsonPropertyName("contactPerson")]
+    [param: StringLength(200)]
+    string? ContactPerson = null,
+
+    [property: JsonPropertyName("deliveryTerm")]
+    [param: StringLength(100)]
+    string? DeliveryTerm = null
 );
 
 public record SupplierDeleteInfoDto(

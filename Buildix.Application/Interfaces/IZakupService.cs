@@ -1,3 +1,4 @@
+using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 
 namespace Buildix.Application.Interfaces;
@@ -15,9 +16,15 @@ public interface IZakupService
     // ── Goods-receipt (multi-item + supplier + payment) ──────────────────────
     Task<ZakupReceiptDto> CreateZakupReceiptAsync(CreateZakupReceiptDto request, Guid adminId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ZakupReceiptDto>> GetAllZakupReceiptsAsync(CancellationToken cancellationToken = default);
-    Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, CancellationToken cancellationToken = default);
+    Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Yetkazuvchi qarzini FIFO (eng eski chekdan) yopadi — bir necha chekka taqsimlab.</summary>
+    Task<Result<decimal>> PaySupplierDebtFifoAsync(Guid supplierId, decimal amount, Guid userId, CancellationToken cancellationToken = default);
     Task<ZakupReceiptDto?> GetZakupReceiptByIdAsync(Guid receiptId, CancellationToken cancellationToken = default);
     Task<bool> DeleteZakupReceiptAsync(Guid receiptId, Guid deletedByUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>«В пути» postavkani qabul qiladi — stok + tannarx + Приход harakati.</summary>
+    Task<ZakupReceiptDto?> AcceptZakupReceiptAsync(Guid receiptId, Guid adminId, CancellationToken cancellationToken = default);
     Task<ZakupReceiptDto?> RegisterSupplierPaymentAsync(Guid receiptId, decimal amount, Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>
