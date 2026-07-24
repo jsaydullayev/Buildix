@@ -47,12 +47,19 @@ public record UserPermissionsDto(
     [property: JsonPropertyName("isCustomized")] bool IsCustomized,
     [property: JsonPropertyName("effectivePermissions")] IReadOnlyList<string> EffectivePermissions,
     [property: JsonPropertyName("roleDefaults")] IReadOnlyList<string> RoleDefaults,
-    [property: JsonPropertyName("catalog")] IReadOnlyList<string> Catalog
+    [property: JsonPropertyName("catalog")] IReadOnlyList<string> Catalog,
+    // Per-user limitlar. Null = cheksiz.
+    [property: JsonPropertyName("maxDiscountPercent")] int? MaxDiscountPercent = null,
+    [property: JsonPropertyName("maxDebtPerCheck")] decimal? MaxDebtPerCheck = null
 );
 
-/// <summary>Owner request to overwrite a user's explicit permission set.</summary>
+/// <summary>Owner request to overwrite a user's explicit permission set + limits.</summary>
 public record UpdatePermissionsDto(
-    [property: JsonPropertyName("permissions")] List<string> Permissions
+    [property: JsonPropertyName("permissions")] List<string> Permissions,
+    // null yuborilsa — limit tegilmaydi... amalda front doim yuboradi:
+    // qiymat yoki null (cheksiz). Shuning uchun bu yerda ham null = cheksiz.
+    [property: JsonPropertyName("maxDiscountPercent")] int? MaxDiscountPercent = null,
+    [property: JsonPropertyName("maxDebtPerCheck")] decimal? MaxDebtPerCheck = null
 );
 
 public record CreateUserDto(

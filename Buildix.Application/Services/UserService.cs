@@ -597,6 +597,10 @@ public class UserService : IUserService
         var roleDefault = PermissionDefaults.ForRole(user.Role);
         user.IsPermissionsCustomized = !ordered.ToHashSet().SetEquals(roleDefault);
 
+        // Per-user limitlar (null = cheksiz). Manfiy % ni 0 ga clamp qilamiz.
+        user.MaxDiscountPercent = request.MaxDiscountPercent is { } d ? Math.Clamp(d, 0, 100) : null;
+        user.MaxDebtPerCheck = request.MaxDebtPerCheck is { } m && m > 0 ? m : null;
+
         // Sessiyani FAQAT ruxsat OLIB TASHLANGANDA uzamiz.
         //
         // Ilgari bu shartsiz ishlardi: Owner kassirning ruxsatlar oynasini ochib,
@@ -637,7 +641,9 @@ public class UserService : IUserService
         user.IsPermissionsCustomized,
         user.GetEffectivePermissions(),
         PermissionDefaults.ForRole(user.Role),
-        PermissionKeys.All
+        PermissionKeys.All,
+        user.MaxDiscountPercent,
+        user.MaxDebtPerCheck
     );
 
     private static UserDto MapToDto(User user)

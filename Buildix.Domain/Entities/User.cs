@@ -84,6 +84,18 @@ public class User : BaseEntity, ISoftDelete
     public bool IsPermissionsCustomized { get; set; } = false;
 
     /// <summary>
+    /// Chegirma limiti (foizda) — kassir bitta chekka qo'ya oladigan maksimal
+    /// chegirma (jami summadan %). Null = cheksiz. Dizayndagi «Лимит скидки 3/5/10%».
+    /// </summary>
+    public int? MaxDiscountPercent { get; set; }
+
+    /// <summary>
+    /// Bitta chekka maksimal qarz summasi. Null = cheksiz. Dizayndagi «Долг на
+    /// чек 5млн/20млн/Без лимита».
+    /// </summary>
+    public decimal? MaxDebtPerCheck { get; set; }
+
+    /// <summary>
     /// The permissions actually in force: full catalogue for Owner/SuperAdmin,
     /// explicit set when <see cref="IsPermissionsCustomized"/> is true,
     /// otherwise the role default.
