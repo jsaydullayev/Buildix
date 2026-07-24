@@ -660,6 +660,8 @@ export const en: TranslationSchema = {
     block: 'Block',
     unblock: 'Unblock',
     blocked: 'Blocked',
+    active: 'Active',
+    protected: 'Owner and super-admin are managed separately',
     editTitle: 'Edit employee',
     deleteTitle: 'Delete',
     deleteConfirm: 'Delete employee “{{name}}”?',
@@ -689,6 +691,7 @@ export const en: TranslationSchema = {
     reset: 'Reset to role',
     byRole: 'by role',
     effectNote: 'Changes take effect on the employee’s next sign-in.',
+    savedNote: 'Saved · takes effect on next sign-in.',
     groups: {
       dashboard: 'Dashboard',
       sales: 'Sales',

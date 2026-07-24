@@ -660,6 +660,8 @@ export const uz: TranslationSchema = {
     block: 'Bloklash',
     unblock: 'Blokdan chiqarish',
     blocked: 'Bloklangan',
+    active: 'Faol',
+    protected: 'Egasi va super-admin alohida sozlanadi',
     editTitle: 'Xodimni tahrirlash',
     deleteTitle: 'O‘chirish',
     deleteConfirm: '«{{name}}» xodim o‘chirilsinmi?',
@@ -689,6 +691,7 @@ export const uz: TranslationSchema = {
     reset: 'Rol standartiga qaytarish',
     byRole: 'rol bo‘yicha',
     effectNote: 'O‘zgarishlar xodim keyingi kirishida kuchga kiradi.',
+    savedNote: 'Saqlandi · keyingi kirishda kuchga kiradi.',
     groups: {
       dashboard: 'Panel',
       sales: 'Sotuvlar',
