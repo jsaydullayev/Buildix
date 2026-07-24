@@ -23,4 +23,14 @@ public interface IStockLedger
     /// <param name="comment">Izoh (masalan inventarizatsiya farqi), ixtiyoriy.</param>
     void Record(Product product, decimal delta, StockMovementType type,
         int? refNumber = null, Guid? userId = null, string? comment = null);
+
+    /// <summary>
+    /// Sotuv Draft'dan chiqib yakunlanganda (Paid/Debt) har bir tovar liniyasi
+    /// uchun bitta <see cref="StockMovementType.Sale"/> harakati yozadi
+    /// (delta = −miqdor, ref = ЧЕК №). Stok allaqachon savat qurish paytida
+    /// kamaygan — bu yerda faqat QAYD etiladi (draft churn'i jurnalga tushmaydi).
+    /// Tashqi (IsExternal) liniyalar e'tiborga olinmaydi. Yozuvlar chaqiruvchi
+    /// SaveChanges'ida saqlanadi.
+    /// </summary>
+    Task RecordSaleFinalizationAsync(Sale sale, CancellationToken cancellationToken = default);
 }

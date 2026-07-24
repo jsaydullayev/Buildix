@@ -22,6 +22,7 @@ public class SalePaymentService : ISalePaymentService
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<SalePaymentService> _logger;
     private readonly IMarketSettingsService _settings;
+    private readonly IStockLedger _stockLedger;
 
     public SalePaymentService(
         IUnitOfWork unitOfWork,
@@ -29,7 +30,8 @@ public class SalePaymentService : ISalePaymentService
         ICurrentMarketService currentMarketService,
         IAuditLogService auditLogService,
         ILogger<SalePaymentService> logger,
-        IMarketSettingsService settings)
+        IMarketSettingsService settings,
+        IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -37,6 +39,7 @@ public class SalePaymentService : ISalePaymentService
         _auditLogService = auditLogService;
         _logger = logger;
         _settings = settings;
+        _stockLedger = stockLedger;
     }
 
     /// <summary>
@@ -158,6 +161,11 @@ public class SalePaymentService : ISalePaymentService
 
             if (sale.Status == SaleStatus.Paid || sale.Status == SaleStatus.Closed || sale.Status == SaleStatus.Cancelled)
                 return Result.Failure<PaymentDto>($"Cannot add payment to sale with status: {sale.Status}");
+
+            // Ombor jurnaliga sotuv harakati faqat Draft'dan chiqishda yoziladi
+            // (qarzni keyin to'lash stokni harakatlantirmaydi — u allaqachon qayd
+            // etilgan). Statusni mutatsiyadan OLDIN ushlaymiz.
+            var startedAsDraft = sale.Status == SaleStatus.Draft;
 
             // Log payment details with structured properties
             _logger.LogInformation("Applying {TenderCount} tender(s) totalling {PaymentAmount} to sale {SaleId}, " +
@@ -342,6 +350,12 @@ public class SalePaymentService : ISalePaymentService
                 _logger.LogWarning("Unhandled case for sale {SaleId}: TotalAmount={TotalAmount}, PaidAmount={PaidAmount}",
                     sale.Id, sale.TotalAmount, sale.PaidAmount);
             }
+
+            // Sotuv endi yakunlandimi? (Draft → Paid/Debt/Closed). Shu bo'lsa
+            // har liniya uchun Продажа harakati yoziladi — quyidagi SaveChanges
+            // bilan bir tranzaksiyada (atomik).
+            if (startedAsDraft && sale.Status != SaleStatus.Draft && sale.Status != SaleStatus.Cancelled)
+                await _stockLedger.RecordSaleFinalizationAsync(sale, cancellationToken);
 
             _unitOfWork.Sales.Update(sale);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

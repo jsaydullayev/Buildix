@@ -81,16 +81,16 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, NullLogger<SaleQueryService>.Instance);
 
     public SaleService NewSaleService() =>
-        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier, NewSaleQueryService(), Settings);
+        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier, NewSaleQueryService(), Settings, StockLedger);
 
     public SaleItemService NewSaleItemService() =>
         new(UnitOfWork, Db, Market, NullLogger<SaleItemService>.Instance, CreditApplier, Settings, Audit);
 
     public SaleReversalService NewSaleReversalService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance, StockLedger);
 
     public SalePaymentService NewSalePaymentService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings, StockLedger);
 
     public IStockLedger StockLedger => new StockLedger(Db);
 

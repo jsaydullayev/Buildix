@@ -23,14 +23,16 @@ public class SaleReversalService : ISaleReversalService
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<SaleReversalService> _logger;
+    private readonly IStockLedger _stockLedger;
 
-    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger)
+    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger, IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
         _auditLogService = auditLogService;
         _logger = logger;
+        _stockLedger = stockLedger;
     }
 
     public async Task<Result<SaleDto>> CancelSaleAsync(Guid saleId, Guid adminId, CancellationToken cancellationToken = default)
@@ -61,6 +63,11 @@ public class SaleReversalService : ISaleReversalService
 
             if (sale.Status == SaleStatus.Cancelled)
                 return Result.Failure<SaleDto>("Sale is already cancelled");
+
+            // Ombor jurnali: SaleReversal faqat YAKUNLANGAN sotuv bekor qilinganда
+            // yoziladi. Draft'da Продажа harakati umuman yozilmagan edi, shuning
+            // uchun uni "qaytarish" ham yozilmaydi (net-nol, jurnal toza qoladi).
+            var wasFinalized = sale.Status != SaleStatus.Draft;
 
             // Restore stock for all items.
             // P4 — fetch every affected Product in ONE round trip instead of
@@ -98,6 +105,9 @@ public class SaleReversalService : ISaleReversalService
                         else
                         {
                             product.Quantity += item.Quantity;
+                            if (wasFinalized)
+                                _stockLedger.Record(product, item.Quantity, StockMovementType.SaleReversal,
+                                    refNumber: sale.SaleNumber, userId: adminId, comment: "Sotuv bekor qilindi");
                         }
                         _unitOfWork.Products.Update(product);
                     }
@@ -223,6 +233,11 @@ public class SaleReversalService : ISaleReversalService
                 return Result.Failure<SaleDto>("Faqat draft yoki to'langan (Paid) savdolarini o'chirish mumkin! Qarzli savdolarni o'chirib bo'lmaydi.");
             }
 
+            // SaleReversal faqat YAKUNLANGAN (Paid) sotuv o'chirilganda yoziladi.
+            // Draft o'chirish — Продажа umuman qayd etilmagani uchun, jurnalga
+            // hech narsa yozilmaydi (net-nol).
+            var wasFinalized = sale.Status != SaleStatus.Draft;
+
             // Save sale items for DTO
             var saleItems = sale.SaleItems.ToList();
             _logger.LogInformation("Found {Count} sale items to delete", saleItems.Count);
@@ -252,6 +267,9 @@ public class SaleReversalService : ISaleReversalService
                     {
                         // Oddiy mahsulot uchun stokni qaytarish
                         saleItem.Product.Quantity += saleItem.Quantity;
+                        if (wasFinalized)
+                            _stockLedger.Record(saleItem.Product, saleItem.Quantity, StockMovementType.SaleReversal,
+                                refNumber: sale.SaleNumber, userId: userId, comment: "Sotuv o'chirildi");
                         _logger.LogInformation("Product stock restored: {ProductId}, Qty: +{Quantity}",
                             saleItem.ProductId, saleItem.Quantity);
                     }
@@ -456,6 +474,10 @@ public class SaleReversalService : ISaleReversalService
             if (!saleItem.IsExternal && saleItem.Product != null)
             {
                 saleItem.Product.Quantity += returnQuantity;
+                // Qaytarish har doim yakunlangan (Paid) sotuvda bo'ladi — SaleReversal
+                // harakati (qisman miqdor) jurnalga tushadi.
+                _stockLedger.Record(saleItem.Product, returnQuantity, StockMovementType.SaleReversal,
+                    refNumber: sale.SaleNumber, userId: userId, comment: "Qaytarish");
                 _context.Products.Update(saleItem.Product);
             }
 

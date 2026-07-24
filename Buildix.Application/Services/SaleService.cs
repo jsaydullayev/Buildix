@@ -26,7 +26,9 @@ public class SaleService : ISaleService
     // Market business rules (shift-open sales, debt-only-regulars, debt limit).
     private readonly IMarketSettingsService _settings;
 
-    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings)
+    private readonly IStockLedger _stockLedger;
+
+    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -36,6 +38,7 @@ public class SaleService : ISaleService
         _creditApplier = creditApplier;
         _saleQueryService = saleQueryService;
         _settings = settings;
+        _stockLedger = stockLedger;
     }
 
     public async Task<Result<SaleDto>> CreateSaleAsync(CreateSaleDto request, Guid sellerId, CancellationToken cancellationToken = default)
@@ -255,8 +258,16 @@ public class SaleService : ISaleService
                 }
             }
 
+            // Draft'dan qarzga o'tish — sotuv shu yerda yakunlanadi; ombor
+            // jurnaliga Продажа harakati (delta = −miqdor) yoziladi. Faqat
+            // Draft'dan (statusni o'zgartirishdan oldin tekshiramiz).
+            var startedAsDraft = sale.Status == SaleStatus.Draft;
+
             sale.Status = SaleStatus.Debt;
             _unitOfWork.Sales.Update(sale);
+
+            if (startedAsDraft)
+                await _stockLedger.RecordSaleFinalizationAsync(sale, cancellationToken);
 
             // Create or update debt record
             var existingDebt = await _unitOfWork.Debts.FindAsync(
