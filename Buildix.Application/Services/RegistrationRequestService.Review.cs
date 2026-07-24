@@ -51,12 +51,7 @@ public partial class RegistrationRequestService
             throw new InvalidOperationException("Do'kon nomini kiriting (kamida 3 belgi).");
         var marketName = dto.MarketName.Trim();
 
-        Language language = dto.Language?.ToLowerInvariant() switch
-        {
-            "uz" => Language.Uzbek,
-            "ru" => Language.Russian,
-            _ => Language.Uzbek
-        };
+        Language language = LanguageCodes.FromCode(dto.Language) ?? Language.Uzbek;
 
         var subdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
             ? GenerateSubdomain(username)

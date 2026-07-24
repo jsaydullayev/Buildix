@@ -53,6 +53,8 @@ export interface SalesQuery {
   to?: string | null;
   /** Narrow to one cash shift's receipts ("Мои продажи за смену"). */
   shiftId?: string | null;
+  /** Narrow to one seller (Owner "kim qancha sotdi" view). */
+  sellerId?: string | null;
 }
 
 export interface TodaySalesSummary {
@@ -77,6 +79,7 @@ export const salesApi = {
         from: q.from || undefined,
         to: q.to || undefined,
         shiftId: q.shiftId || undefined,
+        sellerId: q.sellerId || undefined,
       },
     });
     return data;
@@ -99,6 +102,23 @@ export const salesApi = {
       params: { lang },
       responseType: 'blob',
     });
+    return data as Blob;
+  },
+
+  /** Cancel a sale: restores stock and reverses cash (sales.delete). */
+  cancel: async (saleId: string): Promise<Sale> => {
+    const { data } = await apiClient.post<Sale>(`/Sales/${saleId}/cancel`);
+    return data;
+  },
+
+  /** Return part (or all) of one line — refunds money, restocks (sales.edit). */
+  returnItem: async (saleId: string, saleItemId: string, quantity: number): Promise<void> => {
+    await apiClient.post(`/Sales/${saleId}/return-item`, { saleItemId, quantity });
+  },
+
+  /** All sales as Excel, honouring the active filters. */
+  exportExcel: async (lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get('/Sales/export', { params: { lang }, responseType: 'blob' });
     return data as Blob;
   },
 };

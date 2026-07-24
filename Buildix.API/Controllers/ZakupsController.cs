@@ -209,6 +209,13 @@ public class ZakupsController : ApiControllerBase
         }
     }
 
+    /// <summary>Purchase KPI tiles for the month starting at <paramref name="from"/>
+    /// (Tashkent month-start as a UTC instant), aggregated DB-side.</summary>
+    [HttpGet]
+    [RequirePermission(PermissionKeys.ZakupAccess)]
+    public async Task<ActionResult<PurchaseSummaryDto>> GetReceiptsSummary([FromQuery] DateTime from, CancellationToken ct = default)
+        => Ok(await _zakupService.GetReceiptsSummaryAsync(from, ct));
+
     [HttpGet("export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.ZakupAccess)]

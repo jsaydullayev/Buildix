@@ -19,6 +19,7 @@ const UNIT_KEYS: Record<number, string> = {
   8: 'roll',
   9: 'box',
   10: 'pack',
+  11: 'liter',
 };
 
 /**

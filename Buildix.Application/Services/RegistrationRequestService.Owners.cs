@@ -121,11 +121,7 @@ public partial class RegistrationRequestService
         var marketName = dto.MarketName.Trim();
         var phone = NormalizePhone(dto.Phone);
 
-        Language language = dto.Language?.ToLowerInvariant() switch
-        {
-            "ru" => Language.Russian,
-            _ => Language.Uzbek
-        };
+        Language language = LanguageCodes.FromCode(dto.Language) ?? Language.Uzbek;
 
         var subdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
             ? GenerateSubdomain(username)
@@ -244,14 +240,9 @@ public partial class RegistrationRequestService
                 owner.FullName = dto.FullName.Trim();
                 if (!string.IsNullOrWhiteSpace(dto.Phone))
                     owner.Phone = NormalizePhone(dto.Phone);
-                if (!string.IsNullOrWhiteSpace(dto.Language))
-                {
-                    owner.Language = dto.Language.ToLowerInvariant() switch
-                    {
-                        "ru" => Language.Russian,
-                        _ => Language.Uzbek
-                    };
-                }
+                // Tanilmagan kod kelsa — mavjud tilni o'zgartirmaymiz.
+                if (LanguageCodes.FromCode(dto.Language) is { } ownerLanguage)
+                    owner.Language = ownerLanguage;
                 if (dto.OwnerActive.HasValue)
                     owner.IsActive = dto.OwnerActive.Value;
 

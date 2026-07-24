@@ -130,12 +130,7 @@ public partial class AuthService : IAuthService
 
             _logger.LogInformation("Tokens generated successfully for user: {UserId}", user.Id);
 
-            string languageCode = user.Language switch
-            {
-                Language.Uzbek => "uz",
-                Language.Russian => "ru",
-                _ => "uz"
-            };
+            string languageCode = user.Language.ToCode();
 
             // Surface the tenant's slug so the client can match a stored session
             // to the buildix.uz/{subdomain}/ path and auto-enter without a fresh

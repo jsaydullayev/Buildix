@@ -98,8 +98,16 @@ export const shiftsApi = {
     return data;
   },
 
-  history: async (limit = 20): Promise<Shift[]> => {
-    const { data } = await apiClient.get<Shift[]>('/Shifts', { params: { limit } });
+  /** Owner/Admin force-closes another cashier's open shift (users.shift). */
+  forceClose: async (shiftId: string, countedCash: number | null): Promise<Shift> => {
+    const { data } = await apiClient.post<Shift>(`/Shifts/${shiftId}/force-close`, { countedCash });
+    return data;
+  },
+
+  history: async (limit = 20, userId?: string | null): Promise<Shift[]> => {
+    const { data } = await apiClient.get<Shift[]>('/Shifts', {
+      params: { limit, userId: userId || undefined },
+    });
     return data;
   },
 

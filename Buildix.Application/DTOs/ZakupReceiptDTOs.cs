@@ -3,6 +3,12 @@ using System.Text.Json.Serialization;
 
 namespace Buildix.Application.DTOs;
 
+/// <summary>Purchase KPI tiles for the current month, aggregated DB-side.</summary>
+public record PurchaseSummaryDto(
+    [property: JsonPropertyName("count")] int Count,
+    [property: JsonPropertyName("total")] decimal Total
+);
+
 // ── Read DTOs ───────────────────────────────────────────────────────────────
 
 /// <summary>One product line of a goods-receipt (full — includes cost).</summary>

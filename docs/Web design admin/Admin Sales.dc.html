@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Admin Sales" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(245,166,35,.2);border:1px solid rgba(245,166,35,.45);font-size:10px;font-weight:700;letter-spacing:.5px;color:#fcd34d">ADMIN</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="padding:0 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">ОПЕРАЦИИ</div>
+      <a href="Admin Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</div>
+      <a href="Admin Cash.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg>Касса</a>
+      <a href="Admin Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Admin Products.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары и цены</a>
+      <a href="Admin Returns.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Возвраты</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">КЛИЕНТЫ</div>
+      <a href="Admin Clients.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c.7-3.7 3.2-5.6 7-5.6s6.3 1.9 7 5.6"></path></svg>Клиенты</a>
+      <a href="Admin Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">СНАБЖЕНИЕ</div>
+      <a href="Admin Purchases.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</a>
+      <a href="Admin Suppliers.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Поставщики</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">УПРАВЛЕНИЕ</div>
+      
+            <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</div>
+      <a href="Admin Shifts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</a>
+      <a href="Admin Employees.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники и доступы</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <a href="Admin Account.dc.html" title="Мой аккаунт" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;color:#ffffff;border-radius:8px;padding:4px;margin:-4px" style-hover="background:rgba(255,255,255,.1)"><div style="width:34px;height:34px;border-radius:999px;background:#f5a623;color:#0f2557;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">ДР</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">Дилшод Рахимов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Администратор</div></div></a>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Продажи</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">{{ visCount }} чеков на <span style="font-weight:600;color:#0f172a">{{ visSum }} сум</span> · все продавцы магазина</div>
+      </div>
+      <div style="display:inline-flex;background:#f1f5f9;border-radius:999px;padding:3px">
+        <sc-for list="{{ dayChips }}" as="d" hint-placeholder-count="3">
+          <div onClick="{{ d.pick }}" style="padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:{{ d.w }};color:{{ d.color }};background:{{ d.bg }};cursor:pointer">{{ d.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 32px 40px;display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="position:relative;flex:1;max-width:340px;min-width:240px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:14px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+          <input type="text" placeholder="Номер чека, товар, клиент…" value="{{ q }}" onChange="{{ setQ }}" style="width:100%;height:43px;border:1px solid #e2e8f0;border-radius:10px;padding:0 14px 0 38px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff;box-sizing:border-box" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ sellerChips }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.pick }}" type="button" style="height:36px;padding:0 15px;border:1.5px solid {{ c.bd }};border-radius:999px;background:{{ c.bg }};color:{{ c.color }};font-size:12.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ c.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1.6fr) 130px 140px 70px;gap:12px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ЧЕК</div><div>ПРОДАВЕЦ</div><div>ТОВАРЫ</div><div>ОПЛАТА</div><div style="text-align:right">СУММА</div><div></div></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <div onClick="{{ r.open }}" style="display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1.6fr) 130px 140px 70px;gap:12px;align-items:center;padding:12px 22px;border-bottom:1px solid #f1f5f9;cursor:pointer" style-hover="background:#f5f9ff">
+            <div><div style="font-size:13.5px;font-weight:600;color:#2563eb">{{ r.id }}</div><div style="font-size:11.5px;color:#94a3b8;margin-top:2px">{{ r.when }}</div></div>
+            <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.seller }}</div>
+            <div style="font-size:13px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.items }}</div>
+            <div><span style="padding:4px 11px;border-radius:999px;background:{{ r.payBg }};font-size:11px;font-weight:600;color:{{ r.payC }}">{{ r.pay }}</span></div>
+            <div style="text-align:right;font-size:13.5px;font-weight:700">{{ r.sum }}</div>
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+              <div onClick="{{ r.askDel }}" title="Аннулировать чек" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#fef2f2;color:#dc2626"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg></div>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px;text-align:center;font-size:13px;color:#94a3b8">Ничего не найдено</div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showView }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeView }}" style="position:fixed;inset:0;background:rgba(8,20,48,.55);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div onClick="{{ stop }}" style="width:600px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:16px;font-weight:600">Чек {{ vId }}</div>
+            <span style="padding:3px 11px;border-radius:999px;background:{{ vPayBg }};font-size:11px;font-weight:600;color:{{ vPayC }}">{{ vPay }}</span>
+          </div>
+          <div onClick="{{ closeView }}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#f1f5f9;color:#0f172a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+        </div>
+        <div style="display:flex;gap:24px;padding:14px 24px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:12.5px">
+          <div><span style="color:#94a3b8">Продавец:</span> <span style="font-weight:600">{{ vSeller }}</span></div>
+          <div><span style="color:#94a3b8">Время:</span> <span style="font-weight:600">{{ vWhen }}</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 130px 140px;gap:12px;padding:9px 24px;font-size:11px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ТОВАР</div><div style="text-align:right">КОЛ-ВО</div><div style="text-align:right">ЦЕНА</div><div style="text-align:right">СУММА</div></div>
+        <sc-for list="{{ vLines }}" as="ln" hint-placeholder-count="2">
+          <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 130px 140px;gap:12px;align-items:center;padding:11px 24px;border-top:1px solid #f1f5f9;font-size:13px">
+            <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ln.name }}</div>
+            <div style="text-align:right;color:#475569">{{ ln.qty }}</div>
+            <div style="text-align:right;color:#475569">{{ ln.price }}</div>
+            <div style="text-align:right;font-weight:700">{{ ln.sum }}</div>
+          </div>
+        </sc-for>
+        <div style="padding:15px 24px;border-top:1px solid #e8edf4;background:#f8fafc">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:12.5px;color:#64748b">{{ vPayInfo }}</div>
+            <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:12.5px;color:#64748b">Итого:</span><span style="font-size:18px;font-weight:700;color:#2563eb">{{ vTotal }} сум</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showDel }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cancelDel }}" style="position:fixed;inset:0;background:rgba(8,20,48,.55);display:flex;align-items:center;justify-content:center;z-index:70">
+      <div onClick="{{ stop }}" style="width:460px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);padding:26px">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:44px;height:44px;border-radius:11px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:600">Аннулировать чек {{ delId }}?</div>
+            <div style="font-size:13px;line-height:1.55;color:#64748b;margin-top:6px">{{ delInfo }}. Товары вернутся на остатки, сумма будет вычтена из выручки. Действие запишется в журнал.</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px">
+          <button onClick="{{ cancelDel }}" type="button" style="height:44px;padding:0 18px;border:1px solid #cbd5e1;border-radius:9px;background:#ffffff;color:#475569;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Отмена</button>
+          <button onClick="{{ confirmDel }}" type="button" style="height:44px;padding:0 22px;border:none;border-radius:9px;background:#dc2626;color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#b91c1c">Аннулировать</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    day: 'Все', seller: 'Все продавцы', q: '', view: null, del: null,
+    sales: [
+      { id: 'Ч-1042', day: 'Сегодня', time: '14:32', seller: 'Жасур Т.', pay: 'Наличные', items: 'Цемент М500 ×10, сетка ×8', payInfo: 'Оплата: наличные', lines: [ { name: 'Цемент М500 · мешок 50 кг', qty: '10', price: 75000 }, { name: 'Сетка кладочная · шт', qty: '8', price: 95000 } ] },
+      { id: 'Ч-1041', day: 'Сегодня', time: '14:18', seller: 'Отабек Р.', pay: 'Карта', items: 'Кирпич керамический ×500', payInfo: 'Оплата: карта', lines: [ { name: 'Кирпич керамический · шт', qty: '500', price: 1700 } ] },
+      { id: 'Ч-1040', day: 'Сегодня', time: '13:55', seller: 'Жасур Т.', pay: 'В долг', items: 'Профнастил 0,45 ×12', payInfo: 'Клиент: Бекзод Алимов · срок до 2 августа', lines: [ { name: 'Профнастил 0,45 · лист', qty: '12', price: 92000 } ] },
+      { id: 'Ч-1039', day: 'Сегодня', time: '13:40', seller: 'Дилшод К.', pay: 'Смешанная', items: 'Песок 3 т, кирпич ×56', payInfo: 'Наличные: 300 000 · Карта: 155 200', lines: [ { name: 'Песок строительный · тонна', qty: '3', price: 120000 }, { name: 'Кирпич керамический · шт', qty: '56', price: 1700 } ] },
+      { id: 'Ч-1038', day: 'Сегодня', time: '13:12', seller: 'Отабек Р.', pay: 'Карта', items: 'Гипсокартон 12,5 ×25', payInfo: 'Оплата: карта', lines: [ { name: 'Гипсокартон 12,5 мм · лист', qty: '25', price: 54000 } ] },
+      { id: 'Ч-1037', day: 'Сегодня', time: '12:44', seller: 'Жасур Т.', pay: 'Наличные', items: 'Труба 40×20 · 60 м', payInfo: 'Оплата: наличные', lines: [ { name: 'Труба профильная 40×20 · метр', qty: '60', price: 22000 } ] },
+      { id: 'Ч-1036', day: 'Вчера', time: '18:20', seller: 'Дилшод К.', pay: 'Наличные', items: 'Цемент М400 ×40', payInfo: 'Оплата: наличные', lines: [ { name: 'Цемент М400 · мешок 50 кг', qty: '40', price: 65000 } ] },
+      { id: 'Ч-1035', day: 'Вчера', time: '17:05', seller: 'Жасур Т.', pay: 'В долг', items: 'Арматура Ø12 · 1,5 т', payInfo: 'Клиент: ООО «Курилиш Сервис» · срок до 30 июля', lines: [ { name: 'Арматура Ø12 · тонна', qty: '1,5', price: 9200000 } ] },
+      { id: 'Ч-1034', day: 'Вчера', time: '15:48', seller: 'Отабек Р.', pay: 'Карта', items: 'Шифер ×30', payInfo: 'Оплата: карта', lines: [ { name: 'Шифер 8-волновой · лист', qty: '30', price: 61000 } ] },
+      { id: 'Ч-1033', day: 'Вчера', time: '11:02', seller: 'Дилшод К.', pay: 'Наличные', items: 'Кирпич керамический ×1200', payInfo: 'Оплата: наличные', lines: [ { name: 'Кирпич керамический · шт', qty: '1200', price: 1700 } ] },
+    ],
+  };
+  fmt(n) { return n.toLocaleString('ru-RU').replace(/\u00A0/g, ' '); }
+  sumOf(o) { return o.lines.reduce((a, l) => a + Math.round(parseFloat(String(l.qty).replace(',', '.')) * l.price), 0); }
+  payColors(p) {
+    if (p === 'Наличные') return { payBg: '#f0fdf4', payC: '#15803d' };
+    if (p === 'Карта') return { payBg: '#eff6ff', payC: '#1e40af' };
+    if (p === 'В долг') return { payBg: '#fff7ed', payC: '#9a3412' };
+    return { payBg: '#f5f3ff', payC: '#6d28d9' };
+  }
+  viewVals() {
+    const o = this.state.sales.find(x => x.id === this.state.view);
+    if (!o) return { showView: false, closeView: () => {}, stop: (e) => e.stopPropagation(), vLines: [] };
+    return {
+      showView: true,
+      closeView: () => this.setState({ view: null }),
+      stop: (e) => e.stopPropagation(),
+      vId: o.id, vSeller: o.seller, vWhen: o.day.toLowerCase() + ', ' + o.time,
+      vPay: o.pay, vPayBg: this.payColors(o.pay).payBg, vPayC: this.payColors(o.pay).payC,
+      vPayInfo: o.payInfo,
+      vLines: o.lines.map(l => ({ name: l.name, qty: l.qty, price: this.fmt(l.price), sum: this.fmt(Math.round(parseFloat(String(l.qty).replace(',', '.')) * l.price)) })),
+      vTotal: this.fmt(this.sumOf(o)),
+    };
+  }
+  delVals() {
+    const o = this.state.sales.find(x => x.id === this.state.del);
+    if (!o) return { showDel: false, cancelDel: () => {} };
+    return {
+      showDel: true,
+      delId: o.id,
+      delInfo: o.seller + ' · ' + this.fmt(this.sumOf(o)) + ' сум',
+      cancelDel: () => this.setState({ del: null }),
+      confirmDel: () => this.setState(s => ({ sales: s.sales.filter(x => x.id !== o.id), del: null, view: s.view === o.id ? null : s.view })),
+    };
+  }
+  renderVals() {
+    const q = this.state.q.toLowerCase().trim();
+    const list = this.state.sales.filter(o =>
+      (this.state.day === 'Все' || o.day === this.state.day) &&
+      (this.state.seller === 'Все продавцы' || o.seller === this.state.seller) &&
+      (!q || o.id.toLowerCase().includes(q) || o.items.toLowerCase().includes(q) || o.payInfo.toLowerCase().includes(q)));
+    return {
+      visCount: list.length,
+      visSum: this.fmt(list.reduce((a, o) => a + this.sumOf(o), 0)),
+      q: this.state.q,
+      setQ: (e) => this.setState({ q: e.target.value }),
+      dayChips: ['Сегодня', 'Вчера', 'Все'].map(c => ({
+        label: c,
+        w: this.state.day === c ? '600' : '500',
+        color: this.state.day === c ? '#0f172a' : '#64748b',
+        bg: this.state.day === c ? '#ffffff' : 'transparent',
+        pick: () => this.setState({ day: c }),
+      })),
+      sellerChips: ['Все продавцы', 'Жасур Т.', 'Отабек Р.', 'Дилшод К.'].map(c => ({
+        label: c,
+        bg: this.state.seller === c ? '#2563eb' : '#ffffff',
+        color: this.state.seller === c ? '#ffffff' : '#475569',
+        bd: this.state.seller === c ? '#2563eb' : '#e2e8f0',
+        pick: () => this.setState({ seller: c }),
+      })),
+      rows: list.map(o => ({
+        ...o,
+        ...this.payColors(o.pay),
+        when: o.day.toLowerCase() + ', ' + o.time,
+        sum: this.fmt(this.sumOf(o)),
+        open: () => this.setState({ view: o.id }),
+        askDel: (e) => { e.stopPropagation(); this.setState({ del: o.id }); },
+      })),
+      noRows: list.length === 0,
+      ...this.viewVals(),
+      ...this.delVals(),
+    };
+  }
+}
+</script>
+</body>
+</html>

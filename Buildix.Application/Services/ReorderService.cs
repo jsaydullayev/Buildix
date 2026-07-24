@@ -67,6 +67,7 @@ public class ReorderService : IReorderService
                 p.Id,
                 p.Name,
                 UnitName(p.Unit),
+                (int)p.Unit,
                 p.Quantity,
                 p.MinThreshold,
                 Math.Round(avgDaily, 2),

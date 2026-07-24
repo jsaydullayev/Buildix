@@ -133,7 +133,13 @@ public record UpdateProfileDto(
 
     [property: JsonPropertyName("telegram")]
     [param: StringLength(100)]
-    string? Telegram = null
+    string? Telegram = null,
+
+    // Interfeys tili ("uz" | "ru" | "en"). null = tegilmaydi. Foydalanuvchining
+    // o'z sozlamasi — do'kon bo'yicha MarketSettings.DefaultLanguage'dan alohida.
+    [property: JsonPropertyName("language")]
+    [param: StringLength(10)]
+    string? Language = null
 );
 
 public record UpdateProfileImageDto(

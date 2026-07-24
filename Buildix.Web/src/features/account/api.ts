@@ -24,6 +24,8 @@ export interface MyProfile {
   role: string;
   phone: string | null;
   telegram: string | null;
+  /** Saved UI language ("uz" | "ru" | "en"). */
+  language: string;
 }
 
 export interface UpdateProfileBody {
@@ -32,6 +34,8 @@ export interface UpdateProfileBody {
   newPassword?: string | null;
   phone?: string | null;
   telegram?: string | null;
+  /** UI language code; omit (or null) to leave it unchanged. */
+  language?: string | null;
 }
 
 export const accountApi = {

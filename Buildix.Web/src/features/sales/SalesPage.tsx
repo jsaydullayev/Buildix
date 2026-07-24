@@ -3,13 +3,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { startOfDay, startOfWeek, startOfMonth } from 'date-fns';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, FileDown } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime } from '@/shared/lib/format';
+import { downloadBlob } from '@/shared/lib/download';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
+import { employeesApi } from '@/features/employees/api';
 import { salesApi, type Sale } from './api';
 import { SaleDetailModal } from './SaleDetailModal';
 
@@ -37,16 +39,21 @@ function periodRange(period: Period): { from: string; to: string } {
 }
 
 export default function SalesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { subdomain } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission(PERMISSIONS.sales.create);
+  const canExport = hasPermission(PERMISSIONS.sales.export);
+  // Sotuvchi bo'yicha filtr — barcha xodimlar ro'yxati kerak (users.access).
+  const canFilterSeller = hasPermission(PERMISSIONS.users.access);
 
   const [period, setPeriod] = useState<Period>('today');
   const [pay, setPay] = useState<PayFilter>('all');
+  const [sellerId, setSellerId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [downloading, setDownloading] = useState(false);
   // Ochilgan chek — ro'yxatdagi qatorning o'zi (items/payments allaqachon
   // yuklangan), shuning uchun modal qo'shimcha so'rovsiz darhol chiziladi.
   const [openSale, setOpenSale] = useState<Sale | null>(null);
@@ -54,9 +61,14 @@ export default function SalesPage() {
   const range = useMemo(() => periodRange(period), [period]);
 
   const summaryQuery = useQuery({ queryKey: ['today-sales'], queryFn: salesApi.todaySummary });
+  const sellersQuery = useQuery({
+    queryKey: ['sellers-filter'],
+    queryFn: () => employeesApi.list(),
+    enabled: canFilterSeller,
+  });
 
   const listQuery = useQuery({
-    queryKey: ['sales', { page, search: debouncedSearch, pay, period }],
+    queryKey: ['sales', { page, search: debouncedSearch, pay, period, sellerId }],
     queryFn: () =>
       salesApi.listPaged({
         page,
@@ -65,6 +77,7 @@ export default function SalesPage() {
         paymentType: PAY_PARAM[pay],
         from: range.from,
         to: range.to,
+        sellerId: sellerId || null,
       }),
     placeholderData: keepPreviousData,
   });
@@ -73,17 +86,38 @@ export default function SalesPage() {
   const avg = s && s.totalSales > 0 ? Math.round(s.totalAmount / s.totalSales) : 0;
   const resetPage = () => setPage(1);
 
+  async function handleExport() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const blob = await salesApi.exportExcel(i18n.language);
+      downloadBlob(blob, 'sales.xlsx');
+    } catch {
+      // best-effort; ignore
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
         title={t('sales.title')}
         actions={
-          canCreate && (
-            <Button onClick={() => navigate(`/${subdomain}/pos`)}>
-              <Plus size={15} strokeWidth={2.4} />
-              {t('sales.newSale')}
-            </Button>
-          )
+          <div className="flex items-center gap-3">
+            {canExport && (
+              <Button variant="secondary" loading={downloading} onClick={handleExport}>
+                <FileDown size={15} />
+                {t('common.export')}
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={() => navigate(`/${subdomain}/pos`)}>
+                <Plus size={15} strokeWidth={2.4} />
+                {t('sales.newSale')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -134,6 +168,24 @@ export default function SalesPage() {
               />
             ))}
           </div>
+
+          {canFilterSeller && (
+            <select
+              value={sellerId}
+              onChange={(e) => {
+                setSellerId(e.target.value);
+                resetPage();
+              }}
+              className="h-11 rounded-input border border-input-border bg-surface px-3 text-[13.5px] outline-none focus:border-primary"
+            >
+              <option value="">{t('sales.allSellers')}</option>
+              {(sellersQuery.data ?? []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName}
+                </option>
+              ))}
+            </select>
+          )}
 
           <div className="ml-auto inline-flex rounded-input bg-hairline p-1">
             {(['today', 'week', 'month'] as Period[]).map((p) => (

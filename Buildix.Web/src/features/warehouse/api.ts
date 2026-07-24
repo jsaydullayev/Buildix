@@ -24,6 +24,25 @@ export interface Product {
 export interface ProductCategory {
   id: number;
   name: string;
+  description?: string | null;
+  icon?: string | null;
+  isActive?: boolean;
+  productCount?: number;
+}
+
+export interface CategoryBody {
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+}
+
+/** GET /Products/summary — warehouse KPI tiles. */
+export interface WarehouseSummary {
+  positions: number;
+  /** null when the caller lacks data.costPrice. */
+  stockValue: number | null;
+  lowStock: number;
+  outOfStock: number;
 }
 
 export interface UnitInfo {
@@ -104,6 +123,17 @@ export const productsApi = {
     await apiClient.delete(`/Products/DeleteProduct/${id}`);
   },
 
+  exportExcel: async (lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get('/Products/export', { params: { lang }, responseType: 'blob' });
+    return data as Blob;
+  },
+
+  /** Warehouse KPI tiles, aggregated server-side (no full-list download). */
+  summary: async (): Promise<WarehouseSummary> => {
+    const { data } = await apiClient.get<WarehouseSummary>('/Products/summary');
+    return data;
+  },
+
   /** Unpaged list (server caps at 5000) — used to compute warehouse stat cards. */
   listAll: async (): Promise<Product[]> => {
     const { data } = await apiClient.get<Product[]>('/Products/GetAllProducts');
@@ -125,5 +155,19 @@ export const categoriesApi = {
   list: async (): Promise<ProductCategory[]> => {
     const { data } = await apiClient.get<ProductCategory[]>('/ProductCategories/GetAllCategories');
     return data;
+  },
+
+  create: async (body: CategoryBody): Promise<ProductCategory> => {
+    const { data } = await apiClient.post<ProductCategory>('/ProductCategories/CreateCategory', body);
+    return data;
+  },
+
+  update: async (id: number, body: CategoryBody & { isActive: boolean }): Promise<ProductCategory> => {
+    const { data } = await apiClient.put<ProductCategory>('/ProductCategories/UpdateCategory', { id, ...body });
+    return data;
+  },
+
+  remove: async (id: number): Promise<void> => {
+    await apiClient.delete(`/ProductCategories/DeleteCategory/${id}`);
   },
 };

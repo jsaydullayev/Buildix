@@ -3,6 +3,19 @@ using System.Text.Json.Serialization;
 
 namespace Buildix.Application.DTOs;
 
+/// <summary>
+/// Warehouse KPI tiles, computed DB-side. Replaces the old client rollup that
+/// downloaded every product just to count four numbers — O(catalogue) per page
+/// load. <see cref="StockValue"/> is null for callers without data.costPrice
+/// (cost is masked), so the UI can hide the tile rather than show 0.
+/// </summary>
+public record WarehouseSummaryDto(
+    [property: JsonPropertyName("positions")] int Positions,
+    [property: JsonPropertyName("stockValue")] decimal? StockValue,
+    [property: JsonPropertyName("lowStock")] int LowStock,
+    [property: JsonPropertyName("outOfStock")] int OutOfStock
+);
+
 public record ProductDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("name")] string Name,

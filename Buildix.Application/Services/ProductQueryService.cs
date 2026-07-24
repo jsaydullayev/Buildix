@@ -104,4 +104,29 @@ public class ProductQueryService : IProductQueryService
         return products.Select(p => ProductMapper.MapToDto(p, canViewCost));
     }
 
+    public async Task<WarehouseSummaryDto> GetWarehouseSummaryAsync(bool canViewCost = true, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        // One grouped aggregation → a single SQL round-trip, instead of pulling
+        // the whole catalogue to the client and folding it there.
+        var agg = await _context.Products
+            .AsNoTracking()
+            .Where(p => p.MarketId == marketId)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Positions = g.Count(),
+                StockValue = g.Sum(p => p.CostPrice * p.Quantity),
+                LowStock = g.Count(p => p.Quantity > 0 && p.Quantity <= p.MinThreshold),
+                OutOfStock = g.Count(p => p.Quantity <= 0),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new WarehouseSummaryDto(
+            Positions: agg?.Positions ?? 0,
+            StockValue: canViewCost ? (agg?.StockValue ?? 0m) : null,
+            LowStock: agg?.LowStock ?? 0,
+            OutOfStock: agg?.OutOfStock ?? 0);
+    }
 }

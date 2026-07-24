@@ -3,7 +3,18 @@ import { cn } from '@/shared/lib/cn';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
 
 /** UZ / RU / EN pill switcher (matches the login/landing design). */
-export function LanguageSwitch({ className }: { className?: string }) {
+export function LanguageSwitch({
+  className,
+  onChange,
+}: {
+  className?: string;
+  /**
+   * Called after the UI has switched — used by Settings to persist the choice
+   * on the user's account. Pre-auth screens (login/landing) leave it off and
+   * rely on the browser-local LanguageDetector cache.
+   */
+  onChange?: (lang: AppLanguage) => void;
+}) {
   const { i18n } = useTranslation();
   const current = (SUPPORTED_LANGUAGES as readonly string[]).includes(i18n.language)
     ? (i18n.language as AppLanguage)
@@ -17,7 +28,11 @@ export function LanguageSwitch({ className }: { className?: string }) {
           <button
             key={lang}
             type="button"
-            onClick={() => void i18n.changeLanguage(lang)}
+            onClick={() => {
+              if (active) return;
+              void i18n.changeLanguage(lang);
+              onChange?.(lang);
+            }}
             className={cn(
               'rounded-pill px-4 py-[7px] text-[14px] transition-colors',
               active

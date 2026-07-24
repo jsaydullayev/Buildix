@@ -17,6 +17,7 @@ import {
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatFullDate, formatShortDate, formatWeekday, formatTime } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import { purchasesApi, type ReorderSuggestion } from '@/features/purchases/api';
@@ -24,13 +25,35 @@ import { debtsApi, type DebtorSummary } from '@/features/debts/api';
 import { shiftsApi, type Shift } from '@/features/shifts/api';
 import { dashboardApi, type DailySale, type WeeklyPoint } from './api';
 
+/**
+ * Server `paymentType` → badge. The keys are the PaymentType enum names
+ * lowercased, exactly as SalesListService emits them, plus the literal
+ * "qaytarilgan" it uses for a sale carrying refund payments.
+ *
+ * `terminal` and `credit` were missing, so a card sale fell through to the
+ * fallback branch and rendered the raw i18n key ("sales.payment.terminal") in
+ * the badge instead of a label.
+ */
 const PAY_BADGE: Record<string, { key: string; tone: 'success' | 'info' | 'warn' | 'neutral' }> = {
   cash: { key: 'cash', tone: 'success' },
+  terminal: { key: 'card', tone: 'info' },
   card: { key: 'card', tone: 'info' },
   click: { key: 'click', tone: 'info' },
   transfer: { key: 'transfer', tone: 'info' },
+  credit: { key: 'credit', tone: 'neutral' },
   debt: { key: 'debt', tone: 'warn' },
+  qaytarilgan: { key: 'returned', tone: 'neutral' },
 };
+
+const PAY_FALLBACK = { key: 'cash', tone: 'success' } as const;
+
+function payBadge(sale: DailySale): { key: string; tone: 'success' | 'info' | 'warn' | 'neutral' } {
+  // Qarzga sotuvda to'lov yozuvi bo'lmasligi mumkin va server "Cash" ga
+  // tushib qoladi — status bu yerda ishonchliroq manba (Sotuvlar ro'yxatidagi
+  // paymentBadge ham xuddi shunday qaraydi).
+  if (sale.status === 'Debt') return { key: 'debt', tone: 'warn' };
+  return PAY_BADGE[sale.paymentType?.toLowerCase() ?? ''] ?? PAY_FALLBACK;
+}
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1).replace('.', ',')}%`;
@@ -419,7 +442,7 @@ function itemsText(sale: DailySale): string {
 
 function RecentSaleRow({ sale }: { sale: DailySale }) {
   const { t } = useTranslation();
-  const badge = PAY_BADGE[sale.paymentType] ?? { key: sale.paymentType, tone: 'neutral' as const };
+  const badge = payBadge(sale);
   return (
     <div className="grid grid-cols-dashboard-sales items-center gap-[14px] border-t border-hairline px-6 py-3 text-[13px]">
       <span className="text-muted-2 nums">{formatTime(sale.createdAt)}</span>
@@ -460,7 +483,7 @@ function LowStockCard({ items, loading, onOrder }: { items: ReorderSuggestion[];
                   <div className="mb-1.5 flex justify-between text-[13px]">
                     <span className="truncate pr-2 font-medium">{s.name}</span>
                     <span className={cn('whitespace-nowrap font-semibold', critical ? 'text-danger' : 'text-warn-strong')}>
-                      {formatQty(s.currentQty)} {s.unitName}
+                      {formatQty(s.currentQty)} {unitLabel(t, s.unit, s.unitName)}
                     </span>
                   </div>
                   <div className="h-1.5 rounded-pill bg-hairline">

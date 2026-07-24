@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { authApi } from '@/shared/api/auth';
 import type { LoginRequest } from '@/shared/api/types';
 import { ROLES } from '@/shared/config/permissions';
+import { applyUserLanguage } from '@/shared/i18n';
 import { useSessionStore } from './sessionStore';
 
 /** Reactive access to the current session and permission checks. */
@@ -44,7 +45,13 @@ export function useLogin() {
   const setSession = useSessionStore((s) => s.setSession);
   return useMutation({
     mutationFn: (payload: LoginRequest) => authApi.login(payload),
-    onSuccess: (data) => setSession(data),
+    onSuccess: (data) => {
+      setSession(data);
+      // Hisobda saqlangan til — foydalanuvchi uni Sozlamalarda tanlagan, demak
+      // yangi brauzer/qurilmada ham o'sha til bilan kirsin. Login sahifasidagi
+      // tanlov faqat shu brauzerning localStorage'ida yotadi.
+      applyUserLanguage(data.language);
+    },
   });
 }
 

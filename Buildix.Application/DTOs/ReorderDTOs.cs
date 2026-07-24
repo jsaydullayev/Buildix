@@ -9,7 +9,11 @@ namespace Buildix.Application.DTOs;
 public record ReorderSuggestionDto(
     [property: JsonPropertyName("productId")] Guid ProductId,
     [property: JsonPropertyName("name")] string Name,
+    // UnitName — serverdagi o'zbekcha qisqartma ("dona", "kg"); ruscha yoki
+    // inglizcha interfeysda noto'g'ri o'qiladi, shuning uchun raqamli UnitType
+    // ham yuboriladi va klient nomni o'z tilida chiqaradi.
     [property: JsonPropertyName("unitName")] string UnitName,
+    [property: JsonPropertyName("unit")] int Unit,
     [property: JsonPropertyName("currentQty")] decimal CurrentQty,
     [property: JsonPropertyName("minThreshold")] decimal MinThreshold,
     [property: JsonPropertyName("avgDailySales")] decimal AvgDailySales,

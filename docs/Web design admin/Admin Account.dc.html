@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Admin Account" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(245,166,35,.2);border:1px solid rgba(245,166,35,.45);font-size:10px;font-weight:700;letter-spacing:.5px;color:#fcd34d">ADMIN</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="padding:0 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">ОПЕРАЦИИ</div>
+      <a href="Admin Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Admin Sales.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</a>
+      <a href="Admin Cash.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg>Касса</a>
+      <a href="Admin Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Admin Products.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары и цены</a>
+      <a href="Admin Returns.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Возвраты</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">КЛИЕНТЫ</div>
+      <a href="Admin Clients.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c.7-3.7 3.2-5.6 7-5.6s6.3 1.9 7 5.6"></path></svg>Клиенты</a>
+      <a href="Admin Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">СНАБЖЕНИЕ</div>
+      <a href="Admin Purchases.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</a>
+      <a href="Admin Suppliers.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Поставщики</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">УПРАВЛЕНИЕ</div>
+      
+            <a href="Admin Reports.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</a>
+      <a href="Admin Shifts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</a>
+      <a href="Admin Employees.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники и доступы</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);border-radius:10px">
+      <div style="width:34px;height:34px;border-radius:999px;background:#f5a623;color:#0f2557;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">ДР</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">Дилшод Рахимов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Мой аккаунт</div></div>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Мой аккаунт</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">личные данные, безопасность и язык интерфейса</div>
+      </div>
+      <sc-if value="{{ saved }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:999px;padding:8px 16px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+          <span style="font-size:12.5px;font-weight:600;color:#15803d">Изменения сохранены</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex:1;padding:24px 32px 40px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;align-items:start;max-width:1080px">
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+            <div style="width:64px;height:64px;border-radius:999px;background:#f5a623;color:#0f2557;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex:none">ДР</div>
+            <div>
+              <div style="font-size:17px;font-weight:600">Дилшод Рахимов</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                <span style="padding:3px 11px;border-radius:999px;background:#fff7ed;border:1px solid #fed7aa;font-size:11px;font-weight:700;color:#9a3412">АДМИНИСТРАТОР</span>
+                <span style="font-size:12px;color:#94a3b8">Стройбаза №1 · в системе с марта 2025</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Имя и фамилия</label>
+              <input type="text" value="{{ name }}" onChange="{{ setName }}" style="height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Телефон</label>
+              <input type="tel" value="{{ phone }}" onChange="{{ setPhone }}" style="height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Логин</label>
+              <input type="text" value="dilshod.r" disabled style="height:46px;border:1px solid #e2e8f0;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#94a3b8;outline:none;background:#f8fafc">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Telegram</label>
+              <input type="text" value="{{ tg }}" onChange="{{ setTg }}" placeholder="@username" style="height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+          </div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:12px">Логин выдаёт владелец — изменить его может только он в разделе «Сотрудники».</div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px">
+          <div style="font-size:14.5px;font-weight:600;margin-bottom:14px">Смена пароля</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Текущий пароль</label>
+              <input type="password" placeholder="••••••••" value="{{ curPass }}" onChange="{{ setCurPass }}" style="height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+            <div></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Новый пароль</label>
+              <input type="password" placeholder="минимум 8 символов" value="{{ newPass }}" onChange="{{ setNewPass }}" style="height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Повторите новый пароль</label>
+              <input type="password" placeholder="ещё раз" value="{{ newPass2 }}" onChange="{{ setNewPass2 }}" style="height:46px;border:1px solid {{ passBd }};border-radius:9px;padding:0 13px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+            </div>
+          </div>
+          <sc-if value="{{ passMismatch }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:#dc2626;margin-top:8px">Пароли не совпадают</div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end">
+          <button onClick="{{ save }}" type="button" style="height:48px;padding:0 28px;border:none;border-radius:9px;background:{{ saveBg }};color:#ffffff;font-size:14px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:{{ saveCur }}" style-hover="background:{{ saveHov }}">Сохранить изменения</button>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px">
+          <div style="font-size:14.5px;font-weight:600;margin-bottom:4px">Язык интерфейса</div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">Til / Язык / Language</div>
+          <div style="display:flex;gap:8px">
+            <sc-for list="{{ langs }}" as="l" hint-placeholder-count="3">
+              <button onClick="{{ l.pick }}" type="button" style="flex:1;height:44px;border:1.5px solid {{ l.bd }};border-radius:9px;background:{{ l.bg }};color:{{ l.color }};font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ l.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px">
+          <div style="font-size:14.5px;font-weight:600;margin-bottom:14px">Уведомления в Telegram</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ notifOpts }}" as="o" hint-placeholder-count="3">
+              <div onClick="{{ o.toggle }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer">
+                <div style="min-width:0"><div style="font-size:13px;font-weight:500">{{ o.title }}</div><div style="font-size:11.5px;color:#94a3b8;margin-top:1px">{{ o.sub }}</div></div>
+                <div style="width:42px;height:24px;border-radius:999px;background:{{ o.tBg }};position:relative;flex:none;transition:background .15s"><div style="position:absolute;top:3px;left:{{ o.knob }};width:18px;height:18px;border-radius:999px;background:#ffffff;box-shadow:0 1px 3px rgba(15,23,42,.3);transition:left .15s"></div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:22px 24px">
+          <div style="font-size:14.5px;font-weight:600;margin-bottom:14px">Активные сессии</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:36px;height:36px;border-radius:9px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"></rect><path d="M8 22h8"></path><path d="M12 18v4"></path></svg></div>
+              <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">Этот компьютер · Chrome</div><div style="font-size:11.5px;color:#15803d;margin-top:1px">сейчас в сети</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:36px;height:36px;border-radius:9px;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg></div>
+              <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">Телефон · Android</div><div style="font-size:11.5px;color:#94a3b8;margin-top:1px">вчера, 21:40</div></div>
+              <button type="button" style="height:32px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#dc2626;font-size:11.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="border:1px solid #dc2626;background:#fef2f2">Завершить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    name: 'Дилшод Рахимов', phone: '+998 90 512 44 07', tg: '@dilshod_r',
+    curPass: '', newPass: '', newPass2: '',
+    lang: 'Русский', saved: false,
+    notifs: { debt: true, stock: true, shift: false },
+  };
+  renderVals() {
+    const mismatch = this.state.newPass2.length > 0 && this.state.newPass !== this.state.newPass2;
+    const passOk = this.state.newPass.length === 0 || (this.state.newPass.length >= 8 && this.state.newPass === this.state.newPass2 && this.state.curPass.length > 0);
+    const can = this.state.name.trim().length > 1 && passOk;
+    const NOTIF = [
+      { key: 'debt', title: 'Просроченные долги', sub: 'утром, если есть просрочка' },
+      { key: 'stock', title: 'Товар закончился', sub: 'сразу при нулевом остатке' },
+      { key: 'shift', title: 'Закрытие смены', sub: 'итог дня и расхождение кассы' },
+    ];
+    return {
+      name: this.state.name, setName: (e) => this.setState({ name: e.target.value, saved: false }),
+      phone: this.state.phone, setPhone: (e) => this.setState({ phone: e.target.value, saved: false }),
+      tg: this.state.tg, setTg: (e) => this.setState({ tg: e.target.value, saved: false }),
+      curPass: this.state.curPass, setCurPass: (e) => this.setState({ curPass: e.target.value, saved: false }),
+      newPass: this.state.newPass, setNewPass: (e) => this.setState({ newPass: e.target.value, saved: false }),
+      newPass2: this.state.newPass2, setNewPass2: (e) => this.setState({ newPass2: e.target.value, saved: false }),
+      passMismatch: mismatch,
+      passBd: mismatch ? '#fca5a5' : '#cbd5e1',
+      langs: ['O\u02bbzbekcha', 'Русский', 'English'].map(l => ({
+        label: l,
+        bg: this.state.lang === l ? '#2563eb' : '#ffffff',
+        color: this.state.lang === l ? '#ffffff' : '#475569',
+        bd: this.state.lang === l ? '#2563eb' : '#cbd5e1',
+        pick: () => this.setState({ lang: l, saved: false }),
+      })),
+      notifOpts: NOTIF.map(n => {
+        const on = this.state.notifs[n.key];
+        return {
+          title: n.title, sub: n.sub,
+          tBg: on ? '#16a34a' : '#cbd5e1',
+          knob: on ? '21px' : '3px',
+          toggle: () => this.setState(s => ({ notifs: { ...s.notifs, [n.key]: !s.notifs[n.key] }, saved: false })),
+        };
+      }),
+      saved: this.state.saved,
+      saveBg: can ? '#2563eb' : '#94a3b8',
+      saveHov: can ? '#1e40af' : '#94a3b8',
+      saveCur: can ? 'pointer' : 'not-allowed',
+      save: () => { if (can) this.setState({ saved: true, curPass: '', newPass: '', newPass2: '' }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

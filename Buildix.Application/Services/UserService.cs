@@ -157,9 +157,10 @@ public class UserService : IUserService
             Username = request.Username,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Role = role,
-            Language = Enum.TryParse<Language>(request.Language, ignoreCase: true, out var lang)
-                ? lang
-                : Language.Uzbek,
+            // Klient "uz"/"ru"/"en" kodini yuboradi. Ilgari bu yerda
+            // Enum.TryParse ishlatilgan edi — u faqat enum NOMINI ("Uzbek")
+            // tushunadi, shuning uchun "ru" jimgina Uzbek'ga tushib ketardi.
+            Language = LanguageCodes.FromCode(request.Language) ?? Language.Uzbek,
             IsActive = true,
             MarketId = currentMarketId.Value
         };
@@ -257,6 +258,11 @@ public class UserService : IUserService
         {
             user.FullName = request.FullName;
         }
+
+        // Interfeys tili — noma'lum yoki bo'sh kod kelsa o'zgarmaydi (klient
+        // faqat "uz"/"ru"/"en" yuboradi; boshqasi jimgina e'tiborsiz qoladi).
+        if (LanguageCodes.FromCode(request.Language) is { } language)
+            user.Language = language;
 
         // Phone / Telegram — null = leave untouched; empty string = clear.
         if (request.Phone is not null)
@@ -642,7 +648,7 @@ public class UserService : IUserService
             user.Username,
             user.ProfileImage,
             user.Role.ToString(),
-            user.Language.ToString().ToLowerInvariant(),
+            user.Language.ToCode(),
             user.IsActive,
             user.MarketId,
             user.ShiftStatus.ToString(),

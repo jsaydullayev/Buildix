@@ -105,6 +105,30 @@ public class ShiftService : IShiftService
         var open = await FindOpenShiftAsync(userId, cancellationToken)
             ?? throw new ShiftNotOpenException(userId);
 
+        // Self-close: the audit actor is the shift's own cashier.
+        return await CloseShiftCoreAsync(open, actorId: userId, countedCash, forced: false, cancellationToken);
+    }
+
+    public async Task<ShiftDto> ForceCloseShiftAsync(Guid shiftId, Guid closedByUserId, decimal? countedCash = null, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        var open = await _db.Shifts
+            .Include(s => s.User)
+            .FirstOrDefaultAsync(s => s.Id == shiftId && s.MarketId == marketId && s.ClosedAt == null, cancellationToken)
+            ?? throw new InvalidOperationException("Ochiq smena topilmadi yoki allaqachon yopilgan.");
+
+        // Force-close: the audit actor is the Owner/Admin, NOT the cashier —
+        // so the trail shows who intervened.
+        return await CloseShiftCoreAsync(open, actorId: closedByUserId, countedCash, forced: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Shared close logic for both self-close and force-close. Reconciles the
+    /// drawer, stamps ClosedAt, writes the audit row (with <paramref name="forced"/>
+    /// and the acting user), and sends the day-summary Telegram.
+    /// </summary>
+    private async Task<ShiftDto> CloseShiftCoreAsync(Shift open, Guid actorId, decimal? countedCash, bool forced, CancellationToken cancellationToken)
+    {
         var closedAt = DateTime.UtcNow;
         var fin = await ComputeFinancialsAsync(open, closedAt, cancellationToken);
 
@@ -127,8 +151,8 @@ public class ShiftService : IShiftService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _auditLogService.LogActionAsync(
-            AuditEntityTypes.Shift, open.Id, AuditActions.Close, userId,
-            new { open.OpenedAt, open.ClosedAt, open.DurationMinutes, open.CountedCash, open.Discrepancy, expected = fin.ExpectedCash },
+            AuditEntityTypes.Shift, open.Id, AuditActions.Close, actorId,
+            new { open.OpenedAt, open.ClosedAt, open.DurationMinutes, open.CountedCash, open.Discrepancy, expected = fin.ExpectedCash, forced, cashierId = open.UserId },
             cancellationToken);
 
         // Day summary to the owner's Telegram (best-effort, gated by settings).
@@ -166,13 +190,20 @@ public class ShiftService : IShiftService
         return await MapManyAsync(shifts, cancellationToken);
     }
 
-    /// <summary>Market-wide shift history (all cashiers), most recent first.</summary>
-    public async Task<IReadOnlyList<ShiftDto>> GetMarketShiftsAsync(int limit = 30, CancellationToken cancellationToken = default)
+    /// <summary>Market-wide shift history (all cashiers), most recent first,
+    /// with optional cashier and UTC date-range filters.</summary>
+    public async Task<IReadOnlyList<ShiftDto>> GetMarketShiftsAsync(int limit = 30, Guid? userId = null, DateTime? fromUtc = null, DateTime? toUtc = null, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
-        var shifts = await _db.Shifts.AsNoTracking()
+        var query = _db.Shifts.AsNoTracking()
             .Include(s => s.User)
-            .Where(s => s.MarketId == marketId)
+            .Where(s => s.MarketId == marketId);
+
+        if (userId.HasValue) query = query.Where(s => s.UserId == userId.Value);
+        if (fromUtc.HasValue) query = query.Where(s => s.OpenedAt >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(s => s.OpenedAt < toUtc.Value);
+
+        var shifts = await query
             .OrderByDescending(s => s.OpenedAt)
             .Take(Math.Clamp(limit, 1, 200))
             .ToListAsync(cancellationToken);

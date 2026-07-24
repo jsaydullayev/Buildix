@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarClock } from 'lucide-react';
 import { Modal, Button } from '@/shared/ui';
-import { formatSum } from '@/shared/lib/format';
+import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { debtsApi, type DebtorSummary } from './api';
 
 const METHODS = [
@@ -20,12 +23,16 @@ export function PayDebtModal({
   debtor: DebtorSummary | null;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canEditDue = hasPermission(PERMISSIONS.debts.dueDate);
   const qc = useQueryClient();
   const open = !!debtor;
 
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<string>('Cash');
+  const [dueEditing, setDueEditing] = useState(false);
+  const [due, setDue] = useState('');
 
   // The customer's open debts (oldest first) — we settle against the oldest.
   const debtsQuery = useQuery({
@@ -43,8 +50,19 @@ export function PayDebtModal({
     if (open) {
       setAmount('');
       setMethod('Cash');
+      setDueEditing(false);
+      setDue('');
     }
   }, [open, debtor?.customerId]);
+
+  const updateDue = useMutation({
+    mutationFn: () => debtsApi.updateDueDate(oldest!.id, due || null),
+    onSuccess: () => {
+      setDueEditing(false);
+      void qc.invalidateQueries({ queryKey: ['customer-debts', debtor?.customerId] });
+      void qc.invalidateQueries({ queryKey: ['debtors'] });
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -86,6 +104,40 @@ export function PayDebtModal({
             {formatSum(oldest?.remainingDebt ?? debtor?.remainingDebt ?? 0)} {t('common.currency')}
           </span>
         </div>
+
+        {/* Muddat — eng eski qarzning to'lash muddati (debts.dueDate ruxsati). */}
+        {oldest && canEditDue && (
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="flex items-center gap-1.5 text-muted">
+              <CalendarClock size={14} />
+              {t('debts.dueDate')}
+            </span>
+            {dueEditing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
+                  className="h-9 rounded-input border border-input-border bg-surface px-2.5 text-[13px] outline-none focus:border-primary nums"
+                />
+                <Button size="sm" loading={updateDue.isPending} onClick={() => updateDue.mutate()}>
+                  {t('common.save')}
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDue(oldest.dueDate ? oldest.dueDate.slice(0, 10) : '');
+                  setDueEditing(true);
+                }}
+                className="font-medium text-primary hover:text-primary-hover nums"
+              >
+                {oldest.dueDate ? formatShortDate(oldest.dueDate, i18n.language) : t('debts.setDueDate')}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[13px] font-medium text-label">{t('debts.payAmount')}</label>

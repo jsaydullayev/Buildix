@@ -14,4 +14,11 @@ public interface IProductQueryService
     Task<IEnumerable<ProductDto>> GetAllProductsAsync(bool canViewCost = true, CancellationToken cancellationToken = default);
     Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, CancellationToken cancellationToken = default);
     Task<IEnumerable<ProductDto>> GetLowStockProductsAsync(bool canViewCost = true, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Warehouse KPI tiles (positions / stock value / low / out) aggregated
+    /// DB-side. <paramref name="canViewCost"/> masks StockValue for cost-hidden
+    /// callers.
+    /// </summary>
+    Task<WarehouseSummaryDto> GetWarehouseSummaryAsync(bool canViewCost = true, CancellationToken cancellationToken = default);
 }

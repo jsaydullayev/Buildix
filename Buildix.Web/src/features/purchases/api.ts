@@ -19,14 +19,77 @@ export interface Supplier {
   id: string;
   name: string;
   phone: string | null;
+  address?: string | null;
+  comment?: string | null;
   outstandingDebt: number;
   receiptCount: number;
+}
+
+/** One product line of a receipt (Owner view — carries cost). */
+export interface ReceiptLine {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  costPrice: number;
+  lineTotal: number;
+}
+
+/** Full goods-receipt with its lines — GET /Zakups/GetReceipt/{id}. */
+export interface ReceiptDetail {
+  id: string;
+  receiptNumber: number;
+  supplierId: string | null;
+  supplierName: string | null;
+  invoiceNumber: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  paymentStatus: string;
+  comment: string | null;
+  itemCount: number;
+  createdAt: string;
+  createdBy: string;
+  items: ReceiptLine[];
+}
+
+/** One line being posted with a new receipt. */
+export interface CreateReceiptLine {
+  productId: string;
+  quantity: number;
+  costPrice: number;
+}
+
+export interface CreateReceiptBody {
+  supplierId: string | null;
+  invoiceNumber: string | null;
+  paidAmount: number;
+  comment: string | null;
+  items: CreateReceiptLine[];
+}
+
+export interface SupplierBody {
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  comment?: string | null;
+}
+
+/** Blocker check before deleting a supplier. */
+export interface SupplierDeleteInfo {
+  canDelete: boolean;
+  receiptsCount: number;
+  outstandingDebt: number;
+  warningMessage: string | null;
 }
 
 export interface ReorderSuggestion {
   productId: string;
   name: string;
+  /** Server-side Uzbek abbreviation — prefer `unit` + unitLabel() for display. */
   unitName: string;
+  /** UnitType number; localise from this. */
+  unit: number;
   currentQty: number;
   minThreshold: number;
   avgDailySales: number;
@@ -47,6 +110,15 @@ export const purchasesApi = {
     return data;
   },
 
+  /** Month KPI tiles (count + total) aggregated server-side. `from` = Tashkent
+   *  month-start as a UTC ISO instant. */
+  summary: async (fromUtc: string): Promise<{ count: number; total: number }> => {
+    const { data } = await apiClient.get<{ count: number; total: number }>('/Zakups/GetReceiptsSummary', {
+      params: { from: fromUtc },
+    });
+    return data;
+  },
+
   suppliers: async (): Promise<Supplier[]> => {
     const { data } = await apiClient.get<Supplier[]>('/Suppliers/GetAllSuppliers');
     return data;
@@ -57,5 +129,68 @@ export const purchasesApi = {
       params: { limit },
     });
     return data;
+  },
+
+  // ── Goods-receipt (priyomka) ──────────────────────────────────────────────
+
+  /** Create a goods-receipt: adds stock, raises supplier debt for the unpaid part. */
+  createReceipt: async (body: CreateReceiptBody): Promise<ReceiptDetail> => {
+    const { data } = await apiClient.post<ReceiptDetail>('/Zakups/CreateReceipt', body);
+    return data;
+  },
+
+  /** One receipt with its lines. */
+  receipt: async (id: string): Promise<ReceiptDetail> => {
+    const { data } = await apiClient.get<ReceiptDetail>(`/Zakups/GetReceipt/${id}`);
+    return data;
+  },
+
+  /** Pay down a receipt's outstanding supplier debt. */
+  registerPayment: async (id: string, amount: number): Promise<ReceiptDetail> => {
+    const { data } = await apiClient.post<ReceiptDetail>(`/Zakups/RegisterSupplierPayment/${id}`, {
+      amount,
+    });
+    return data;
+  },
+
+  // ── Suppliers (spravochnik) ───────────────────────────────────────────────
+
+  suppliersPaged: async (page = 1, size = 50, search?: string): Promise<PagedResult<Supplier>> => {
+    const { data } = await apiClient.get<PagedResult<Supplier>>('/Suppliers/GetSuppliersPaged', {
+      params: { page, size, search: search || undefined },
+    });
+    return data;
+  },
+
+  createSupplier: async (body: SupplierBody): Promise<Supplier> => {
+    const { data } = await apiClient.post<Supplier>('/Suppliers/CreateSupplier', body);
+    return data;
+  },
+
+  updateSupplier: async (id: string, body: SupplierBody): Promise<Supplier> => {
+    const { data } = await apiClient.put<Supplier>('/Suppliers/UpdateSupplier', { id, ...body });
+    return data;
+  },
+
+  /** Preflight before delete — reports outstanding debt / receipt count. */
+  supplierDeleteInfo: async (id: string): Promise<SupplierDeleteInfo> => {
+    const { data } = await apiClient.get<SupplierDeleteInfo>(`/Suppliers/GetSupplierDeleteInfo/${id}/delete-info`);
+    return data;
+  },
+
+  deleteSupplier: async (id: string): Promise<void> => {
+    await apiClient.delete(`/Suppliers/DeleteSupplier/${id}`);
+  },
+
+  // ── Exports ───────────────────────────────────────────────────────────────
+
+  exportReceipts: async (): Promise<Blob> => {
+    const { data } = await apiClient.get('/Zakups/export', { responseType: 'blob' });
+    return data as Blob;
+  },
+
+  exportSuppliers: async (lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get('/Suppliers/export', { params: { lang }, responseType: 'blob' });
+    return data as Blob;
   },
 };

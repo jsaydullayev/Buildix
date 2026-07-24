@@ -21,6 +21,10 @@ const SalesPage = lazy(() => import('@/features/sales/SalesPage'));
 const WarehousePage = lazy(() => import('@/features/warehouse/WarehousePage'));
 const DebtsPage = lazy(() => import('@/features/debts/DebtsPage'));
 const PurchasesPage = lazy(() => import('@/features/purchases/PurchasesPage'));
+const SuppliersPage = lazy(() => import('@/features/suppliers/SuppliersPage'));
+const CustomersPage = lazy(() => import('@/features/customers/CustomersPage'));
+const AuditPage = lazy(() => import('@/features/audit/AuditPage'));
+const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage'));
 const ShiftsPage = lazy(() => import('@/features/shifts/ShiftsPage'));
 const ReportsPage = lazy(() => import('@/features/reports/ReportsPage'));
 const EmployeesPage = lazy(() => import('@/features/employees/EmployeesPage'));
@@ -73,10 +77,14 @@ export const router = createBrowserRouter([
       { path: 'sales', element: perm(PERMISSIONS.sales.access, <SalesPage />) },
       { path: 'warehouse', element: perm(PERMISSIONS.products.access, <WarehousePage />) },
       { path: 'debts', element: perm(PERMISSIONS.debts.access, <DebtsPage />) },
+      { path: 'customers', element: perm(PERMISSIONS.customers.access, <CustomersPage />) },
       { path: 'purchases', element: perm(PERMISSIONS.zakup.access, <PurchasesPage />) },
+      { path: 'suppliers', element: perm(PERMISSIONS.suppliers.access, <SuppliersPage />) },
       { path: 'shifts', element: perm(PERMISSIONS.cashregister.access, <ShiftsPage />) },
       { path: 'reports', element: perm(PERMISSIONS.reports.access, <ReportsPage />) },
       { path: 'employees', element: perm(PERMISSIONS.users.access, <EmployeesPage />) },
+      { path: 'audit', element: perm(PERMISSIONS.data.auditLog, <AuditPage />) },
+      { path: 'notifications', element: perm(PERMISSIONS.notifications.access, <NotificationsPage />) },
       {
         path: 'settings',
         element: <RequireRole roles={[ROLES.Owner, ROLES.SuperAdmin]}>{<SettingsPage />}</RequireRole>,

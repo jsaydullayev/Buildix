@@ -16,8 +16,30 @@ export interface Customer {
 export interface CreateCustomerBody {
   phone: string;
   fullName?: string | null;
+  comment?: string | null;
+  initialDebt?: number | null;
   customerType?: string | null;
   isRegular?: boolean;
+  debtLimit?: number | null;
+}
+
+export interface UpdateCustomerBody {
+  id: string;
+  phone?: string | null;
+  fullName?: string | null;
+  customerType?: string | null;
+  isRegular?: boolean;
+  debtLimit?: number | null;
+}
+
+/** Blocker check before deleting a customer. */
+export interface CustomerDeleteInfo {
+  canDelete: boolean;
+  salesCount: number;
+  draftSalesCount: number;
+  debtsCount: number;
+  totalDebt: number;
+  warningMessage: string | null;
 }
 
 export interface CustomerQuery {
@@ -37,5 +59,26 @@ export const customersApi = {
   create: async (body: CreateCustomerBody): Promise<Customer> => {
     const { data } = await apiClient.post<Customer>('/Customers/CreateCustomer', body);
     return data;
+  },
+
+  update: async (body: UpdateCustomerBody): Promise<Customer> => {
+    const { data } = await apiClient.put<Customer>('/Customers/UpdateCustomer', body);
+    return data;
+  },
+
+  /** Preflight before delete — reports sales / open debts that may block it. */
+  deleteInfo: async (id: string): Promise<CustomerDeleteInfo> => {
+    const { data } = await apiClient.get<CustomerDeleteInfo>(`/Customers/GetCustomerDeleteInfo/${id}/delete-info`);
+    return data;
+  },
+
+  /** Soft-delete keeps the row (sales history stays intact) but hides it. */
+  remove: async (id: string): Promise<void> => {
+    await apiClient.post(`/Customers/SoftDeleteCustomer/${id}/soft-delete`);
+  },
+
+  exportExcel: async (lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get('/Customers/export', { params: { lang }, responseType: 'blob' });
+    return data as Blob;
   },
 };
