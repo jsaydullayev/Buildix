@@ -21,6 +21,29 @@ public class ProductQueryService : IProductQueryService
         _currentMarketService = currentMarketService;
     }
 
+    public async Task<IReadOnlyList<StockMovementDto>> GetProductMovementsAsync(Guid productId, int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        limit = Math.Clamp(limit, 1, 200);
+
+        return await _context.StockMovements
+            .AsNoTracking()
+            .Where(m => m.MarketId == marketId && m.ProductId == productId)
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Take(limit)
+            .Select(m => new StockMovementDto(
+                m.Id,
+                m.Type.ToString(),
+                m.Delta,
+                m.ResultingQty,
+                m.RefNumber,
+                m.User != null ? m.User.FullName : null,
+                m.Comment,
+                m.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ProductDto?> GetProductByIdAsync(Guid id, bool canViewCost = true, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();

@@ -15,13 +15,15 @@ public class ProductService : IProductService
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IAuditLogService _auditLog;
+    private readonly IStockLedger _stockLedger;
 
-    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog)
+    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog, IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
         _auditLog = auditLog;
+        _stockLedger = stockLedger;
     }
 
     public async Task<Result<ProductDto>> CreateProductAsync(CreateProductDto request, Guid? sellerId, CancellationToken cancellationToken = default)
@@ -72,6 +74,12 @@ public class ProductService : IProductService
         };
 
         await _unitOfWork.Products.AddAsync(product, cancellationToken);
+
+        // Boshlang'ich qoldiq — ledger' da InitialStock sifatida (product endi
+        // Quantity bilan, ResultingQty to'g'ri chiqadi). 0 bo'lsa Record e'tibor
+        // bermaydi. Bir SaveChanges'da product + harakat birga yoziladi.
+        _stockLedger.Record(product, product.Quantity, StockMovementType.InitialStock, userId: sellerId);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(ProductMapper.MapToDto(product));
@@ -117,7 +125,13 @@ public class ProductService : IProductService
         // Manfiy qiymat DTO Range validatsiyasida allaqachon rad etiladi.
         var oldQuantity = product.Quantity;
         if (canEditStock && request.Quantity.HasValue)
+        {
             product.Quantity = request.Quantity.Value;
+            // Owner qo'lda tuzatgan qoldiq — Correction harakati (delta = farq).
+            if (product.Quantity != oldQuantity)
+                _stockLedger.Record(product, product.Quantity - oldQuantity, StockMovementType.Correction,
+                    userId: actorUserId, comment: "Qo'lda tuzatish");
+        }
 
         // Kelgan narx: faqat cost-ko'ruvchi (Owner/Admin) va qiymat kelganda.
         // Null bo'lsa tegilmaydi — masking tufayli 0 kelib eski narxni bosib
@@ -217,6 +231,9 @@ public class ProductService : IProductService
             if (before == counted) continue; // farq yo'q — tegilmaydi
 
             product.Quantity = counted;
+            // Inventarizatsiya farqi — Correction harakati (delta = counted − before).
+            _stockLedger.Record(product, counted - before, StockMovementType.Correction,
+                userId: actorUserId, comment: "Inventarizatsiya");
             lines.Add(new StocktakeLineResult(product.Id, product.Name, before, counted, counted - before));
         }
 

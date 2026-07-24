@@ -15,13 +15,15 @@ public class ZakupService : IZakupService
     private readonly IAuditLogService _auditLogService;
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
+    private readonly IStockLedger _stockLedger;
 
-    public ZakupService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ICurrentMarketService currentMarketService)
+    public ZakupService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ICurrentMarketService currentMarketService, IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
         _context = context;
         _currentMarketService = currentMarketService;
+        _stockLedger = stockLedger;
     }
 
     // ── Single-line reads (unchanged) ────────────────────────────────────────
@@ -198,6 +200,10 @@ public class ZakupService : IZakupService
 
                 product.Quantity += line.Quantity;
                 product.CostPrice = line.CostPrice; // latest purchase price
+                // Kelgan tovar — Приход · З-{ReceiptNumber}. Receipt yaratilishi
+                // bilan bir tranzaksiyada yoziladi (quyidagi SaveChanges).
+                _stockLedger.Record(product, line.Quantity, StockMovementType.Purchase,
+                    refNumber: receipt.ReceiptNumber, userId: adminId);
                 total += line.Quantity * line.CostPrice;
             }
 
@@ -393,7 +399,12 @@ public class ZakupService : IZakupService
         if (product is null)
             return;
 
+        var beforeQty = product.Quantity;
         product.Quantity = Math.Max(0m, product.Quantity - line.Quantity);
+        // Xarid (receipt) o'chirildi — kelgan tovar qaytarib olindi. Delta =
+        // haqiqiy o'zgarish (0 ga clamp bo'lishi mumkin, shuning uchun before−after).
+        _stockLedger.Record(product, product.Quantity - beforeQty, StockMovementType.Correction,
+            comment: "Xarid bekor qilindi");
 
         if (product.CostPrice == line.CostPrice)
         {

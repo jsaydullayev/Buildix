@@ -92,8 +92,10 @@ public sealed class TestHarness : IDisposable
     public SalePaymentService NewSalePaymentService() =>
         new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings);
 
+    public IStockLedger StockLedger => new StockLedger(Db);
+
     public ProductService NewProductService() =>
-        new(UnitOfWork, Db, Market, Audit);
+        new(UnitOfWork, Db, Market, Audit, StockLedger);
 
     public ProductQueryService NewProductQueryService() =>
         new(Db, Market);

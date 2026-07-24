@@ -166,6 +166,20 @@ public record UpdateProductDto(
 /// ixtiyoriy, faqat berilgani o'zgaradi. To'liq forma o'rniga bitta hujayra
 /// (narx / min. qoldiq / ko'rinish) tez o'zgartiriladi va alohida auditlanadi.
 /// </summary>
+/// <summary>Bitta ombor harakati — Склад "Движение товара" oynasi uchun.</summary>
+public record StockMovementDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    // "InitialStock" | "Purchase" | "Sale" | "SaleReversal" | "Correction"
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("delta")] decimal Delta,
+    [property: JsonPropertyName("resultingQty")] decimal ResultingQty,
+    // Manba hujjat raqami (Ч-#### / З-###) yoki null.
+    [property: JsonPropertyName("refNumber")] int? RefNumber,
+    [property: JsonPropertyName("userName")] string? UserName,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("createdAt")] DateTime CreatedAt
+);
+
 public record ProductPatchDto(
     // Sotuv narxi (inline "Цена продажи"). Null — tegilmaydi.
     [property: JsonPropertyName("salePrice")]

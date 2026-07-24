@@ -156,6 +156,18 @@ public class ProductsController : ApiControllerBase
     }
 
     /// <summary>
+    /// Bitta tovarning ombor harakatlari — Склад "Движение товара" oynasi
+    /// (Приход/Продажа/Корректировка + har birida qoldiq holati).
+    /// </summary>
+    // Absolute route ("~/") — [action] konvensiyasini chetlab, toza
+    // /api/Products/{id}/movements beradi (dizayndagidek).
+    [HttpGet("~/api/Products/{id}/movements")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<ActionResult<IReadOnlyList<StockMovementDto>>> GetProductMovements(
+        Guid id, [FromQuery] int limit = 50, CancellationToken ct = default)
+        => Ok(await _productQueryService.GetProductMovementsAsync(id, limit, ct));
+
+    /// <summary>
     /// Товары/Склад ekranidagi inline tahrir — sotuv narxi / min. qoldiq /
     /// ko'rinish (Скрыть). Faqat berilgan maydon(lar)ni o'zgartiradi va
     /// auditlaydi. Qoldiq/tannarx bu yerdan o'zgармaydi (ular alohida yo'llar).
