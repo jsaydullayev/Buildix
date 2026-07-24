@@ -127,3 +127,29 @@ public record CashBalanceDto(
     [property: JsonPropertyName("cardPayments")] decimal CardPayments,
     [property: JsonPropertyName("totalBalance")] decimal TotalBalance
 );
+
+/// <summary>Bitta kassa harakati — Касса ekranidagi jadval qatori.</summary>
+public record CashMovementDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    // "Opening" | "Sale" | "DebtPayment" | "Deposit" | "Expense" | "Collection"
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("amount")] decimal Amount,
+    [property: JsonPropertyName("category")] string? Category,
+    [property: JsonPropertyName("refNumber")] int? RefNumber,
+    [property: JsonPropertyName("userName")] string? UserName,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("createdAt")] DateTime CreatedAt
+);
+
+/// <summary>
+/// Kassa kunlik ledger'i — Касса ekrani uchun. Balans avtoritativ
+/// CashRegister.CurrentBalance'dan; приход/расход shu kun harakatlaridan.
+/// </summary>
+public record CashLedgerDto(
+    [property: JsonPropertyName("balance")] decimal Balance,
+    [property: JsonPropertyName("incomeToday")] decimal IncomeToday,
+    [property: JsonPropertyName("expenseToday")] decimal ExpenseToday,
+    [property: JsonPropertyName("incomeCount")] int IncomeCount,
+    [property: JsonPropertyName("expenseCount")] int ExpenseCount,
+    [property: JsonPropertyName("items")] IReadOnlyList<CashMovementDto> Items
+);

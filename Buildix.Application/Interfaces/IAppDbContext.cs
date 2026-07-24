@@ -32,6 +32,7 @@ public interface IAppDbContext
     DbSet<Supplier> Suppliers { get; }
     DbSet<ZakupReceipt> ZakupReceipts { get; }
     DbSet<StockMovement> StockMovements { get; }
+    DbSet<CashMovement> CashMovements { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<CashRegister> CashRegisters { get; }

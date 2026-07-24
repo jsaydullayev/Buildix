@@ -90,9 +90,10 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance, StockLedger);
 
     public SalePaymentService NewSalePaymentService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings, StockLedger);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings, StockLedger, CashLedger);
 
     public IStockLedger StockLedger => new StockLedger(Db);
+    public ICashLedger CashLedger => new CashLedger(Db);
 
     public ProductService NewProductService() =>
         new(UnitOfWork, Db, Market, Audit, StockLedger);
@@ -104,7 +105,7 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Market, ImageStorage, Audit);
 
     public DebtService NewDebtService() =>
-        new(Db, UnitOfWork, Market, Audit, NullLogger<DebtService>.Instance);
+        new(Db, UnitOfWork, Market, Audit, NullLogger<DebtService>.Instance, CashLedger);
 
     public void Dispose() => Db.Dispose();
 }

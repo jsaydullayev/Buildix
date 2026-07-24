@@ -16,19 +16,22 @@ public class DebtService : IDebtService
     private readonly ICurrentMarketService _currentMarket;
     private readonly IAuditLogService _auditLog;
     private readonly ILogger<DebtService> _logger;
+    private readonly ICashLedger _cashLedger;
 
     public DebtService(
         IAppDbContext context,
         IUnitOfWork unitOfWork,
         ICurrentMarketService currentMarket,
         IAuditLogService auditLog,
-        ILogger<DebtService> logger)
+        ILogger<DebtService> logger,
+        ICashLedger cashLedger)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _currentMarket = currentMarket;
         _auditLog = auditLog;
         _logger = logger;
+        _cashLedger = cashLedger;
     }
 
     public async Task<Result<PayDebtResultDto>> PayAsync(Guid debtId, PayDebtDto request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -156,6 +159,11 @@ public class DebtService : IDebtService
                 }
                 register.CurrentBalance += request.Amount;
                 register.LastUpdated = DateTime.UtcNow;
+
+                // Касса jurnaliga qarz to'lovining naqd ulushi (kirim) —
+                // Оплата долга · Ч-####. Kim: pulni yig'gan kassir (actor).
+                _cashLedger.Record(marketId, request.Amount, CashMovementType.DebtPayment,
+                    userId: actorUserId, refNumber: sale.SaleNumber);
             }
 
             debt.RemainingDebt -= request.Amount;

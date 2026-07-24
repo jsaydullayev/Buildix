@@ -23,8 +23,9 @@ public class CashRegisterService : ICashRegisterService
     private readonly IAuditLogService _auditLogService;
     private readonly IMarketSettingsService _settings;
     private readonly ITelegramNotifier _telegram;
+    private readonly ICashLedger _cashLedger;
 
-    public CashRegisterService(IUnitOfWork unitOfWork, ILogger<CashRegisterService> logger, IAppDbContext context, ICurrentMarketService currentMarketService, ITashkentClock clock, IAuditLogService auditLogService, IMarketSettingsService settings, ITelegramNotifier telegram)
+    public CashRegisterService(IUnitOfWork unitOfWork, ILogger<CashRegisterService> logger, IAppDbContext context, ICurrentMarketService currentMarketService, ITashkentClock clock, IAuditLogService auditLogService, IMarketSettingsService settings, ITelegramNotifier telegram, ICashLedger cashLedger)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -34,10 +35,52 @@ public class CashRegisterService : ICashRegisterService
         _auditLogService = auditLogService;
         _settings = settings;
         _telegram = telegram;
+        _cashLedger = cashLedger;
     }
 
     private async Task<Role?> GetRoleAsync(Guid userId, CancellationToken ct) =>
         await _context.Users.Where(u => u.Id == userId).Select(u => (Role?)u.Role).FirstOrDefaultAsync(ct);
+
+    public async Task<CashLedgerDto> GetCashLedgerAsync(DateTime? localDate, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        var day = localDate?.Date ?? _clock.TodayLocal;
+        var (utcStart, utcEnd) = _clock.LocalDayToUtcRange(day);
+
+        var balance = await _context.CashRegisters
+            .Where(cr => cr.MarketId == marketId)
+            .Select(cr => (decimal?)cr.CurrentBalance)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+
+        var movements = await _context.CashMovements
+            .AsNoTracking()
+            .Where(m => m.MarketId == marketId && m.CreatedAt >= utcStart && m.CreatedAt < utcEnd)
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Select(m => new CashMovementDto(
+                m.Id,
+                m.Type.ToString(),
+                m.Amount,
+                m.Category,
+                m.RefNumber,
+                m.User != null ? m.User.FullName : null,
+                m.Comment,
+                m.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        // Приход/Расход — Opening (boshlang'ich qoldiq) tushum/chiqim emas,
+        // shuning uchun aggregatlardan chiqariladi (dizayn uni alohida ko'rsatadi).
+        var income = movements.Where(m => m.Amount > 0 && m.Type != nameof(CashMovementType.Opening)).ToList();
+        var expense = movements.Where(m => m.Amount < 0).ToList();
+
+        return new CashLedgerDto(
+            balance,
+            income.Sum(m => m.Amount),
+            expense.Sum(m => m.Amount),
+            income.Count,
+            expense.Count,
+            movements);
+    }
 
     private async Task<CashRegister> GetOrCreateRegisterAsync(int marketId, CancellationToken cancellationToken)
     {
@@ -184,6 +227,12 @@ public class CashRegisterService : ICashRegisterService
                     cashRegister.CurrentBalance -= request.Amount;
                     cashRegister.LastUpdated = DateTime.UtcNow;
                     cashRegister.LastWithdrawalId = withdrawal.Id;
+
+                    // Касса jurnaliga chiqim (Расход). A3-part1: kategoriya/inkassatsiya
+                    // ajratilmaydi — hozircha Expense + izoh. A3-part2 da «Новая
+                    // операция» kategoriya va Инкассацияni qo'shadi.
+                    _cashLedger.Record(marketId, -request.Amount, CashMovementType.Expense,
+                        userId: userId, comment: request.Comment);
 
                     await _context.SaveChangesAsync(cancellationToken);
                     recorded = withdrawal;
@@ -406,6 +455,10 @@ public class CashRegisterService : ICashRegisterService
                 var cashRegister = await GetOrCreateRegisterAsync(marketId, cancellationToken);
                 cashRegister.CurrentBalance += amount;
                 cashRegister.LastUpdated = DateTime.UtcNow;
+
+                // Касса jurnaliga naqd kiritish (kirim) — Внесение.
+                _cashLedger.Record(marketId, amount, CashMovementType.Deposit, userId: userId);
+
                 await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Cash added. Amount: {Amount}, MarketId: {MarketId}, By: {UserId}",
