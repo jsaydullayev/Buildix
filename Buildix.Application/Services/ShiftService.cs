@@ -269,6 +269,64 @@ public class ShiftService : IShiftService
         return new MyShiftsDto(items, totalRevenue, totalChecks, avgCheck);
     }
 
+    // Do'kon ish grafigi — davomat rejasi shu asosda (dizayn: 08:00–20:00 · kech 08:15).
+    private static readonly TimeSpan ScheduleStart = new(8, 0, 0);
+    private static readonly TimeSpan ScheduleEnd = new(20, 0, 0);
+    private static readonly TimeSpan LateThreshold = new(8, 15, 0);
+    private static readonly decimal PlanHoursPerDay = (decimal)(ScheduleEnd - ScheduleStart).TotalHours;
+
+    public async Task<AttendanceDto> GetAttendanceAsync(string? range = null, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        // Trailing Tashkent-day window, same anchoring as GetMyShiftsAsync so the
+        // two Смены tabs cover the same period. "all" isn't offered — a plan %
+        // needs a bounded horizon.
+        var normalized = (range ?? "month").ToLowerInvariant();
+        var windowDays = normalized == "week" ? 7 : 30;
+        var period = normalized == "week" ? "week" : "month";
+        var fromUtc = _clock.LocalDayToUtcRange(_clock.TodayLocal.AddDays(-(windowDays - 1))).UtcStart;
+
+        var shifts = await _db.Shifts.AsNoTracking()
+            .Include(s => s.User)
+            .Where(s => s.MarketId == marketId && s.OpenedAt >= fromUtc)
+            .ToListAsync(cancellationToken);
+
+        // Plan "to this day" — every calendar day in the window counts (retail
+        // works 7 days a week), each worth a full scheduled day.
+        var planHours = Math.Round(windowDays * PlanHoursPerDay, 1);
+
+        var items = shifts
+            .GroupBy(s => s.UserId)
+            .Select(g =>
+            {
+                var totalHours = (decimal)g.Sum(s => s.DurationMinutes) / 60m;
+                var shiftCount = g.Count();
+                // Distinct Tashkent calendar days worked — two shifts in one day count once.
+                var dayCount = g.Select(s => _clock.ToLocal(s.OpenedAt).Date).Distinct().Count();
+                // Kechikish — smena 08:15 dan keyin ochilgan bo'lsa (Tashkent vaqti).
+                var lateCount = g.Count(s => _clock.ToLocal(s.OpenedAt).TimeOfDay > LateThreshold);
+                return new AttendanceRowDto(
+                    g.Key,
+                    g.First().User?.FullName ?? "",
+                    shiftCount,
+                    dayCount,
+                    Math.Round(totalHours, 1),
+                    Math.Round(shiftCount > 0 ? totalHours / shiftCount : 0m, 1),
+                    lateCount);
+            })
+            .OrderByDescending(r => r.TotalHours)
+            .ToList();
+
+        return new AttendanceDto(
+            period,
+            ScheduleStart.ToString(@"hh\:mm"),
+            ScheduleEnd.ToString(@"hh\:mm"),
+            LateThreshold.ToString(@"hh\:mm"),
+            planHours,
+            items);
+    }
+
     private async Task<IReadOnlyList<ShiftDto>> MapManyAsync(List<Shift> shifts, CancellationToken cancellationToken)
     {
         var result = new List<ShiftDto>(shifts.Count);

@@ -58,3 +58,31 @@ public record MyShiftsDto(
 public record CloseShiftRequest(
     [property: JsonPropertyName("countedCash")] decimal? CountedCash = null
 );
+
+/// <summary>
+/// Посещаемость — davomat hisoboti (dizayn Смены → Посещаемость tab). Smena
+/// ochilish/yopilish vaqtlaridan hisoblanadi; alohida jadval yo'q.
+/// </summary>
+public record AttendanceDto(
+    /// <summary>So'ralgan davr: "week" | "month".</summary>
+    [property: JsonPropertyName("period")] string Period,
+    /// <summary>Do'kon ish grafigi (dizayn: 08:00–20:00).</summary>
+    [property: JsonPropertyName("scheduleFrom")] string ScheduleFrom,
+    [property: JsonPropertyName("scheduleTo")] string ScheduleTo,
+    /// <summary>Kechikish chegarasi (dizayn: 08:15).</summary>
+    [property: JsonPropertyName("lateAfter")] string LateAfter,
+    /// <summary>Davrga rejalashtirilgan jami soat (kunlar × grafik soati). % shu asosda.</summary>
+    [property: JsonPropertyName("planHours")] decimal PlanHours,
+    [property: JsonPropertyName("items")] IReadOnlyList<AttendanceRowDto> Items
+);
+
+/// <summary>Bitta xodimning davr bo'yicha davomati.</summary>
+public record AttendanceRowDto(
+    [property: JsonPropertyName("userId")] Guid UserId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("shiftCount")] int ShiftCount,
+    [property: JsonPropertyName("dayCount")] int DayCount,
+    [property: JsonPropertyName("totalHours")] decimal TotalHours,
+    [property: JsonPropertyName("avgShiftHours")] decimal AvgShiftHours,
+    [property: JsonPropertyName("lateCount")] int LateCount
+);
