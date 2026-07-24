@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, Card, Badge, Spinner } from '@/shared/ui';
+import { Plus } from 'lucide-react';
+import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime, formatFullDate } from '@/shared/lib/format';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { cashLedgerApi, type CashMovement } from './api';
+import { NewCashOperationModal } from './NewCashOperationModal';
 
 type Filter = 'all' | 'income' | 'expense';
 
@@ -25,7 +29,10 @@ const TYPE_META: Record<string, { key: string; tone: 'success' | 'info' | 'warn'
  */
 export default function CashPage() {
   const { t, i18n } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission(PERMISSIONS.cashregister.manage);
   const [filter, setFilter] = useState<Filter>('all');
+  const [opOpen, setOpOpen] = useState(false);
 
   const ledgerQuery = useQuery({ queryKey: ['cash-ledger'], queryFn: () => cashLedgerApi.ledger() });
   const data = ledgerQuery.data;
@@ -44,6 +51,14 @@ export default function CashPage() {
       <PageHeader
         title={t('cash.title')}
         subtitle={`${formatFullDate(new Date(), i18n.language)} · ${t('cash.subtitle')}`}
+        actions={
+          canManage && (
+            <Button onClick={() => setOpOpen(true)}>
+              <Plus size={15} strokeWidth={2.4} />
+              {t('cash.newOp.button')}
+            </Button>
+          )
+        }
       />
 
       <div className="flex flex-1 flex-col gap-[18px] p-8">
@@ -109,6 +124,8 @@ export default function CashPage() {
 
         <p className="text-[12px] text-muted-2">{t('cash.hint')}</p>
       </div>
+
+      <NewCashOperationModal open={opOpen} onClose={() => setOpOpen(false)} balance={data?.balance ?? 0} />
     </>
   );
 }

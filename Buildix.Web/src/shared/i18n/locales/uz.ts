@@ -286,6 +286,23 @@ export const uz: TranslationSchema = {
       collection: 'Inkassatsiya',
     },
     desc: { receipt: 'Chek Ч-{{n}}' },
+    category: {
+      household: 'Xo‘jalik',
+      delivery: 'Yetkazish',
+      advance: 'Xodimga avans',
+      other: 'Boshqa',
+    },
+    newOp: {
+      button: 'Yangi operatsiya',
+      title: 'Yangi operatsiya',
+      category: 'Chiqim kategoriyasi',
+      amount: 'Summa',
+      comment: 'Izoh',
+      commentHint: 'Masalan: suv, paketlar',
+      available: 'Kassada mavjud: {{value}} so‘m',
+      overdraft: 'Summa kassadagi qoldiqdan katta',
+      confirm: 'O‘tkazish',
+    },
   },
   sales: {
     title: 'Sotuvlar',

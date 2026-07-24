@@ -80,6 +80,10 @@ public record AddCashRequest
     [JsonPropertyName("amount")]
     [Range(0.01, double.MaxValue, ErrorMessage = "Summa 0 dan katta bo'lishi kerak")]
     public decimal Amount { get; init; }
+
+    // Внесение izohi (masalan "Размен на сдачу"). Ixtiyoriy.
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
 }
 
 public record WithdrawCashRequest
@@ -93,6 +97,14 @@ public record WithdrawCashRequest
 
     [JsonPropertyName("withdrawType")]
     public string WithdrawType { get; init; } = "cash"; // 'cash' or 'click'
+
+    // Касса «Новая операция» uchun: chiqim Расход (kategoriyali) yoki
+    // Инкассация (bankka topshirish) ekanini ajratadi. Bo'sh — oddiy Расход.
+    [JsonPropertyName("category")]
+    public string? Category { get; init; }
+
+    [JsonPropertyName("isCollection")]
+    public bool IsCollection { get; init; }
 }
 
 public record TodaySalesSummaryDto

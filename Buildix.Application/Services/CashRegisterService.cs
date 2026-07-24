@@ -228,11 +228,14 @@ public class CashRegisterService : ICashRegisterService
                     cashRegister.LastUpdated = DateTime.UtcNow;
                     cashRegister.LastWithdrawalId = withdrawal.Id;
 
-                    // Касса jurnaliga chiqim (Расход). A3-part1: kategoriya/inkassatsiya
-                    // ajratilmaydi — hozircha Expense + izoh. A3-part2 da «Новая
-                    // операция» kategoriya va Инкассацияni qo'shadi.
-                    _cashLedger.Record(marketId, -request.Amount, CashMovementType.Expense,
-                        userId: userId, comment: request.Comment);
+                    // Касса jurnaliga chiqim. «Новая операция» Инкассация yoki
+                    // kategoriyali Расход yuborishi mumkin (aks holda oddiy Расход).
+                    _cashLedger.Record(marketId,
+                        -request.Amount,
+                        request.IsCollection ? CashMovementType.Collection : CashMovementType.Expense,
+                        userId: userId,
+                        category: request.IsCollection ? null : request.Category,
+                        comment: request.Comment);
 
                     await _context.SaveChangesAsync(cancellationToken);
                     recorded = withdrawal;
@@ -433,7 +436,7 @@ public class CashRegisterService : ICashRegisterService
         }).ToList();
     }
 
-    public async Task<bool> AddCashAsync(decimal amount, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<bool> AddCashAsync(decimal amount, Guid userId, string? comment = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -457,7 +460,7 @@ public class CashRegisterService : ICashRegisterService
                 cashRegister.LastUpdated = DateTime.UtcNow;
 
                 // Касса jurnaliga naqd kiritish (kirim) — Внесение.
-                _cashLedger.Record(marketId, amount, CashMovementType.Deposit, userId: userId);
+                _cashLedger.Record(marketId, amount, CashMovementType.Deposit, userId: userId, comment: comment);
 
                 await _context.SaveChangesAsync(cancellationToken);
 

@@ -286,6 +286,23 @@ export const en: TranslationSchema = {
       collection: 'Collection',
     },
     desc: { receipt: 'Receipt Ч-{{n}}' },
+    category: {
+      household: 'Household',
+      delivery: 'Delivery',
+      advance: 'Staff advance',
+      other: 'Other',
+    },
+    newOp: {
+      button: 'New operation',
+      title: 'New operation',
+      category: 'Expense category',
+      amount: 'Amount',
+      comment: 'Comment',
+      commentHint: 'E.g. water, bags',
+      available: 'Available in register: {{value}} sum',
+      overdraft: 'Amount exceeds the cash balance',
+      confirm: 'Record',
+    },
   },
   sales: {
     title: 'Sales',

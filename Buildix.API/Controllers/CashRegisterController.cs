@@ -127,7 +127,7 @@ public class CashRegisterController : ControllerBase
             return Unauthorized(new { message = "Invalid user" });
         }
 
-        var success = await _cashRegisterService.AddCashAsync(request.Amount, userId, cancellationToken);
+        var success = await _cashRegisterService.AddCashAsync(request.Amount, userId, request.Comment, cancellationToken);
         if (!success)
             return BadRequest(new { message = "Failed to add cash" });
 

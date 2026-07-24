@@ -33,4 +33,19 @@ export const cashLedgerApi = {
     });
     return data;
   },
+
+  /** Внесение — add cash (change). Records a Deposit movement. */
+  deposit: async (amount: number, comment: string | null): Promise<void> => {
+    await apiClient.post('/CashRegister/add', { amount, comment });
+  },
+
+  /** Расход (with category) or Инкассация (isCollection). Server checks overdraft. */
+  withdraw: async (body: {
+    amount: number;
+    comment: string;
+    category?: string;
+    isCollection: boolean;
+  }): Promise<void> => {
+    await apiClient.post('/CashRegister/withdraw', { ...body, withdrawType: 'cash' });
+  },
 };

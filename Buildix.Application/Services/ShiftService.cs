@@ -20,6 +20,7 @@ public class ShiftService : IShiftService
     private readonly IMarketSettingsService _settings;
     private readonly ITelegramNotifier _telegram;
     private readonly ITashkentClock _clock;
+    private readonly ICashLedger _cashLedger;
 
     public ShiftService(
         IUnitOfWork unitOfWork,
@@ -28,7 +29,8 @@ public class ShiftService : IShiftService
         IAuditLogService auditLogService,
         IMarketSettingsService settings,
         ITelegramNotifier telegram,
-        ITashkentClock clock)
+        ITashkentClock clock,
+        ICashLedger cashLedger)
     {
         _unitOfWork = unitOfWork;
         _db = db;
@@ -37,6 +39,7 @@ public class ShiftService : IShiftService
         _settings = settings;
         _telegram = telegram;
         _clock = clock;
+        _cashLedger = cashLedger;
     }
 
     public async Task<ShiftDto?> GetCurrentShiftAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -89,6 +92,15 @@ public class ShiftService : IShiftService
                 .MaxAsync(s => (int?)s.ShiftNumber, cancellationToken) ?? 0) + 1;
 
             await _unitOfWork.Shifts.AddAsync(shift, cancellationToken);
+
+            // Касса jurnaliga «Открытие» — smena boshidagi qoldiq (dizayndagi
+            // birinchi qator). Bu yangi pul emas (oldingi smenadan qolgan), shuning
+            // uchun Приход aggregatidan chiqariladi (Opening turi bo'yicha). 0 bo'lsa
+            // yozilmaydi. shiftId — shu smena.
+            _cashLedger.Record(marketId, shift.OpeningCash, CashMovementType.Opening,
+                userId: userId, shiftId: shift.Id,
+                comment: $"Остаток на открытие смены С-{shift.ShiftNumber}");
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }, cancellationToken);
 

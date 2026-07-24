@@ -284,6 +284,23 @@ export const ru = {
       collection: 'Инкассация',
     },
     desc: { receipt: 'Чек Ч-{{n}}' },
+    category: {
+      household: 'Хозяйственные',
+      delivery: 'Доставка',
+      advance: 'Аванс сотруднику',
+      other: 'Прочее',
+    },
+    newOp: {
+      button: 'Новая операция',
+      title: 'Новая операция',
+      category: 'Категория расхода',
+      amount: 'Сумма',
+      comment: 'Комментарий',
+      commentHint: 'Например: вода, пакеты',
+      available: 'Доступно в кассе: {{value}} сум',
+      overdraft: 'Сумма больше остатка в кассе',
+      confirm: 'Провести',
+    },
   },
   sales: {
     title: 'Продажи',
