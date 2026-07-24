@@ -964,6 +964,7 @@ export const en: TranslationSchema = {
     payments: {
       title: 'Payment methods',
       empty: 'No data for the period',
+      debtRisk: 'On credit {{value}} — a high share. Watch debt repayment.',
     },
     topProducts: {
       title: 'Top-5 products',

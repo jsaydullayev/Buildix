@@ -16,7 +16,7 @@ import {
   XAxis,
   type TooltipProps,
 } from 'recharts';
-import { Download } from 'lucide-react';
+import { Download, AlertTriangle } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
@@ -440,6 +440,8 @@ function PaymentsCard({
 }) {
   const { t } = useTranslation();
   const sorted = rows.slice().sort((a, b) => b.amount - a.amount);
+  // Qarz ulushi — 20% dan oshsa, kassa oqimi uchun ogohlantirish (dizayn).
+  const debtShare = total > 0 ? sorted.filter((r) => r.paymentType === 'Debt').reduce((s, r) => s + r.amount, 0) / total : 0;
   return (
     <Card className="p-5">
       <h3 className="mb-4 text-[15px] font-semibold">{t('reports.payments.title')}</h3>
@@ -450,17 +452,28 @@ function PaymentsCard({
       ) : sorted.length === 0 || total <= 0 ? (
         <p className="py-6 text-center text-[13px] text-muted-2">{t('reports.payments.empty')}</p>
       ) : (
-        <div className="flex flex-col gap-3 text-[13px]">
-          {sorted.map((row) => {
-            const meta = paymentMeta(row.paymentType);
-            return (
-              <div key={row.paymentType} className="flex items-center justify-between">
-                <Badge tone={meta.tone}>{t(`sales.payment.${meta.key}` as never)}</Badge>
-                <span className="font-semibold nums">{formatPercent(row.amount / total)}</span>
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="flex flex-col gap-3 text-[13px]">
+            {sorted.map((row) => {
+              const meta = paymentMeta(row.paymentType);
+              return (
+                <div key={row.paymentType} className="flex items-center justify-between gap-2">
+                  <Badge tone={meta.tone}>{t(`sales.payment.${meta.key}` as never)}</Badge>
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-[12px] text-muted-2 nums">{formatSum(row.amount)}</span>
+                    <span className="w-11 text-right font-semibold nums">{formatPercent(row.amount / total)}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {debtShare > 0.2 && (
+            <div className="mt-4 flex items-start gap-2 rounded-input border border-warn-amber/30 bg-warn-soft px-3 py-2.5 text-[12px] text-warn-strong">
+              <AlertTriangle size={14} className="mt-0.5 flex-none" />
+              <span>{t('reports.payments.debtRisk', { value: formatPercent(debtShare) })}</span>
+            </div>
+          )}
+        </>
       )}
     </Card>
   );

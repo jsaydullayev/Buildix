@@ -964,6 +964,7 @@ export const uz: TranslationSchema = {
     payments: {
       title: 'To‘lov usullari',
       empty: 'Davr uchun ma’lumot yo‘q',
+      debtRisk: 'Qarzga {{value}} — ulush yuqori. Qarz qaytishini kuzating.',
     },
     topProducts: {
       title: 'Top-5 tovar',

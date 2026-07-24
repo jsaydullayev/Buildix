@@ -966,6 +966,7 @@ export const ru = {
     payments: {
       title: 'Способы оплаты',
       empty: 'Нет данных за период',
+      debtRisk: 'В долг {{value}} — высокая доля. Следите за возвратом долгов.',
     },
     topProducts: {
       title: 'Топ-5 товаров',
