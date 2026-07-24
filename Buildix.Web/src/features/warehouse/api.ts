@@ -167,7 +167,29 @@ export const productsApi = {
     const { data } = await apiClient.post<StocktakeResult>('/Products/stocktake', { items });
     return data;
   },
+
+  /** Stock-movement ledger for one product ("Движение товара"), newest first. */
+  movements: async (productId: string, limit = 50): Promise<StockMovement[]> => {
+    const { data } = await apiClient.get<StockMovement[]>(`/Products/${productId}/movements`, {
+      params: { limit },
+    });
+    return data;
+  },
 };
+
+/** One line of the stock-movement ledger (see Buildix.Domain StockMovement). */
+export interface StockMovement {
+  id: string;
+  /** InitialStock | Purchase | Sale | SaleReversal | Correction */
+  type: string;
+  delta: number;
+  resultingQty: number;
+  /** Source document number (Ч-#### / З-###) or null. */
+  refNumber: number | null;
+  userName: string | null;
+  comment: string | null;
+  createdAt: string;
+}
 
 export const categoriesApi = {
   list: async (): Promise<ProductCategory[]> => {

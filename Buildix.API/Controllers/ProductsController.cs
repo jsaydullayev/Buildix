@@ -102,7 +102,9 @@ public class ProductsController : ApiControllerBase
 
     /// <summary>Warehouse KPI tiles (positions / stock value / low / out),
     /// aggregated DB-side — replaces the client-side rollup over the full list.</summary>
-    [HttpGet("summary")]
+    // Absolute route — mijoz doim /api/Products/summary chaqiradi; [action]
+    // konvensiyasi bilan bu /GetWarehouseSummary/summary bo'lib 404 berardi.
+    [HttpGet("~/api/Products/summary")]
     [RequirePermission(PermissionKeys.ProductsAccess)]
     public async Task<ActionResult<WarehouseSummaryDto>> GetWarehouseSummary(CancellationToken ct = default)
         => Ok(await _productQueryService.GetWarehouseSummaryAsync(CanViewCost(), ct));
