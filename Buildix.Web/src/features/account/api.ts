@@ -26,6 +26,10 @@ export interface MyProfile {
   telegram: string | null;
   /** Saved UI language ("uz" | "ru" | "en"). */
   language: string;
+  /** Per-user Telegram notification toggles (BE-9). */
+  notifyDebt: boolean;
+  notifyStock: boolean;
+  notifyShift: boolean;
 }
 
 export interface UpdateProfileBody {
@@ -36,6 +40,10 @@ export interface UpdateProfileBody {
   telegram?: string | null;
   /** UI language code; omit (or null) to leave it unchanged. */
   language?: string | null;
+  /** Per-user Telegram notification toggles; omit (or null) to leave unchanged. */
+  notifyDebt?: boolean | null;
+  notifyStock?: boolean | null;
+  notifyShift?: boolean | null;
 }
 
 export const accountApi = {

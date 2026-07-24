@@ -273,6 +273,11 @@ public class UserService : IUserService
             user.Telegram = string.IsNullOrWhiteSpace(tg) ? null : (tg.StartsWith('@') ? tg : '@' + tg);
         }
 
+        // Per-user Telegram bildirishnoma toggle'lari — null = tegilmaydi (BE-9).
+        if (request.NotifyDebt is { } nd) user.NotifyDebt = nd;
+        if (request.NotifyStock is { } ns) user.NotifyStock = ns;
+        if (request.NotifyShift is { } nsh) user.NotifyShift = nsh;
+
         // Update password if both current and new password are provided
         var passwordChanged = false;
         if (!string.IsNullOrWhiteSpace(request.CurrentPassword) &&
@@ -665,7 +670,10 @@ public class UserService : IUserService
             user.Market?.Name,
             user.Phone,
             user.LastActiveAt,
-            user.Telegram
+            user.Telegram,
+            user.NotifyDebt,
+            user.NotifyStock,
+            user.NotifyShift
         );
     }
 }

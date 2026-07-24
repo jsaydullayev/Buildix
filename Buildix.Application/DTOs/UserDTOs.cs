@@ -30,7 +30,11 @@ public record UserDto(
     // Сотрудники ekrani uchun: telefon va oxirgi faollik (online/был...).
     [property: JsonPropertyName("phone")] string? Phone = null,
     [property: JsonPropertyName("lastActiveAt")] DateTime? LastActiveAt = null,
-    [property: JsonPropertyName("telegram")] string? Telegram = null
+    [property: JsonPropertyName("telegram")] string? Telegram = null,
+    // Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9).
+    [property: JsonPropertyName("notifyDebt")] bool NotifyDebt = true,
+    [property: JsonPropertyName("notifyStock")] bool NotifyStock = true,
+    [property: JsonPropertyName("notifyShift")] bool NotifyShift = true
 );
 
 /// <summary>
@@ -146,7 +150,12 @@ public record UpdateProfileDto(
     // o'z sozlamasi — do'kon bo'yicha MarketSettings.DefaultLanguage'dan alohida.
     [property: JsonPropertyName("language")]
     [param: StringLength(10)]
-    string? Language = null
+    string? Language = null,
+
+    // Per-user Telegram bildirishnoma toggle'lari. null = tegilmaydi (BE-9).
+    [property: JsonPropertyName("notifyDebt")] bool? NotifyDebt = null,
+    [property: JsonPropertyName("notifyStock")] bool? NotifyStock = null,
+    [property: JsonPropertyName("notifyShift")] bool? NotifyShift = null
 );
 
 public record UpdateProfileImageDto(

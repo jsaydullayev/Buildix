@@ -18,6 +18,16 @@ public class User : BaseEntity, ISoftDelete
     /// <summary>Telegram @username (Account profilida tahrirlanadi).</summary>
     public string? Telegram { get; set; }
 
+    // ── Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9) ──
+    // Market darajasidagi MarketSettings.Notify* dan farqli — bu foydalanuvchining
+    // o'z tanlovi. Default true → mavjud xatti-harakat o'zgarmaydi.
+    /// <summary>Просроченные долги — qarz muddati bildirishnomalari.</summary>
+    public bool NotifyDebt { get; set; } = true;
+    /// <summary>Товар закончился — kam/tugagan qoldiq bildirishnomalari.</summary>
+    public bool NotifyStock { get; set; } = true;
+    /// <summary>Закрытие смены — smena yopilishi bildirishnomalari.</summary>
+    public bool NotifyShift { get; set; } = true;
+
     /// <summary>
     /// Oxirgi faollik vaqti (UTC) — Сотрудники ekranida "Сейчас в системе / был
     /// вчера". Login va token refresh paytida yangilanadi (har so'rovda emas).

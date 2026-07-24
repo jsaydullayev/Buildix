@@ -858,6 +858,14 @@ export const uz: TranslationSchema = {
       change: 'Parolni o‘zgartirish',
       changed: 'Parol o‘zgartirildi',
     },
+    notify: {
+      title: 'Telegram bildirishnomalari',
+      subtitle: 'Shaxsiy Telegram’ingizga nima yuborilsin',
+      debt: 'Muddati o‘tgan qarzlar',
+      stock: 'Tovar tugadi',
+      shift: 'Smena yopilishi',
+      noTelegram: 'Bildirishnoma olish uchun profilda Telegram’ni ko‘rsating.',
+    },
     sessions: {
       title: 'Qurilmalar va sessiyalar',
       subtitle: 'Hisobingizga qayerdan kirilgan',

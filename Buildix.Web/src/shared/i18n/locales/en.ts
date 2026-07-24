@@ -858,6 +858,14 @@ export const en: TranslationSchema = {
       change: 'Change password',
       changed: 'Password changed',
     },
+    notify: {
+      title: 'Telegram notifications',
+      subtitle: 'What to send to your personal Telegram',
+      debt: 'Overdue debts',
+      stock: 'Out of stock',
+      shift: 'Shift close',
+      noTelegram: 'Add your Telegram in the profile to receive notifications.',
+    },
     sessions: {
       title: 'Devices and sessions',
       subtitle: 'Where your account is signed in',

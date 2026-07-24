@@ -860,6 +860,14 @@ export const ru = {
       change: 'Сменить пароль',
       changed: 'Пароль изменён',
     },
+    notify: {
+      title: 'Уведомления в Telegram',
+      subtitle: 'Что присылать вам в личный Telegram',
+      debt: 'Просроченные долги',
+      stock: 'Товар закончился',
+      shift: 'Закрытие смены',
+      noTelegram: 'Укажите Telegram в профиле, чтобы получать уведомления.',
+    },
     sessions: {
       title: 'Устройства и сессии',
       subtitle: 'Где выполнен вход в ваш аккаунт',

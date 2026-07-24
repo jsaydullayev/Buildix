@@ -182,8 +182,13 @@ public class ShiftService : IShiftService
                 cancellationToken: cancellationToken);
 
         // Day summary to the owner's Telegram (best-effort, gated by settings).
+        // Additionally honour the recipient's per-user toggle (BE-9): suppress
+        // only if an Owner explicitly turned "Закрытие смены" off — default true
+        // keeps the existing behaviour when no one opted out.
         var marketSettings = await _settings.GetOrCreateAsync(open.MarketId, cancellationToken);
-        if (marketSettings.NotifyDaySummary)
+        var ownerMutedShift = await _db.Users.AsNoTracking()
+            .AnyAsync(u => u.MarketId == open.MarketId && u.Role == Role.Owner && !u.NotifyShift, cancellationToken);
+        if (marketSettings.NotifyDaySummary && !ownerMutedShift)
         {
             var text =
                 $"<b>Смена закрыта</b>\n" +

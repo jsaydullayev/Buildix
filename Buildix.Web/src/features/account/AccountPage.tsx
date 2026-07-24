@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Monitor, Smartphone, Check } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
+import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { PageHeader, Button, Card, Badge, Spinner, Toggle } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatRelative, formatShortDate, formatTime } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -28,6 +29,8 @@ export default function AccountPage() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [pwSaved, setPwSaved] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  // Per-user Telegram toggles — seeded from the profile, saved on each flip.
+  const [notify, setNotify] = useState({ debt: true, stock: true, shift: true });
 
   const profileQuery = useQuery({ queryKey: ['my-profile'], queryFn: accountApi.profile });
   const sessionsQuery = useQuery({ queryKey: ['sessions'], queryFn: accountApi.sessions });
@@ -39,6 +42,11 @@ export default function AccountPage() {
       setFullName(profileQuery.data.fullName);
       setPhone(profileQuery.data.phone ?? '');
       setTelegram(profileQuery.data.telegram ?? '');
+      setNotify({
+        debt: profileQuery.data.notifyDebt,
+        stock: profileQuery.data.notifyStock,
+        shift: profileQuery.data.notifyShift,
+      });
     }
   }, [profileQuery.data]);
 
@@ -69,6 +77,18 @@ export default function AccountPage() {
     mutationFn: () => accountApi.revokeOthers(session?.refreshToken ?? ''),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['sessions'] }),
   });
+
+  // Toggle a single Telegram-notification preference — optimistic, saved at once.
+  const notifyMutation = useMutation({
+    mutationFn: (body: { notifyDebt?: boolean; notifyStock?: boolean; notifyShift?: boolean }) =>
+      accountApi.updateProfile(body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-profile'] }),
+  });
+  const flipNotify = (key: 'debt' | 'stock' | 'shift', value: boolean) => {
+    setNotify((n) => ({ ...n, [key]: value }));
+    const field = key === 'debt' ? 'notifyDebt' : key === 'stock' ? 'notifyStock' : 'notifyShift';
+    notifyMutation.mutate({ [field]: value });
+  };
 
   const submitPassword = () => {
     setPwError(null);
@@ -169,8 +189,37 @@ export default function AccountPage() {
           </Card>
         </div>
 
-        {/* Sessions + login history */}
+        {/* Notifications + sessions + login history */}
         <div className="flex flex-col gap-[18px]">
+        {/* Telegram notification preferences (BE-9) */}
+        <Card className="p-6">
+          <div className="mb-4">
+            <h2 className="text-[16px] font-semibold">{t('account.notify.title')}</h2>
+            <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.notify.subtitle')}</p>
+          </div>
+          <div className="flex flex-col">
+            <NotifyRow
+              icon={CreditCard}
+              label={t('account.notify.debt')}
+              checked={notify.debt}
+              onChange={(v) => flipNotify('debt', v)}
+            />
+            <NotifyRow
+              icon={PackageX}
+              label={t('account.notify.stock')}
+              checked={notify.stock}
+              onChange={(v) => flipNotify('stock', v)}
+            />
+            <NotifyRow
+              icon={Clock}
+              label={t('account.notify.shift')}
+              checked={notify.shift}
+              onChange={(v) => flipNotify('shift', v)}
+            />
+          </div>
+          {!telegram.trim() && <p className="mt-3 text-[11.5px] text-warn-strong">{t('account.notify.noTelegram')}</p>}
+        </Card>
+
         <Card className="p-6">
           <div className="mb-5">
             <h2 className="text-[16px] font-semibold">{t('account.sessions.title')}</h2>
@@ -236,6 +285,28 @@ export default function AccountPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function NotifyRow({
+  icon: Icon,
+  label,
+  checked,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-hairline py-3 last:border-0">
+      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-bg text-muted">
+        <Icon size={17} />
+      </span>
+      <span className="flex-1 text-[13.5px] font-medium">{label}</span>
+      <Toggle checked={checked} onChange={onChange} />
+    </div>
   );
 }
 
