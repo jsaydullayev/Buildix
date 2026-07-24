@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime, formatShortDate, formatRelative } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
+import { employeesApi } from '@/features/employees/api';
 import { shiftsApi, cashApi, type Shift } from './api';
 import { CloseShiftModal } from './CloseShiftModal';
 import { WithdrawModal } from './WithdrawModal';
@@ -26,13 +27,21 @@ export default function ShiftsPage() {
   const isOwner = hasRole(ROLES.Owner, ROLES.SuperAdmin);
   const qc = useQueryClient();
   const [closing, setClosing] = useState<Shift | null>(null);
+  // A different cashier's open shift being force-closed (vs. `closing` = own).
+  const [forceClosing, setForceClosing] = useState<Shift | null>(null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [historyUser, setHistoryUser] = useState<string>('');
 
   const currentQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
   const historyQuery = useQuery({
-    queryKey: ['shift-history'],
-    queryFn: () => shiftsApi.history(20),
+    queryKey: ['shift-history', historyUser],
+    queryFn: () => shiftsApi.history(50, historyUser || null),
     enabled: canViewHistory,
+  });
+  const usersQuery = useQuery({
+    queryKey: ['sellers-filter'],
+    queryFn: () => employeesApi.list(),
+    enabled: canViewHistory && hasPermission(PERMISSIONS.users.access),
   });
   const pendingQuery = useQuery({
     queryKey: ['withdrawals', 'Pending'],
@@ -182,8 +191,22 @@ export default function ShiftsPage() {
         {canViewHistory && (
           <div className="grid grid-cols-[2.2fr_1fr] items-start gap-[18px]">
             <Card className="overflow-hidden">
-              <div className="border-b border-hairline px-6 py-4 text-[15px] font-semibold">
-                {t('shifts.history')}
+              <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
+                <span className="text-[15px] font-semibold">{t('shifts.history')}</span>
+                {hasPermission(PERMISSIONS.users.access) && (
+                  <select
+                    value={historyUser}
+                    onChange={(e) => setHistoryUser(e.target.value)}
+                    className="h-9 rounded-input border border-input-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+                  >
+                    <option value="">{t('sales.allSellers')}</option>
+                    {(usersQuery.data ?? []).map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="grid grid-cols-shifts items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
                 <span>{t('shifts.cols.date')}</span>
@@ -199,7 +222,14 @@ export default function ShiftsPage() {
                   <Spinner size={22} />
                 </div>
               ) : historyQuery.data && historyQuery.data.length > 0 ? (
-                historyQuery.data.map((s) => <HistoryRow key={s.id} shift={s} lang={i18n.language} />)
+                historyQuery.data.map((s) => (
+                  <HistoryRow
+                    key={s.id}
+                    shift={s}
+                    lang={i18n.language}
+                    onForceClose={s.isOpen ? () => setForceClosing(s) : undefined}
+                  />
+                ))
               ) : (
                 <div className="py-16 text-center text-[14px] text-muted-2">{t('shifts.empty')}</div>
               )}
@@ -221,6 +251,7 @@ export default function ShiftsPage() {
       </div>
 
       <CloseShiftModal shift={closing} onClose={() => setClosing(null)} />
+      <CloseShiftModal shift={forceClosing} forced onClose={() => setForceClosing(null)} />
       <WithdrawModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} isOwner={isOwner} />
     </>
   );
@@ -253,7 +284,7 @@ function Metric({
   );
 }
 
-function HistoryRow({ shift: s, lang }: { shift: Shift; lang: string }) {
+function HistoryRow({ shift: s, lang, onForceClose }: { shift: Shift; lang: string; onForceClose?: () => void }) {
   const { t } = useTranslation();
   const st = STATUS[s.reconStatus] ?? STATUS.Open!;
   const period = `${formatTime(s.openedAt)}–${s.closedAt ? formatTime(s.closedAt) : '…'}`;
@@ -272,9 +303,21 @@ function HistoryRow({ shift: s, lang }: { shift: Shift; lang: string }) {
       >
         {s.isOpen ? '—' : s.discrepancy === 0 ? '0' : `${s.discrepancy > 0 ? '+' : ''}${formatSum(s.discrepancy)}`}
       </span>
-      <span>
-        <Badge tone={st.tone}>{t(`shifts.status.${st.key}`)}</Badge>
-      </span>
+      {/* Ochiq smenani majburiy yopish — kassir uni yopmasdan ketgan holat. */}
+      {s.isOpen && onForceClose ? (
+        <button
+          type="button"
+          onClick={onForceClose}
+          className="flex items-center gap-1.5 rounded-input border border-warn/40 bg-warn-soft px-2.5 py-1 text-[12px] font-medium text-warn-text hover:border-warn"
+        >
+          <Lock size={12} />
+          {t('shifts.forceClose.action')}
+        </button>
+      ) : (
+        <span>
+          <Badge tone={st.tone}>{t(`shifts.status.${st.key}`)}</Badge>
+        </span>
+      )}
     </div>
   );
 }

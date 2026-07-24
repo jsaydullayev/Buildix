@@ -20,9 +20,21 @@ public interface IShiftService
     /// <see cref="InvalidOperationException"/> when no shift is open.</summary>
     Task<ShiftDto> CloseShiftAsync(Guid userId, decimal? countedCash = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Force-close ANOTHER cashier's open shift, by shift id, on behalf of
+    /// <paramref name="closedByUserId"/> (the Owner/Admin). Used when a seller
+    /// leaves without closing — otherwise the shift stays open forever and
+    /// breaks the "sales only with an open shift" rule and cash reconciliation.
+    /// The audit row records who forced it. Throws
+    /// <see cref="InvalidOperationException"/> when the shift is missing or
+    /// already closed.
+    /// </summary>
+    Task<ShiftDto> ForceCloseShiftAsync(Guid shiftId, Guid closedByUserId, decimal? countedCash = null, CancellationToken cancellationToken = default);
+
     /// <summary>Market-wide shift history (all cashiers), most recent first —
-    /// for the Смены history table (Owner/Admin).</summary>
-    Task<IReadOnlyList<ShiftDto>> GetMarketShiftsAsync(int limit = 30, CancellationToken cancellationToken = default);
+    /// for the Смены history table (Owner/Admin). Optional server-side filters:
+    /// <paramref name="userId"/> (one cashier) and a UTC [from, to) range.</summary>
+    Task<IReadOnlyList<ShiftDto>> GetMarketShiftsAsync(int limit = 30, Guid? userId = null, DateTime? fromUtc = null, DateTime? toUtc = null, CancellationToken cancellationToken = default);
 
     /// <summary>The worked-shift sessions of <paramref name="userId"/> in the
     /// current market, most recent first (capped at <paramref name="limit"/>).

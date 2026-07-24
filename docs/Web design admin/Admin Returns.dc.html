@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Admin Returns" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(245,166,35,.2);border:1px solid rgba(245,166,35,.45);font-size:10px;font-weight:700;letter-spacing:.5px;color:#fcd34d">ADMIN</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="padding:0 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">ОПЕРАЦИИ</div>
+      <a href="Admin Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Admin Sales.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</a>
+      <a href="Admin Cash.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg>Касса</a>
+      <a href="Admin Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Admin Products.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары и цены</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Возвраты</div>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">КЛИЕНТЫ</div>
+      <a href="Admin Clients.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c.7-3.7 3.2-5.6 7-5.6s6.3 1.9 7 5.6"></path></svg>Клиенты</a>
+      <a href="Admin Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">СНАБЖЕНИЕ</div>
+      <a href="Admin Purchases.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</a>
+      <a href="Admin Suppliers.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Поставщики</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">УПРАВЛЕНИЕ</div>
+      
+            <a href="Admin Reports.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</a>
+      <a href="Admin Shifts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</a>
+      <a href="Admin Employees.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники и доступы</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <a href="Admin Account.dc.html" title="Мой аккаунт" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;color:#ffffff;border-radius:8px;padding:4px;margin:-4px" style-hover="background:rgba(255,255,255,.1)"><div style="width:34px;height:34px;border-radius:999px;background:#f5a623;color:#0f2557;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">ДР</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">Дилшод Рахимов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Администратор</div></div></a>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Возвраты</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">за июль: {{ count }} возвратов на <span style="font-weight:600;color:#dc2626">{{ totalSum }} сум</span> · {{ share }} от выручки</div>
+      </div>
+      <button onClick="{{ openNew }}" type="button" style="height:42px;padding:0 20px;border:none;border-radius:9px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="background:#1e40af"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Оформить возврат</button>
+    </div>
+
+    <div style="flex:1;padding:22px 32px 40px;display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="position:relative;flex:1;max-width:340px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:14px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+          <input type="text" placeholder="Номер возврата, чека или товар…" value="{{ q }}" onChange="{{ setQ }}" style="width:100%;height:43px;border:1px solid #e2e8f0;border-radius:10px;padding:0 14px 0 38px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff;box-sizing:border-box" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+        </div>
+        <div style="display:flex;gap:6px">
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.pick }}" type="button" style="height:36px;padding:0 15px;border:1.5px solid {{ c.bd }};border-radius:999px;background:{{ c.bg }};color:{{ c.color }};font-size:12.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ c.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:110px 110px minmax(0,1.4fr) minmax(0,1fr) 150px 140px;gap:12px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ВОЗВРАТ</div><div>ЧЕК</div><div>ТОВАРЫ</div><div>ПРИЧИНА</div><div>ДЕНЬГИ</div><div style="text-align:right">СУММА</div></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+          <div onClick="{{ r.open }}" style="display:grid;grid-template-columns:110px 110px minmax(0,1.4fr) minmax(0,1fr) 150px 140px;gap:12px;align-items:center;padding:12px 22px;border-bottom:1px solid #f1f5f9;cursor:pointer" style-hover="background:#f5f9ff">
+            <div><div style="font-size:13.5px;font-weight:600;color:#2563eb">{{ r.id }}</div><div style="font-size:11.5px;color:#94a3b8;margin-top:2px">{{ r.when }}</div></div>
+            <div style="font-size:13px;font-weight:500;color:#64748b">{{ r.check }}</div>
+            <div style="font-size:13px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.items }}</div>
+            <div><span style="padding:4px 11px;border-radius:999px;background:{{ r.rsBg }};font-size:11px;font-weight:600;color:{{ r.rsC }}">{{ r.reason }}</span></div>
+            <div style="font-size:12.5px;color:#64748b">{{ r.refund }}</div>
+            <div style="text-align:right;font-size:13.5px;font-weight:700;color:#dc2626">− {{ r.sum }}</div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px;text-align:center;font-size:13px;color:#94a3b8">Возвратов не найдено</div>
+        </sc-if>
+      </div>
+      <div style="display:flex;gap:11px;align-items:flex-start;font-size:12.5px;color:#64748b;padding:0 4px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+        При возврате товар автоматически встаёт обратно на остатки склада, сумма вычитается из выручки, запись попадает в журнал.
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showView }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeView }}" style="position:fixed;inset:0;background:rgba(8,20,48,.55);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div onClick="{{ stop }}" style="width:560px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:16px;font-weight:600">Возврат {{ vId }}</div>
+            <span style="padding:3px 11px;border-radius:999px;background:{{ vRsBg }};font-size:11px;font-weight:600;color:{{ vRsC }}">{{ vReason }}</span>
+          </div>
+          <div onClick="{{ closeView }}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#f1f5f9;color:#0f172a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+        </div>
+        <div style="display:flex;gap:22px;padding:13px 24px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:12.5px;flex-wrap:wrap">
+          <div><span style="color:#94a3b8">Чек:</span> <span style="font-weight:600;color:#2563eb">{{ vCheck }}</span></div>
+          <div><span style="color:#94a3b8">Оформил:</span> <span style="font-weight:600">{{ vBy }}</span></div>
+          <div><span style="color:#94a3b8">Деньги:</span> <span style="font-weight:600">{{ vRefund }}</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 120px 130px;gap:12px;padding:9px 24px;font-size:11px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ТОВАР</div><div style="text-align:right">КОЛ-ВО</div><div style="text-align:right">ЦЕНА</div><div style="text-align:right">СУММА</div></div>
+        <sc-for list="{{ vLines }}" as="ln" hint-placeholder-count="2">
+          <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 90px 120px 130px;gap:12px;align-items:center;padding:10px 24px;border-top:1px solid #f1f5f9;font-size:13px">
+            <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ln.name }}</div>
+            <div style="text-align:right;color:#475569">{{ ln.qty }}</div>
+            <div style="text-align:right;color:#475569">{{ ln.price }}</div>
+            <div style="text-align:right;font-weight:700">{{ ln.sum }}</div>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 24px;border-top:1px solid #e8edf4;background:#f8fafc">
+          <div style="font-size:12.5px;color:#15803d;font-weight:600">✓ Товар возвращён на остатки</div>
+          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:12.5px;color:#64748b">Возвращено клиенту:</span><span style="font-size:18px;font-weight:700;color:#dc2626">{{ vSum }} сум</span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNew }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNew }}" style="position:fixed;inset:0;background:rgba(8,20,48,.55);display:flex;align-items:center;justify-content:center;z-index:60">
+      <div onClick="{{ stop }}" style="width:600px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f1f5f9">
+          <div style="font-size:16px;font-weight:600">Оформить возврат</div>
+          <div onClick="{{ closeNew }}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#f1f5f9;color:#0f172a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+        </div>
+        <div style="padding:18px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:12.5px;font-weight:500;color:#334155">Чек</label>
+            <sc-if value="{{ noPicked }}" hint-placeholder-val="{{ true }}">
+              <div style="position:relative">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:15px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+                <input type="text" placeholder="Введите номер чека… (например: 1042)" value="{{ nCheckQ }}" onChange="{{ setNCheckQ }}" style="width:100%;height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px 0 38px;font-size:14px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;box-sizing:border-box" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+              </div>
+              <sc-if value="{{ nHasSuggests }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:2px;border:1px solid #e8edf4;border-radius:10px;padding:6px;background:#ffffff;box-shadow:0 10px 26px rgba(15,23,42,.08)">
+                  <sc-for list="{{ nSuggests }}" as="sg">
+                    <div onClick="{{ sg.pick }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer" style-hover="background:#f5f9ff">
+                      <span style="font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sg.label }}</span>
+                      <span style="font-size:12px;font-weight:600;color:#2563eb;flex:none">выбрать</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ nNoMatch }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12.5px;color:#94a3b8;padding:2px 2px 0">Чек с таким номером не найден</div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ hasPicked }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f5f9ff;border:1.5px solid #bfdbfe;border-radius:9px;padding:11px 14px">
+                <span style="font-size:13px;font-weight:600;color:#1e40af;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pickedLabel }}</span>
+                <button onClick="{{ clearCheck }}" type="button" style="height:32px;padding:0 13px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#475569;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="border:1px solid #2563eb;color:#2563eb">Изменить</button>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ hasPicked }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:12.5px;font-weight:500;color:#334155">Что возвращает клиент</label>
+              <div style="border:1px solid #e8edf4;border-radius:10px;overflow:hidden">
+                <sc-for list="{{ nLines }}" as="ln" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #f1f5f9;background:{{ ln.bg }}">
+                    <div onClick="{{ ln.toggle }}" style="width:22px;height:22px;border-radius:6px;border:1.5px solid {{ ln.ckBd }};background:{{ ln.ckBg }};display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none">
+                      <sc-if value="{{ ln.on }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                    </div>
+                    <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ln.name }}</div><div style="font-size:11.5px;color:#94a3b8;margin-top:1px">в чеке: {{ ln.max }} · {{ ln.price }} за ед.</div></div>
+                    <sc-if value="{{ ln.on }}" hint-placeholder-val="{{ false }}">
+                      <input type="number" value="{{ ln.qty }}" onChange="{{ ln.setQty }}" style="width:76px;height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;text-align:right;box-sizing:border-box;flex:none" style-focus="border:1px solid #2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)">
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:12.5px;font-weight:500;color:#334155">Причина</label>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <sc-for list="{{ nReasons }}" as="rs" hint-placeholder-count="3">
+                    <button onClick="{{ rs.pick }}" type="button" style="height:36px;padding:0 13px;border:1.5px solid {{ rs.bd }};border-radius:999px;background:{{ rs.bg }};color:{{ rs.color }};font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ rs.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:12.5px;font-weight:500;color:#334155">Вернуть деньги</label>
+                <div style="display:flex;gap:6px">
+                  <sc-for list="{{ nRefunds }}" as="rf" hint-placeholder-count="2">
+                    <button onClick="{{ rf.pick }}" type="button" style="flex:1;height:36px;border:1.5px solid {{ rf.bd }};border-radius:999px;background:{{ rf.bg }};color:{{ rf.color }};font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ rf.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-top:1px solid #f1f5f9;background:#f8fafc">
+          <div style="font-size:13px;color:#64748b">К возврату: <span style="font-size:16px;font-weight:700;color:#dc2626">{{ nTotal }} сум</span></div>
+          <div style="display:flex;gap:10px">
+            <button onClick="{{ closeNew }}" type="button" style="height:44px;padding:0 18px;border:1px solid #cbd5e1;border-radius:9px;background:#ffffff;color:#475569;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Отмена</button>
+            <button onClick="{{ doNew }}" type="button" style="height:44px;padding:0 24px;border:none;border-radius:9px;background:{{ nBg }};color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:{{ nCur }}" style-hover="background:{{ nHov }}">Оформить возврат</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    q: '', filter: 'Все', view: null,
+    showNew: false, nCheck: '', nCheckQ: '', nSel: {}, nReason: 'Не подошёл', nRefund: 'Наличные',
+    returns: [
+      { id: 'В-27', check: 'Ч-1038', when: 'сегодня, 15:10', by: 'Дилшод Рахимов', reason: 'Брак', refund: 'На карту', lines: [ { name: 'Гипсокартон 12,5 мм · лист', qty: 4, price: 54000 } ] },
+      { id: 'В-26', check: 'Ч-1029', when: 'вчера, 12:40', by: 'Дилшод Рахимов', reason: 'Не подошёл', refund: 'Наличные', lines: [ { name: 'Труба профильная 40×20 · метр', qty: 20, price: 22000 } ] },
+      { id: 'В-25', check: 'Ч-1014', when: '18 июля, 17:05', by: 'Дилшод Рахимов', reason: 'Ошибка продавца', refund: 'Наличные', lines: [ { name: 'Цемент М400 · мешок 50 кг', qty: 6, price: 65000 }, { name: 'Сетка кладочная · шт', qty: 4, price: 95000 } ] },
+      { id: 'В-24', check: 'Ч-1002', when: '15 июля, 10:22', by: 'Дилшод Рахимов', reason: 'Не подошёл', refund: 'Перечисление', lines: [ { name: 'Цемент М500 · мешок 50 кг', qty: 10, price: 75000 } ] },
+      { id: 'В-23', check: 'Ч-989', when: '12 июля, 16:48', by: 'Дилшод Рахимов', reason: 'Брак', refund: 'Наличные', lines: [ { name: 'Шифер 8-волновой · лист', qty: 8, price: 61000 } ] },
+    ],
+    checks: [
+      { id: 'Ч-1042', label: 'Ч-1042 · сегодня, 14:32 · Жасур Т. · 1 510 000 сум', lines: [ { name: 'Цемент М500 · мешок 50 кг', max: 10, price: 75000 }, { name: 'Сетка кладочная · шт', max: 8, price: 95000 } ] },
+      { id: 'Ч-1041', label: 'Ч-1041 · сегодня, 14:18 · Отабек Р. · 850 000 сум', lines: [ { name: 'Кирпич керамический · шт', max: 500, price: 1700 } ] },
+      { id: 'Ч-1039', label: 'Ч-1039 · сегодня, 13:40 · Дилшод К. · 455 200 сум', lines: [ { name: 'Песок строительный · тонна', max: 3, price: 120000 }, { name: 'Кирпич керамический · шт', max: 56, price: 1700 } ] },
+      { id: 'Ч-1038', label: 'Ч-1038 · сегодня, 13:12 · Отабек Р. · 1 350 000 сум', lines: [ { name: 'Гипсокартон 12,5 мм · лист', max: 25, price: 54000 } ] },
+      { id: 'Ч-1037', label: 'Ч-1037 · сегодня, 12:44 · Жасур Т. · 1 320 000 сум', lines: [ { name: 'Труба профильная 40×20 · метр', max: 60, price: 22000 } ] },
+      { id: 'Ч-1036', label: 'Ч-1036 · вчера, 18:20 · Дилшод К. · 2 600 000 сум', lines: [ { name: 'Цемент М400 · мешок 50 кг', max: 40, price: 65000 } ] },
+      { id: 'Ч-1034', label: 'Ч-1034 · вчера, 15:48 · Отабек Р. · 1 830 000 сум', lines: [ { name: 'Шифер 8-волновой · лист', max: 30, price: 61000 } ] },
+    ],
+  };
+  fmt(n) { return n.toLocaleString('ru-RU').replace(/\u00A0/g, ' '); }
+  sumOf(r) { return r.lines.reduce((a, l) => a + l.qty * l.price, 0); }
+  rsColors(r) {
+    if (r === 'Брак') return { rsBg: '#fef2f2', rsC: '#991b1b' };
+    if (r === 'Ошибка продавца') return { rsBg: '#fff7ed', rsC: '#9a3412' };
+    if (r === 'Не подошёл') return { rsBg: '#eff6ff', rsC: '#1e40af' };
+    return { rsBg: '#f1f5f9', rsC: '#475569' };
+  }
+  viewVals() {
+    const r = this.state.returns.find(x => x.id === this.state.view);
+    if (!r) return { showView: false, closeView: () => {}, stop: (e) => e.stopPropagation(), vLines: [] };
+    return {
+      showView: true,
+      closeView: () => this.setState({ view: null }),
+      stop: (e) => e.stopPropagation(),
+      vId: r.id, vCheck: r.check, vBy: r.by, vReason: r.reason, vRefund: r.refund,
+      vRsBg: this.rsColors(r.reason).rsBg, vRsC: this.rsColors(r.reason).rsC,
+      vLines: r.lines.map(l => ({ name: l.name, qty: l.qty, price: this.fmt(l.price), sum: this.fmt(l.qty * l.price) })),
+      vSum: this.fmt(this.sumOf(r)),
+    };
+  }
+  checkSearchVals(ck) {
+    const q = this.state.nCheckQ.toLowerCase().replace(/\s/g, '');
+    const matches = q ? this.state.checks.filter(c =>
+      c.id.toLowerCase().replace(/\s/g, '').includes(q) ||
+      c.id.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '\u0000') ||
+      c.label.toLowerCase().includes(this.state.nCheckQ.toLowerCase().trim())).slice(0, 5) : [];
+    return {
+      nCheckQ: this.state.nCheckQ,
+      setNCheckQ: (e) => this.setState({ nCheckQ: e.target.value }),
+      nSuggests: matches.map(c => ({ label: c.label, pick: () => this.setState({ nCheck: c.id, nSel: {}, nCheckQ: '' }) })),
+      nHasSuggests: !ck && matches.length > 0,
+      nNoMatch: !ck && q.length > 0 && matches.length === 0,
+      pickedLabel: ck ? ck.label : '',
+      clearCheck: () => this.setState({ nCheck: '', nSel: {}, nCheckQ: '' }),
+    };
+  }
+  newVals() {
+    const ck = this.state.checks.find(c => c.id === this.state.nCheck);
+    const sel = this.state.nSel;
+    const total = ck ? ck.lines.reduce((a, l, i) => a + (sel[i] ? (sel[i].qty || 0) * l.price : 0), 0) : 0;
+    const can = ck && total > 0;
+    return {
+      showNew: this.state.showNew,
+      openNew: () => this.setState({ showNew: true, nCheck: '', nCheckQ: '', nSel: {} }),
+      closeNew: () => this.setState({ showNew: false }),
+      ...this.checkSearchVals(ck),
+      hasPicked: !!ck, noPicked: !ck,
+      nLines: ck ? ck.lines.map((l, i) => {
+        const on = !!sel[i];
+        return {
+          name: l.name, max: l.max, price: this.fmt(l.price),
+          on, bg: on ? '#f5f9ff' : '#ffffff',
+          ckBd: on ? '#2563eb' : '#cbd5e1', ckBg: on ? '#2563eb' : '#ffffff',
+          qty: on ? sel[i].qty : 0,
+          toggle: () => this.setState(s => { const n = { ...s.nSel }; if (n[i]) delete n[i]; else n[i] = { qty: l.max }; return { nSel: n }; }),
+          setQty: (e) => { const v = Math.max(0, Math.min(l.max, parseInt(e.target.value, 10) || 0)); this.setState(s => ({ nSel: { ...s.nSel, [i]: { qty: v } } })); },
+        };
+      }) : [],
+      nReasons: ['Не подошёл', 'Брак', 'Ошибка продавца'].map(x => ({
+        label: x,
+        bg: this.state.nReason === x ? '#2563eb' : '#ffffff',
+        color: this.state.nReason === x ? '#ffffff' : '#475569',
+        bd: this.state.nReason === x ? '#2563eb' : '#cbd5e1',
+        pick: () => this.setState({ nReason: x }),
+      })),
+      nRefunds: ['Наличные', 'На карту'].map(x => ({
+        label: x,
+        bg: this.state.nRefund === x ? '#2563eb' : '#ffffff',
+        color: this.state.nRefund === x ? '#ffffff' : '#475569',
+        bd: this.state.nRefund === x ? '#2563eb' : '#cbd5e1',
+        pick: () => this.setState({ nRefund: x }),
+      })),
+      nTotal: this.fmt(total),
+      nBg: can ? '#dc2626' : '#94a3b8', nHov: can ? '#b91c1c' : '#94a3b8', nCur: can ? 'pointer' : 'not-allowed',
+      doNew: () => {
+        if (!can) return;
+        const lines = ck.lines.map((l, i) => sel[i] && sel[i].qty > 0 ? { name: l.name, qty: sel[i].qty, price: l.price } : null).filter(Boolean);
+        const num = 'В-' + (Math.max(...this.state.returns.map(r => parseInt(r.id.slice(2), 10))) + 1);
+        this.setState(s => ({
+          returns: [{ id: num, check: ck.id, when: 'сегодня, только что', by: 'Дилшод Рахимов', reason: s.nReason, refund: s.nRefund, lines }, ...s.returns],
+          showNew: false,
+        }));
+      },
+    };
+  }
+  renderVals() {
+    const q = this.state.q.toLowerCase().trim();
+    const list = this.state.returns.filter(r =>
+      (this.state.filter === 'Все' || r.reason === this.state.filter) &&
+      (!q || r.id.toLowerCase().includes(q) || r.check.toLowerCase().includes(q) || r.lines.some(l => l.name.toLowerCase().includes(q))));
+    const total = this.state.returns.reduce((a, r) => a + this.sumOf(r), 0);
+    return {
+      count: this.state.returns.length,
+      totalSum: this.fmt(total),
+      share: '1,1%',
+      q: this.state.q,
+      setQ: (e) => this.setState({ q: e.target.value }),
+      chips: ['Все', 'Брак', 'Не подошёл', 'Ошибка продавца'].map(c => ({
+        label: c,
+        bg: this.state.filter === c ? '#2563eb' : '#ffffff',
+        color: this.state.filter === c ? '#ffffff' : '#475569',
+        bd: this.state.filter === c ? '#2563eb' : '#e2e8f0',
+        pick: () => this.setState({ filter: c }),
+      })),
+      rows: list.map(r => ({
+        id: r.id, when: r.when, check: r.check,
+        items: r.lines.map(l => l.name.split(' · ')[0] + ' ×' + l.qty).join(', '),
+        reason: r.reason, ...this.rsColors(r.reason),
+        refund: r.refund,
+        sum: this.fmt(this.sumOf(r)),
+        open: () => this.setState({ view: r.id }),
+      })),
+      noRows: list.length === 0,
+      ...this.viewVals(),
+      ...this.newVals(),
+    };
+  }
+}
+</script>
+</body>
+</html>

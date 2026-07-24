@@ -1,26 +1,32 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Move3d, Package, Search } from 'lucide-react';
+import { Plus, Move3d, Package, Search, Tags, FileDown } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import { productsApi, categoriesApi, type Product } from './api';
 import { ProductFormModal } from './ProductFormModal';
 import { StocktakeModal } from './StocktakeModal';
+import { CategoriesModal } from './CategoriesModal';
 
 const PAGE_SIZE = 20;
 
 export default function WarehousePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { hasPermission, hasRole } = useAuth();
   const canViewCost = hasPermission(PERMISSIONS.data.costPrice);
   const canCreate = hasPermission(PERMISSIONS.products.create);
   const canEdit = hasPermission(PERMISSIONS.products.edit);
+  const canExport = hasPermission(PERMISSIONS.products.export);
   const canStocktake = hasRole(ROLES.Owner, ROLES.SuperAdmin) && hasPermission(PERMISSIONS.products.edit);
+  const canManageCategories = hasPermission(PERMISSIONS.categories.manage);
+  const exporter = useExport(() => productsApi.exportExcel(i18n.language), 'products.xlsx');
 
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -28,6 +34,7 @@ export default function WarehousePage() {
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [stocktakeOpen, setStocktakeOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const debouncedSearch = useDebounce(search);
 
@@ -41,7 +48,10 @@ export default function WarehousePage() {
   };
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list });
-  const statsQuery = useQuery({ queryKey: ['products-all'], queryFn: productsApi.listAll });
+  // KPI tiles from a DB-side aggregate — not the whole catalogue folded
+  // client-side. Keyed under ['products', …] so every place that invalidates
+  // the product list refreshes these tiles too.
+  const summaryQuery = useQuery({ queryKey: ['products', 'summary'], queryFn: productsApi.summary });
 
   const listQuery = useQuery({
     queryKey: ['products', { page, search: debouncedSearch, categoryId, lowOnly }],
@@ -56,15 +66,12 @@ export default function WarehousePage() {
     placeholderData: keepPreviousData,
   });
 
-  const stats = useMemo(() => {
-    const all = statsQuery.data ?? [];
-    return {
-      positions: all.length,
-      value: all.reduce((s, p) => s + p.costPrice * p.quantity, 0),
-      low: all.filter((p) => p.isLowStock && p.quantity > 0).length,
-      out: all.filter((p) => p.quantity <= 0).length,
-    };
-  }, [statsQuery.data]);
+  const stats = {
+    positions: summaryQuery.data?.positions ?? 0,
+    value: summaryQuery.data?.stockValue ?? 0,
+    low: summaryQuery.data?.lowStock ?? 0,
+    out: summaryQuery.data?.outOfStock ?? 0,
+  };
 
   const resetPage = () => setPage(1);
 
@@ -78,6 +85,18 @@ export default function WarehousePage() {
         })}
         actions={
           <>
+            {canExport && (
+              <Button variant="secondary" loading={exporter.downloading} onClick={exporter.download}>
+                <FileDown size={15} />
+                {t('common.export')}
+              </Button>
+            )}
+            {canManageCategories && (
+              <Button variant="secondary" onClick={() => setCategoriesOpen(true)}>
+                <Tags size={15} />
+                {t('categories.title')}
+              </Button>
+            )}
             {canStocktake && (
               <Button variant="secondary" onClick={() => setStocktakeOpen(true)}>
                 <Move3d size={15} />
@@ -221,6 +240,7 @@ export default function WarehousePage() {
         categories={categoriesQuery.data ?? []}
       />
       <StocktakeModal open={stocktakeOpen} onClose={() => setStocktakeOpen(false)} />
+      <CategoriesModal open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
     </>
   );
 }
@@ -283,7 +303,7 @@ function ProductRow({
       <span className="truncate text-muted-2">{p.sku ?? '—'}</span>
       <span className="truncate text-muted">{p.categoryName ?? '—'}</span>
       <span className={cn('text-right font-semibold nums', stockTone)}>
-        {formatQty(p.quantity)} {p.unitName}
+        {formatQty(p.quantity)} {unitLabel(t, p.unit, p.unitName)}
       </span>
       {canViewCost && <span className="text-right text-muted nums">{formatSum(p.costPrice)}</span>}
       <span className="text-right font-semibold nums">{formatSum(p.salePrice)}</span>

@@ -33,4 +33,23 @@ void i18n
     },
   });
 
+/** Narrow an arbitrary string to a language we actually ship. */
+export function toAppLanguage(code: string | null | undefined): AppLanguage | null {
+  const lang = code?.trim().toLowerCase();
+  return lang && (SUPPORTED_LANGUAGES as readonly string[]).includes(lang)
+    ? (lang as AppLanguage)
+    : null;
+}
+
+/**
+ * Switch the UI to the language stored on the user's account (login response).
+ * Called once per login so the choice follows the user to a new browser or
+ * device — the LanguageDetector alone only remembers it in this browser's
+ * localStorage. Unknown/absent codes leave the current language alone.
+ */
+export function applyUserLanguage(code: string | null | undefined): void {
+  const lang = toAppLanguage(code);
+  if (lang && lang !== i18n.language) void i18n.changeLanguage(lang);
+}
+
 export default i18n;

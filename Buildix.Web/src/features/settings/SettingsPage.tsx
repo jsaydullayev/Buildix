@@ -2,7 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
-import { PageHeader, Button, Card, Toggle, Spinner, Badge } from '@/shared/ui';
+import { PageHeader, Button, Card, Toggle, Spinner, Badge, LanguageSwitch } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
+import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
+import { accountApi } from '@/features/account/api';
 import { settingsApi, type MarketSettings } from './api';
 
 export default function SettingsPage() {
@@ -25,6 +28,13 @@ export default function SettingsPage() {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2500);
     },
+  });
+
+  // Interfeys tili — do'kon sozlamasi emas, foydalanuvchining SHAXSIY sozlamasi,
+  // shuning uchun sahifaning umumiy "Saqlash" tugmasiga bog'lanmagan: bosilishi
+  // bilan UI o'zgaradi va hisobga yoziladi (boshqa brauzerda ham eslab qolinsin).
+  const langMutation = useMutation({
+    mutationFn: (language: AppLanguage) => accountApi.updateProfile({ language }),
   });
 
   const set = <K extends keyof MarketSettings>(key: K, value: MarketSettings[K]) =>
@@ -61,6 +71,23 @@ export default function SettingsPage() {
       />
 
       <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-8">
+        {/* Язык интерфейса */}
+        <Section title={t('settings.language.title')} subtitle={t('settings.language.subtitle')}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[14px] font-medium">{t('settings.language.label')}</div>
+              <div className="mt-0.5 text-[12.5px] text-muted-2">
+                {langMutation.isError ? (
+                  <span className="text-danger">{t('settings.language.saveError')}</span>
+                ) : (
+                  t('settings.language.hint')
+                )}
+              </div>
+            </div>
+            <LanguageSwitch onChange={(lang) => langMutation.mutate(lang)} />
+          </div>
+        </Section>
+
         {/* Магазин */}
         <Section title={t('settings.store.title')}>
           <TextRow label={t('settings.store.phone')} value={form.phone ?? ''} onChange={(v) => set('phone', v)} />
@@ -147,6 +174,46 @@ export default function SettingsPage() {
               className="h-11 w-[220px] rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
           </div>
+        </Section>
+
+        {/* Система — do'kon standart tili (yangi xodim uchun), audit, avto-logout */}
+        <Section title={t('settings.system.title')} subtitle={t('settings.system.subtitle')}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[14px] font-medium">{t('settings.system.defaultLanguage')}</div>
+              <div className="mt-0.5 text-[12.5px] text-muted-2">{t('settings.system.defaultLanguageHint')}</div>
+            </div>
+            <div className="inline-flex rounded-pill bg-hairline p-1">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => set('defaultLanguage', lang)}
+                  className={cn(
+                    'rounded-pill px-4 py-[7px] text-[13.5px] transition-colors',
+                    form.defaultLanguage === lang
+                      ? 'bg-surface font-semibold text-text shadow-card'
+                      : 'font-medium text-muted hover:text-text',
+                  )}
+                >
+                  {LANGUAGE_LABELS[lang]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <NumberRow
+            label={t('settings.system.inactivityLogout')}
+            hint={t('settings.system.inactivityLogoutHint')}
+            value={form.inactivityLogoutMinutes}
+            onChange={(v) => set('inactivityLogoutMinutes', v)}
+            suffix={t('settings.system.minutes')}
+          />
+          <ToggleRow
+            label={t('settings.system.audit')}
+            hint={t('settings.system.auditHint')}
+            checked={form.auditEnabled}
+            onChange={(v) => set('auditEnabled', v)}
+          />
         </Section>
       </div>
     </>

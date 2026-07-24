@@ -357,6 +357,20 @@ public class ZakupService : IZakupService
         }, cancellationToken);
     }
 
+    public async Task<PurchaseSummaryDto> GetReceiptsSummaryAsync(DateTime fromUtc, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        var agg = await _context.ZakupReceipts
+            .AsNoTracking()
+            .Where(r => r.MarketId == marketId && r.CreatedAt >= fromUtc)
+            .GroupBy(_ => 1)
+            .Select(g => new { Count = g.Count(), Total = g.Sum(r => r.TotalAmount) })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new PurchaseSummaryDto(agg?.Count ?? 0, agg?.Total ?? 0m);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private static SupplierPaymentStatus DeriveStatus(decimal paid, decimal total)

@@ -95,7 +95,7 @@ public class MarketSettingsService : IMarketSettingsService
         ReceiptHeader: s.ReceiptHeader,
         ReceiptFooter: s.ReceiptFooter,
         AutoPrintReceipt: s.AutoPrintReceipt,
-        DefaultLanguage: s.DefaultLanguage == Language.Uzbek ? "uz" : "ru",
+        DefaultLanguage: s.DefaultLanguage.ToCode(),
         FirstDayOfWeek: s.FirstDayOfWeek,
         MinStockAlertEnabled: s.MinStockAlertEnabled,
         BlockSaleBelowCost: s.BlockSaleBelowCost,
@@ -117,8 +117,11 @@ public class MarketSettingsService : IMarketSettingsService
         return t.StartsWith('@') ? t : '@' + t;
     }
 
+    // Nomarkaziy edi: "uz" dan boshqa hamma narsa (jumladan "en") Russian bo'lib
+    // ketardi. Endi yagona LanguageCodes orqali; tanilmagan kodda o'zgarishsiz
+    // qoldirish uchun chaqiruvchi standart qiymatni beradi.
     private static Language ParseLanguage(string? v) =>
-        string.Equals(v, "uz", StringComparison.OrdinalIgnoreCase) ? Language.Uzbek : Language.Russian;
+        LanguageCodes.FromCode(v) ?? Language.Uzbek;
 
     private static TimeOnly? ParseTime(string? v)
     {

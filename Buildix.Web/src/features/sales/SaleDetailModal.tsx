@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { FileDown } from 'lucide-react';
+import { FileDown, Ban, Undo2, Check, X } from 'lucide-react';
 import { Modal, Button, Badge } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate, formatTime } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
+import { downloadBlob } from '@/shared/lib/download';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
-import { salesApi, type Sale, type SalePayment } from './api';
+import type { ApiError } from '@/shared/api/types';
+import { salesApi, type Sale, type SalePayment, type SaleItem } from './api';
+
+/** Statuses whose money/stock can still be reversed. */
+const REVERSIBLE = new Set(['Paid', 'Debt', 'Closed']);
 
 const STATUS_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = {
   Paid: 'success',
@@ -29,7 +35,11 @@ const STATUS_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = {
 export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const { hasPermission } = useAuth();
+  const qc = useQueryClient();
   const [downloading, setDownloading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  // Which line is mid-return, plus the quantity typed for it.
+  const [returning, setReturning] = useState<{ id: string; qty: string } | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['sale-detail', listRow?.id],
@@ -40,6 +50,38 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
   });
 
   const sale = detailQuery.data ?? listRow;
+
+  const canCancel = hasPermission(PERMISSIONS.sales.delete);
+  const canReturn = hasPermission(PERMISSIONS.sales.edit);
+  const reversible = !!sale && REVERSIBLE.has(sale.status);
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['sales'] });
+    void qc.invalidateQueries({ queryKey: ['today-sales'] });
+    void qc.invalidateQueries({ queryKey: ['sale-detail', sale?.id] });
+  };
+  const onErr = (e: unknown) => setActionError((e as ApiError).message ?? t('common.somethingWrong'));
+
+  const cancel = useMutation({
+    mutationFn: () => salesApi.cancel(sale!.id),
+    onSuccess: () => {
+      setActionError(null);
+      invalidate();
+      onClose();
+    },
+    onError: onErr,
+  });
+
+  const returnItem = useMutation({
+    mutationFn: ({ itemId, qty }: { itemId: string; qty: number }) => salesApi.returnItem(sale!.id, itemId, qty),
+    onSuccess: () => {
+      setActionError(null);
+      setReturning(null);
+      invalidate();
+    },
+    onError: onErr,
+  });
+
   if (!sale) return null;
 
   const gross = sale.items.reduce((sum, i) => sum + i.totalPrice, 0);
@@ -49,19 +91,16 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
     setDownloading(true);
     try {
       const blob = await salesApi.invoicePdf(id, i18n.language);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `invoice-${saleNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `invoice-${saleNumber}.pdf`);
     } catch {
       // best-effort; ignore
     } finally {
       setDownloading(false);
     }
+  }
+
+  function askCancel() {
+    if (window.confirm(t('sales.detail.cancelConfirm', { number: sale!.saleNumber }))) cancel.mutate();
   }
 
   return (
@@ -76,6 +115,12 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
           <Button variant="secondary" onClick={onClose}>
             {t('common.close')}
           </Button>
+          {canCancel && reversible && (
+            <Button variant="danger" loading={cancel.isPending} onClick={askCancel}>
+              <Ban size={15} />
+              {t('sales.detail.cancel')}
+            </Button>
+          )}
           {hasPermission(PERMISSIONS.sales.invoice) && (
             <Button loading={downloading} onClick={() => void downloadInvoice(sale.id, sale.saleNumber)}>
               <FileDown size={15} />
@@ -106,30 +151,38 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
 
         {/* Items */}
         <div>
-          <div className="grid grid-cols-[1fr_90px_110px_110px] gap-3 border-b border-hairline pb-2 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+          <div className="grid grid-cols-[1fr_90px_110px_110px_32px] gap-3 border-b border-hairline pb-2 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
             <span>{t('sales.cols.items')}</span>
             <span className="text-right">{t('sales.detail.qty')}</span>
             <span className="text-right">{t('sales.detail.price')}</span>
             <span className="text-right">{t('sales.cols.sum')}</span>
+            <span />
           </div>
           {sale.items.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-muted-2">{t('sales.detail.noItems')}</p>
           ) : (
             sale.items.map((it) => (
-              <div
+              <ItemRow
                 key={it.id}
-                className="grid grid-cols-[1fr_90px_110px_110px] items-center gap-3 border-b border-hairline py-2.5 text-[13px] last:border-0"
-              >
-                <span className="truncate font-medium">{it.productName}</span>
-                <span className="text-right text-muted nums">
-                  {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}
-                </span>
-                <span className="text-right text-muted nums">{formatSum(it.salePrice)}</span>
-                <span className="text-right font-semibold nums">{formatSum(it.totalPrice)}</span>
-              </div>
+                item={it}
+                canReturn={canReturn && reversible}
+                returning={returning?.id === it.id ? returning.qty : null}
+                busy={returnItem.isPending}
+                onStartReturn={() => setReturning({ id: it.id, qty: String(it.quantity) })}
+                onChangeQty={(qty) => setReturning({ id: it.id, qty })}
+                onCancelReturn={() => setReturning(null)}
+                onConfirmReturn={() => {
+                  const qty = Math.min(Math.max(0, Number(returning?.qty) || 0), it.quantity);
+                  if (qty > 0) returnItem.mutate({ itemId: it.id, qty });
+                }}
+              />
             ))
           )}
         </div>
+
+        {actionError && (
+          <div className="rounded-input bg-danger-soft px-3 py-2 text-[12.5px] text-danger">{actionError}</div>
+        )}
 
         {/* Totals */}
         <div className="flex flex-col gap-1.5 rounded-input bg-bg px-4 py-3 text-[13px]">
@@ -163,6 +216,86 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * One sale line. When a return is in progress on this line it swaps the "return"
+ * button for an inline qty field + confirm/cancel, so a partial return needs no
+ * separate dialog.
+ */
+function ItemRow({
+  item: it,
+  canReturn,
+  returning,
+  busy,
+  onStartReturn,
+  onChangeQty,
+  onCancelReturn,
+  onConfirmReturn,
+}: {
+  item: SaleItem;
+  canReturn: boolean;
+  /** The typed quantity when this row is mid-return, else null. */
+  returning: string | null;
+  busy: boolean;
+  onStartReturn: () => void;
+  onChangeQty: (qty: string) => void;
+  onCancelReturn: () => void;
+  onConfirmReturn: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid grid-cols-[1fr_90px_110px_110px_32px] items-center gap-3 border-b border-hairline py-2.5 text-[13px] last:border-0">
+      <span className="truncate font-medium">{it.productName}</span>
+      {returning !== null ? (
+        <input
+          type="number"
+          step="any"
+          autoFocus
+          value={returning}
+          onChange={(e) => onChangeQty(e.target.value)}
+          className="h-8 w-full rounded-input border border-input-border bg-surface px-2 text-right text-[13px] outline-none focus:border-primary nums"
+        />
+      ) : (
+        <span className="text-right text-muted nums">
+          {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}
+        </span>
+      )}
+      <span className="text-right text-muted nums">{formatSum(it.salePrice)}</span>
+      <span className="text-right font-semibold nums">{formatSum(it.totalPrice)}</span>
+      <div className="flex items-center justify-end">
+        {!canReturn ? null : returning !== null ? (
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirmReturn}
+              title={t('sales.detail.returnConfirm')}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-success hover:bg-success-soft"
+            >
+              <Check size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={onCancelReturn}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-text"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onStartReturn}
+            title={t('sales.detail.return')}
+            className={cn('flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-warn-text')}
+          >
+            <Undo2 size={14} />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

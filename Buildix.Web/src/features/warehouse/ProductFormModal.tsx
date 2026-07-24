@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Input } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
+import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
 import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
 import {
@@ -216,9 +217,12 @@ export function ProductFormModal({
 
         <Field label={t('warehouse.form.unit')}>
           <select className={inputCls} {...register('unit')}>
+            {/* Ilgari bu yerda qat'iy `u.nameRu` turardi — o'zbek yoki ingliz
+                interfeysda ham ro'yxat ruscha chiqardi. Nom endi tanlangan
+                tildan olinadi (server uchala variantni ham yuboradi). */}
             {(unitsQuery.data ?? []).map((u) => (
               <option key={u.value} value={u.value}>
-                {u.nameRu}
+                {unitLabel(t, u.value, u.nameRu)}
               </option>
             ))}
           </select>

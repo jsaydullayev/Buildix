@@ -8,6 +8,8 @@ import {
   Clock,
   BarChart3,
   Users,
+  Contact,
+  ShieldAlert,
   ShoppingCart,
 } from 'lucide-react';
 import { PERMISSIONS } from './permissions';
@@ -28,10 +30,12 @@ export const NAV_ITEMS: NavItem[] = [
   { path: 'sales', labelKey: 'nav.sales', icon: ScrollText, permission: PERMISSIONS.sales.access },
   { path: 'warehouse', labelKey: 'nav.warehouse', icon: Boxes, permission: PERMISSIONS.products.access },
   { path: 'debts', labelKey: 'nav.debts', icon: CreditCard, permission: PERMISSIONS.debts.access },
+  { path: 'customers', labelKey: 'nav.customers', icon: Contact, permission: PERMISSIONS.customers.access },
   { path: 'purchases', labelKey: 'nav.purchases', icon: Truck, permission: PERMISSIONS.zakup.access },
   { path: 'shifts', labelKey: 'nav.shifts', icon: Clock, permission: PERMISSIONS.cashregister.access },
   { path: 'reports', labelKey: 'nav.reports', icon: BarChart3, permission: PERMISSIONS.reports.access },
   { path: 'employees', labelKey: 'nav.employees', icon: Users, permission: PERMISSIONS.users.access },
+  { path: 'audit', labelKey: 'nav.audit', icon: ShieldAlert, permission: PERMISSIONS.data.auditLog },
 ];
 
 /**

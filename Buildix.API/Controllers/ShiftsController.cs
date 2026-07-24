@@ -71,12 +71,37 @@ public class ShiftsController : ControllerBase
     }
 
     /// <summary>Market-wide shift history (all cashiers) — Смены history table.
-    /// Owner/Admin gated by users.shift; market-scoped inside the service.</summary>
+    /// Owner/Admin gated by users.shift; market-scoped inside the service.
+    /// Optional filters: <paramref name="userId"/> (one cashier) and a UTC
+    /// [from, to) range.</summary>
     [HttpGet]
     [RequirePermission(PermissionKeys.UsersShift)]
     public async Task<ActionResult<IReadOnlyList<ShiftDto>>> GetMarketShifts(
-        [FromQuery] int limit = 30, CancellationToken ct = default)
-        => Ok(await _shiftService.GetMarketShiftsAsync(limit, ct));
+        [FromQuery] int limit = 30,
+        [FromQuery] Guid? userId = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
+        => Ok(await _shiftService.GetMarketShiftsAsync(limit, userId, from, to, ct));
+
+    /// <summary>Force-close another cashier's open shift (Owner/Admin,
+    /// users.shift). Used when a seller leaves without closing. The counted
+    /// cash is entered by the Owner; the audit row records who forced it.</summary>
+    [HttpPost("{shiftId:guid}/force-close")]
+    [RequirePermission(PermissionKeys.UsersShift)]
+    public async Task<ActionResult<ShiftDto>> ForceClose(
+        Guid shiftId, [FromBody] CloseShiftRequest? request, CancellationToken ct = default)
+    {
+        if (CurrentUserId() is not { } adminId) return Unauthorized();
+        try
+        {
+            return Ok(await _shiftService.ForceCloseShiftAsync(shiftId, adminId, request?.CountedCash, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 
     /// <summary>A specific user's worked-shift sessions (most recent first).
     /// Owner/Admin only — gated by users.shift — so an Owner can review how

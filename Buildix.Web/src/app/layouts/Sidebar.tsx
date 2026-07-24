@@ -1,10 +1,12 @@
 import { NavLink, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ChevronsUpDown, Settings, LogOut } from 'lucide-react';
+import { ChevronsUpDown, Settings, LogOut, Bell } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { BrandLogo } from '@/shared/ui';
 import { NAV_ITEMS } from '@/shared/config/navigation';
-import { ROLES } from '@/shared/config/permissions';
+import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
+import { cashApi } from '@/features/shifts/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
@@ -20,6 +22,16 @@ export function Sidebar() {
 
   const base = `/${subdomain}`;
   const items = NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+
+  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
+  // Badge count = pending cash-withdrawal requests (they need an owner decision).
+  // A cheap, precise signal; the full alert feed lives on the notifications page.
+  const pendingQuery = useQuery({
+    queryKey: ['withdrawals', 'Pending'],
+    queryFn: () => cashApi.withdrawals('Pending'),
+    enabled: canNotifications && hasPermission(PERMISSIONS.cashregister.access),
+  });
+  const pendingCount = pendingQuery.data?.length ?? 0;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -65,6 +77,19 @@ export function Sidebar() {
           <NavLink to={`${base}/settings`} className={linkClass}>
             <Settings size={17} />
             {t('nav.settings')}
+          </NavLink>
+        )}
+        {canNotifications && (
+          <NavLink to={`${base}/notifications`} className={linkClass}>
+            <span className="relative flex">
+              <Bell size={17} />
+              {pendingCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white">
+                  {pendingCount}
+                </span>
+              )}
+            </span>
+            {t('nav.notifications')}
           </NavLink>
         )}
         <div className="mt-2 flex items-center gap-2.5 border-t border-white/[0.12] p-3">

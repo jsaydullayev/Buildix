@@ -6,6 +6,7 @@ import { ArrowLeft, Search, Plus, Minus, X, Package, Check, UserPlus, Clock, Ale
 import { Button, Card, Spinner, Badge } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
@@ -15,6 +16,9 @@ const METHODS = [
   { key: 'card', value: 'Terminal' },
   { key: 'transfer', value: 'Transfer' },
   { key: 'click', value: 'Click' },
+  // Aralash — naqd + karta bitta chekda. Sotuvchi kassasida bor edi, bu yerda
+  // yo'q edi, ya'ni Owner qisman naqd to'lovni umuman rasmiylashtira olmasdi.
+  { key: 'mixed', value: 'Mixed' },
   { key: 'debt', value: 'Debt' },
 ] as const;
 
@@ -33,6 +37,8 @@ export default function PosPage() {
   // Blank, not '0' — the field shows a faint "0" placeholder so the cashier can
   // type straight away instead of deleting a literal zero first.
   const [discountInput, setDiscountInput] = useState('');
+  // Aralash to'lovda kassir naqd ulushini kiritadi, qolganini karta yopadi.
+  const [cashPartInput, setCashPartInput] = useState('');
   const [success, setSuccess] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -122,11 +128,24 @@ export default function PosPage() {
     onSuccess: refresh,
   });
 
+  const items = sale?.items ?? [];
+  const total = sale?.totalAmount ?? 0;
+  // Aralash: kassir naqd ulushini yozadi, qolgani kartaga tushadi.
+  const cashPart = Math.min(Math.max(0, Number(cashPartInput) || 0), total);
+  const cardPart = Math.max(0, total - cashPart);
+
   const checkout = useMutation({
     mutationFn: async () => {
       if (!sale) return;
       if (method === 'Debt') {
         await posApi.markDebt(saleId!);
+      } else if (method === 'Mixed') {
+        // Ikkala ulush BITTA so'rovda: server ularni atomar qo'llaydi, shuning
+        // uchun chek "qisman to'langan ⇒ qarz" holatidan o'tib ketmaydi.
+        await posApi.checkout(saleId!, [
+          { paymentType: 'Cash', amount: cashPart },
+          { paymentType: 'Terminal', amount: cardPart },
+        ]);
       } else {
         await posApi.addPayment(saleId!, { paymentType: method, amount: sale.totalAmount });
       }
@@ -142,15 +161,19 @@ export default function PosPage() {
       setSaleId(null);
       setCustomer(null);
       setDiscountInput('');
+      setCashPartInput('');
       setMethod('Cash');
       setTimeout(() => setSuccess(false), 2500);
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
 
-  const items = sale?.items ?? [];
-  const total = sale?.totalAmount ?? 0;
-  const canCheckout = items.length > 0 && !checkout.isPending;
+  // Aralashda ikkala ulush ham noldan katta bo'lishi shart — aks holda bu
+  // oddiy naqd yoki karta to'lovi, uni to'g'ridan-to'g'ri tanlash kerak.
+  const canCheckout =
+    items.length > 0 &&
+    !checkout.isPending &&
+    (method !== 'Mixed' || (cashPart > 0 && cardPart > 0));
 
   return (
     <div className="flex h-full min-h-screen flex-col bg-bg">
@@ -224,7 +247,7 @@ export default function PosPage() {
                     </div>
                     <div className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</div>
                     <div className="mt-1 text-[11.5px] text-muted-2 nums">
-                      {formatQty(p.quantity)} {p.unitName}
+                      {formatQty(p.quantity)} {unitLabel(t, p.unit, p.unitName)}
                     </div>
                     <div className="mt-1.5 text-[14px] font-semibold text-primary nums">
                       {formatSum(p.salePrice)}
@@ -282,7 +305,7 @@ export default function PosPage() {
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13.5px] font-medium">{it.productName}</div>
                     <div className="text-[12px] text-muted-2 nums">
-                      {formatSum(it.salePrice)} · {formatQty(it.quantity)} {it.unit}
+                      {formatSum(it.salePrice)} · {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -337,7 +360,9 @@ export default function PosPage() {
               </span>
             </div>
 
-            <div className="mb-3 grid grid-cols-5 gap-1.5">
+            {/* Olti usul bir qatorga sig'maydi — "O‘tkazma"/"Перевод" kabi uzun
+                yorliqlar kesilib ketardi, shuning uchun 3×2 to'r. */}
+            <div className="mb-3 grid grid-cols-3 gap-1.5">
               {METHODS.map((m) => (
                 <button
                   key={m.value}
@@ -356,6 +381,44 @@ export default function PosPage() {
                 </button>
               ))}
             </div>
+
+            {method === 'Mixed' && (
+              <div className="mb-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-[13px] text-muted">{t('pos.cashPart')}</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="0"
+                      value={cashPartInput}
+                      onChange={(e) => setCashPartInput(e.target.value)}
+                      className="h-9 w-[120px] rounded-input border border-input-border bg-surface px-3 text-right text-[14px] outline-none focus:border-primary nums"
+                    />
+                    <span className="text-[12px] text-muted-2">{t('common.currency')}</span>
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {[30, 50, 70].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      disabled={total <= 0}
+                      onClick={() => setCashPartInput(String(Math.round((total * pct) / 100)))}
+                      className="h-7 flex-1 rounded-md border border-input-border text-[12px] font-medium text-muted hover:border-primary hover:text-primary disabled:opacity-40"
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-input bg-primary-soft px-3 py-2 text-[13px] text-primary-hover">
+                  <span>{t('pos.cardPart')}</span>
+                  <span className="font-semibold nums">
+                    {formatSum(cardPart)} {t('common.currency')}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {actionError && (
               <div className="mb-2 flex items-center gap-2 rounded-input bg-danger-soft px-3 py-2 text-[12.5px] text-danger">

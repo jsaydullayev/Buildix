@@ -5,6 +5,7 @@ import { Search, Check } from 'lucide-react';
 import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatQty } from '@/shared/lib/format';
+import { unitLabel } from '@/shared/lib/units';
 import { productsApi, type StocktakeResult } from './api';
 
 export function StocktakeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -116,7 +117,7 @@ export function StocktakeModal({ open, onClose }: { open: boolean; onClose: () =
                     {p.sku && <div className="truncate text-[11.5px] text-muted-2">{p.sku}</div>}
                   </div>
                   <div className="text-right text-muted nums">
-                    {formatQty(p.quantity)} {p.unitName}
+                    {formatQty(p.quantity)} {unitLabel(t, p.unit, p.unitName)}
                   </div>
                   <input
                     type="number"

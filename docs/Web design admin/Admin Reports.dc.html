@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Admin Reports" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#0f2557;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(245,166,35,.2);border:1px solid rgba(245,166,35,.45);font-size:10px;font-weight:700;letter-spacing:.5px;color:#fcd34d">ADMIN</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="padding:0 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">ОПЕРАЦИИ</div>
+      <a href="Admin Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Admin Sales.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Продажи</a>
+      <a href="Admin Cash.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg>Касса</a>
+      <a href="Admin Warehouse.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="M3 10h18"></path><path d="M9 5v5"></path><path d="M15 5v5"></path><path d="M9 10v9"></path><path d="M15 10v9"></path></svg>Склад</a>
+      <a href="Admin Products.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg>Товары и цены</a>
+      <a href="Admin Returns.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Возвраты</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">КЛИЕНТЫ</div>
+      <a href="Admin Clients.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c.7-3.7 3.2-5.6 7-5.6s6.3 1.9 7 5.6"></path></svg>Клиенты</a>
+      <a href="Admin Debts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 15h2"></path></svg>Долги</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">СНАБЖЕНИЕ</div>
+      <a href="Admin Purchases.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9h13v8H1z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="6" cy="19" r="1.6"></circle><circle cx="17.5" cy="19" r="1.6"></circle></svg>Закуп</a>
+      <a href="Admin Suppliers.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Поставщики</a>
+      <div style="padding:14px 12px 5px;font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,.35)">УПРАВЛЕНИЕ</div>
+      
+            <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-6"></path><path d="M22 20H2"></path></svg>Отчёты</div>
+      <a href="Admin Shifts.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>Смены</a>
+      <a href="Admin Employees.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Сотрудники и доступы</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <a href="Admin Account.dc.html" title="Мой аккаунт" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;color:#ffffff;border-radius:8px;padding:4px;margin:-4px" style-hover="background:rgba(255,255,255,.1)"><div style="width:34px;height:34px;border-radius:999px;background:#f5a623;color:#0f2557;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">ДР</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">Дилшод Рахимов</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Администратор</div></div></a>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Отчёты</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">{{ periodNote }}</div>
+      </div>
+      <div style="display:inline-flex;background:#f1f5f9;border-radius:999px;padding:3px">
+        <sc-for list="{{ periodChips }}" as="p" hint-placeholder-count="2">
+          <div onClick="{{ p.pick }}" style="padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:{{ p.w }};color:{{ p.color }};background:{{ p.bg }};cursor:pointer">{{ p.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:24px 32px 40px;display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:10px">Выручка</div><div style="font-size:22px;font-weight:700">{{ kRevenue }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#16a34a;font-weight:600;margin-top:6px">{{ kRevenueDelta }}</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:10px">Прибыль</div><div style="font-size:22px;font-weight:700">{{ kProfit }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">маржа {{ kMargin }}</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:10px">Чеков</div><div style="font-size:22px;font-weight:700">{{ kChecks }}</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">возвратов: {{ kReturns }}</div></div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:18px 20px"><div style="font-size:12.5px;color:#64748b;margin-bottom:10px">Средний чек</div><div style="font-size:22px;font-weight:700">{{ kAvg }} <span style="font-size:12px;font-weight:500;color:#94a3b8">сум</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">{{ kAvgNote }}</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px"><div style="font-size:15px;font-weight:600">Выручка по дням</div><div style="font-size:12.5px;color:#94a3b8">лучший: <span style="font-weight:600;color:#0f172a">{{ bestDay }}</span></div></div>
+          <div style="display:flex;align-items:flex-end;gap:12px;height:150px">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;height:100%" title="{{ b.sum }}">
+                <div style="height:{{ b.h }};border-radius:5px 5px 0 0;background:{{ b.color }}"></div>
+                <div style="text-align:center;font-size:11px;font-weight:{{ b.w }};color:{{ b.labelC }}">{{ b.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+          <div style="font-size:15px;font-weight:600;margin-bottom:14px">Способы оплаты</div>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <sc-for list="{{ pays }}" as="p" hint-placeholder-count="3">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="font-weight:500">{{ p.label }}</span><span style="color:#64748b">{{ p.sum }} · <span style="font-weight:700;color:#0f172a">{{ p.pct }}</span></span></div>
+                <div style="height:7px;border-radius:99px;background:#f1f5f9"><div style="width:{{ p.pct }};height:7px;border-radius:99px;background:{{ p.color }}"></div></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:11px 14px;margin-top:16px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+            <div style="font-size:12px;line-height:1.5;color:#9a3412">Доля продаж в долг — {{ debtShare }}. Выше 20% — риск кассового разрыва.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+          <div style="font-size:15px;font-weight:600;margin-bottom:10px">Топ товаров</div>
+          <sc-for list="{{ tops }}" as="t" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9">
+              <div style="width:22px;font-size:12px;font-weight:700;color:#94a3b8">{{ t.n }}</div>
+              <div style="flex:1;min-width:0;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.name }}</div>
+              <div style="font-size:12px;color:#94a3b8;flex:none">{{ t.qty }}</div>
+              <div style="width:110px;text-align:right;font-size:13.5px;font-weight:700;flex:none">{{ t.sum }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;padding:20px 22px">
+          <div style="font-size:15px;font-weight:600;margin-bottom:10px">Продавцы</div>
+          <sc-for list="{{ sellers }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+              <div style="width:36px;height:36px;border-radius:999px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#1e40af;flex:none">{{ s.initials }}</div>
+              <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">{{ s.name }}</div><div style="font-size:11.5px;color:#94a3b8;margin-top:1px">{{ s.checks }} чеков · ср. {{ s.avg }}</div></div>
+              <div style="text-align:right;flex:none"><div style="font-size:14px;font-weight:700">{{ s.sum }}</div><div style="height:5px;border-radius:99px;background:#f1f5f9;width:90px;margin-top:5px"><div style="width:{{ s.pct }};height:5px;border-radius:99px;background:#2563eb"></div></div></div>
+            </div>
+          </sc-for>
+          <div style="font-size:11.5px;color:#94a3b8;margin-top:10px">Доля от выручки периода</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { period: 'Неделя' };
+  renderVals() {
+    const week = {
+      note: '14–20 июля · данные всех продавцов',
+      revenue: '84 300 000', delta: '▲ 12% к прошлой неделе', profit: '15 700 000', margin: '18,6%',
+      checks: '296', returns: '3', avg: '284 800', avgNote: '▲ 4% к прошлой неделе',
+      bestDay: 'суббота · 18 400 000',
+      bars: [ ['Пн', 42, '8 800 000'], ['Вт', 56, '11 700 000'], ['Ср', 38, '7 900 000'], ['Чт', 70, '14 600 000'], ['Пт', 54, '11 300 000'], ['Сб', 88, '18 400 000'], ['Вс', 12, '2 500 000'] ],
+      best: 5,
+      pays: [ ['Наличные', '43 800 000', '52%', '#16a34a'], ['Карта', '26 100 000', '31%', '#2563eb'], ['В долг', '14 400 000', '17%', '#f59e0b'] ],
+      debtShare: '17%',
+      sellers: [ ['Жасур Тошев', 118, '289 000', '34 200 000', '41%'], ['Отабек Рустамов', 102, '283 000', '28 900 000', '34%'], ['Дилшод Комилов', 76, '279 000', '21 200 000', '25%'] ],
+    };
+    const month = {
+      note: 'Июль · 1–20 число · данные всех продавцов',
+      revenue: '342 600 000', delta: '▲ 9% к июню', profit: '63 100 000', margin: '18,4%',
+      checks: '1 204', returns: '11', avg: '284 600', avgNote: 'на уровне июня',
+      bestDay: '2-я неделя · 96 200 000',
+      bars: [ ['1–7', 74, '82 400 000'], ['8–14', 86, '96 200 000'], ['15–20', 82, '91 700 000'], ['прогноз', 65, '72 300 000'] ],
+      best: 1,
+      pays: [ ['Наличные', '184 900 000', '54%', '#16a34a'], ['Карта', '99 400 000', '29%', '#2563eb'], ['В долг', '58 300 000', '17%', '#f59e0b'] ],
+      debtShare: '17%',
+      sellers: [ ['Жасур Тошев', 486, '292 000', '141 900 000', '41%'], ['Отабек Рустамов', 411, '281 000', '115 500 000', '34%'], ['Дилшод Комилов', 307, '277 000', '85 200 000', '25%'] ],
+    };
+    const d = this.state.period === 'Неделя' ? week : month;
+    const inits = (n) => n.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    return {
+      periodNote: d.note,
+      periodChips: ['Неделя', 'Месяц'].map(p => ({
+        label: p,
+        w: this.state.period === p ? '600' : '500',
+        color: this.state.period === p ? '#0f172a' : '#64748b',
+        bg: this.state.period === p ? '#ffffff' : 'transparent',
+        pick: () => this.setState({ period: p }),
+      })),
+      kRevenue: d.revenue, kRevenueDelta: d.delta, kProfit: d.profit, kMargin: d.margin,
+      kChecks: d.checks, kReturns: d.returns, kAvg: d.avg, kAvgNote: d.avgNote,
+      bestDay: d.bestDay,
+      bars: d.bars.map((b, i) => ({
+        label: b[0], h: b[1] + '%', sum: b[2] + ' сум',
+        color: i === d.best ? '#2563eb' : '#93c5fd',
+        w: i === d.best ? '600' : '400',
+        labelC: i === d.best ? '#2563eb' : '#94a3b8',
+      })),
+      pays: d.pays.map(p => ({ label: p[0], sum: p[1], pct: p[2], color: p[3] })),
+      debtShare: d.debtShare,
+      tops: [
+        { n: '01', name: 'Цемент М500 · мешок 50 кг', qty: '×640', sum: '48 000 000' },
+        { n: '02', name: 'Арматура Ø12 · тонна', qty: '×3,4', sum: '31 280 000' },
+        { n: '03', name: 'Кирпич керамический', qty: '×14 200', sum: '24 140 000' },
+        { n: '04', name: 'Профнастил 0,45 · лист', qty: '×212', sum: '19 500 000' },
+        { n: '05', name: 'Цемент М400 · мешок 50 кг', qty: '×270', sum: '17 550 000' },
+      ],
+      sellers: d.sellers.map(s => ({ name: s[0], initials: inits(s[0]), checks: s[1], avg: s[2], sum: s[3], pct: s[4] })),
+    };
+  }
+}
+</script>
+</body>
+</html>

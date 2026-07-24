@@ -1,15 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Pencil, Shield, Trash2 } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatRelative } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
+import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import { employeesApi, type Employee, type StaffRow } from './api';
 import { AddEmployeeModal } from './AddEmployeeModal';
+import { EditEmployeeModal } from './EditEmployeeModal';
+import { PermissionsModal } from './PermissionsModal';
+
+const PERIODS = ['today', 'week', 'month', 'year'] as const;
+type Period = (typeof PERIODS)[number];
 
 const ROLE_FILTERS = ['all', 'Admin', 'Seller'] as const;
 const ROLE_TONE: Record<string, 'info' | 'warn' | 'neutral'> = {
@@ -23,15 +28,27 @@ function isOnline(lastActiveAt: string | null): boolean {
   return Date.now() - new Date(lastActiveAt).getTime() < 5 * 60 * 1000;
 }
 
+// "Bugun" — do'konning ish kuni, ya'ni Toshkent kuni; brauzer zonasidan emas.
+// Ilgari toDateString() lokal kun bilan solishtirardi, boshqa hamma joy esa
+// Toshkent kunini ishlatadi (LocalDayToUtcRange).
+const TASHKENT_TZ = 'Asia/Tashkent';
+const tashkentDay = (d: string | Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: TASHKENT_TZ }).format(new Date(d));
+
 export default function EmployeesPage() {
   const { t, i18n } = useTranslation();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const canManage = hasPermission(PERMISSIONS.users.manage);
+  // Ruxsatlar (RBAC) endpointi Owner-only, shuning uchun tugma faqat Owner'ga.
+  const canEditPermissions = hasRole(ROLES.Owner, ROLES.SuperAdmin);
   const qc = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [role, setRole] = useState<string>('all');
+  const [period, setPeriod] = useState<Period>('month');
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [permsFor, setPermsFor] = useState<Employee | null>(null);
   const debouncedSearch = useDebounce(search);
 
   const listQuery = useQuery({
@@ -41,8 +58,8 @@ export default function EmployeesPage() {
   // L-4: staff-performance is reports.access-gated on the backend; only fetch it
   // when the caller actually has that permission (else every render 403-spams).
   const perfQuery = useQuery({
-    queryKey: ['staff-perf'],
-    queryFn: employeesApi.staffPerformance,
+    queryKey: ['staff-perf', period],
+    queryFn: () => employeesApi.staffPerformance(period),
     enabled: hasPermission(PERMISSIONS.reports.access),
   });
 
@@ -55,7 +72,7 @@ export default function EmployeesPage() {
   const activeToday = useMemo(
     () =>
       (listQuery.data ?? []).filter(
-        (u) => u.lastActiveAt && new Date(u.lastActiveAt).toDateString() === new Date().toDateString(),
+        (u) => u.lastActiveAt && tashkentDay(u.lastActiveAt) === tashkentDay(new Date()),
       ).length,
     [listQuery.data],
   );
@@ -64,6 +81,14 @@ export default function EmployeesPage() {
     mutationFn: (u: Employee) => (u.isActive ? employeesApi.deactivate(u.id) : employeesApi.activate(u.id)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['employees'] }),
   });
+
+  const del = useMutation({
+    mutationFn: (u: Employee) => employeesApi.remove(u.id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['employees'] }),
+  });
+  const askDelete = (u: Employee) => {
+    if (window.confirm(t('employees.deleteConfirm', { name: u.fullName }))) del.mutate(u);
+  };
 
   return (
     <>
@@ -108,6 +133,30 @@ export default function EmployeesPage() {
           </div>
         </div>
 
+        {/* Natija davri — kartadagi Cheklar/Tushum/Smenalar shu davr uchun. */}
+        {hasPermission(PERMISSIONS.reports.access) && (
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] text-muted-2">{t('employees.periodLabel')}</span>
+            <div className="flex items-center gap-1.5">
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    'rounded-input px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+                    period === p
+                      ? 'bg-primary text-white'
+                      : 'border border-input-border bg-surface text-muted hover:text-text',
+                  )}
+                >
+                  {t(`employees.period.${p}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {listQuery.isLoading ? (
           <div className="flex items-center justify-center py-20 text-primary">
             <Spinner size={24} />
@@ -120,9 +169,13 @@ export default function EmployeesPage() {
                 user={u}
                 perf={perfById.get(u.id)}
                 canManage={canManage}
+                canEditPermissions={canEditPermissions}
                 lang={i18n.language}
                 onToggle={() => toggle.mutate(u)}
-                busy={toggle.isPending}
+                onEdit={() => setEditing(u)}
+                onPermissions={() => setPermsFor(u)}
+                onDelete={() => askDelete(u)}
+                busy={toggle.isPending || del.isPending}
               />
             ))}
           </div>
@@ -132,6 +185,8 @@ export default function EmployeesPage() {
       </div>
 
       <AddEmployeeModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <EditEmployeeModal employee={editing} onClose={() => setEditing(null)} />
+      <PermissionsModal employee={permsFor} onClose={() => setPermsFor(null)} />
     </>
   );
 }
@@ -145,19 +200,30 @@ function EmployeeCard({
   user: u,
   perf,
   canManage,
+  canEditPermissions,
   lang,
   onToggle,
+  onEdit,
+  onPermissions,
+  onDelete,
   busy,
 }: {
   user: Employee;
   perf: StaffRow | undefined;
   canManage: boolean;
+  canEditPermissions: boolean;
   lang: string;
   onToggle: () => void;
+  onEdit: () => void;
+  onPermissions: () => void;
+  onDelete: () => void;
   busy: boolean;
 }) {
   const { t } = useTranslation();
   const online = isOnline(u.lastActiveAt);
+  // Owner/SuperAdmin — himoyalangan: tahrirlab, ruxsat berib yoki o'chirib
+  // bo'lmaydi (backend ham rad etadi), shuning uchun amallar ko'rsatilmaydi.
+  const isProtected = u.role === 'Owner' || u.role === 'SuperAdmin';
 
   return (
     <Card className={cn('p-5', !u.isActive && 'opacity-60')}>
@@ -198,19 +264,52 @@ function EmployeeCard({
         <Stat label={t('employees.stats.shifts')} value={String(perf?.shiftCount ?? 0)} />
       </div>
 
-      {canManage && u.role !== 'Owner' && (
-        <Button
-          variant={u.isActive ? 'danger' : 'secondary'}
-          fullWidth
-          size="sm"
-          className="mt-4"
-          loading={busy}
-          onClick={onToggle}
-        >
-          {u.isActive ? t('employees.block') : t('employees.unblock')}
-        </Button>
+      {canManage && !isProtected && (
+        <div className="mt-4 flex items-center gap-2">
+          <Button
+            variant={u.isActive ? 'danger' : 'secondary'}
+            size="sm"
+            className="flex-1"
+            loading={busy}
+            onClick={onToggle}
+          >
+            {u.isActive ? t('employees.block') : t('employees.unblock')}
+          </Button>
+          <CardAction icon={<Pencil size={15} />} label={t('employees.editTitle')} onClick={onEdit} />
+          {canEditPermissions && (
+            <CardAction icon={<Shield size={15} />} label={t('permissions.title')} onClick={onPermissions} />
+          )}
+          <CardAction icon={<Trash2 size={15} />} label={t('employees.deleteTitle')} onClick={onDelete} danger />
+        </div>
       )}
     </Card>
+  );
+}
+
+function CardAction({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={cn(
+        'flex h-9 w-9 flex-none items-center justify-center rounded-input border border-input-border text-muted-2 transition-colors',
+        danger ? 'hover:border-danger hover:text-danger' : 'hover:border-primary hover:text-primary',
+      )}
+    >
+      {icon}
+    </button>
   );
 }
 

@@ -6,7 +6,20 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum } from '@/shared/lib/format';
 import { shiftsApi, type Shift } from './api';
 
-export function CloseShiftModal({ shift, onClose }: { shift: Shift | null; onClose: () => void }) {
+/**
+ * Close a shift and reconcile the drawer. `forced` switches from self-close
+ * (the caller's own shift) to force-close by shift id — the Owner ending a
+ * cashier's shift who left without closing.
+ */
+export function CloseShiftModal({
+  shift,
+  forced = false,
+  onClose,
+}: {
+  shift: Shift | null;
+  forced?: boolean;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const open = !!shift;
@@ -17,10 +30,14 @@ export function CloseShiftModal({ shift, onClose }: { shift: Shift | null; onClo
   }, [open, shift]);
 
   const mutation = useMutation({
-    mutationFn: () => shiftsApi.close(counted === '' ? null : Number(counted)),
+    mutationFn: () => {
+      const value = counted === '' ? null : Number(counted);
+      return forced ? shiftsApi.forceClose(shift!.id, value) : shiftsApi.close(value);
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['shift-current'] });
       void qc.invalidateQueries({ queryKey: ['shift-history'] });
+      void qc.invalidateQueries({ queryKey: ['dash-shift'] });
       onClose();
     },
   });
@@ -32,7 +49,7 @@ export function CloseShiftModal({ shift, onClose }: { shift: Shift | null; onClo
     <Modal
       open={open}
       onClose={onClose}
-      title={t('shifts.close.title')}
+      title={forced ? t('shifts.forceClose.title', { name: shift?.cashierName ?? '' }) : t('shifts.close.title')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

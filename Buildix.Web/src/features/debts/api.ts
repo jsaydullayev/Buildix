@@ -53,6 +53,11 @@ export const debtsApi = {
     await apiClient.post(`/Debts/${debtId}/pay`, { amount, paymentType });
   },
 
+  /** Change a debt's due date (debts.dueDate permission). `null` clears it. */
+  updateDueDate: async (debtId: string, dueDate: string | null): Promise<void> => {
+    await apiClient.put(`/Debts/${debtId}/due-date`, { dueDate });
+  },
+
   exportExcel: async (lang: string): Promise<Blob> => {
     const { data } = await apiClient.get('/Debts/export', {
       params: { lang },

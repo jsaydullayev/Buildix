@@ -96,6 +96,13 @@ public class ProductsController : ApiControllerBase
         return Ok(products);
     }
 
+    /// <summary>Warehouse KPI tiles (positions / stock value / low / out),
+    /// aggregated DB-side — replaces the client-side rollup over the full list.</summary>
+    [HttpGet("summary")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<ActionResult<WarehouseSummaryDto>> GetWarehouseSummary(CancellationToken ct = default)
+        => Ok(await _productQueryService.GetWarehouseSummaryAsync(CanViewCost(), ct));
+
     /// <summary>
     /// Barcha o'lchov birliklarini olish (dona, kg, m)
     /// </summary>
