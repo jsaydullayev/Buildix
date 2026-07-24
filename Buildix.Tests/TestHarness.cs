@@ -95,6 +95,15 @@ public sealed class TestHarness : IDisposable
     public IStockLedger StockLedger => new StockLedger(Db);
     public ICashLedger CashLedger => new CashLedger(Db);
 
+    // Deterministic UTC+5 clock — no OS tz-db dependency, so ToLocal/TodayLocal
+    // behave identically on any CI host (Смены attendance/lateness rely on this).
+    public ITashkentClock Clock { get; } =
+        new TashkentClock(TimeZoneInfo.CreateCustomTimeZone("TST", TimeSpan.FromHours(5), "Tashkent", "Tashkent"));
+
+    public ShiftService NewShiftService() =>
+        new(UnitOfWork, Db, Market, Audit, Settings, Substitute.For<ITelegramNotifier>(),
+            Clock, CashLedger, Substitute.For<INotificationService>());
+
     public ProductService NewProductService() =>
         new(UnitOfWork, Db, Market, Audit, StockLedger);
 
