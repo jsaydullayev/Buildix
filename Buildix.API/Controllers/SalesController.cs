@@ -67,7 +67,7 @@ public class SalesController : ApiControllerBase
 
     /// <summary>«Оформить возврат» — bir sotuvdan bir necha liniyani qaytaradi.</summary>
     [HttpPost("~/api/Sales/returns")]
-    [RequirePermission(PermissionKeys.SalesEdit)]
+    [RequirePermission(PermissionKeys.SalesReturn)]
     public async Task<ActionResult<SaleReturnDto>> CreateReturn([FromBody] CreateReturnDto request, CancellationToken ct = default)
     {
         if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))

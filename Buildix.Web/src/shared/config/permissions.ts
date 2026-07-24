@@ -25,6 +25,7 @@ export const PERMISSIONS = {
     delete: 'sales.delete',
     export: 'sales.export',
     invoice: 'sales.invoice',
+    return: 'sales.return',
   },
   customers: {
     access: 'customers.access',
@@ -32,7 +33,7 @@ export const PERMISSIONS = {
     delete: 'customers.delete',
     export: 'customers.export',
   },
-  zakup: { access: 'zakup.access', create: 'zakup.create', delete: 'zakup.delete' },
+  zakup: { access: 'zakup.access', create: 'zakup.create', accept: 'zakup.accept', delete: 'zakup.delete' },
   suppliers: { access: 'suppliers.access', manage: 'suppliers.manage', delete: 'suppliers.delete' },
   cashregister: { access: 'cashregister.access', manage: 'cashregister.manage' },
   reports: { access: 'reports.access', export: 'reports.export' },

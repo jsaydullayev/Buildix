@@ -33,6 +33,10 @@ public static class PermissionKeys
     public const string SalesExport = "sales.export";
     // Print / download the sale receipt (invoice) PDF.
     public const string SalesInvoice = "sales.invoice";
+    // Оформить возврат — record a return against a receipt (restores stock,
+    // refunds money). A distinct, risk-bearing action from editing a sale, so it
+    // has its own key: a Seller only gets it if the Owner explicitly grants it.
+    public const string SalesReturn = "sales.return";
 
     public const string CustomersAccess = "customers.access";
     public const string CustomersManage = "customers.manage";
@@ -41,6 +45,10 @@ public static class PermissionKeys
 
     public const string ZakupAccess = "zakup.access";
     public const string ZakupCreate = "zakup.create";
+    // «Начать приёмку» — accept an in-transit delivery (adds stock, updates cost).
+    // Distinct from creating a purchase: a Seller may be trusted to receive goods
+    // without being able to author purchases, so it is its own grantable key.
+    public const string ZakupAccept = "zakup.accept";
     // Delete a purchase (reverses the stock it added). Owner data-cleanup.
     public const string ZakupDelete = "zakup.delete";
 
@@ -82,9 +90,9 @@ public static class PermissionKeys
         NotificationsAccess,
         ProductsAccess, ProductsCreate, ProductsEdit, ProductsDelete, ProductsExport, ProductsImport,
         CategoriesAccess, CategoriesManage,
-        SalesAccess, SalesCreate, SalesEdit, SalesDelete, SalesExport, SalesInvoice,
+        SalesAccess, SalesCreate, SalesEdit, SalesDelete, SalesExport, SalesInvoice, SalesReturn,
         CustomersAccess, CustomersManage, CustomersDelete, CustomersExport,
-        ZakupAccess, ZakupCreate, ZakupDelete,
+        ZakupAccess, ZakupCreate, ZakupAccept, ZakupDelete,
         SuppliersAccess, SuppliersManage, SuppliersDelete,
         CashRegisterAccess, CashRegisterManage,
         ReportsAccess, ReportsExport,

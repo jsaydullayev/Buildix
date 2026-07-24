@@ -169,7 +169,7 @@ public class ZakupsController : ApiControllerBase
 
     /// <summary>«Отметить принятым» — «В пути» postavkani qabul qiladi (stok kiradi).</summary>
     [HttpPost("~/api/Zakups/{id}/accept")]
-    [RequirePermission(PermissionKeys.ZakupCreate)]
+    [RequirePermission(PermissionKeys.ZakupAccept)]
     public async Task<IActionResult> AcceptReceipt(Guid id)
     {
         var adminIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
