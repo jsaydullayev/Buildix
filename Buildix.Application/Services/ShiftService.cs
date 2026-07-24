@@ -21,6 +21,7 @@ public class ShiftService : IShiftService
     private readonly ITelegramNotifier _telegram;
     private readonly ITashkentClock _clock;
     private readonly ICashLedger _cashLedger;
+    private readonly INotificationService _notifications;
 
     public ShiftService(
         IUnitOfWork unitOfWork,
@@ -30,7 +31,8 @@ public class ShiftService : IShiftService
         IMarketSettingsService settings,
         ITelegramNotifier telegram,
         ITashkentClock clock,
-        ICashLedger cashLedger)
+        ICashLedger cashLedger,
+        INotificationService notifications)
     {
         _unitOfWork = unitOfWork;
         _db = db;
@@ -40,6 +42,7 @@ public class ShiftService : IShiftService
         _telegram = telegram;
         _clock = clock;
         _cashLedger = cashLedger;
+        _notifications = notifications;
     }
 
     public async Task<ShiftDto?> GetCurrentShiftAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -166,6 +169,17 @@ public class ShiftService : IShiftService
             AuditEntityTypes.Shift, open.Id, AuditActions.Close, actorId,
             new { open.OpenedAt, open.ClosedAt, open.DurationMinutes, open.CountedCash, open.Discrepancy, expected = fin.ExpectedCash, forced, cashierId = open.UserId },
             cancellationToken);
+
+        // In-app bildirishnoma: smena yopildi; kassa farqi bo'lsa — ogohlantirish.
+        var cashier = open.User?.FullName ?? "Кассир";
+        if (open.ReconStatus == CashShiftStatus.Discrepancy)
+            await _notifications.RecordAsync(open.MarketId, NotificationCategory.Shift, NotificationSeverity.Danger,
+                "Расхождение кассы", $"Смена С-{open.ShiftNumber} · {cashier} · {open.Discrepancy:N0} сум", "shifts",
+                cancellationToken: cancellationToken);
+        else
+            await _notifications.RecordAsync(open.MarketId, NotificationCategory.Shift, NotificationSeverity.Success,
+                "Смена закрыта", $"Смена С-{open.ShiftNumber} · {cashier} · выручка {fin.Revenue:N0} сум", "shifts",
+                cancellationToken: cancellationToken);
 
         // Day summary to the owner's Telegram (best-effort, gated by settings).
         var marketSettings = await _settings.GetOrCreateAsync(open.MarketId, cancellationToken);
