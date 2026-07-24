@@ -3,8 +3,27 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw } from 'lucide-react';
 import { Modal, Button, Spinner, Toggle } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
+import { formatSum } from '@/shared/lib/format';
 import type { ApiError } from '@/shared/api/types';
-import { employeesApi, type Employee } from './api';
+import { employeesApi, type Employee, type UserPermissions } from './api';
+
+/** Access presets (Стажёр/Продавец/Старший) applied over the real permission keys + limits. */
+const PRESETS: Record<string, { add: string[]; disc: number | null; debt: number | null }> = {
+  trainee: { add: ['dashboard.access', 'sales.access', 'products.access'], disc: null, debt: 0 },
+  seller: {
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'zakup.access', 'notifications.access'],
+    disc: 3,
+    debt: 5_000_000,
+  },
+  senior: {
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.edit', 'sales.delete', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'debts.dueDate', 'zakup.access', 'notifications.access'],
+    disc: 10,
+    debt: null,
+  },
+};
+const DISC_OPTIONS: (number | null)[] = [3, 5, 10, null];
+const DEBT_OPTIONS: (number | null)[] = [5_000_000, 20_000_000, null];
 
 /** Order in which permission groups are shown; keys not listed fall to the end. */
 const GROUP_ORDER = [
@@ -32,6 +51,8 @@ export function PermissionsModal({ employee, onClose }: { employee: Employee | n
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [maxDisc, setMaxDisc] = useState<number | null>(null);
+  const [maxDebt, setMaxDebt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const query = useQuery({
@@ -42,8 +63,21 @@ export function PermissionsModal({ employee, onClose }: { employee: Employee | n
   const data = query.data;
 
   useEffect(() => {
-    if (data) setSelected(new Set(data.effectivePermissions));
+    if (data) {
+      setSelected(new Set(data.effectivePermissions));
+      setMaxDisc(data.maxDiscountPercent);
+      setMaxDebt(data.maxDebtPerCheck);
+    }
   }, [data]);
+
+  // Apply a preset: only keys present in the catalogue, plus its limits.
+  const applyPreset = (name: keyof typeof PRESETS, d: UserPermissions) => {
+    const p = PRESETS[name]!;
+    const catalog = new Set(d.catalog);
+    setSelected(new Set(p.add.filter((k) => catalog.has(k))));
+    setMaxDisc(p.disc);
+    setMaxDebt(p.debt);
+  };
 
   // Bucket the full catalogue into ordered groups so related toggles sit together.
   const groups = useMemo(() => {
@@ -67,7 +101,8 @@ export function PermissionsModal({ employee, onClose }: { employee: Employee | n
     });
 
   const save = useMutation({
-    mutationFn: (permissions: string[]) => employeesApi.updatePermissions(employee!.id, permissions),
+    mutationFn: (permissions: string[]) =>
+      employeesApi.updatePermissions(employee!.id, permissions, { maxDiscountPercent: maxDisc, maxDebtPerCheck: maxDebt }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['employees'] });
       void qc.invalidateQueries({ queryKey: ['user-permissions', employee?.id] });
@@ -113,12 +148,53 @@ export function PermissionsModal({ employee, onClose }: { employee: Employee | n
             </span>
             <button
               type="button"
-              onClick={() => setSelected(new Set(data.roleDefaults))}
+              onClick={() => {
+                setSelected(new Set(data.roleDefaults));
+                setMaxDisc(null);
+                setMaxDebt(null);
+              }}
               className="flex items-center gap-1.5 text-[12.5px] font-medium text-primary hover:text-primary-hover"
             >
               <RotateCcw size={13} />
               {t('permissions.reset')}
             </button>
+          </div>
+
+          {/* Access preset (Стажёр/Продавец/Старший) */}
+          <div>
+            <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.4px] text-muted-2">
+              {t('permissions.profile')}
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {(['trainee', 'seller', 'senior'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => applyPreset(p, data)}
+                  className="h-10 rounded-input border border-input-border bg-surface text-[13px] font-medium text-muted transition-colors hover:border-primary hover:text-primary"
+                >
+                  {t(`permissions.preset.${p}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Limits */}
+          <div className="flex flex-col gap-3 rounded-input border border-hairline p-3.5">
+            <LimitRow
+              label={t('permissions.discountLimit')}
+              options={DISC_OPTIONS}
+              value={maxDisc}
+              onChange={setMaxDisc}
+              render={(v) => (v === null ? t('permissions.noLimit') : `${v}%`)}
+            />
+            <LimitRow
+              label={t('permissions.debtLimit')}
+              options={DEBT_OPTIONS}
+              value={maxDebt}
+              onChange={setMaxDebt}
+              render={(v) => (v === null ? t('permissions.noLimit') : formatSum(v))}
+            />
           </div>
 
           {groups.map(([g, keys]) => (
@@ -155,5 +231,40 @@ export function PermissionsModal({ employee, onClose }: { employee: Employee | n
         </div>
       )}
     </Modal>
+  );
+}
+
+function LimitRow({
+  label,
+  options,
+  value,
+  onChange,
+  render,
+}: {
+  label: string;
+  options: (number | null)[];
+  value: number | null;
+  onChange: (v: number | null) => void;
+  render: (v: number | null) => string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span className="text-[13px] font-medium text-label">{label}</span>
+      <div className="inline-flex rounded-input bg-hairline p-1">
+        {options.map((opt) => (
+          <button
+            key={String(opt)}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={cn(
+              'rounded-md px-3 py-1 text-[12.5px] font-medium transition-colors nums',
+              value === opt ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
+            )}
+          >
+            {render(opt)}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

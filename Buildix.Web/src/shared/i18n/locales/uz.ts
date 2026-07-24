@@ -679,6 +679,11 @@ export const uz: TranslationSchema = {
   },
   permissions: {
     title: 'Ruxsatlar',
+    profile: 'Ruxsat profili',
+    preset: { trainee: 'Stajyor', seller: 'Sotuvchi', senior: 'Katta' },
+    discountLimit: 'Chegirma limiti',
+    debtLimit: 'Chekka qarz',
+    noLimit: 'Limitsiz',
     customized: 'Qo‘lda sozlangan',
     roleDefault: 'Rol bo‘yicha standart',
     reset: 'Rol standartiga qaytarish',

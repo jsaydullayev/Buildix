@@ -684,6 +684,11 @@ export const ru = {
     customized: 'Настроены вручную',
     roleDefault: 'По умолчанию для роли',
     reset: 'Сбросить к роли',
+    profile: 'Профиль доступа',
+    preset: { trainee: 'Стажёр', seller: 'Продавец', senior: 'Старший' },
+    discountLimit: 'Лимит скидки',
+    debtLimit: 'Долг на чек',
+    noLimit: 'Без лимита',
     byRole: 'по роли',
     effectNote: 'Изменения вступят в силу при следующем входе сотрудника.',
     groups: {
