@@ -343,7 +343,7 @@ export const ru = {
       debt: 'В долг',
       today: 'за сегодня',
     },
-    period: { shift: 'Смена', today: 'Сегодня', week: 'Неделя', month: 'Месяц' },
+    period: { shift: 'Смена', today: 'Сегодня', yesterday: 'Вчера', all: 'Все', week: 'Неделя', month: 'Месяц' },
     payment: {
       all: 'Все',
       cash: 'Наличные',

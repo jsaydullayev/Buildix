@@ -345,7 +345,7 @@ export const en: TranslationSchema = {
       debt: 'On credit',
       today: 'today',
     },
-    period: { shift: 'Shift', today: 'Today', week: 'Week', month: 'Month' },
+    period: { shift: 'Shift', today: 'Today', yesterday: 'Yesterday', all: 'All', week: 'Week', month: 'Month' },
     payment: {
       all: 'All',
       cash: 'Cash',

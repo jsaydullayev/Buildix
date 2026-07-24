@@ -345,7 +345,7 @@ export const uz: TranslationSchema = {
       debt: 'Qarzga',
       today: 'bugun',
     },
-    period: { shift: 'Smena', today: 'Bugun', week: 'Hafta', month: 'Oy' },
+    period: { shift: 'Smena', today: 'Bugun', yesterday: 'Kecha', all: 'Hammasi', week: 'Hafta', month: 'Oy' },
     payment: {
       all: 'Hammasi',
       cash: 'Naqd',
