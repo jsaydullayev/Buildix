@@ -308,8 +308,23 @@ public class SalesController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>
+    /// Sotuvni to'liq qarzga o'tkazish ("В долг", boshlang'ich to'lovsiz).
+    /// </summary>
+    /// <remarks>
+    /// Gated by sales.CREATE, not sales.edit. Selling on credit is a way of
+    /// closing a sale, not an edit of a finished one — and sales.edit also
+    /// carries price-override and returns, which a cashier should not get just
+    /// to hand out credit. With sales.edit here, «В долг» with no down-payment
+    /// 403'd for every cashier while a partial payment (a different endpoint)
+    /// worked, so the register was inconsistent with itself.
+    ///
+    /// Relaxing the gate does not relax the money rules: the service still
+    /// enforces the market's "regulars only" setting and the per-customer debt
+    /// limit, and audits the actor.
+    /// </remarks>
     [HttpPost("{saleId}/mark-debt")]
-    [RequirePermission(PermissionKeys.SalesEdit)]
+    [RequirePermission(PermissionKeys.SalesCreate)]
     public async Task<ActionResult<SaleDto>> MarkSaleAsDebt(Guid saleId, [FromBody] MarkSaleAsDebtDto? request = null, CancellationToken ct = default)
     {
         if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))

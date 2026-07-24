@@ -5,6 +5,7 @@ export const ru = {
     retry: 'Повторить',
     save: 'Сохранить изменения',
     cancel: 'Отмена',
+    close: 'Закрыть',
     search: 'Поиск',
     all: 'Все',
     export: 'Экспорт',
@@ -227,6 +228,9 @@ export const ru = {
       cash: 'Наличные',
       card: 'Карта',
       debt: 'В долг',
+      // PaymentType.Terminal — чек детали печатает тип платежа как есть, и без
+      // этого ключа в истории оплат показывался сырой "terminal".
+      terminal: 'Терминал',
       transfer: 'Перевод',
       click: 'Click',
       mixed: 'Смешанно',
@@ -242,11 +246,28 @@ export const ru = {
       pay: 'ОПЛАТА',
       sum: 'СУММА',
     },
+    detail: {
+      title: 'Чек',
+      customer: 'Клиент',
+      status: 'Статус',
+      qty: 'КОЛ-ВО',
+      price: 'ЦЕНА',
+      subtotal: 'Сумма без скидки',
+      paid: 'Оплачено',
+      remaining: 'Остаток',
+      payments: 'Оплаты',
+      noPayments: 'Оплат нет',
+      noItems: 'Позиций нет',
+      invoice: 'Скачать счёт',
+    },
     status: {
       draft: 'Черновик',
       paid: 'Оплачен',
       debt: 'В долг',
       partial: 'Частично',
+      // SaleStatus.Closed — долг погашен полностью. Ключа не было, и деталь
+      // чека показывала сырое "Closed".
+      closed: 'Долг погашен',
       cancelled: 'Отменён',
       returned: 'Возврат',
     },

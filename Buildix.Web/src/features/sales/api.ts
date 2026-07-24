@@ -7,12 +7,20 @@ export interface SaleItem {
   quantity: number;
   salePrice: number;
   totalPrice: number;
+  /** Server-side Uzbek abbreviation — prefer `unitValue` + unitLabel() for display. */
   unit: string;
+  /** UnitType number; 0 for external lines. Localise from this. */
+  unitValue: number;
 }
 
 export interface SalePayment {
   paymentType: string;
   amount: number;
+  /** Populated by the sale-detail read; absent in list rows. */
+  paymentId?: string;
+  createdAt?: string;
+  /** Set when a different cashier collected this payment (debt paid off later). */
+  collectedByName?: string | null;
 }
 
 export interface Sale {
@@ -31,6 +39,8 @@ export interface Sale {
   createdAt: string;
   items: SaleItem[];
   payments: SalePayment[];
+  /** Shift this receipt belongs to; 0 for sales made before shifts were numbered. */
+  shiftNumber?: number;
 }
 
 export interface SalesQuery {
@@ -72,8 +82,23 @@ export const salesApi = {
     return data;
   },
 
+  /** Full receipt: items, payment history, shift, customer. */
+  byId: async (saleId: string): Promise<Sale> => {
+    const { data } = await apiClient.get<Sale>(`/Sales/${saleId}`);
+    return data;
+  },
+
   todaySummary: async (): Promise<TodaySalesSummary> => {
     const { data } = await apiClient.get<TodaySalesSummary>('/CashRegister/today-sales');
     return data;
+  },
+
+  /** Faktura PDF (sales.invoice ruxsati bilan himoyalangan). */
+  invoicePdf: async (saleId: string, lang: string): Promise<Blob> => {
+    const { data } = await apiClient.get(`/Sales/${saleId}/invoice`, {
+      params: { lang },
+      responseType: 'blob',
+    });
+    return data as Blob;
   },
 };

@@ -73,15 +73,22 @@ internal static class SaleMapper
             }
             return MapItem(si, productName, unit, unitValue);
         }).ToList(),
-        s.Payments.Select(p => new PaymentDto(
-            p.Id,
-            p.PaymentType.ToString().ToLowerInvariant(),
-            p.Amount,
-            p.CreatedAt,
-            null,
-            null,
-            null
-        )).ToList()
+        s.Payments
+            // Chronological: the receipt detail reads as a payment history
+            // ("оплачено … затем доплата"), which an unordered set cannot show.
+            .OrderBy(p => p.CreatedAt)
+            .Select(p => new PaymentDto(
+                p.Id,
+                p.PaymentType.ToString().ToLowerInvariant(),
+                p.Amount,
+                p.CreatedAt,
+                null,
+                null,
+                null,
+                // Only populated when the navigation was Included (sale detail).
+                p.CollectedByUser?.FullName
+            )).ToList(),
+        s.Shift?.ShiftNumber ?? 0
     );
 
     public static async Task<SaleDto> MapToDtoAsync(

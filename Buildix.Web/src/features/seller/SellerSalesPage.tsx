@@ -11,6 +11,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import { salesApi, type Sale } from '@/features/sales/api';
+import { SaleDetailModal } from '@/features/sales/SaleDetailModal';
 import { shiftsApi } from '@/features/shifts/api';
 
 const PAGE_SIZE = 20;
@@ -43,6 +44,7 @@ export default function SellerSalesPage() {
   const [pay, setPay] = useState<PayFilter>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [openSale, setOpenSale] = useState<Sale | null>(null);
   const debouncedSearch = useDebounce(search);
   const range = useMemo(() => periodRange(period), [period]);
 
@@ -165,7 +167,9 @@ export default function SellerSalesPage() {
           ) : period === 'shift' && !shiftId ? (
             <div className="py-20 text-center text-[14px] text-muted-2">{t('shifts.noOpenShift')}</div>
           ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((sale) => <SaleRow key={sale.id} sale={sale} />)
+            listQuery.data.items.map((sale) => (
+              <SaleRow key={sale.id} sale={sale} onOpen={() => setOpenSale(sale)} />
+            ))
           ) : (
             <div className="py-20 text-center text-[14px] text-muted-2">{t('sales.empty')}</div>
           )}
@@ -201,6 +205,8 @@ export default function SellerSalesPage() {
           </div>
         )}
       </div>
+
+      <SaleDetailModal sale={openSale} onClose={() => setOpenSale(null)} />
     </>
   );
 }
@@ -214,7 +220,7 @@ function paymentBadge(sale: Sale): { key: string; tone: 'success' | 'info' | 'wa
   return { key: 'cash', tone: 'success' };
 }
 
-function SaleRow({ sale }: { sale: Sale }) {
+function SaleRow({ sale, onOpen }: { sale: Sale; onOpen: () => void }) {
   const { t } = useTranslation();
   const badge = paymentBadge(sale);
   const itemsText =
@@ -224,7 +230,12 @@ function SaleRow({ sale }: { sale: Sale }) {
         ? sale.items[0]!.productName
         : `${sale.items[0]!.productName} +${sale.items.length - 1}`;
   return (
-    <div className={cn('grid items-center gap-4 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40', GRID)}>
+    // Chekni ochish uchun butun qator bosiladi — «Смешанно» chekda qaysi
+    // to'lov qancha bo'lganini ko'rishning boshqa yo'li yo'q edi.
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn('grid w-full items-center gap-4 border-b border-hairline px-6 py-3.5 text-left text-[13px] last:border-0 hover:bg-bg/40', GRID)}>
       <span className="font-semibold text-primary nums">№{sale.saleNumber}</span>
       <span className="text-muted-2 nums">{formatTime(sale.createdAt)}</span>
       <span className="truncate text-muted">{itemsText}</span>
@@ -233,6 +244,6 @@ function SaleRow({ sale }: { sale: Sale }) {
         <Badge tone={badge.tone}>{t(`sales.payment.${badge.key}` as never)}</Badge>
       </span>
       <span className="text-right font-semibold nums">{formatSum(sale.totalAmount)}</span>
-    </div>
+    </button>
   );
 }

@@ -52,7 +52,13 @@ public record PaymentDto(
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("saleStatus")] string? SaleStatus,
     [property: JsonPropertyName("salePaidAmount")] decimal? SalePaidAmount,
-    [property: JsonPropertyName("saleTotalAmount")] decimal? SaleTotalAmount
+    [property: JsonPropertyName("saleTotalAmount")] decimal? SaleTotalAmount,
+    /// <summary>
+    /// Who physically took the money, when that is not the sale's own seller —
+    /// a debt paid off later can be collected by a different cashier. Null on
+    /// the ordinary at-checkout case (and on write paths, which do not load it).
+    /// </summary>
+    [property: JsonPropertyName("collectedByName")] string? CollectedByName = null
 );
 
 public record SaleDto(
@@ -70,7 +76,12 @@ public record SaleDto(
     [property: JsonPropertyName("discountAmount")] decimal DiscountAmount,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("items")] List<SaleItemDto> Items,
-    [property: JsonPropertyName("payments")] List<PaymentDto> Payments
+    [property: JsonPropertyName("payments")] List<PaymentDto> Payments,
+    /// <summary>
+    /// The shift this receipt belongs to ("Смена №112"). 0 when the sale predates
+    /// <c>Sale.ShiftId</c> or the caller did not load the navigation.
+    /// </summary>
+    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0
 );
 
 public record CreateSaleDto(
