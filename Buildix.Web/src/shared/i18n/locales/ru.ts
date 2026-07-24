@@ -881,6 +881,9 @@ export const ru = {
       empty: 'Продаж пока нет',
       cols: { time: 'ВРЕМЯ', seller: 'ПРОДАВЕЦ', items: 'ТОВАРЫ', pay: 'ОПЛАТА', sum: 'СУММА' },
     },
+    attention: {
+      title: 'Требует внимания',
+    },
     lowStock: {
       title: 'Заканчиваются на складе',
       order: 'Оформить закуп',

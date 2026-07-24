@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { format, startOfDay, isSameDay, parseISO, differenceInCalendarDays } from 'date-fns';
-import { Plus, Receipt, TrendingUp, Wallet, CreditCard } from 'lucide-react';
+import { Plus, Receipt, TrendingUp, Wallet, CreditCard, AlertTriangle, Boxes, Clock, Truck, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -23,6 +24,7 @@ import { PERMISSIONS } from '@/shared/config/permissions';
 import { purchasesApi, type ReorderSuggestion } from '@/features/purchases/api';
 import { debtsApi, type DebtorSummary } from '@/features/debts/api';
 import { shiftsApi, type Shift } from '@/features/shifts/api';
+import { notificationsApi, type NotificationItem } from '@/features/notifications/api';
 import { dashboardApi, type DailySale, type WeeklyPoint } from './api';
 
 /**
@@ -72,6 +74,7 @@ export default function DashboardPage() {
   const canShift = hasPermission(PERMISSIONS.users.shift);
   const canZakup = hasPermission(PERMISSIONS.zakup.access);
   const canDebts = hasPermission(PERMISSIONS.debts.access);
+  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
   const canCreateSale = hasPermission(PERMISSIONS.sales.create);
 
   // H-13: send the Tashkent calendar date (no time/offset) so the server's
@@ -128,6 +131,15 @@ export default function DashboardPage() {
     enabled: canDebts,
     ...slow,
   });
+  // «Требует внимания» — the server notification feed, narrowed to items that
+  // still need an owner decision (Warning/Danger). Same source as the sidebar
+  // bell, so a resolved alert drops off both places at once.
+  const attentionQuery = useQuery({
+    queryKey: ['dash-attention'],
+    queryFn: () => notificationsApi.feed(null),
+    enabled: canNotifications,
+    ...slow,
+  });
 
   const todaySales = todayQuery.data;
   const cash = cashQuery.data;
@@ -163,6 +175,17 @@ export default function DashboardPage() {
       .sort((a, b) => (a.nearestDueDate! < b.nearestDueDate! ? -1 : 1))
       .slice(0, 4);
   }, [debtorsQuery.data]);
+
+  // Only actionable alerts on the dashboard; Info/Success events stay in the
+  // full feed. Danger first, then Warning, capped so the panel stays glanceable.
+  const attention = useMemo(() => {
+    const items = attentionQuery.data?.items ?? [];
+    const rank = (s: string) => (s === 'Danger' ? 0 : s === 'Warning' ? 1 : 2);
+    return items
+      .filter((n) => n.severity === 'Danger' || n.severity === 'Warning')
+      .sort((a, b) => rank(a.severity) - rank(b.severity))
+      .slice(0, 4);
+  }, [attentionQuery.data]);
 
   const margin =
     todaySales && todaySales.totalAmount > 0 && profitQuery.data
@@ -266,6 +289,12 @@ export default function DashboardPage() {
 
           {/* Right column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
+            {canNotifications && attention.length > 0 && (
+              <AttentionCard
+                items={attention}
+                onOpen={(n) => n.actionTarget && navigate(`/${subdomain}/${n.actionTarget}`)}
+              />
+            )}
             {canZakup && (
               <LowStockCard
                 items={lowStockQuery.data ?? []}
@@ -457,6 +486,51 @@ function RecentSaleRow({ sale }: { sale: DailySale }) {
       </span>
       <span className="text-right font-semibold nums">{formatSum(sale.totalAmount)}</span>
     </div>
+  );
+}
+
+const ATTN_CAT_ICON: Record<string, LucideIcon> = { Warehouse: Boxes, Debt: CreditCard, Shift: Clock, Supply: Truck };
+const ATTN_TONE: Record<string, { row: string; icon: string; title: string; text: string }> = {
+  Danger: { row: 'bg-danger-soft border-danger/25', icon: 'text-danger', title: 'text-danger', text: 'text-danger/80' },
+  Warning: { row: 'bg-warn-soft border-warn-amber/30', icon: 'text-warn-strong', title: 'text-warn-strong', text: 'text-warn-strong/85' },
+};
+
+/**
+ * «Требует внимания» — the actionable slice of the notification feed, shown as
+ * severity-tinted rows. Clicking a row deep-links to where it gets resolved
+ * (склад / долги / смены), matching the sidebar bell's target.
+ */
+function AttentionCard({ items, onOpen }: { items: NotificationItem[]; onOpen: (n: NotificationItem) => void }) {
+  const { t } = useTranslation();
+  return (
+    <Card className="p-[22px]">
+      <h3 className="mb-3.5 text-[15px] font-semibold">{t('dashboard.attention.title')}</h3>
+      <div className="flex flex-col gap-2.5">
+        {items.map((n) => {
+          const tone = ATTN_TONE[n.severity] ?? ATTN_TONE.Warning!;
+          const Icon = ATTN_CAT_ICON[n.category] ?? AlertTriangle;
+          return (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => onOpen(n)}
+              className={cn(
+                'flex w-full items-start gap-2.5 rounded-input border px-3.5 py-3 text-left transition-opacity',
+                tone.row,
+                n.actionTarget ? 'hover:opacity-80' : 'cursor-default',
+              )}
+            >
+              <Icon size={16} className={cn('mt-0.5 flex-none', tone.icon)} />
+              <span className="min-w-0 flex-1">
+                <span className={cn('block truncate text-[13px] font-semibold', tone.title)}>{n.title}</span>
+                <span className={cn('mt-0.5 block truncate text-[12px]', tone.text)}>{n.text}</span>
+              </span>
+              {n.actionTarget && <ChevronRight size={15} className={cn('mt-0.5 flex-none', tone.icon)} />}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

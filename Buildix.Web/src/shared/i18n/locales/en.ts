@@ -879,6 +879,9 @@ export const en: TranslationSchema = {
       empty: 'No sales yet',
       cols: { time: 'TIME', seller: 'SELLER', items: 'ITEMS', pay: 'PAYMENT', sum: 'AMOUNT' },
     },
+    attention: {
+      title: 'Needs attention',
+    },
     lowStock: {
       title: 'Running low in stock',
       order: 'Create purchase',

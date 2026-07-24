@@ -879,6 +879,9 @@ export const uz: TranslationSchema = {
       empty: 'Hozircha sotuvlar yo‘q',
       cols: { time: 'VAQT', seller: 'SOTUVCHI', items: 'TOVARLAR', pay: 'TO‘LOV', sum: 'SUMMA' },
     },
+    attention: {
+      title: 'E’tibor talab qiladi',
+    },
     lowStock: {
       title: 'Omborda tugayapti',
       order: 'Xaridni rasmiylashtirish',
