@@ -42,6 +42,13 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     queryFn: () => productsApi.listPaged({ page: 1, size: 20, search: debouncedSearch }),
     enabled: open,
   });
+  // Quick-add: low-stock products one click away (design Card4). Not yet in the cart.
+  const reorderQuery = useQuery({
+    queryKey: ['reorder'],
+    queryFn: () => purchasesApi.reorderSuggestions(8),
+    enabled: open,
+  });
+  const quickAdd = (reorderQuery.data ?? []).filter((r) => !lines.some((l) => l.productId === r.productId));
 
   const total = useMemo(() => lines.reduce((s, l) => s + l.quantity * l.costPrice, 0), [lines]);
 
@@ -74,6 +81,18 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   const setLine = (productId: string, patch: Partial<DraftLine>) =>
     setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, ...patch } : l)));
   const removeLine = (productId: string) => setLines((prev) => prev.filter((l) => l.productId !== productId));
+
+  // Quick-add a low-stock product: seed the suggested qty; cost is entered per line.
+  function addSuggestion(s: { productId: string; name: string; unit: number; unitName: string; suggestedQty: number }) {
+    setLines((prev) =>
+      prev.some((l) => l.productId === s.productId)
+        ? prev
+        : [
+            ...prev,
+            { productId: s.productId, name: s.name, unit: s.unit, unitName: s.unitName, quantity: Math.max(1, Math.round(s.suggestedQty)) || 1, costPrice: 0 },
+          ],
+    );
+  }
 
   const create = useMutation({
     mutationFn: () =>
@@ -142,6 +161,26 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
             <input value={invoice} onChange={(e) => setInvoice(e.target.value)} className={inputCls} />
           </div>
         </div>
+
+        {/* Quick-add: low-stock products (design Card4) */}
+        {quickAdd.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-label">{t('purchases.newModal.quickAdd')}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {quickAdd.map((s) => (
+                <button
+                  key={s.productId}
+                  type="button"
+                  onClick={() => addSuggestion(s)}
+                  className="flex items-center gap-1.5 rounded-pill border border-warn/30 bg-warn-soft/60 px-3 py-1.5 text-[12.5px] font-medium text-warn-strong transition-colors hover:border-warn"
+                >
+                  <Plus size={13} />
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Product search */}
         <div className="flex flex-col gap-2">

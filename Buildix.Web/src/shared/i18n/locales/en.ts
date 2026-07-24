@@ -426,6 +426,7 @@ export const en: TranslationSchema = {
       subtitle: 'Incoming stock to the warehouse',
       invoice: 'Invoice №',
       addItems: 'Add products',
+      quickAdd: 'Running low — quick add',
       empty: 'Find a product and add it to the receipt',
       paidNow: 'Paid now',
       payFull: 'Full amount',

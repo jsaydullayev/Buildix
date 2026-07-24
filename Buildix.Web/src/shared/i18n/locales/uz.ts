@@ -426,6 +426,7 @@ export const uz: TranslationSchema = {
       subtitle: 'Omborga tovar kirimi',
       invoice: 'Nakladnoy №',
       addItems: 'Tovar qo‘shish',
+      quickAdd: 'Tugayapti — tez qo‘shish',
       empty: 'Tovarni toping va kirimga qo‘shing',
       paidNow: 'Hozir to‘landi',
       payFull: 'To‘liq summa',
