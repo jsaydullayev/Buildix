@@ -119,6 +119,7 @@ export const uz: TranslationSchema = {
     },
     notifications: {
       subtitle: 'Faol bildirishnomalar: {{count}}',
+      unread: 'O‘qilmagan',
       empty: 'Hammasi joyida — bildirishnoma yo‘q',
       liveHint: 'Ro‘yxat joriy holatni ko‘rsatadi: masala hal bo‘lishi bilan yozuv yo‘qoladi.',
       debtOverdue: 'Qarz muddati o‘tgan',

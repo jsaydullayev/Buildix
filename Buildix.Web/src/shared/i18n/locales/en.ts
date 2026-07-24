@@ -119,6 +119,7 @@ export const en: TranslationSchema = {
     },
     notifications: {
       subtitle: 'Active alerts: {{count}}',
+      unread: 'Unread',
       empty: 'All clear — no alerts',
       liveHint: 'This list reflects the current state: an entry disappears once the issue is resolved.',
       debtOverdue: 'Debt overdue',
