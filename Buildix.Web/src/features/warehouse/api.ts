@@ -19,6 +19,10 @@ export interface Product {
   imageUrl: string | null;
   hidePriceFromSellers: boolean;
   sku: string | null;
+  /** Seller-visible short description (Товары "Описание"). */
+  description: string | null;
+  /** Hidden from POS / seller catalog (still in reports). Distinct from hidePriceFromSellers. */
+  isHidden: boolean;
 }
 
 export interface ProductCategory {
@@ -58,6 +62,8 @@ export interface ProductQuery {
   search?: string;
   categoryId?: number | null;
   lowStockOnly?: boolean;
+  /** Admin Товары/Склад pass true to see hidden products; POS/seller omit it. */
+  includeHidden?: boolean;
 }
 
 export interface CreateProductBody {
@@ -72,6 +78,7 @@ export interface CreateProductBody {
   categoryId: number | null;
   isTemporary: boolean;
   hidePriceFromSellers: boolean;
+  description?: string | null;
 }
 
 export interface StocktakeItem {
@@ -99,8 +106,19 @@ export const productsApi = {
         search: q.search || undefined,
         categoryId: q.categoryId ?? undefined,
         lowStockOnly: q.lowStockOnly || undefined,
+        includeHidden: q.includeHidden || undefined,
       },
     });
+    return data;
+  },
+
+  /** Inline edit of a single field (sale price / min stock / visibility). Only
+   *  the given fields change; the server audits price & visibility changes. */
+  patch: async (
+    id: string,
+    body: { salePrice?: number; minThreshold?: number; isHidden?: boolean },
+  ): Promise<Product> => {
+    const { data } = await apiClient.patch<Product>(`/Products/PatchProduct/${id}`, body);
     return data;
   },
 

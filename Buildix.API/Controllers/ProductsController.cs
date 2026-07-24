@@ -81,10 +81,14 @@ public class ProductsController : ApiControllerBase
         [FromQuery] string? search = null,
         [FromQuery] int? categoryId = null,
         [FromQuery] bool lowStockOnly = false,
+        [FromQuery] bool includeHidden = false,
         CancellationToken ct = default)
     {
+        // includeHidden — faqat admin Товары/Склад ekranlari yuboradi; POS va
+        // sotuvchi katalogi standart (false) ishlatadi, shuning uchun yashirilgan
+        // tovarlar kassada ko'rinmaydi.
         var result = await _productQueryService.GetAllProductsPagedAsync(
-            page, size, CanViewCost(), search, categoryId, lowStockOnly, ct);
+            page, size, CanViewCost(), search, categoryId, lowStockOnly, includeHidden, ct);
         return Ok(result);
     }
 
@@ -146,6 +150,21 @@ public class ProductsController : ApiControllerBase
         // The service records the stock-adjust audit (old→new) itself when an
         // Owner/SuperAdmin actually moves the on-hand figure.
         var result = await _productService.UpdateProductAsync(request, CurrentUserId(), canEditStock, canEditCost, ct);
+        if (result.IsFailure)
+            return result.Code == NotFoundCode ? NotFound() : BadRequest(new { message = result.Error });
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Товары/Склад ekranidagi inline tahrir — sotuv narxi / min. qoldiq /
+    /// ko'rinish (Скрыть). Faqat berilgan maydon(lar)ni o'zgartiradi va
+    /// auditlaydi. Qoldiq/tannarx bu yerdan o'zgармaydi (ular alohida yo'llar).
+    /// </summary>
+    [HttpPatch("{id}")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<ProductDto>> PatchProduct(Guid id, [FromBody] ProductPatchDto request, CancellationToken ct = default)
+    {
+        var result = await _productService.PatchProductAsync(id, request, CurrentUserId(), ct);
         if (result.IsFailure)
             return result.Code == NotFoundCode ? NotFound() : BadRequest(new { message = result.Error });
         return Ok(result.Value);

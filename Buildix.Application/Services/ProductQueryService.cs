@@ -55,7 +55,7 @@ public class ProductQueryService : IProductQueryService
         return products.Select(p => ProductMapper.MapToDto(p, canViewCost));
     }
 
-    public async Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, bool includeHidden = false, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
@@ -66,6 +66,13 @@ public class ProductQueryService : IProductQueryService
             .AsNoTracking()
             .Include(p => p.Category)
             .Where(p => p.MarketId == marketId);
+
+        // Yashirilgan tovarlar sotuvchi katalogi va POS'dan chiqarib tashlanadi.
+        // Admin Товары/Склад ekranlari includeHidden=true bilan hammasini ko'radi.
+        // Default FALSE — shu tufayli kassa (POS) qidiruvi hech qanday
+        // o'zgarishsiz yashirilganlarni ko'rsatmaydi.
+        if (!includeHidden)
+            query = query.Where(p => !p.IsHidden);
 
         // Server-side filters (Склад: qidiruv nomi/artikuli, kategoriya, "faqat tugayotgan").
         if (!string.IsNullOrWhiteSpace(search))

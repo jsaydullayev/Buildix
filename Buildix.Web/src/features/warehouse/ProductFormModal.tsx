@@ -27,6 +27,7 @@ const numField = () =>
 const schema = z.object({
   name: z.string().min(1),
   sku: z.string().max(50).optional(),
+  description: z.string().max(1000).optional(),
   categoryId: z.preprocess(
     (v) => (v === '' || v === undefined || v === null ? null : Number(v)),
     z.number().int().nullable(),
@@ -78,6 +79,7 @@ export function ProductFormModal({
     defaultValues: {
       name: '',
       sku: '',
+      description: '',
       categoryId: null,
       unit: 1,
       salePrice: BLANK,
@@ -96,6 +98,7 @@ export function ProductFormModal({
         ? {
             name: product.name,
             sku: product.sku ?? '',
+            description: product.description ?? '',
             categoryId: product.categoryId,
             unit: product.unit,
             salePrice: numOrBlank(product.salePrice),
@@ -108,6 +111,7 @@ export function ProductFormModal({
         : {
             name: '',
             sku: '',
+            description: '',
             categoryId: null,
             unit: 1,
             salePrice: BLANK,
@@ -125,6 +129,7 @@ export function ProductFormModal({
       const body: CreateProductBody = {
         name: values.name,
         sku: values.sku?.trim() ? values.sku.trim() : null,
+        description: values.description?.trim() ? values.description.trim() : null,
         categoryId: values.categoryId,
         unit: values.unit,
         salePrice: values.salePrice,
@@ -252,6 +257,18 @@ export function ProductFormModal({
         {belowCost && (
           <div className="col-span-2 -mt-1 text-[12.5px] text-danger">{t('warehouse.form.belowCost')}</div>
         )}
+
+        <div className="col-span-2">
+          <label className="mb-1.5 block text-[13px] font-medium text-label">
+            {t('warehouse.form.description')}
+          </label>
+          <textarea
+            rows={2}
+            placeholder={t('warehouse.form.descriptionHint')}
+            className={cn(inputCls, 'h-auto w-full resize-none py-2.5')}
+            {...register('description')}
+          />
+        </div>
 
         <label className="col-span-2 flex cursor-pointer select-none items-center gap-2.5 text-[13.5px]">
           <input type="checkbox" className="h-4 w-4 accent-primary" {...register('hidePriceFromSellers')} />

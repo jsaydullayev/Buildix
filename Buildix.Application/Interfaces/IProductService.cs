@@ -18,6 +18,9 @@ public interface IProductService
     // (Owner/Admin — cost-viewers only). Defaults to false so cost-hidden callers
     // (whose GET masks CostPrice to 0) can't clobber the stored cost on edit.
     Task<Result<ProductDto>> UpdateProductAsync(UpdateProductDto request, Guid actorUserId, bool canEditStock = false, bool canEditCost = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Inline tahrir (narx/min-qoldiq/ko'rinish) — faqat berilgan maydon o'zgaradi, auditlanadi.</summary>
+    Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<bool> DeleteProductAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> UpdateStockAsync(Guid id, decimal quantityChange, CancellationToken cancellationToken = default);
 

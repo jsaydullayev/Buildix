@@ -66,7 +66,9 @@ public class ProductService : IProductService
             MarketId = marketId.Value,  // Multi-tenancy
             CategoryId = request.CategoryId,  // Category
             HidePriceFromSellers = request.HidePriceFromSellers,
-            Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim()
+            Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim(),
+            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            IsHidden = request.IsHidden
         };
 
         await _unitOfWork.Products.AddAsync(product, cancellationToken);
@@ -108,6 +110,8 @@ public class ProductService : IProductService
         // Sku: null — tegilmaydi; bo'sh satr — tozalash; aks holda trim qilib yoziladi.
         if (request.Sku is not null)
             product.Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim();
+        // Tavsif: edit-forma egasi; null/bo'sh — tozalash.
+        product.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
 
         // Faqat Owner/SuperAdmin (canEditStock) va faqat qiymat kelganda qo'llanadi.
         // Manfiy qiymat DTO Range validatsiyasida allaqachon rad etiladi.
@@ -132,6 +136,58 @@ public class ProductService : IProductService
             await _auditLog.LogActionAsync(
                 AuditEntityTypes.Product, product.Id, AuditActions.StockAdjust, actorUserId,
                 new { from = oldQuantity, to = product.Quantity });
+
+        return Result.Success(ProductMapper.MapToDto(product));
+    }
+
+    /// <summary>
+    /// Товары/Склад ekranidagi inline tahrir: sotuv narxi / min. qoldiq /
+    /// ko'rinish (Скрыть). Faqat berilgan maydon(lar) o'zgaradi. Narx o'zgarishi
+    /// marjaга ta'sir qiladi, ko'rinish esa kassa katalogini o'zgartiradi —
+    /// ikkalasi ham auditlanadi (eski→yangi). Qoldiq/tannarxga TEGMAYDI.
+    /// </summary>
+    public async Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        if (request.SalePrice is null && request.MinThreshold is null && request.IsHidden is null)
+            return Result.Failure<ProductDto>("O'zgartirish uchun kamida bitta maydon yuboring.");
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        var products = await _unitOfWork.Products.FindAsync(
+            p => p.Id == id && p.MarketId == marketId, cancellationToken);
+        var product = products.FirstOrDefault();
+        if (product is null)
+            return Result.Failure<ProductDto>("Mahsulot topilmadi.", "NOT_FOUND");
+
+        var changes = new Dictionary<string, object?>();
+
+        if (request.SalePrice is { } newPrice && newPrice != product.SalePrice)
+        {
+            changes["salePrice"] = new { from = product.SalePrice, to = newPrice };
+            product.SalePrice = newPrice;
+        }
+        if (request.MinThreshold is { } newMin && newMin != product.MinThreshold)
+        {
+            changes["minThreshold"] = new { from = product.MinThreshold, to = newMin };
+            product.MinThreshold = newMin;
+        }
+        if (request.IsHidden is { } newHidden && newHidden != product.IsHidden)
+        {
+            changes["isHidden"] = new { from = product.IsHidden, to = newHidden };
+            product.IsHidden = newHidden;
+        }
+
+        // Hech narsa o'zgarmadi — bekorga audit yozmaymiz, joriy holatni qaytaramiz.
+        if (changes.Count == 0)
+            return Result.Success(ProductMapper.MapToDto(product));
+
+        _unitOfWork.Products.Update(product);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Narx marjaга, ko'rinish kassa katalogiga ta'sir qiladi — inline bo'lsa
+        // ham iz qoldiramiz (kim, nima, eski→yangi).
+        await _auditLog.LogActionAsync(
+            AuditEntityTypes.Product, product.Id, AuditActions.Update, actorUserId,
+            new { productName = product.Name, changes });
 
         return Result.Success(ProductMapper.MapToDto(product));
     }

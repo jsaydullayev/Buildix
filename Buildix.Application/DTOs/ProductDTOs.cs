@@ -37,7 +37,11 @@ public record ProductDto(
     // (klient tomonida gate qilinadi). Mahsulotlar bo'limida narx baribir ko'rinadi.
     [property: JsonPropertyName("hidePriceFromSellers")] bool HidePriceFromSellers = false,
     // Artikul / SKU (ixtiyoriy) — Склад ekranida "АРТИКУЛ" ustuni + qidiruv.
-    [property: JsonPropertyName("sku")] string? Sku = null
+    [property: JsonPropertyName("sku")] string? Sku = null,
+    // Sotuvchiga ko'rinadigan tavsif (Товары ekrani "Описание").
+    [property: JsonPropertyName("description")] string? Description = null,
+    // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
+    [property: JsonPropertyName("isHidden")] bool IsHidden = false
 );
 
 /// <summary>
@@ -95,7 +99,13 @@ public record CreateProductDto(
     // Artikul / SKU (ixtiyoriy).
     [property: JsonPropertyName("sku")]
     [param: StringLength(50)]
-    string? Sku = null
+    string? Sku = null,
+
+    [property: JsonPropertyName("description")]
+    [param: StringLength(1000)]
+    string? Description = null,
+
+    [property: JsonPropertyName("isHidden")] bool IsHidden = false
 );
 
 public record UpdateProductDto(
@@ -142,5 +152,31 @@ public record UpdateProductDto(
     // Artikul / SKU (ixtiyoriy). Null — tegilmaydi; bo'sh satr — tozalash.
     [property: JsonPropertyName("sku")]
     [param: StringLength(50)]
-    string? Sku = null
+    string? Sku = null,
+
+    // Tavsif (Товары "Описание"). Edit-forma boshqaradi; null/bo'sh — tozalash.
+    // POS-visibility (IsHidden) esa alohida PATCH /Products/{id} orqali.
+    [property: JsonPropertyName("description")]
+    [param: StringLength(1000)]
+    string? Description = null
+);
+
+/// <summary>
+/// Товары/Склад ekranidagi INLINE tahrirlar uchun qisman patch — har maydon
+/// ixtiyoriy, faqat berilgani o'zgaradi. To'liq forma o'rniga bitta hujayra
+/// (narx / min. qoldiq / ko'rinish) tez o'zgartiriladi va alohida auditlanadi.
+/// </summary>
+public record ProductPatchDto(
+    // Sotuv narxi (inline "Цена продажи"). Null — tegilmaydi.
+    [property: JsonPropertyName("salePrice")]
+    [param: Range(0, double.MaxValue)]
+    decimal? SalePrice = null,
+
+    // Min. qoldiq (inline "Мин. остаток"). Null — tegilmaydi.
+    [property: JsonPropertyName("minThreshold")]
+    [param: Range(0, double.MaxValue)]
+    decimal? MinThreshold = null,
+
+    // POS/katalog ko'rinishi ("Скрыть/Показать"). Null — tegilmaydi.
+    [property: JsonPropertyName("isHidden")] bool? IsHidden = null
 );
