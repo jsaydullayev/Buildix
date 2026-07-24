@@ -14,6 +14,12 @@ public class Supplier : BaseEntity, ISoftDelete
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? Comment { get; set; }
+
+    /// <summary>Aloqa shaxsi (dizayndagi «Контакт»). Ixtiyoriy.</summary>
+    public string? ContactPerson { get; set; }
+
+    /// <summary>Yetkazish muddati matni, masalan "1-2 kun" (dizayndagi «Срок доставки»). Ixtiyoriy.</summary>
+    public string? DeliveryTerm { get; set; }
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
 

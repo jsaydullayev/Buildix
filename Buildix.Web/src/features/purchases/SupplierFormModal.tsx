@@ -23,6 +23,8 @@ export function SupplierFormModal({
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [contact, setContact] = useState('');
+  const [deliveryTerm, setDeliveryTerm] = useState('');
   const [address, setAddress] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export function SupplierFormModal({
     if (open) {
       setName(editing?.name ?? '');
       setPhone(editing?.phone ?? '');
+      setContact(editing?.contactPerson ?? '');
+      setDeliveryTerm(editing?.deliveryTerm ?? '');
       setAddress(editing?.address ?? '');
       setComment(editing?.comment ?? '');
       setError(null);
@@ -42,6 +46,8 @@ export function SupplierFormModal({
       const body = {
         name: name.trim(),
         phone: phone.trim() || null,
+        contactPerson: contact.trim() || null,
+        deliveryTerm: deliveryTerm.trim() || null,
         address: address.trim() || null,
         comment: comment.trim() || null,
       };
@@ -81,6 +87,14 @@ export function SupplierFormModal({
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('suppliers.form.phone')}>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} className={cn(inputCls, 'w-full nums')} />
+          </Field>
+          <Field label={t('suppliers.form.contact')}>
+            <input value={contact} onChange={(e) => setContact(e.target.value)} className={cn(inputCls, 'w-full')} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('suppliers.form.deliveryTerm')}>
+            <input value={deliveryTerm} onChange={(e) => setDeliveryTerm(e.target.value)} className={cn(inputCls, 'w-full')} />
           </Field>
           <Field label={t('suppliers.form.address')}>
             <input value={address} onChange={(e) => setAddress(e.target.value)} className={cn(inputCls, 'w-full')} />

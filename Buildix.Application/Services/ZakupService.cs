@@ -285,13 +285,15 @@ public class ZakupService : IZakupService
         return receipts.Select(MapReceiptToDto).ToList();
     }
 
-    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
 
         var marketId = _currentMarketService.GetCurrentMarketId();
         var baseQuery = ReceiptQuery(marketId);
+        if (supplierId.HasValue)
+            baseQuery = baseQuery.Where(r => r.SupplierId == supplierId.Value);
 
         var total = await baseQuery.CountAsync(cancellationToken);
         var receipts = await baseQuery
@@ -424,6 +426,51 @@ public class ZakupService : IZakupService
                 new { Payment = amount, receipt.PaidAmount, receipt.TotalAmount }, cancellationToken);
 
             return await BuildReceiptDtoAsync(receiptId, marketId, cancellationToken);
+        }, cancellationToken);
+    }
+
+    public async Task<Result<decimal>> PaySupplierDebtFifoAsync(Guid supplierId, decimal amount, Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0)
+            return Result.Failure<decimal>("To'lov summasi 0 dan katta bo'lishi kerak");
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            // Qarzi bor cheklarni ENG ESKISIDAN — eng eski buyurtma birinchi
+            // yopiladi (FIFO). Bir necha chekka taqsimlanadi.
+            var receipts = await _context.ZakupReceipts
+                .Where(r => r.MarketId == marketId && r.SupplierId == supplierId && r.PaidAmount < r.TotalAmount)
+                .OrderBy(r => r.CreatedAt)
+                .ThenBy(r => r.ReceiptNumber)
+                .ToListAsync(cancellationToken);
+
+            var totalDebt = receipts.Sum(r => r.TotalAmount - r.PaidAmount);
+            if (totalDebt <= 0)
+                return Result.Failure<decimal>("Bu yetkazib beruvchida qarz yo'q.");
+            if (amount > totalDebt)
+                amount = totalDebt; // ortiqcha to'lovni qarzgacha qisqartiramiz
+
+            var remaining = amount;
+            foreach (var receipt in receipts)
+            {
+                if (remaining <= 0) break;
+                var owed = receipt.TotalAmount - receipt.PaidAmount;
+                var pay = Math.Min(owed, remaining);
+                receipt.PaidAmount += pay;
+                receipt.PaymentStatus = DeriveStatus(receipt.PaidAmount, receipt.TotalAmount);
+                remaining -= pay;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogActionAsync(
+                AuditEntityTypes.Supplier, supplierId, AuditActions.Update, userId,
+                new { SupplierDebtPayment = amount, ReceiptsAffected = receipts.Count(r => r.PaidAmount >= r.TotalAmount || r.PaidAmount > 0) },
+                cancellationToken);
+
+            return Result.Success(amount);
         }, cancellationToken);
     }
 

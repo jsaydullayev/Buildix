@@ -151,9 +151,9 @@ public class ZakupsController : ApiControllerBase
 
     [HttpGet]
     [RequirePermission(PermissionKeys.ZakupAccess)]
-    public async Task<IActionResult> GetReceiptsPaged([FromQuery] int page = 1, [FromQuery] int size = 50)
+    public async Task<IActionResult> GetReceiptsPaged([FromQuery] int page = 1, [FromQuery] int size = 50, [FromQuery] Guid? supplierId = null)
     {
-        var result = await _zakupService.GetAllZakupReceiptsPagedAsync(page, size);
+        var result = await _zakupService.GetAllZakupReceiptsPagedAsync(page, size, supplierId);
         return Ok(_zakupShaper.ShapeReceiptsPaged(result, CanViewCost()));
     }
 

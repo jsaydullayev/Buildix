@@ -24,6 +24,8 @@ export interface Supplier {
   comment?: string | null;
   outstandingDebt: number;
   receiptCount: number;
+  contactPerson?: string | null;
+  deliveryTerm?: string | null;
 }
 
 /** One product line of a receipt (Owner view — carries cost). */
@@ -77,6 +79,8 @@ export interface SupplierBody {
   phone?: string | null;
   address?: string | null;
   comment?: string | null;
+  contactPerson?: string | null;
+  deliveryTerm?: string | null;
 }
 
 /** Blocker check before deleting a supplier. */
@@ -102,11 +106,16 @@ export interface ReorderSuggestion {
 }
 
 export const purchasesApi = {
-  receiptsPaged: async (page = 1, size = 20): Promise<PagedResult<ZakupReceipt>> => {
+  receiptsPaged: async (page = 1, size = 20, supplierId?: string): Promise<PagedResult<ZakupReceipt>> => {
     const { data } = await apiClient.get<PagedResult<ZakupReceipt>>('/Zakups/GetReceiptsPaged', {
-      params: { page, size },
+      params: { page, size, supplierId: supplierId || undefined },
     });
     return data;
+  },
+
+  /** «Погасить долг» — FIFO pay across the supplier's unpaid receipts. */
+  paySupplierDebt: async (supplierId: string, amount: number): Promise<void> => {
+    await apiClient.post(`/Suppliers/${supplierId}/pay-debt`, { amount });
   },
 
   allReceipts: async (): Promise<ZakupReceipt[]> => {

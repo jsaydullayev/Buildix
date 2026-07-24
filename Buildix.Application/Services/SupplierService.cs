@@ -117,6 +117,8 @@ public class SupplierService : ISupplierService
             Phone = request.Phone,
             Address = request.Address,
             Comment = request.Comment,
+            ContactPerson = request.ContactPerson,
+            DeliveryTerm = request.DeliveryTerm,
             IsDeleted = false,
             MarketId = marketId,
         };
@@ -153,6 +155,8 @@ public class SupplierService : ISupplierService
         if (request.Phone is not null && request.Phone != supplier.Phone) { supplier.Phone = request.Phone; changed = true; }
         if (request.Address is not null && request.Address != supplier.Address) { supplier.Address = request.Address; changed = true; }
         if (request.Comment is not null && request.Comment != supplier.Comment) { supplier.Comment = request.Comment; changed = true; }
+        if (request.ContactPerson is not null && request.ContactPerson != supplier.ContactPerson) { supplier.ContactPerson = request.ContactPerson; changed = true; }
+        if (request.DeliveryTerm is not null && request.DeliveryTerm != supplier.DeliveryTerm) { supplier.DeliveryTerm = request.DeliveryTerm; changed = true; }
 
         if (changed)
             await _context.SaveChangesAsync(cancellationToken);
@@ -240,6 +244,8 @@ public class SupplierService : ISupplierService
         s.Address,
         s.Comment,
         outstandingDebt,
-        receiptCount
+        receiptCount,
+        s.ContactPerson,
+        s.DeliveryTerm
     );
 }
