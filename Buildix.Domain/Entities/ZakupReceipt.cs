@@ -42,6 +42,12 @@ public class ZakupReceipt : BaseEntity
     /// </summary>
     public DeliveryStatus DeliveryStatus { get; set; } = DeliveryStatus.Accepted;
 
+    // ── Yetkazish maʼlumotlari (В пути kartochkasi — Поставки ekrani) ────────
+    /// <summary>Haydovchi telefoni ("водитель: +998...") — InTransit uchun.</summary>
+    public string? DriverPhone { get; set; }
+    /// <summary>Kutilayotgan yetib kelish vaqti (ETA). O'tib ketsa «задерживается».</summary>
+    public DateTime? ExpectedDate { get; set; }
+
     public string? Comment { get; set; }
 
     public Guid CreatedByAdminId { get; set; }

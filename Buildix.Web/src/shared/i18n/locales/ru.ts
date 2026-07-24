@@ -128,9 +128,17 @@ export const ru = {
     },
     supplies: {
       title: 'Поставки',
-      subtitle: 'Приход товара · создаётся администратором',
+      subtitle: 'Создаются администратором · вам доступен просмотр и приёмка',
       readOnly: 'Просмотр — изменение и приёмка настраиваются администратором',
       received: 'принята',
+      allTitle: 'Все поставки',
+      accept: 'Начать приёмку',
+      acceptOnArrival: 'Приёмка станет доступна по прибытии',
+      eta: 'прибытие: {{date}}',
+      positionsAmounts: '{{count}} позиций · суммы видны владельцу',
+      filters: { all: 'Все', awaiting: 'Ожидаются', accepted: 'Принятые' },
+      cols: { positions: 'ПОЗИЦИЙ' },
+      state: { accepted: 'принята', awaiting: 'ожидает приёмки', inTransit: 'в пути', delayed: 'задерживается' },
     },
     notifications: {
       subtitle: 'Активных уведомлений: {{count}}',

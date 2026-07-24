@@ -46,12 +46,15 @@ public record ZakupReceiptDto(
     [property: JsonPropertyName("itemCount")] int ItemCount,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("createdBy")] string CreatedBy,
-    [property: JsonPropertyName("items")] IReadOnlyList<ZakupReceiptLineDto> Items
+    [property: JsonPropertyName("items")] IReadOnlyList<ZakupReceiptLineDto> Items,
+    [property: JsonPropertyName("driverPhone")] string? DriverPhone = null,
+    [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null
 );
 
 /// <summary>Seller-safe receipt — no cost, totals, or payment figures.</summary>
 public record ZakupReceiptSellerDto(
     [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("receiptNumber")] int ReceiptNumber,
     [property: JsonPropertyName("supplierId")] Guid? SupplierId,
     [property: JsonPropertyName("supplierName")] string? SupplierName,
     [property: JsonPropertyName("invoiceNumber")] string? InvoiceNumber,
@@ -59,7 +62,10 @@ public record ZakupReceiptSellerDto(
     [property: JsonPropertyName("itemCount")] int ItemCount,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("createdBy")] string CreatedBy,
-    [property: JsonPropertyName("items")] IReadOnlyList<ZakupReceiptLineSellerDto> Items
+    [property: JsonPropertyName("items")] IReadOnlyList<ZakupReceiptLineSellerDto> Items,
+    // Yetkazish maʼlumotlari — narх emas, seller ko'radi.
+    [property: JsonPropertyName("driverPhone")] string? DriverPhone = null,
+    [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null
 );
 
 // ── Write DTOs ──────────────────────────────────────────────────────────────
@@ -100,7 +106,14 @@ public record CreateZakupReceiptDto(
 
     // True — hujjat «В пути» sifatida yaratiladi, tovar OMBORGA KIRMAYDI (accept'da
     // kiradi). False (default, backward-compat) — hozirgidek darhol qabul + stok.
-    [property: JsonPropertyName("inTransit")] bool InTransit = false
+    [property: JsonPropertyName("inTransit")] bool InTransit = false,
+
+    // «В пути» yetkazish maʼlumotlari (ixtiyoriy) — haydovchi tel + kutilgan sana.
+    [property: JsonPropertyName("driverPhone")]
+    [param: StringLength(30)]
+    string? DriverPhone = null,
+
+    [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null
 );
 
 /// <summary>Register an additional payment toward a receipt's supplier debt.</summary>

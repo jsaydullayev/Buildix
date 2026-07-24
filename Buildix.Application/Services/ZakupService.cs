@@ -168,6 +168,8 @@ public class ZakupService : IZakupService
                 CreatedAt = DateTime.UtcNow,
                 // «В пути» — stok accept'da kiradi; aks holda darhol (backward-compat).
                 DeliveryStatus = request.InTransit ? DeliveryStatus.InTransit : DeliveryStatus.Accepted,
+                DriverPhone = string.IsNullOrWhiteSpace(request.DriverPhone) ? null : request.DriverPhone.Trim(),
+                ExpectedDate = request.ExpectedDate,
             };
             await _context.ZakupReceipts.AddAsync(receipt, cancellationToken);
 
@@ -605,7 +607,9 @@ public class ZakupService : IZakupService
             i.Product?.Name ?? "Unknown",
             i.Quantity,
             i.CostPrice,
-            i.Quantity * i.CostPrice)).ToList()
+            i.Quantity * i.CostPrice)).ToList(),
+        r.DriverPhone,
+        r.ExpectedDate
     );
 
     private static ZakupDto MapToDtoEager(Zakup zakup) => new(

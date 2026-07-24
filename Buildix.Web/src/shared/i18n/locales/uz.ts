@@ -130,9 +130,17 @@ export const uz: TranslationSchema = {
     },
     supplies: {
       title: 'Postavka',
-      subtitle: 'Tovar kirimi · administrator tomonidan yaratiladi',
+      subtitle: 'Administrator yaratadi · sizga ko‘rish va qabul qilish mumkin',
       readOnly: 'Ko‘rish — o‘zgartirish va qabul qilish administratorda',
       received: 'qabul qilingan',
+      allTitle: 'Barcha postavkalar',
+      accept: 'Qabulni boshlash',
+      acceptOnArrival: 'Qabul yetib kelgach ochiladi',
+      eta: 'yetib kelishi: {{date}}',
+      positionsAmounts: '{{count}} pozitsiya · summalar egaga ko‘rinadi',
+      filters: { all: 'Barchasi', awaiting: 'Kutilmoqda', accepted: 'Qabul qilingan' },
+      cols: { positions: 'POZITSIYA' },
+      state: { accepted: 'qabul qilingan', awaiting: 'qabul kutilmoqda', inTransit: 'yo‘lda', delayed: 'kechikmoqda' },
     },
     notifications: {
       subtitle: 'Faol bildirishnomalar: {{count}}',

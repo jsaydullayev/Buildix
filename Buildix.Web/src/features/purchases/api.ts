@@ -14,6 +14,11 @@ export interface ZakupReceipt {
   deliveryStatus: string; // Accepted | InTransit
   itemCount: number;
   createdAt: string;
+  /** «В пути» delivery info (seller Поставки cards). */
+  driverPhone?: string | null;
+  expectedDate?: string | null;
+  /** Line items (product + qty). Seller view carries no cost. */
+  items?: { productId: string; productName: string; quantity: number }[];
 }
 
 export interface Supplier {

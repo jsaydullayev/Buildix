@@ -130,9 +130,17 @@ export const en: TranslationSchema = {
     },
     supplies: {
       title: 'Supplies',
-      subtitle: 'Incoming goods · created by the administrator',
+      subtitle: 'Created by the administrator · you can view and receive',
       readOnly: 'View only — editing and receiving are handled by the administrator',
       received: 'received',
+      allTitle: 'All supplies',
+      accept: 'Start receiving',
+      acceptOnArrival: 'Receiving opens on arrival',
+      eta: 'arrival: {{date}}',
+      positionsAmounts: '{{count}} positions · amounts visible to the owner',
+      filters: { all: 'All', awaiting: 'Awaited', accepted: 'Received' },
+      cols: { positions: 'POSITIONS' },
+      state: { accepted: 'received', awaiting: 'awaiting receipt', inTransit: 'in transit', delayed: 'delayed' },
     },
     notifications: {
       subtitle: 'Active alerts: {{count}}',

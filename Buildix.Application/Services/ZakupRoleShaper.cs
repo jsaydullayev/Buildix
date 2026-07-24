@@ -15,8 +15,9 @@ public sealed class ZakupRoleShaper : IZakupRoleShaper
         new(z.Id, z.ProductId, z.ProductName, z.Quantity, z.CreatedAt, z.CreatedBy);
 
     private static ZakupReceiptSellerDto ToSeller(ZakupReceiptDto r) => new(
-        r.Id, r.SupplierId, r.SupplierName, r.InvoiceNumber, r.DeliveryStatus, r.ItemCount, r.CreatedAt, r.CreatedBy,
-        r.Items.Select(i => new ZakupReceiptLineSellerDto(i.Id, i.ProductId, i.ProductName, i.Quantity)).ToList());
+        r.Id, r.ReceiptNumber, r.SupplierId, r.SupplierName, r.InvoiceNumber, r.DeliveryStatus, r.ItemCount, r.CreatedAt, r.CreatedBy,
+        r.Items.Select(i => new ZakupReceiptLineSellerDto(i.Id, i.ProductId, i.ProductName, i.Quantity)).ToList(),
+        r.DriverPhone, r.ExpectedDate);
 
     public object ShapeZakup(ZakupDto zakup, bool canViewCost) =>
         canViewCost ? zakup : ToSeller(zakup);
