@@ -918,7 +918,23 @@ export const ru = {
       title: 'Последние продажи',
       all: 'Все продажи',
       empty: 'Продаж пока нет',
+      openHint: 'Открыть чек — изменить, аннулировать, вернуть',
       cols: { time: 'ВРЕМЯ', seller: 'ПРОДАВЕЦ', items: 'ТОВАРЫ', pay: 'ОПЛАТА', sum: 'СУММА' },
+    },
+    purchases: {
+      title: 'Закупы',
+      all: 'Все закупы',
+      empty: 'Закупов пока нет',
+      inTransit: 'В пути',
+      accepted: 'Принят',
+      accept: 'Принять',
+    },
+    sellerAccess: {
+      title: 'Доступы продавцов',
+      configure: 'Настроить',
+      empty: 'Продавцы не добавлены',
+      active: 'Активен',
+      blocked: 'Заблокирован',
     },
     attention: {
       title: 'Требует внимания',

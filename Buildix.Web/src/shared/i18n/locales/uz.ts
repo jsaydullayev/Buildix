@@ -916,7 +916,23 @@ export const uz: TranslationSchema = {
       title: 'So‘nggi sotuvlar',
       all: 'Barcha sotuvlar',
       empty: 'Hozircha sotuvlar yo‘q',
+      openHint: 'Chekni ochish — o‘zgartirish, bekor qilish, qaytarish',
       cols: { time: 'VAQT', seller: 'SOTUVCHI', items: 'TOVARLAR', pay: 'TO‘LOV', sum: 'SUMMA' },
+    },
+    purchases: {
+      title: 'Xaridlar',
+      all: 'Barcha xaridlar',
+      empty: 'Hozircha xaridlar yo‘q',
+      inTransit: 'Yo‘lda',
+      accepted: 'Qabul qilingan',
+      accept: 'Qabul qilish',
+    },
+    sellerAccess: {
+      title: 'Sotuvchilar ruxsati',
+      configure: 'Sozlash',
+      empty: 'Sotuvchilar qo‘shilmagan',
+      active: 'Faol',
+      blocked: 'Bloklangan',
     },
     attention: {
       title: 'E’tibor talab qiladi',

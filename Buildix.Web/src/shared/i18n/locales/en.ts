@@ -916,7 +916,23 @@ export const en: TranslationSchema = {
       title: 'Recent sales',
       all: 'All sales',
       empty: 'No sales yet',
+      openHint: 'Open receipt — edit, void, refund',
       cols: { time: 'TIME', seller: 'SELLER', items: 'ITEMS', pay: 'PAYMENT', sum: 'AMOUNT' },
+    },
+    purchases: {
+      title: 'Purchases',
+      all: 'All purchases',
+      empty: 'No purchases yet',
+      inTransit: 'In transit',
+      accepted: 'Accepted',
+      accept: 'Accept',
+    },
+    sellerAccess: {
+      title: 'Seller access',
+      configure: 'Configure',
+      empty: 'No sellers added',
+      active: 'Active',
+      blocked: 'Blocked',
     },
     attention: {
       title: 'Needs attention',
