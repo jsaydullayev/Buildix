@@ -159,6 +159,12 @@ export const uz: TranslationSchema = {
       range: { week: 'Hafta', month: 'Oy', all: 'Butun davr' },
       total: 'Davr uchun jami',
     },
+    sales: {
+      returnsStat: 'Qaytarishlar',
+      returnsSum: '· {{value}} so‘m',
+      returnOf: '№{{number}} chek bo‘yicha qaytarish',
+      returnHint: 'Qaytarish chek kartochkasi orqali rasmiylashtiriladi · oldingi smenalar tarixi «Mening smenalarim»da',
+    },
   },
   auth: {
     title: 'Tizimga kirish',
@@ -358,6 +364,7 @@ export const uz: TranslationSchema = {
       mixed: 'Aralash',
       credit: 'Avans',
       returned: 'Qaytarilgan',
+      returns: 'Qaytarishlar',
     },
     cols: {
       number: 'CHEK №',

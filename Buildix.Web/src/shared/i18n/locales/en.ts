@@ -159,6 +159,12 @@ export const en: TranslationSchema = {
       range: { week: 'Week', month: 'Month', all: 'All time' },
       total: 'Period total',
     },
+    sales: {
+      returnsStat: 'Returns',
+      returnsSum: '· {{value}} sum',
+      returnOf: 'return for receipt №{{number}}',
+      returnHint: 'Returns are processed via the receipt card · past-shift history is in «My shifts»',
+    },
   },
   auth: {
     title: 'Sign in',
@@ -358,6 +364,7 @@ export const en: TranslationSchema = {
       mixed: 'Mixed',
       credit: 'Credit',
       returned: 'Refunded',
+      returns: 'Returns',
     },
     cols: {
       number: 'RECEIPT №',

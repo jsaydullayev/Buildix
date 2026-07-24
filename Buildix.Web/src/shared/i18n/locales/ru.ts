@@ -157,6 +157,12 @@ export const ru = {
       range: { week: 'Неделя', month: 'Месяц', all: 'Всё время' },
       total: 'Итого за период',
     },
+    sales: {
+      returnsStat: 'Возвратов',
+      returnsSum: '· {{value}} сум',
+      returnOf: 'возврат по чеку №{{number}}',
+      returnHint: 'Возврат оформляется через карточку чека · история прошлых смен доступна в «Мои смены»',
+    },
   },
   auth: {
     title: 'Вход в систему',
@@ -358,6 +364,7 @@ export const ru = {
       mixed: 'Смешанно',
       credit: 'Аванс',
       returned: 'Возврат',
+      returns: 'Возвраты',
     },
     cols: {
       number: 'ЧЕК №',

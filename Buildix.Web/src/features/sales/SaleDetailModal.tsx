@@ -32,7 +32,17 @@ const STATUS_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = {
  * the shift number, the time of each payment, and who collected it when a debt
  * was paid off later by a different cashier.
  */
-export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null; onClose: () => void }) {
+export function SaleDetailModal({
+  sale: listRow,
+  onClose,
+  onReturn,
+}: {
+  sale: Sale | null;
+  onClose: () => void;
+  /** Возврат oqimini egallash — berilsa, admin `/returns` sahifasiga o'tish
+   *  o'rniga chaqiriladi (seller shell'da alohida returns marshruti yo'q). */
+  onReturn?: (saleNumber: number) => void;
+}) {
   const { t, i18n } = useTranslation();
   const { subdomain } = useParams();
   const navigate = useNavigate();
@@ -52,7 +62,7 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
   const sale = detailQuery.data ?? listRow;
 
   const canCancel = hasPermission(PERMISSIONS.sales.delete);
-  const canReturn = hasPermission(PERMISSIONS.sales.edit);
+  const canReturn = hasPermission(PERMISSIONS.sales.return);
   const reversible = !!sale && REVERSIBLE.has(sale.status);
 
   const onErr = (e: unknown) => setActionError((e as ApiError).message ?? t('common.somethingWrong'));
@@ -72,8 +82,12 @@ export function SaleDetailModal({ sale: listRow, onClose }: { sale: Sale | null;
   // (which left no reason/refund-method/document), hand off to the Возвраты
   // screen with this receipt pre-loaded, so every return files a В-## document.
   function goToReturn() {
+    const number = sale!.saleNumber;
     onClose();
-    navigate(`/${subdomain}/returns?receipt=${sale!.saleNumber}`);
+    // Seller shell (onReturn beriladi) — inline NewReturnModal; admin — Возвраты
+    // sahifasi chek raqami bilan oldindan yuklangan holda.
+    if (onReturn) onReturn(number);
+    else navigate(`/${subdomain}/returns?receipt=${number}`);
   }
 
   if (!sale) return null;
