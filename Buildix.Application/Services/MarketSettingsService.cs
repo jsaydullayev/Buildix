@@ -41,6 +41,10 @@ public class MarketSettingsService : IMarketSettingsService
         s.DefaultDebtLimit = Math.Max(0m, r.DefaultDebtLimit);
         s.AllowedCashDiscrepancy = Math.Max(0m, r.AllowedCashDiscrepancy);
         s.ShiftAutoCloseTime = ParseTime(r.ShiftAutoCloseTime);
+        // Davomat rejasi — noto'g'ri "HH:mm" kelsa joriy qiymat saqlanadi.
+        s.WorkDayStart = ParseTime(r.WorkDayStart) ?? s.WorkDayStart;
+        s.WorkDayEnd = ParseTime(r.WorkDayEnd) ?? s.WorkDayEnd;
+        s.LateThreshold = ParseTime(r.LateThreshold) ?? s.LateThreshold;
         s.ReceiptHeader = Trim(r.ReceiptHeader);
         s.ReceiptFooter = Trim(r.ReceiptFooter);
         s.AutoPrintReceipt = r.AutoPrintReceipt;
@@ -92,6 +96,9 @@ public class MarketSettingsService : IMarketSettingsService
         DefaultDebtLimit: s.DefaultDebtLimit,
         AllowedCashDiscrepancy: s.AllowedCashDiscrepancy,
         ShiftAutoCloseTime: s.ShiftAutoCloseTime?.ToString("HH:mm", CultureInfo.InvariantCulture),
+        WorkDayStart: s.WorkDayStart.ToString("HH:mm", CultureInfo.InvariantCulture),
+        WorkDayEnd: s.WorkDayEnd.ToString("HH:mm", CultureInfo.InvariantCulture),
+        LateThreshold: s.LateThreshold.ToString("HH:mm", CultureInfo.InvariantCulture),
         ReceiptHeader: s.ReceiptHeader,
         ReceiptFooter: s.ReceiptFooter,
         AutoPrintReceipt: s.AutoPrintReceipt,

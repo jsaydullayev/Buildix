@@ -153,6 +153,16 @@ export default function SettingsPage() {
             suffix={t('common.currency')}
             wide
           />
+          {/* Посещаемость — davomat rejasi (Смены → Посещаемость tab) */}
+          <div className="border-t border-hairline pt-4">
+            <div className="text-[14px] font-medium">{t('settings.attendance.title')}</div>
+            <p className="mb-3 mt-0.5 text-[12px] text-muted-2">{t('settings.attendance.hint')}</p>
+            <div className="grid grid-cols-3 gap-3">
+              <TimeField label={t('settings.attendance.start')} value={form.workDayStart} onChange={(v) => set('workDayStart', v)} />
+              <TimeField label={t('settings.attendance.end')} value={form.workDayEnd} onChange={(v) => set('workDayEnd', v)} />
+              <TimeField label={t('settings.attendance.late')} value={form.lateThreshold} onChange={(v) => set('lateThreshold', v)} />
+            </div>
+          </div>
         </Section>
 
         {/* Уведомления */}
@@ -314,5 +324,20 @@ function NumberRow({
         {suffix && <span className="text-[13px] text-muted-2">{suffix}</span>}
       </div>
     </div>
+  );
+}
+
+/** Kichik "HH:mm" vaqt maydoni (davomat rejasi sozlamalari uchun). */
+function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[12.5px] font-medium text-label">{label}</span>
+      <input
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 rounded-input border border-input-border bg-surface px-3 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring nums"
+      />
+    </label>
   );
 }

@@ -652,6 +652,13 @@ export const en: TranslationSchema = {
       debtLimitHint: 'Credit sales above the limit are blocked',
       discrepancy: 'Allowed cash variance',
     },
+    attendance: {
+      title: 'Attendance & schedule',
+      hint: 'Store working hours — used to compute hours and lateness on the Attendance tab.',
+      start: 'Day start',
+      end: 'Day end',
+      late: 'Late threshold',
+    },
     stock: {
       title: 'Warehouse & pricing',
       minAlert: 'Warn on minimum stock',

@@ -652,6 +652,13 @@ export const uz: TranslationSchema = {
       debtLimitHint: 'Limitdan ortiq qarzga sotuv bloklanadi',
       discrepancy: 'Ruxsat etilgan kassa farqi',
     },
+    attendance: {
+      title: 'Davomat va grafik',
+      hint: 'Do‘kon ish grafigi — «Davomat» tabida soat va kechikishlar shu asosda hisoblanadi.',
+      start: 'Kun boshi',
+      end: 'Kun oxiri',
+      late: 'Kechikish chegarasi',
+    },
     stock: {
       title: 'Ombor va narxlar',
       minAlert: 'Minimal qoldiq haqida ogohlantirish',

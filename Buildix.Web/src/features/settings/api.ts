@@ -11,6 +11,10 @@ export interface MarketSettings {
   defaultDebtLimit: number;
   allowedCashDiscrepancy: number;
   shiftAutoCloseTime: string | null;
+  /** Посещаемость (davomat rejasi) — "HH:mm". */
+  workDayStart: string;
+  workDayEnd: string;
+  lateThreshold: string;
   receiptHeader: string | null;
   receiptFooter: string | null;
   autoPrintReceipt: boolean;
