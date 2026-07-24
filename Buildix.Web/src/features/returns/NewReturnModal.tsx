@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
@@ -19,13 +19,22 @@ const REFUND_KEY: Record<string, string> = { Cash: 'cash', Terminal: 'card' };
  * return, choose a reason and how to refund. The server restores stock, refunds
  * the overpaid amount and files a return document (В-##).
  */
-export function NewReturnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function NewReturnModal({ open, onClose, presetSearch }: { open: boolean; onClose: () => void; presetSearch?: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
 
   const [receiptSearch, setReceiptSearch] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [saleId, setSaleId] = useState<string | null>(null);
+
+  // Deep-link from a sale ("Оформить возврат" on the receipt): prefill + run the
+  // receipt lookup so the user lands straight on the line picker.
+  useEffect(() => {
+    if (open && presetSearch) {
+      setReceiptSearch(presetSearch);
+      setSubmitted(presetSearch);
+    }
+  }, [open, presetSearch]);
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [reason, setReason] = useState<string>('Defect');
   const [refund, setRefund] = useState<string>('Cash');
@@ -43,6 +52,13 @@ export function NewReturnModal({ open, onClose }: { open: boolean; onClose: () =
     enabled: open && !!saleId,
   });
   const sale = saleQuery.data;
+
+  // When a deep-link (or an exact number) matches a single receipt, skip the
+  // pick-a-match step and land straight on the line picker.
+  const matches = findQuery.data?.items;
+  useEffect(() => {
+    if (open && submitted && !saleId && matches?.length === 1) setSaleId(matches[0]!.id);
+  }, [open, submitted, saleId, matches]);
 
   const total = useMemo(() => {
     if (!sale) return 0;
