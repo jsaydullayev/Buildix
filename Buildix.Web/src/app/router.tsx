@@ -32,6 +32,12 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 const AccountPage = lazy(() => import('@/features/account/AccountPage'));
 const PosPage = lazy(() => import('@/features/pos/PosPage'));
 
+// Admin design integration — A1: new routes stood up as placeholders,
+// filled in over later phases (cash=A3, products=A2, returns=A5).
+const CashPage = lazy(() => import('@/features/cash/CashPage'));
+const ProductsPage = lazy(() => import('@/features/products/ProductsPage'));
+const ReturnsPage = lazy(() => import('@/features/returns/ReturnsPage'));
+
 // Seller (cashier) shell pages — Bosqich 1.
 const SellerProductsPage = lazy(() => import('@/features/seller/SellerProductsPage'));
 const SellerDebtsPage = lazy(() => import('@/features/seller/SellerDebtsPage'));
@@ -75,7 +81,10 @@ export const router = createBrowserRouter([
       { index: true, element: <IndexRedirect /> },
       { path: 'dashboard', element: perm(PERMISSIONS.dashboard.access, <DashboardPage />) },
       { path: 'sales', element: perm(PERMISSIONS.sales.access, <SalesPage />) },
+      { path: 'cash', element: perm(PERMISSIONS.cashregister.access, <CashPage />) },
       { path: 'warehouse', element: perm(PERMISSIONS.products.access, <WarehousePage />) },
+      { path: 'products', element: perm(PERMISSIONS.products.access, <ProductsPage />) },
+      { path: 'returns', element: perm(PERMISSIONS.sales.access, <ReturnsPage />) },
       { path: 'debts', element: perm(PERMISSIONS.debts.access, <DebtsPage />) },
       { path: 'customers', element: perm(PERMISSIONS.customers.access, <CustomersPage />) },
       { path: 'purchases', element: perm(PERMISSIONS.zakup.access, <PurchasesPage />) },
