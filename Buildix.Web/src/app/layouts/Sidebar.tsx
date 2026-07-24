@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronsUpDown, Settings, LogOut, Bell } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { BrandLogo } from '@/shared/ui';
-import { NAV_ITEMS } from '@/shared/config/navigation';
+import { NAV_SECTIONS } from '@/shared/config/navigation';
 import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
 import { cashApi } from '@/features/shifts/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
@@ -21,7 +21,12 @@ export function Sidebar() {
   const logout = useLogout();
 
   const base = `/${subdomain}`;
-  const items = NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+  // Keep only sections that still have a visible item after permission filtering,
+  // so an empty section heading never floats above nothing.
+  const sections = NAV_SECTIONS.map((s) => ({
+    titleKey: s.titleKey,
+    items: s.items.filter((i) => !i.permission || hasPermission(i.permission)),
+  })).filter((s) => s.items.length > 0);
 
   const canNotifications = hasPermission(PERMISSIONS.notifications.access);
   // Badge count = pending cash-withdrawal requests (they need an owner decision).
@@ -43,8 +48,12 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-sidebar flex-none flex-col bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white">
-      <div className="mb-[26px] px-2.5">
+      <div className="mb-[26px] flex items-center gap-2 px-2.5">
         <BrandLogo size="sm" onDark />
+        {/* ADMIN badge — marks the owner/admin panel apart from the cashier shell. */}
+        <span className="ml-auto rounded-pill border border-[#f5a623]/45 bg-[#f5a623]/20 px-2.5 py-[3px] text-[10px] font-bold tracking-[0.5px] text-[#fcd34d]">
+          ADMIN
+        </span>
       </div>
 
       {/* Market switcher */}
@@ -61,13 +70,20 @@ export function Sidebar() {
         <ChevronsUpDown size={14} className="text-white/55" />
       </button>
 
-      {/* Main nav */}
-      <nav className="flex flex-col gap-0.5">
-        {items.map((item) => (
-          <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass}>
-            <item.icon size={17} />
-            {t(item.labelKey as never)}
-          </NavLink>
+      {/* Main nav — grouped into titled sections (design). */}
+      <nav className="flex flex-col gap-[18px] overflow-y-auto">
+        {sections.map((section) => (
+          <div key={section.titleKey} className="flex flex-col gap-0.5">
+            <div className="mb-1 px-3 text-[10.5px] font-semibold uppercase tracking-[0.6px] text-white/35">
+              {t(section.titleKey as never)}
+            </div>
+            {section.items.map((item) => (
+              <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass}>
+                <item.icon size={17} />
+                {t(item.labelKey as never)}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

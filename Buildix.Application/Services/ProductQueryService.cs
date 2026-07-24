@@ -21,6 +21,29 @@ public class ProductQueryService : IProductQueryService
         _currentMarketService = currentMarketService;
     }
 
+    public async Task<IReadOnlyList<StockMovementDto>> GetProductMovementsAsync(Guid productId, int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        limit = Math.Clamp(limit, 1, 200);
+
+        return await _context.StockMovements
+            .AsNoTracking()
+            .Where(m => m.MarketId == marketId && m.ProductId == productId)
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Take(limit)
+            .Select(m => new StockMovementDto(
+                m.Id,
+                m.Type.ToString(),
+                m.Delta,
+                m.ResultingQty,
+                m.RefNumber,
+                m.User != null ? m.User.FullName : null,
+                m.Comment,
+                m.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ProductDto?> GetProductByIdAsync(Guid id, bool canViewCost = true, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
@@ -55,7 +78,7 @@ public class ProductQueryService : IProductQueryService
         return products.Select(p => ProductMapper.MapToDto(p, canViewCost));
     }
 
-    public async Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, bool includeHidden = false, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
@@ -66,6 +89,13 @@ public class ProductQueryService : IProductQueryService
             .AsNoTracking()
             .Include(p => p.Category)
             .Where(p => p.MarketId == marketId);
+
+        // Yashirilgan tovarlar sotuvchi katalogi va POS'dan chiqarib tashlanadi.
+        // Admin Товары/Склад ekranlari includeHidden=true bilan hammasini ko'radi.
+        // Default FALSE — shu tufayli kassa (POS) qidiruvi hech qanday
+        // o'zgarishsiz yashirilganlarni ko'rsatmaydi.
+        if (!includeHidden)
+            query = query.Where(p => !p.IsHidden);
 
         // Server-side filters (Склад: qidiruv nomi/artikuli, kategoriya, "faqat tugayotgan").
         if (!string.IsNullOrWhiteSpace(search))

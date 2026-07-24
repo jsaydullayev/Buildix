@@ -21,6 +21,20 @@ public class Product : BaseEntity, ISoftDelete
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Sotuvchiga ko'rinadigan qisqa tavsif (Товары ekranidagi "Описание",
+    /// kassir tovar kartochkasida ko'radi). Ixtiyoriy.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// True bo'lsa — mahsulot POS (kassa) va sotuvchi katalogidan yashiriladi,
+    /// lekin hisobotlar/tarixda qoladi. Bu <see cref="HidePriceFromSellers"/> dan
+    /// FARQLI: u faqat NARXNI yashiradi, bu esa TOVARNI butunlay katalogdan
+    /// olib qo'yadi (masalan, vaqtincha sotuvdan chiqarilgan tovar).
+    /// </summary>
+    public bool IsHidden { get; set; } = false;
+
     public bool IsTemporary { get; set; } = false;
     public Guid? CreatedBySellerId { get; set; }
     public bool IsDeleted { get; set; } = false;

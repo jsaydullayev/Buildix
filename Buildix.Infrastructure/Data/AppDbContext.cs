@@ -45,6 +45,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Zakup> Zakups => Set<Zakup>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<ZakupReceipt> ZakupReceipts => Set<ZakupReceipt>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
@@ -505,6 +506,24 @@ public class AppDbContext : DbContext, IAppDbContext
         });
 
         // Configure Zakup
+        modelBuilder.Entity<StockMovement>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Delta).HasPrecision(18, 3);
+            b.Property(x => x.ResultingQty).HasPrecision(18, 3);
+            b.Property(x => x.Type).HasConversion<int>();
+
+            // Product/User o'chirilsa ham harakat tarixi qolsin (audit).
+            b.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+
+            // "Движение товара" — bitta tovar bo'yicha, eng yangisi birinchi.
+            b.HasIndex(x => new { x.MarketId, x.ProductId, x.CreatedAt });
+        });
+
         modelBuilder.Entity<Zakup>(b =>
         {
             b.HasKey(x => x.Id);
@@ -755,6 +774,7 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<DebtAuditLog>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<Zakup>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<ZakupReceipt>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
+        modelBuilder.Entity<StockMovement>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<AuditLog>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashRegister>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashWithdrawal>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);

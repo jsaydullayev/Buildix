@@ -15,13 +15,15 @@ public class ProductService : IProductService
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IAuditLogService _auditLog;
+    private readonly IStockLedger _stockLedger;
 
-    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog)
+    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog, IStockLedger stockLedger)
     {
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
         _auditLog = auditLog;
+        _stockLedger = stockLedger;
     }
 
     public async Task<Result<ProductDto>> CreateProductAsync(CreateProductDto request, Guid? sellerId, CancellationToken cancellationToken = default)
@@ -66,10 +68,18 @@ public class ProductService : IProductService
             MarketId = marketId.Value,  // Multi-tenancy
             CategoryId = request.CategoryId,  // Category
             HidePriceFromSellers = request.HidePriceFromSellers,
-            Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim()
+            Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim(),
+            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            IsHidden = request.IsHidden
         };
 
         await _unitOfWork.Products.AddAsync(product, cancellationToken);
+
+        // Boshlang'ich qoldiq — ledger' da InitialStock sifatida (product endi
+        // Quantity bilan, ResultingQty to'g'ri chiqadi). 0 bo'lsa Record e'tibor
+        // bermaydi. Bir SaveChanges'da product + harakat birga yoziladi.
+        _stockLedger.Record(product, product.Quantity, StockMovementType.InitialStock, userId: sellerId);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(ProductMapper.MapToDto(product));
@@ -108,12 +118,20 @@ public class ProductService : IProductService
         // Sku: null — tegilmaydi; bo'sh satr — tozalash; aks holda trim qilib yoziladi.
         if (request.Sku is not null)
             product.Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim();
+        // Tavsif: edit-forma egasi; null/bo'sh — tozalash.
+        product.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
 
         // Faqat Owner/SuperAdmin (canEditStock) va faqat qiymat kelganda qo'llanadi.
         // Manfiy qiymat DTO Range validatsiyasida allaqachon rad etiladi.
         var oldQuantity = product.Quantity;
         if (canEditStock && request.Quantity.HasValue)
+        {
             product.Quantity = request.Quantity.Value;
+            // Owner qo'lda tuzatgan qoldiq — Correction harakati (delta = farq).
+            if (product.Quantity != oldQuantity)
+                _stockLedger.Record(product, product.Quantity - oldQuantity, StockMovementType.Correction,
+                    userId: actorUserId, comment: "Qo'lda tuzatish");
+        }
 
         // Kelgan narx: faqat cost-ko'ruvchi (Owner/Admin) va qiymat kelganda.
         // Null bo'lsa tegilmaydi — masking tufayli 0 kelib eski narxni bosib
@@ -132,6 +150,58 @@ public class ProductService : IProductService
             await _auditLog.LogActionAsync(
                 AuditEntityTypes.Product, product.Id, AuditActions.StockAdjust, actorUserId,
                 new { from = oldQuantity, to = product.Quantity });
+
+        return Result.Success(ProductMapper.MapToDto(product));
+    }
+
+    /// <summary>
+    /// Товары/Склад ekranidagi inline tahrir: sotuv narxi / min. qoldiq /
+    /// ko'rinish (Скрыть). Faqat berilgan maydon(lar) o'zgaradi. Narx o'zgarishi
+    /// marjaга ta'sir qiladi, ko'rinish esa kassa katalogini o'zgartiradi —
+    /// ikkalasi ham auditlanadi (eski→yangi). Qoldiq/tannarxga TEGMAYDI.
+    /// </summary>
+    public async Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        if (request.SalePrice is null && request.MinThreshold is null && request.IsHidden is null)
+            return Result.Failure<ProductDto>("O'zgartirish uchun kamida bitta maydon yuboring.");
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        var products = await _unitOfWork.Products.FindAsync(
+            p => p.Id == id && p.MarketId == marketId, cancellationToken);
+        var product = products.FirstOrDefault();
+        if (product is null)
+            return Result.Failure<ProductDto>("Mahsulot topilmadi.", "NOT_FOUND");
+
+        var changes = new Dictionary<string, object?>();
+
+        if (request.SalePrice is { } newPrice && newPrice != product.SalePrice)
+        {
+            changes["salePrice"] = new { from = product.SalePrice, to = newPrice };
+            product.SalePrice = newPrice;
+        }
+        if (request.MinThreshold is { } newMin && newMin != product.MinThreshold)
+        {
+            changes["minThreshold"] = new { from = product.MinThreshold, to = newMin };
+            product.MinThreshold = newMin;
+        }
+        if (request.IsHidden is { } newHidden && newHidden != product.IsHidden)
+        {
+            changes["isHidden"] = new { from = product.IsHidden, to = newHidden };
+            product.IsHidden = newHidden;
+        }
+
+        // Hech narsa o'zgarmadi — bekorga audit yozmaymiz, joriy holatni qaytaramiz.
+        if (changes.Count == 0)
+            return Result.Success(ProductMapper.MapToDto(product));
+
+        _unitOfWork.Products.Update(product);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Narx marjaга, ko'rinish kassa katalogiga ta'sir qiladi — inline bo'lsa
+        // ham iz qoldiramiz (kim, nima, eski→yangi).
+        await _auditLog.LogActionAsync(
+            AuditEntityTypes.Product, product.Id, AuditActions.Update, actorUserId,
+            new { productName = product.Name, changes });
 
         return Result.Success(ProductMapper.MapToDto(product));
     }
@@ -161,6 +231,9 @@ public class ProductService : IProductService
             if (before == counted) continue; // farq yo'q — tegilmaydi
 
             product.Quantity = counted;
+            // Inventarizatsiya farqi — Correction harakati (delta = counted − before).
+            _stockLedger.Record(product, counted - before, StockMovementType.Correction,
+                userId: actorUserId, comment: "Inventarizatsiya");
             lines.Add(new StocktakeLineResult(product.Id, product.Name, before, counted, counted - before));
         }
 

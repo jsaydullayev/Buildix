@@ -30,7 +30,9 @@ internal static class ProductMapper
             product.IsLowStock,
             product.ImageUrl,
             product.HidePriceFromSellers,
-            product.Sku
+            product.Sku,
+            product.Description,
+            product.IsHidden
         );
     }
 }

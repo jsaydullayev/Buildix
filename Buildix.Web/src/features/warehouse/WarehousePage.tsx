@@ -1,88 +1,82 @@
-import { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Move3d, Package, Search, Tags, FileDown } from 'lucide-react';
+import { Plus, Move3d, Search, FileDown, ChevronRight } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty } from '@/shared/lib/format';
+import { formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
-import { productsApi, categoriesApi, type Product } from './api';
-import { ProductFormModal } from './ProductFormModal';
+import { productsApi, type Product } from './api';
 import { StocktakeModal } from './StocktakeModal';
-import { CategoriesModal } from './CategoriesModal';
+import { StockMovementModal } from './StockMovementModal';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 30;
+type StatusFilter = 'all' | 'ok' | 'low' | 'out';
 
+/**
+ * Склад — stock & movement only. Prices/margin moved to Товары (A2); this screen
+ * is about what's on hand and how it got there: a status filter, an inline
+ * min-threshold, and a per-row movement ledger (Приход / Продажа / Корректировка).
+ */
 export default function WarehousePage() {
   const { t, i18n } = useTranslation();
+  const { subdomain } = useParams();
+  const navigate = useNavigate();
   const { hasPermission, hasRole } = useAuth();
-  const canViewCost = hasPermission(PERMISSIONS.data.costPrice);
-  const canCreate = hasPermission(PERMISSIONS.products.create);
   const canEdit = hasPermission(PERMISSIONS.products.edit);
   const canExport = hasPermission(PERMISSIONS.products.export);
   const canStocktake = hasRole(ROLES.Owner, ROLES.SuperAdmin) && hasPermission(PERMISSIONS.products.edit);
-  const canManageCategories = hasPermission(PERMISSIONS.categories.manage);
+  const canPurchase = hasPermission(PERMISSIONS.zakup.access);
   const exporter = useExport(() => productsApi.exportExcel(i18n.language), 'products.xlsx');
 
   const [search, setSearch] = useState('');
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [lowOnly, setLowOnly] = useState(false);
+  const [status, setStatus] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
-  const [formOpen, setFormOpen] = useState(false);
   const [stocktakeOpen, setStocktakeOpen] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
+  const [moving, setMoving] = useState<Product | null>(null);
   const debouncedSearch = useDebounce(search);
+  const resetPage = () => setPage(1);
 
-  const openCreate = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
-  const openEdit = (p: Product) => {
-    setEditing(p);
-    setFormOpen(true);
-  };
-
-  const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list });
-  // KPI tiles from a DB-side aggregate — not the whole catalogue folded
-  // client-side. Keyed under ['products', …] so every place that invalidates
-  // the product list refreshes these tiles too.
   const summaryQuery = useQuery({ queryKey: ['products', 'summary'], queryFn: productsApi.summary });
-
   const listQuery = useQuery({
-    queryKey: ['products', { page, search: debouncedSearch, categoryId, lowOnly }],
+    queryKey: ['products', 'warehouse', { page, search: debouncedSearch, status }],
     queryFn: () =>
       productsApi.listPaged({
         page,
         size: PAGE_SIZE,
         search: debouncedSearch,
-        categoryId,
-        lowStockOnly: lowOnly,
+        // The "low" filter is server-side; ok/out are refined client-side below
+        // (a dedicated status param isn't worth a backend round unless paging hurts).
+        lowStockOnly: status === 'low',
+        includeHidden: true,
       }),
     placeholderData: keepPreviousData,
   });
 
+  const rows = (listQuery.data?.items ?? []).filter((p) => {
+    if (status === 'out') return p.quantity <= 0;
+    if (status === 'ok') return p.quantity > p.minThreshold;
+    return true;
+  });
+
   const stats = {
     positions: summaryQuery.data?.positions ?? 0,
-    value: summaryQuery.data?.stockValue ?? 0,
     low: summaryQuery.data?.lowStock ?? 0,
     out: summaryQuery.data?.outOfStock ?? 0,
   };
 
-  const resetPage = () => setPage(1);
+  const FILTERS: StatusFilter[] = ['all', 'ok', 'low', 'out'];
 
   return (
     <>
       <PageHeader
         title={t('warehouse.title')}
-        subtitle={t('warehouse.subtitle', {
-          count: stats.positions,
-          value: formatSum(stats.value),
-        })}
+        subtitle={t('warehouse.subtitleShort', { count: stats.positions, low: stats.low, out: stats.out })}
         actions={
           <>
             {canExport && (
@@ -91,22 +85,16 @@ export default function WarehousePage() {
                 {t('common.export')}
               </Button>
             )}
-            {canManageCategories && (
-              <Button variant="secondary" onClick={() => setCategoriesOpen(true)}>
-                <Tags size={15} />
-                {t('categories.title')}
-              </Button>
-            )}
             {canStocktake && (
               <Button variant="secondary" onClick={() => setStocktakeOpen(true)}>
                 <Move3d size={15} />
                 {t('warehouse.stocktake')}
               </Button>
             )}
-            {canCreate && (
-              <Button onClick={openCreate}>
+            {canPurchase && (
+              <Button onClick={() => navigate(`/${subdomain}/purchases`)}>
                 <Plus size={15} strokeWidth={2.4} />
-                {t('warehouse.addProduct')}
+                {t('warehouse.newPurchase')}
               </Button>
             )}
           </>
@@ -114,16 +102,8 @@ export default function WarehousePage() {
       />
 
       <div className="flex flex-1 flex-col gap-[18px] p-8">
-        {/* Stat cards */}
-        <div className={cn('grid gap-4', canViewCost ? 'grid-cols-4' : 'grid-cols-3')}>
+        <div className="grid grid-cols-3 gap-4">
           <StatCard label={t('warehouse.stats.positions')} value={stats.positions} />
-          {canViewCost && (
-            <StatCard
-              label={t('warehouse.stats.value')}
-              value={formatSum(stats.value)}
-              suffix={t('common.currency')}
-            />
-          )}
           <StatCard label={t('warehouse.stats.low')} value={stats.low} tone="warn" />
           <StatCard label={t('warehouse.stats.out')} value={stats.out} tone="danger" />
         </div>
@@ -142,171 +122,148 @@ export default function WarehousePage() {
               className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
           </div>
-
-          <div className="flex items-center gap-1.5">
-            <CategoryChip
-              label={t('warehouse.allCategories')}
-              active={categoryId === null}
-              onClick={() => {
-                setCategoryId(null);
-                resetPage();
-              }}
-            />
-            {(categoriesQuery.data ?? []).map((c) => (
-              <CategoryChip
-                key={c.id}
-                label={c.name}
-                active={categoryId === c.id}
+          <div className="inline-flex rounded-input bg-hairline p-1">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
                 onClick={() => {
-                  setCategoryId(c.id);
+                  setStatus(f);
                   resetPage();
                 }}
-              />
+                className={cn(
+                  'rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors',
+                  status === f ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
+                )}
+              >
+                {t(`warehouse.filter.${f}`)}
+              </button>
             ))}
           </div>
-
-          <label className="flex cursor-pointer select-none items-center gap-2 rounded-input border border-input-border bg-surface px-3.5 py-2.5 text-[13px]">
-            <input
-              type="checkbox"
-              checked={lowOnly}
-              onChange={(e) => {
-                setLowOnly(e.target.checked);
-                resetPage();
-              }}
-              className="h-4 w-4 accent-primary"
-            />
-            {t('warehouse.onlyLow')}
-          </label>
         </div>
 
         {/* Table */}
         <Card className="overflow-hidden">
-          <div
-            className={cn(
-              'grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2',
-              canViewCost ? 'grid-cols-warehouse' : 'grid-cols-warehouse-nocost',
-            )}
-          >
+          <div className="grid grid-cols-[2.4fr_1fr_1.2fr_0.9fr_0.3fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
             <span>{t('warehouse.cols.product')}</span>
-            <span>{t('warehouse.cols.sku')}</span>
-            <span>{t('warehouse.cols.category')}</span>
             <span className="text-right">{t('warehouse.cols.stock')}</span>
-            {canViewCost && <span className="text-right">{t('warehouse.cols.cost')}</span>}
-            <span className="text-right">{t('warehouse.cols.price')}</span>
+            <span className="text-right">{t('warehouse.cols.minStock')}</span>
             <span>{t('warehouse.cols.status')}</span>
+            <span />
           </div>
 
           {listQuery.isLoading ? (
             <div className="flex items-center justify-center py-20 text-primary">
               <Spinner size={24} />
             </div>
-          ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((p) => (
-              <ProductRow
-                key={p.id}
-                product={p}
-                canViewCost={canViewCost}
-                onClick={canEdit ? () => openEdit(p) : undefined}
-              />
+          ) : rows.length > 0 ? (
+            rows.map((p) => (
+              <WarehouseRow key={p.id} product={p} canEdit={canEdit} onOpen={() => setMoving(p)} />
             ))
           ) : (
             <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
           )}
         </Card>
 
-        {/* Footer / pagination */}
-        {listQuery.data && listQuery.data.total > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-[12.5px] text-muted-2">
-              {t('warehouse.showing', {
-                shown: listQuery.data.items.length,
-                total: listQuery.data.total,
-              })}
+        <p className="text-[12px] text-muted-2">{t('warehouse.movementHint')}</p>
+
+        {listQuery.data && listQuery.data.totalPages > 1 && (
+          <div className="flex items-center justify-end gap-1.5">
+            {listQuery.isFetching && <Spinner size={14} className="mr-1 text-primary" />}
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
+            >
+              ‹
+            </button>
+            <span className="px-2 text-[13px] text-muted nums">
+              {page} / {listQuery.data.totalPages}
             </span>
-            <Pager
-              page={page}
-              totalPages={listQuery.data.totalPages}
-              onChange={setPage}
-              busy={listQuery.isFetching}
-            />
+            <button
+              type="button"
+              disabled={page >= listQuery.data.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
+            >
+              ›
+            </button>
           </div>
         )}
       </div>
 
-      <ProductFormModal
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        product={editing}
-        categories={categoriesQuery.data ?? []}
-      />
       <StocktakeModal open={stocktakeOpen} onClose={() => setStocktakeOpen(false)} />
-      <CategoriesModal open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
+      <StockMovementModal product={moving} open={!!moving} onClose={() => setMoving(null)} />
     </>
   );
 }
 
-function CategoryChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
-        active ? 'bg-primary text-white' : 'bg-surface text-muted border border-input-border hover:text-text',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-function ProductRow({
+function WarehouseRow({
   product: p,
-  canViewCost,
-  onClick,
+  canEdit,
+  onOpen,
 }: {
   product: Product;
-  canViewCost: boolean;
-  onClick?: () => void;
+  canEdit: boolean;
+  onOpen: () => void;
 }) {
   const { t } = useTranslation();
-  const imgSrc = p.imageUrl ? `/api${p.imageUrl}` : null;
+  const qc = useQueryClient();
+  const unit = unitLabel(t, p.unit, p.unitName);
   const stockTone = p.quantity <= 0 ? 'text-danger' : p.isLowStock ? 'text-warn-strong' : 'text-text';
 
+  // Inline min-threshold, committed on blur when changed.
+  const [min, setMin] = useState(String(p.minThreshold));
+  useEffect(() => setMin(String(p.minThreshold)), [p.minThreshold]);
+
+  const patch = useMutation({
+    mutationFn: (minThreshold: number) => productsApi.patch(p.id, { minThreshold }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+  const commitMin = () => {
+    const next = Math.max(0, Number(min) || 0);
+    if (next !== p.minThreshold) patch.mutate(next);
+    else setMin(String(p.minThreshold));
+  };
+
   return (
-    <div
-      onClick={onClick}
-      className={cn(
-        'grid items-center gap-4 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40',
-        onClick && 'cursor-pointer',
-        canViewCost ? 'grid-cols-warehouse' : 'grid-cols-warehouse-nocost',
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-lg bg-hairline text-muted-2">
-          {imgSrc ? (
-            <img src={imgSrc} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Package size={16} />
-          )}
-        </div>
+    <div className="grid grid-cols-[2.4fr_1fr_1.2fr_0.9fr_0.3fr] items-center gap-4 border-b border-hairline px-6 py-2.5 text-[13px] last:border-0 hover:bg-bg/40">
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-col items-start text-left">
         <span className="truncate font-medium">{p.name}</span>
-      </div>
-      <span className="truncate text-muted-2">{p.sku ?? '—'}</span>
-      <span className="truncate text-muted">{p.categoryName ?? '—'}</span>
+        <span className="truncate text-[11.5px] text-muted-2">{p.categoryName ?? '—'}</span>
+      </button>
+
       <span className={cn('text-right font-semibold nums', stockTone)}>
-        {formatQty(p.quantity)} {unitLabel(t, p.unit, p.unitName)}
+        {formatQty(p.quantity)} {unit}
       </span>
-      {canViewCost && <span className="text-right text-muted nums">{formatSum(p.costPrice)}</span>}
-      <span className="text-right font-semibold nums">{formatSum(p.salePrice)}</span>
+
+      <div className="flex justify-end">
+        {canEdit ? (
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={min}
+            disabled={patch.isPending}
+            onChange={(e) => setMin(e.target.value)}
+            onBlur={commitMin}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key === 'Escape') {
+                setMin(String(p.minThreshold));
+                e.currentTarget.blur();
+              }
+            }}
+            className="h-9 w-[112px] rounded-input border border-input-border bg-surface px-3 text-right text-[13px] outline-none focus:border-primary disabled:opacity-50 nums"
+          />
+        ) : (
+          <span className="text-muted nums">
+            {formatQty(p.minThreshold)} {unit}
+          </span>
+        )}
+      </div>
+
       <span>
         {p.quantity <= 0 ? (
           <Badge tone="danger">{t('warehouse.status.out')}</Badge>
@@ -316,43 +273,9 @@ function ProductRow({
           <Badge tone="success">{t('warehouse.status.inStock')}</Badge>
         )}
       </span>
-    </div>
-  );
-}
 
-function Pager({
-  page,
-  totalPages,
-  onChange,
-  busy,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (p: number) => void;
-  busy: boolean;
-}) {
-  if (totalPages <= 1) return null;
-  return (
-    <div className="flex items-center gap-1.5">
-      {busy && <Spinner size={14} className="mr-1 text-primary" />}
-      <button
-        type="button"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
-      >
-        ‹
-      </button>
-      <span className="px-2 text-[13px] text-muted nums">
-        {page} / {totalPages}
-      </span>
-      <button
-        type="button"
-        disabled={page >= totalPages}
-        onClick={() => onChange(page + 1)}
-        className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
-      >
-        ›
+      <button type="button" onClick={onOpen} className="flex justify-end text-muted-2 hover:text-text">
+        <ChevronRight size={17} />
       </button>
     </div>
   );
