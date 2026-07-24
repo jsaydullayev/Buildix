@@ -56,6 +56,20 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
 
+  const accept = useMutation({
+    mutationFn: () => purchasesApi.accept(receiptId!),
+    onSuccess: (updated) => {
+      setError(null);
+      qc.setQueryData(['receipt', receiptId], updated);
+      // Accepting adds stock → refresh receipts, products and warehouse tiles.
+      void qc.invalidateQueries({ queryKey: ['receipts'] });
+      void qc.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  const isInTransit = receipt?.deliveryStatus === 'InTransit';
+
   const outstanding = receipt?.outstandingAmount ?? 0;
   const payAmount = Math.min(Math.max(0, Number(payInput) || 0), outstanding);
 
@@ -74,9 +88,16 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
           : undefined
       }
       footer={
-        <Button variant="secondary" onClick={onClose}>
-          {t('common.close')}
-        </Button>
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+          {canPay && isInTransit && (
+            <Button loading={accept.isPending} onClick={() => accept.mutate()}>
+              {t('purchases.detail.accept')}
+            </Button>
+          )}
+        </>
       }
     >
       {query.isLoading || !receipt ? (
@@ -103,7 +124,19 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
                 {t(`purchases.status.${STATUS_KEY[receipt.paymentStatus] ?? 'unpaid'}`)}
               </Badge>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted">{t('purchases.detail.delivery')}</span>
+              <Badge tone={isInTransit ? 'info' : 'success'}>
+                {t(`purchases.delivery.${isInTransit ? 'inTransit' : 'accepted'}`)}
+              </Badge>
+            </div>
           </div>
+
+          {isInTransit && (
+            <div className="rounded-input border border-info/30 bg-info-soft px-4 py-2.5 text-[12.5px] text-info">
+              {t('purchases.detail.inTransitHint')}
+            </div>
+          )}
 
           {/* Lines */}
           <div>

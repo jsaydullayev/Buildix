@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { Lock, PackageCheck } from 'lucide-react';
+import { Lock, PackageCheck, Truck } from 'lucide-react';
 import { PageHeader, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatShortDate, formatTime } from '@/shared/lib/format';
@@ -70,10 +70,17 @@ export default function SellerSuppliesPage() {
                   {formatShortDate(r.createdAt, i18n.language)} · {formatTime(r.createdAt)}
                 </span>
                 <span className="text-right">
-                  <Badge tone="success" className="gap-1">
-                    <PackageCheck size={13} />
-                    {t('seller.supplies.received')}
-                  </Badge>
+                  {r.deliveryStatus === 'InTransit' ? (
+                    <Badge tone="info" className="gap-1">
+                      <Truck size={13} />
+                      {t('purchases.delivery.inTransit')}
+                    </Badge>
+                  ) : (
+                    <Badge tone="success" className="gap-1">
+                      <PackageCheck size={13} />
+                      {t('seller.supplies.received')}
+                    </Badge>
+                  )}
                 </span>
               </div>
             ))

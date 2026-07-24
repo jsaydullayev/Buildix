@@ -26,6 +26,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   const [invoice, setInvoice] = useState('');
   const [comment, setComment] = useState('');
   const [paid, setPaid] = useState('');
+  const [inTransit, setInTransit] = useState(false);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     setInvoice('');
     setComment('');
     setPaid('');
+    setInTransit(false);
     setLines([]);
     setSearch('');
     setError(null);
@@ -81,6 +83,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
         paidAmount: Math.min(Math.max(0, Number(paid) || 0), total),
         comment: comment.trim() || null,
         items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, costPrice: l.costPrice })),
+        inTransit,
       }),
     onSuccess: () => {
       // Xarid ombor qoldig'i, tannarx va yetkazib beruvchi qarzini o'zgartiradi —
@@ -238,6 +241,20 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
               {formatSum(total)} <span className="text-[12px] font-normal text-muted-2">{t('common.currency')}</span>
             </span>
           </div>
+          {/* Delivery mode — «В пути» defers stock until the goods are accepted. */}
+          <label className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-input border border-input-border bg-surface px-3.5 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium">{t('purchases.newModal.inTransit')}</span>
+              <span className="block text-[11.5px] text-muted-2">{t('purchases.newModal.inTransitHint')}</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={inTransit}
+              onChange={(e) => setInTransit(e.target.checked)}
+              className="h-4 w-4 flex-none accent-primary"
+            />
+          </label>
+
           <div className="flex items-center justify-between gap-3">
             <label className="text-[13px] text-muted">{t('purchases.newModal.paidNow')}</label>
             <div className="flex items-center gap-2">

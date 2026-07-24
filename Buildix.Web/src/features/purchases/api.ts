@@ -11,6 +11,7 @@ export interface ZakupReceipt {
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: string; // Unpaid | Partial | Paid
+  deliveryStatus: string; // Accepted | InTransit
   itemCount: number;
   createdAt: string;
 }
@@ -46,6 +47,7 @@ export interface ReceiptDetail {
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: string;
+  deliveryStatus: string; // Accepted | InTransit
   comment: string | null;
   itemCount: number;
   createdAt: string;
@@ -66,6 +68,8 @@ export interface CreateReceiptBody {
   paidAmount: number;
   comment: string | null;
   items: CreateReceiptLine[];
+  /** true → created as «В пути» (no stock until accepted). Default immediate. */
+  inTransit?: boolean;
 }
 
 export interface SupplierBody {
@@ -142,6 +146,12 @@ export const purchasesApi = {
   /** One receipt with its lines. */
   receipt: async (id: string): Promise<ReceiptDetail> => {
     const { data } = await apiClient.get<ReceiptDetail>(`/Zakups/GetReceipt/${id}`);
+    return data;
+  },
+
+  /** «Отметить принятым» — accept an in-transit delivery (adds stock). */
+  accept: async (id: string): Promise<ReceiptDetail> => {
+    const { data } = await apiClient.post<ReceiptDetail>(`/Zakups/${id}/accept`, {});
     return data;
   },
 
