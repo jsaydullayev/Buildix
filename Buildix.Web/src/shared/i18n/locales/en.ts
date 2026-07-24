@@ -97,6 +97,8 @@ export const en: TranslationSchema = {
       subtitle: 'Store catalogue · cost prices are visible to the owner',
     },
     debts: {
+      acceptedToday: 'Accepted today',
+      acceptedCols: { time: 'TIME', customer: 'CLIENT', method: 'METHOD', remaining: 'DEBT LEFT', amount: 'AMOUNT' },
       title: 'Customer debts',
       subtitle: 'Debt collection · payment goes into the current shift till',
     },
@@ -108,7 +110,9 @@ export const en: TranslationSchema = {
       searchPlaceholder: 'Search by name or phone…',
       empty: 'No clients found',
       regular: 'regular',
-      cols: { client: 'CLIENT', phone: 'PHONE', debt: 'DEBT' },
+      filters: { all: 'All', withDebt: 'With debt', regular: 'Regulars' },
+      purchasesCount: '{{count}} purchases',
+      cols: { client: 'CLIENT', phone: 'PHONE', monthPurchases: 'PURCHASES THIS MONTH', lastPurchase: 'LAST', debt: 'DEBT' },
       form: { name: 'Name / company', phone: 'Phone', type: 'Client type' },
     },
     supplies: {

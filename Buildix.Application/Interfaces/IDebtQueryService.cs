@@ -23,4 +23,7 @@ public interface IDebtQueryService
 
     /// <summary>Долги sarlavhasidagi stat kartalar (jami/просрочено/платежи).</summary>
     Task<DebtSummaryStatsDto> GetSummaryStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>«Принятые сегодня» — bugun qabul qilingan qarz-to'lovlari (yangi first).</summary>
+    Task<IReadOnlyList<DebtPaymentTodayDto>> GetTodayPaymentsAsync(CancellationToken cancellationToken = default);
 }

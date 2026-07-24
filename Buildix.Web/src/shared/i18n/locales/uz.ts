@@ -99,6 +99,8 @@ export const uz: TranslationSchema = {
     debts: {
       title: 'Mijozlar qarzi',
       subtitle: 'Qarz bo‘yicha to‘lov qabuli · to‘lov joriy smena kassasiga tushadi',
+      acceptedToday: 'Bugun qabul qilingan',
+      acceptedCols: { time: 'VAQT', customer: 'MIJOZ', method: 'USUL', remaining: 'QARZ QOLDIG‘I', amount: 'SUMMA' },
     },
     clients: {
       title: 'Mijozlar',
@@ -108,7 +110,9 @@ export const uz: TranslationSchema = {
       searchPlaceholder: 'Ism yoki telefon bo‘yicha qidiruv…',
       empty: 'Mijozlar topilmadi',
       regular: 'doimiy',
-      cols: { client: 'MIJOZ', phone: 'TELEFON', debt: 'QARZ' },
+      filters: { all: 'Hammasi', withDebt: 'Qarzli', regular: 'Doimiy' },
+      purchasesCount: '{{count}} ta xarid',
+      cols: { client: 'MIJOZ', phone: 'TELEFON', monthPurchases: 'OYIGA XARID', lastPurchase: 'OXIRGISI', debt: 'QARZ' },
       form: { name: 'Ism / nomi', phone: 'Telefon', type: 'Mijoz turi' },
     },
     supplies: {

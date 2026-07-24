@@ -20,6 +20,16 @@ export interface DebtSummaryStats {
   paidThisMonth: number;
 }
 
+/** «Принятые сегодня» — one accepted debt payment today. */
+export interface DebtPaymentToday {
+  at: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  method: string; // Cash | Terminal | ...
+  amount: number;
+  remainingDebt: number;
+}
+
 export interface CustomerDebt {
   id: string;
   saleId: string;
@@ -41,6 +51,11 @@ export const debtsApi = {
 
   summary: async (): Promise<DebtSummaryStats> => {
     const { data } = await apiClient.get<DebtSummaryStats>('/Debts/summary');
+    return data;
+  },
+
+  todayPayments: async (): Promise<DebtPaymentToday[]> => {
+    const { data } = await apiClient.get<DebtPaymentToday[]>('/Debts/payments/today');
     return data;
   },
 

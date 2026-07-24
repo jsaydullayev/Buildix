@@ -97,6 +97,8 @@ export const ru = {
     debts: {
       title: 'Долги клиентов',
       subtitle: 'Приём оплаты по долгу · оплата попадает в кассу текущей смены',
+      acceptedToday: 'Принятые сегодня',
+      acceptedCols: { time: 'ВРЕМЯ', customer: 'КЛИЕНТ', method: 'СПОСОБ', remaining: 'ОСТАТОК ДОЛГА', amount: 'СУММА' },
     },
     clients: {
       title: 'Клиенты',
@@ -106,7 +108,9 @@ export const ru = {
       searchPlaceholder: 'Поиск по имени или телефону…',
       empty: 'Клиенты не найдены',
       regular: 'постоянный',
-      cols: { client: 'КЛИЕНТ', phone: 'ТЕЛЕФОН', debt: 'ДОЛГ' },
+      filters: { all: 'Все', withDebt: 'С долгом', regular: 'Постоянные' },
+      purchasesCount: '{{count}} покупок',
+      cols: { client: 'КЛИЕНТ', phone: 'ТЕЛЕФОН', monthPurchases: 'ПОКУПОК ЗА МЕСЯЦ', lastPurchase: 'ПОСЛЕДНЯЯ', debt: 'ДОЛГ' },
       form: { name: 'Имя / название', phone: 'Телефон', type: 'Тип клиента' },
     },
     supplies: {
