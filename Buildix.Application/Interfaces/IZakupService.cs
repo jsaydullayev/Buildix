@@ -18,6 +18,9 @@ public interface IZakupService
     Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, CancellationToken cancellationToken = default);
     Task<ZakupReceiptDto?> GetZakupReceiptByIdAsync(Guid receiptId, CancellationToken cancellationToken = default);
     Task<bool> DeleteZakupReceiptAsync(Guid receiptId, Guid deletedByUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>«В пути» postavkani qabul qiladi — stok + tannarx + Приход harakati.</summary>
+    Task<ZakupReceiptDto?> AcceptZakupReceiptAsync(Guid receiptId, Guid adminId, CancellationToken cancellationToken = default);
     Task<ZakupReceiptDto?> RegisterSupplierPaymentAsync(Guid receiptId, decimal amount, Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>

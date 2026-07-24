@@ -40,6 +40,8 @@ public record ZakupReceiptDto(
     [property: JsonPropertyName("paidAmount")] decimal PaidAmount,
     [property: JsonPropertyName("outstandingAmount")] decimal OutstandingAmount,
     [property: JsonPropertyName("paymentStatus")] string PaymentStatus,
+    // "Accepted" | "InTransit" — Принят / В пути.
+    [property: JsonPropertyName("deliveryStatus")] string DeliveryStatus,
     [property: JsonPropertyName("comment")] string? Comment,
     [property: JsonPropertyName("itemCount")] int ItemCount,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
@@ -53,6 +55,7 @@ public record ZakupReceiptSellerDto(
     [property: JsonPropertyName("supplierId")] Guid? SupplierId,
     [property: JsonPropertyName("supplierName")] string? SupplierName,
     [property: JsonPropertyName("invoiceNumber")] string? InvoiceNumber,
+    [property: JsonPropertyName("deliveryStatus")] string DeliveryStatus,
     [property: JsonPropertyName("itemCount")] int ItemCount,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("createdBy")] string CreatedBy,
@@ -93,7 +96,11 @@ public record CreateZakupReceiptDto(
     [property: JsonPropertyName("items")]
     [param: Required(ErrorMessage = "Kamida bitta mahsulot kerak")]
     [param: MinLength(1, ErrorMessage = "Kamida bitta mahsulot kerak")]
-    List<CreateZakupLineDto> Items
+    List<CreateZakupLineDto> Items,
+
+    // True — hujjat «В пути» sifatida yaratiladi, tovar OMBORGA KIRMAYDI (accept'da
+    // kiradi). False (default, backward-compat) — hozirgidek darhol qabul + stok.
+    [property: JsonPropertyName("inTransit")] bool InTransit = false
 );
 
 /// <summary>Register an additional payment toward a receipt's supplier debt.</summary>

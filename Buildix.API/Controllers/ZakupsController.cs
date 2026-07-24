@@ -167,6 +167,28 @@ public class ZakupsController : ApiControllerBase
         return Ok(_zakupShaper.ShapeReceipt(receipt, CanViewCost()));
     }
 
+    /// <summary>«Отметить принятым» — «В пути» postavkani qabul qiladi (stok kiradi).</summary>
+    [HttpPost("~/api/Zakups/{id}/accept")]
+    [RequirePermission(PermissionKeys.ZakupCreate)]
+    public async Task<IActionResult> AcceptReceipt(Guid id)
+    {
+        var adminIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(adminIdStr) || !Guid.TryParse(adminIdStr, out var adminId))
+            return Unauthorized();
+
+        try
+        {
+            var receipt = await _zakupService.AcceptZakupReceiptAsync(id, adminId);
+            if (receipt is null)
+                return NotFound();
+            return Ok(_zakupShaper.ShapeReceipt(receipt, CanViewCost()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpDelete("{id}")]
     [RequirePermission(PermissionKeys.ZakupDelete)]
     public async Task<IActionResult> DeleteReceipt(Guid id)
