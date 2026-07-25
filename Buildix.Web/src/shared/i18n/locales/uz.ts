@@ -7,6 +7,8 @@ export const uz: TranslationSchema = {
     retry: 'Qayta urinish',
     save: 'O‘zgarishlarni saqlash',
     cancel: 'Bekor qilish',
+    confirm: 'Tasdiqlash',
+    confirmDefault: 'Ishonchingiz komilmi?',
     close: 'Yopish',
     delete: 'O‘chirish',
     search: 'Qidiruv',
@@ -950,6 +952,11 @@ export const uz: TranslationSchema = {
   account: {
     title: 'Mening hisobim',
     subtitle: 'Shaxsiy ma’lumotlar va kirish xavfsizligi',
+    language: {
+      title: 'Interfeys tili',
+      subtitle: 'Darhol qo‘llanadi va hisobingizda saqlanadi',
+      saveError: 'Til saqlanmadi — qayta urinib ko‘ring',
+    },
     profile: 'Profil',
     fullName: 'Ism va familiya',
     phone: 'Telefon',

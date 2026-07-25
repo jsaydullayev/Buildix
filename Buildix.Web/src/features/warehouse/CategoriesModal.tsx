@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
-import { Modal, Button, Spinner } from '@/shared/ui';
+import { Modal, Button, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import type { ApiError } from '@/shared/api/types';
 import { categoriesApi, type ProductCategory } from './api';
@@ -14,6 +14,7 @@ import { categoriesApi, type ProductCategory } from './api';
  */
 export function CategoriesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
@@ -59,8 +60,9 @@ export function CategoriesModal({ open, onClose }: { open: boolean; onClose: () 
     onError: onErr,
   });
 
-  const askDelete = (c: ProductCategory) => {
-    if (window.confirm(t('categories.deleteConfirm', { name: c.name }))) del.mutate(c.id);
+  const askDelete = async (c: ProductCategory) => {
+    if (await confirm({ title: t('categories.deleteConfirm', { name: c.name }), tone: 'danger', confirmLabel: t('common.delete') }))
+      del.mutate(c.id);
   };
 
   const inputCls =

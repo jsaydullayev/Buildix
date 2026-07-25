@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwitch } from '@/shared/ui';
+import type { AppLanguage } from '@/shared/i18n';
 import { cn } from '@/shared/lib/cn';
 import { formatRelative, formatShortDate, formatTime, formatSum } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -89,6 +90,12 @@ export default function AccountPage() {
   const revokeOneMutation = useMutation({
     mutationFn: (id: string) => accountApi.revokeSession(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+
+  // Persist the UI language on the user's account (same as Settings).
+  const langMutation = useMutation({
+    mutationFn: (language: AppLanguage) => accountApi.updateProfile({ language }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-profile'] }),
   });
 
   // Toggle a single Telegram-notification preference — optimistic, saved at once.
@@ -231,8 +238,25 @@ export default function AccountPage() {
           </Card>
         </div>
 
-        {/* Notifications + sessions + login history */}
+        {/* Language + notifications + sessions + login history */}
         <div className="flex flex-col gap-[18px]">
+        {/* Interface language — persisted on the account. */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-[16px] font-semibold">{t('account.language.title')}</h2>
+              <p className="mt-0.5 text-[12.5px] text-muted-2">
+                {langMutation.isError ? (
+                  <span className="text-danger">{t('account.language.saveError')}</span>
+                ) : (
+                  t('account.language.subtitle')
+                )}
+              </p>
+            </div>
+            <LanguageSwitch className="flex-none" onChange={(lang) => langMutation.mutate(lang)} />
+          </div>
+        </Card>
+
         {/* Telegram notification preferences (BE-9) */}
         <Card className="p-6">
           <div className="mb-4">

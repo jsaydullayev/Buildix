@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Search, Plus, Minus, X, Package, Check, UserPlus, Clock, Printer, Pause } from 'lucide-react';
-import { Button, Card, Spinner, Badge, Modal } from '@/shared/ui';
+import { Button, Card, Spinner, Badge, Modal, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatTime } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -42,6 +42,7 @@ function cashChips(total: number): number[] {
  */
 export default function SellerPosPage() {
   const { t, i18n } = useTranslation();
+  const confirm = useConfirm();
   const qc = useQueryClient();
 
   const [saleId, setSaleId] = useState<string | null>(null);
@@ -356,8 +357,8 @@ export default function SellerPosPage() {
             <button
               type="button"
               disabled={discardDraft.isPending}
-              onClick={() => {
-                if (items.length === 0 || window.confirm(t('seller.pos.discardConfirm')))
+              onClick={async () => {
+                if (items.length === 0 || (await confirm({ title: t('seller.pos.discardConfirm'), tone: 'danger', confirmLabel: t('seller.pos.discard') })))
                   discardDraft.mutate(saleId);
               }}
               className="text-[12.5px] text-muted-2 transition-colors hover:text-danger disabled:opacity-40"
@@ -389,8 +390,9 @@ export default function SellerPosPage() {
                     type="button"
                     title={t('seller.pos.discard')}
                     disabled={discardDraft.isPending}
-                    onClick={() => {
-                      if (window.confirm(t('seller.pos.discardConfirm'))) discardDraft.mutate(d.id);
+                    onClick={async () => {
+                      if (await confirm({ title: t('seller.pos.discardConfirm'), tone: 'danger', confirmLabel: t('seller.pos.discard') }))
+                        discardDraft.mutate(d.id);
                     }}
                     className="absolute right-1 top-1 rounded p-0.5 text-muted-2 opacity-0 transition-opacity hover:bg-danger-soft hover:text-danger focus:opacity-100 group-hover:opacity-100"
                   >

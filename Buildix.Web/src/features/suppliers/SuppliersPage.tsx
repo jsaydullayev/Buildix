@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Building2, Pencil, Trash2 } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -31,6 +31,7 @@ export default function SuppliersPage() {
   const canManage = hasPermission(PERMISSIONS.suppliers.manage);
   const canDelete = hasPermission(PERMISSIONS.suppliers.delete);
   const canPurchase = hasPermission(PERMISSIONS.zakup.create);
+  const confirm = useConfirm();
 
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -68,8 +69,11 @@ export default function SuppliersPage() {
         ? t('suppliers.deleteConfirm', { name: s.name })
         : (info.warningMessage ??
           t('suppliers.deleteBlocked', { count: info.receiptsCount, debt: formatSum(info.outstandingDebt) }));
-      if (info.canDelete && window.confirm(msg)) del.mutate(s);
-      else if (!info.canDelete) window.alert(msg);
+      if (info.canDelete) {
+        if (await confirm({ title: msg, tone: 'danger', confirmLabel: t('common.delete') })) del.mutate(s);
+      } else {
+        window.alert(msg);
+      }
     } catch (e) {
       window.alert((e as ApiError).message ?? t('common.somethingWrong'));
     }

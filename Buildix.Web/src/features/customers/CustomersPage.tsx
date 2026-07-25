@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Pencil, Trash2, FileDown } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -24,6 +24,7 @@ export default function CustomersPage() {
   const canDelete = hasPermission(PERMISSIONS.customers.delete);
   const canExport = hasPermission(PERMISSIONS.customers.export);
   const exporter = useExport(() => customersApi.exportExcel(i18n.language), 'customers.xlsx');
+  const confirm = useConfirm();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState('');
@@ -63,7 +64,8 @@ export default function CustomersPage() {
         window.alert(blocked);
         return;
       }
-      if (window.confirm(t('customers.deleteConfirm', { name: c.fullName ?? c.phone }))) del.mutate(c);
+      if (await confirm({ title: t('customers.deleteConfirm', { name: c.fullName ?? c.phone }), tone: 'danger', confirmLabel: t('common.delete') }))
+        del.mutate(c);
     } catch (e) {
       window.alert((e as ApiError).message ?? t('common.somethingWrong'));
     }

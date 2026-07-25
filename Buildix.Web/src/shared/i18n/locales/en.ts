@@ -7,6 +7,8 @@ export const en: TranslationSchema = {
     retry: 'Retry',
     save: 'Save changes',
     cancel: 'Cancel',
+    confirm: 'Confirm',
+    confirmDefault: 'Are you sure?',
     close: 'Close',
     delete: 'Delete',
     search: 'Search',
@@ -950,6 +952,11 @@ export const en: TranslationSchema = {
   account: {
     title: 'My account',
     subtitle: 'Personal details and sign-in security',
+    language: {
+      title: 'Interface language',
+      subtitle: 'Applied immediately and saved to your account',
+      saveError: 'Could not save the language — please try again',
+    },
     profile: 'Profile',
     fullName: 'Full name',
     phone: 'Phone',

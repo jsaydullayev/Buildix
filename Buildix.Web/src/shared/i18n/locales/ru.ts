@@ -5,6 +5,8 @@ export const ru = {
     retry: 'Повторить',
     save: 'Сохранить изменения',
     cancel: 'Отмена',
+    confirm: 'Подтвердить',
+    confirmDefault: 'Вы уверены?',
     close: 'Закрыть',
     delete: 'Удалить',
     search: 'Поиск',
@@ -952,6 +954,11 @@ export const ru = {
   account: {
     title: 'Мой аккаунт',
     subtitle: 'Личные данные и безопасность входа',
+    language: {
+      title: 'Язык интерфейса',
+      subtitle: 'Применяется сразу и сохраняется в вашем аккаунте',
+      saveError: 'Не удалось сохранить язык — попробуйте ещё раз',
+    },
     profile: 'Профиль',
     fullName: 'Имя и фамилия',
     phone: 'Телефон',

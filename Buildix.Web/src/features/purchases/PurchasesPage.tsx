@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { useTranslation } from 'react-i18next';
 import { startOfMonth } from 'date-fns';
 import { Plus, FileDown, Truck, Search, Trash2 } from 'lucide-react';
-import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, StatCard, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -32,6 +32,7 @@ export default function PurchasesPage() {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const canCreate = hasPermission(PERMISSIONS.zakup.create);
   const canDelete = hasPermission(PERMISSIONS.zakup.delete);
   const exporter = useExport(() => purchasesApi.exportReceipts(), 'purchases.xlsx');
@@ -70,8 +71,9 @@ export default function PurchasesPage() {
     onError: (e) => window.alert((e as ApiError).message ?? t('common.somethingWrong')),
   });
 
-  function askDelete(r: ZakupReceipt) {
-    if (window.confirm(t('purchases.deleteConfirm', { number: r.receiptNumber }))) del.mutate(r.id);
+  async function askDelete(r: ZakupReceipt) {
+    if (await confirm({ title: t('purchases.deleteConfirm', { number: r.receiptNumber }), tone: 'danger', confirmLabel: t('common.delete') }))
+      del.mutate(r.id);
   }
 
   const stats = useMemo(() => {

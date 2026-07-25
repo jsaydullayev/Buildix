@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatRelative } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -38,6 +38,7 @@ export default function EmployeesPage() {
   const canManage = hasPermission(PERMISSIONS.users.manage);
   const canEditPermissions = hasRole(ROLES.Owner, ROLES.SuperAdmin);
   const canSeePerf = hasPermission(PERMISSIONS.reports.access);
+  const confirm = useConfirm();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState('');
@@ -84,8 +85,9 @@ export default function EmployeesPage() {
     mutationFn: (u: Employee) => employeesApi.remove(u.id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['employees'] }),
   });
-  const askDelete = (u: Employee) => {
-    if (window.confirm(t('employees.deleteConfirm', { name: u.fullName }))) del.mutate(u);
+  const askDelete = async (u: Employee) => {
+    if (await confirm({ title: t('employees.deleteConfirm', { name: u.fullName }), tone: 'danger', confirmLabel: t('common.delete') }))
+      del.mutate(u);
   };
 
   const isProtected = (u: Employee) => u.role === 'Owner' || u.role === 'SuperAdmin';

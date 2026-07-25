@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { FileDown, Ban, Undo2 } from 'lucide-react';
-import { Modal, Button, Badge } from '@/shared/ui';
+import { Modal, Button, Badge, useConfirm } from '@/shared/ui';
 import { formatSum, formatQty, formatShortDate, formatTime } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { downloadBlob } from '@/shared/lib/download';
@@ -47,6 +47,7 @@ export function SaleDetailModal({
   const { subdomain } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -107,8 +108,9 @@ export function SaleDetailModal({
     }
   }
 
-  function askCancel() {
-    if (window.confirm(t('sales.detail.cancelConfirm', { number: sale!.saleNumber }))) cancel.mutate();
+  async function askCancel() {
+    if (await confirm({ title: t('sales.detail.cancelConfirm', { number: sale!.saleNumber }), tone: 'danger', confirmLabel: t('sales.detail.cancel') }))
+      cancel.mutate();
   }
 
   return (

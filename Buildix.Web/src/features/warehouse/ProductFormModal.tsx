@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Modal, Button, Input } from '@/shared/ui';
+import { Modal, Button, Input, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -60,6 +60,7 @@ export function ProductFormModal({
   categories: ProductCategory[];
 }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const { hasPermission, hasRole } = useAuth();
   const canViewCost = hasPermission(PERMISSIONS.data.costPrice);
@@ -178,8 +179,9 @@ export function ProductFormModal({
               variant="danger"
               className="mr-auto"
               loading={deleteMutation.isPending}
-              onClick={() => {
-                if (window.confirm(t('warehouse.form.deleteConfirm'))) deleteMutation.mutate();
+              onClick={async () => {
+                if (await confirm({ title: t('warehouse.form.deleteConfirm'), tone: 'danger', confirmLabel: t('warehouse.form.delete') }))
+                  deleteMutation.mutate();
               }}
             >
               {t('warehouse.form.delete')}

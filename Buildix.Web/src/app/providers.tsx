@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { queryClient } from './queryClient';
 import { useBootstrap } from '@/shared/auth/useBootstrap';
+import { ConfirmProvider } from '@/shared/ui';
 
 function BootstrapGate({ children }: { children: ReactNode }) {
   useBootstrap();
@@ -13,9 +14,11 @@ function BootstrapGate({ children }: { children: ReactNode }) {
 export function Providers() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BootstrapGate>
-        <RouterProvider router={router} />
-      </BootstrapGate>
+      <ConfirmProvider>
+        <BootstrapGate>
+          <RouterProvider router={router} />
+        </BootstrapGate>
+      </ConfirmProvider>
     </QueryClientProvider>
   );
 }
