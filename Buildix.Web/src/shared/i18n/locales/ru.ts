@@ -174,6 +174,7 @@ export const ru = {
       doneTitle: 'Продажа оформлена',
       print: 'Печать чека',
       newSale: 'Новая продажа',
+      thanks: 'Спасибо за покупку!',
       shift: 'Смена',
       cashPart: 'Наличными',
       cardPart: 'Картой (остаток)',
@@ -894,6 +895,8 @@ export const ru = {
     telegram: 'Telegram',
     login: 'Логин',
     loginLocked: 'логин изменить нельзя',
+    nameLocked: 'изменение имени — у администратора',
+    myResults: { title: 'Мои результаты · {{month}}', revenue: 'Продажи', checks: 'Чеков', avgCheck: 'Средний чек', shifts: 'Смен отработано' },
     password: {
       title: 'Смена пароля',
       hint: 'Минимум 8 символов, буквы и цифры',

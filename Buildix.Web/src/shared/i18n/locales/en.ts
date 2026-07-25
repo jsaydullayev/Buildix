@@ -176,6 +176,7 @@ export const en: TranslationSchema = {
       doneTitle: 'Sale completed',
       print: 'Print receipt',
       newSale: 'New sale',
+      thanks: 'Thank you for your purchase!',
       shift: 'Shift',
       cashPart: 'In cash',
       cardPart: 'By card (remainder)',
@@ -892,6 +893,8 @@ export const en: TranslationSchema = {
     telegram: 'Telegram',
     login: 'Login',
     loginLocked: 'login cannot be changed',
+    nameLocked: 'name change — via administrator',
+    myResults: { title: 'My results · {{month}}', revenue: 'Sales', checks: 'Receipts', avgCheck: 'Average receipt', shifts: 'Shifts worked' },
     password: {
       title: 'Change password',
       hint: 'Minimum 8 characters, letters and digits',

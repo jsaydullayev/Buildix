@@ -176,6 +176,7 @@ export const uz: TranslationSchema = {
       doneTitle: 'Sotuv rasmiylashtirildi',
       print: 'Chekni chop etish',
       newSale: 'Yangi sotuv',
+      thanks: 'Xaridingiz uchun rahmat!',
       shift: 'Smena',
       cashPart: 'Naqd bilan',
       cardPart: 'Karta bilan (qoldiq)',
@@ -892,6 +893,8 @@ export const uz: TranslationSchema = {
     telegram: 'Telegram',
     login: 'Login',
     loginLocked: 'loginni o‘zgartirib bo‘lmaydi',
+    nameLocked: 'ismni o‘zgartirish — administratorда',
+    myResults: { title: 'Mening natijalarim · {{month}}', revenue: 'Sotuvlar', checks: 'Chek', avgCheck: 'O‘rtacha chek', shifts: 'Ishlangan smena' },
     password: {
       title: 'Parolni o‘zgartirish',
       hint: 'Kamida 8 belgi, harf va raqam',

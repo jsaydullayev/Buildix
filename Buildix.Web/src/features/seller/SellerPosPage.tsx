@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Search, Plus, Minus, X, Package, Check, UserPlus, Clock, Printer, Pause } from 'lucide-react';
@@ -8,6 +9,7 @@ import { formatSum, formatQty, formatTime } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
+import { publicMarketApi } from '@/shared/api/auth';
 import { categoriesApi } from '@/features/warehouse/api';
 import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
@@ -101,6 +103,14 @@ export default function SellerPosPage() {
   // Only for printing "Смена №N" on the receipt — the sale itself is stamped
   // with the shift server-side at creation.
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  // Do'kon nomi — chek header'i uchun (ochiq endpoint, uzoq kesh).
+  const { subdomain } = useParams();
+  const marketQuery = useQuery({
+    queryKey: ['public-market', subdomain],
+    queryFn: () => publicMarketApi.getState(subdomain!),
+    enabled: !!subdomain,
+    staleTime: 30 * 60_000,
+  });
 
   const sale = saleQuery.data;
   const items = sale?.items ?? [];
@@ -569,6 +579,7 @@ export default function SellerPosPage() {
       <ReceiptModal
         sale={done}
         shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
+        storeName={marketQuery.data?.marketName ?? null}
         onClose={() => setDone(null)}
         onPrint={printReceipt}
       />
@@ -945,11 +956,13 @@ function ChipSm({ label, onClick }: { label: string; onClick: () => void }) {
 function ReceiptModal({
   sale,
   shiftNumber,
+  storeName,
   onClose,
   onPrint,
 }: {
   sale: PosSale | null;
   shiftNumber: number;
+  storeName: string | null;
   onClose: () => void;
   onPrint: (id: string) => void;
 }) {
@@ -978,6 +991,9 @@ function ReceiptModal({
             </span>
           </div>
           <Card className="p-4 font-mono text-[12.5px]">
+            {storeName && (
+              <div className="mb-2 border-b border-hairline pb-2 text-center text-[13px] font-semibold">{storeName}</div>
+            )}
             <div className="mb-2 flex justify-between text-muted-2">
               <span>{formatTime(sale.createdAt)}</span>
               {shiftNumber > 0 && (
@@ -1012,6 +1028,9 @@ function ReceiptModal({
             {sale.customerName && (
               <div className="mt-1 border-t border-hairline pt-1 text-muted">{sale.customerName}</div>
             )}
+            <div className="mt-2 border-t border-hairline pt-2 text-center text-[11.5px] text-muted-2">
+              {t('seller.pos.thanks')}
+            </div>
           </Card>
         </div>
       )}
