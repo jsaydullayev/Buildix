@@ -4,15 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { PageHeader, Card, StatCard, Badge, Spinner, Button } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatShortDate } from '@/shared/lib/format';
+import { formatSum, formatShortDate, formatTime } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
-import { debtsApi, type DebtorSummary } from '@/features/debts/api';
+import { debtsApi, type DebtorSummary, type DebtPaymentToday } from '@/features/debts/api';
 import { PayDebtModal } from '@/features/debts/PayDebtModal';
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'upcoming'] as const;
 type DueFilter = (typeof DUE_FILTERS)[number];
+const METHOD_KEY: Record<string, string> = { Cash: 'cash', Terminal: 'card', Transfer: 'transfer', Click: 'click' };
+
+function initials(name: string): string {
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
+}
 
 /** Seller debt collection: view debtors and accept payments into the shift's till. */
 export default function SellerDebtsPage() {
@@ -30,6 +36,7 @@ export default function SellerDebtsPage() {
     queryKey: ['debtors', { search: debouncedSearch, due }],
     queryFn: () => debtsApi.debtors(debouncedSearch, due === 'all' ? null : due),
   });
+  const todayQuery = useQuery({ queryKey: ['debt-payments-today'], queryFn: debtsApi.todayPayments });
 
   const s = summaryQuery.data;
 
@@ -98,6 +105,9 @@ export default function SellerDebtsPage() {
                 className="grid grid-cols-debts items-center gap-4 border-b border-hairline px-6 py-3.5 text-[13px] last:border-0 hover:bg-bg/40"
               >
                 <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-primary-soft text-[11px] font-semibold text-primary">
+                    {initials(d.customerName ?? d.customerPhone)}
+                  </span>
                   <span className="truncate font-medium">{d.customerName ?? d.customerPhone}</span>
                   <Badge tone="neutral">
                     {t(`debts.type.${d.customerType === 'Legal' ? 'legal' : 'individual'}`)}
@@ -131,9 +141,43 @@ export default function SellerDebtsPage() {
             <div className="py-20 text-center text-[14px] text-muted-2">{t('debts.empty')}</div>
           )}
         </Card>
+
+        {/* «Принятые сегодня» — bugungi qarz-to'lovlari */}
+        {(todayQuery.data ?? []).length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="border-b border-hairline px-6 py-4 text-[15px] font-semibold">
+              {t('seller.debts.acceptedToday')}
+            </div>
+            <div className="grid grid-cols-[80px_1.6fr_1fr_1fr_1fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-2.5 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+              <span>{t('seller.debts.acceptedCols.time')}</span>
+              <span>{t('seller.debts.acceptedCols.customer')}</span>
+              <span>{t('seller.debts.acceptedCols.method')}</span>
+              <span className="text-right">{t('seller.debts.acceptedCols.remaining')}</span>
+              <span className="text-right">{t('seller.debts.acceptedCols.amount')}</span>
+            </div>
+            {(todayQuery.data ?? []).map((p, i) => (
+              <AcceptedRow key={i} p={p} />
+            ))}
+          </Card>
+        )}
       </div>
 
       <PayDebtModal debtor={paying} onClose={() => setPaying(null)} />
     </>
+  );
+}
+
+function AcceptedRow({ p }: { p: DebtPaymentToday }) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid grid-cols-[80px_1.6fr_1fr_1fr_1fr] items-center gap-4 border-b border-hairline px-6 py-3 text-[13px] last:border-0">
+      <span className="text-muted-2 nums">{formatTime(p.at)}</span>
+      <span className="truncate font-medium">{p.customerName ?? p.customerPhone ?? '—'}</span>
+      <span>
+        <Badge tone={p.method === 'Cash' ? 'success' : 'info'}>{t(`sales.payment.${METHOD_KEY[p.method] ?? 'cash'}` as never)}</Badge>
+      </span>
+      <span className="text-right text-muted-2 nums">{p.remainingDebt > 0 ? formatSum(p.remainingDebt) : '—'}</span>
+      <span className="text-right font-semibold text-success nums">+ {formatSum(p.amount)}</span>
+    </div>
   );
 }

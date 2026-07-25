@@ -11,6 +11,10 @@ export interface Customer {
   customerType: string; // "Individual" | "Legal"
   isRegular: boolean;
   debtLimit: number | null;
+  /** Seller Клиенты — «Покупок за месяц» + «Последняя» (list'da hisoblanadi). */
+  monthPurchaseCount: number;
+  monthPurchaseSum: number;
+  lastPurchaseAt: string | null;
 }
 
 export interface CreateCustomerBody {
@@ -50,6 +54,8 @@ export interface CustomerQuery {
   withDebt?: boolean;
   /** «Организации» chip — "Legal" | "Individual". */
   customerType?: string;
+  /** «Постоянные» chip — only regular customers. */
+  isRegular?: boolean;
 }
 
 export const customersApi = {
@@ -61,6 +67,7 @@ export const customersApi = {
         search: q.search || undefined,
         withDebt: q.withDebt || undefined,
         customerType: q.customerType || undefined,
+        isRegular: q.isRegular || undefined,
       },
     });
     return data;

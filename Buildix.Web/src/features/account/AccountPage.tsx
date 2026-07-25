@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner, Toggle } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatRelative, formatShortDate, formatTime } from '@/shared/lib/format';
+import { formatRelative, formatShortDate, formatTime, formatSum } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useSessionStore } from '@/shared/auth/sessionStore';
+import { shiftsApi } from '@/features/shifts/api';
 import { accountApi, type Session } from './api';
 
 function initials(name: string) {
@@ -32,9 +33,16 @@ export default function AccountPage() {
   // Per-user Telegram toggles — seeded from the profile, saved on each flip.
   const [notify, setNotify] = useState({ debt: true, stock: true, shift: true });
 
+  const isSeller = session?.role === 'Seller';
   const profileQuery = useQuery({ queryKey: ['my-profile'], queryFn: accountApi.profile });
   const sessionsQuery = useQuery({ queryKey: ['sessions'], queryFn: accountApi.sessions });
   const historyQuery = useQuery({ queryKey: ['login-history'], queryFn: accountApi.loginHistory });
+  // «Мои результаты · <oy>» — kassirning shu oylik shaxsiy natijasi (self-service).
+  const resultsQuery = useQuery({
+    queryKey: ['my-shifts', 'month'],
+    queryFn: () => shiftsApi.myHistory('month'),
+    enabled: isSeller,
+  });
 
   // Seed the editable fields once the profile loads.
   useEffect(() => {
@@ -126,6 +134,29 @@ export default function AccountPage() {
       <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-8">
         {/* Left column */}
         <div className="flex flex-col gap-[18px]">
+          {/* «Мои результаты · <oy>» — kassir shaxsiy oylik natijasi */}
+          {isSeller && (
+            <Card className="p-6">
+              <h2 className="mb-4 text-[16px] font-semibold">
+                {t('account.myResults.title', {
+                  month: new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date()),
+                })}
+              </h2>
+              {resultsQuery.isLoading ? (
+                <div className="flex justify-center py-6 text-primary">
+                  <Spinner size={20} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard label={t('account.myResults.revenue')} value={formatSum(resultsQuery.data?.totalRevenue ?? 0)} suffix={t('common.currency')} />
+                  <StatCard label={t('account.myResults.checks')} value={resultsQuery.data?.totalChecks ?? 0} />
+                  <StatCard label={t('account.myResults.avgCheck')} value={formatSum(resultsQuery.data?.avgCheck ?? 0)} suffix={t('common.currency')} />
+                  <StatCard label={t('account.myResults.shifts')} value={resultsQuery.data?.items.length ?? 0} />
+                </div>
+              )}
+            </Card>
+          )}
+
           {/* Profile */}
           <Card className="p-6">
             <div className="mb-5 flex items-center gap-4">
@@ -142,7 +173,13 @@ export default function AccountPage() {
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-medium text-label">{t('account.fullName')}</label>
-                <input className={inputCls} value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                <input
+                  className={cn(inputCls, isSeller && 'bg-bg text-muted')}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={isSeller}
+                />
+                {isSeller && <span className="text-[11.5px] text-muted-2">{t('account.nameLocked')}</span>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">

@@ -12,6 +12,8 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import { salesApi, type Sale } from '@/features/sales/api';
 import { SaleDetailModal } from '@/features/sales/SaleDetailModal';
+import { returnsApi, type SaleReturn } from '@/features/returns/api';
+import { NewReturnModal } from '@/features/returns/NewReturnModal';
 import { shiftsApi } from '@/features/shifts/api';
 
 const PAGE_SIZE = 20;
@@ -20,9 +22,11 @@ const GRID = 'grid-cols-[0.7fr_0.7fr_1.5fr_1.1fr_0.9fr_1fr]';
 // question is "what have I rung up since I opened the till", which a calendar
 // day cannot answer for a shift that started yesterday evening.
 type Period = 'shift' | 'today' | 'week' | 'month';
-const PAYMENT_FILTERS = ['all', 'cash', 'card', 'debt'] as const;
+// «Возвраты» — 5-chi filtr: sotuvlar o'rniga qaytarishlar feed'ini ko'rsatadi.
+const PAYMENT_FILTERS = ['all', 'cash', 'card', 'debt', 'returns'] as const;
 type PayFilter = (typeof PAYMENT_FILTERS)[number];
-const PAY_PARAM: Record<PayFilter, string | null> = { all: null, cash: 'Cash', card: 'Terminal', debt: 'Debt' };
+const PAY_PARAM: Record<PayFilter, string | null> = { all: null, cash: 'Cash', card: 'Terminal', debt: 'Debt', returns: null };
+const REASON_KEY: Record<string, string> = { Defect: 'defect', NotFit: 'notFit', SellerError: 'sellerError', Other: 'other' };
 
 function periodRange(period: Period): { from: string; to: string } | null {
   if (period === 'shift') return null; // scoped by shiftId instead of a date range
@@ -45,6 +49,8 @@ export default function SellerSalesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [openSale, setOpenSale] = useState<Sale | null>(null);
+  // «Оформить возврат» chek kartochkasidan — inline NewReturnModal (sales.return).
+  const [returnFor, setReturnFor] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search);
   const range = useMemo(() => periodRange(period), [period]);
 
@@ -54,6 +60,16 @@ export default function SellerSalesPage() {
   // and is also what the design shows ("за смену").
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
   const shiftId = shiftQuery.data?.id ?? null;
+
+  const showReturns = pay === 'returns';
+  // Возвраты davri sotuvlar bilan bir xil (за смену → smena ochilishi). openedAt
+  // xom holatда mikrosoniya + Z'siz kelib server bind'ini buzadi — ISO'ga keltiramiz.
+  const returnsFrom =
+    period === 'shift'
+      ? shiftQuery.data?.openedAt
+        ? new Date(shiftQuery.data.openedAt).toISOString()
+        : undefined
+      : range?.from;
 
   const listQuery = useQuery({
     queryKey: ['seller-sales', { page, search: debouncedSearch, pay, period, shiftId }],
@@ -69,7 +85,20 @@ export default function SellerSalesPage() {
       }),
     // Без открытой смены нечего фильтровать — an unscoped request would quietly
     // fall back to "all sales ever", which reads as someone else's receipts.
-    enabled: period !== 'shift' || !!shiftId,
+    enabled: !showReturns && (period !== 'shift' || !!shiftId),
+    placeholderData: keepPreviousData,
+  });
+
+  // «Возвратов» kartasi — joriy davr bo'yicha count + summa.
+  const returnsSummaryQuery = useQuery({
+    queryKey: ['seller-returns-summary', returnsFrom ?? 'all'],
+    queryFn: () => returnsApi.summary(returnsFrom),
+  });
+  // «Возвраты» tab tanlanganda — qaytarishlar ro'yxati.
+  const returnsListQuery = useQuery({
+    queryKey: ['seller-returns', { page, search: debouncedSearch }],
+    queryFn: () => returnsApi.list({ page, size: PAGE_SIZE, search: debouncedSearch }),
+    enabled: showReturns,
     placeholderData: keepPreviousData,
   });
 
@@ -96,7 +125,12 @@ export default function SellerSalesPage() {
           <StatCard label={t('sales.stats.sum')} value={formatSum(sh?.revenue ?? 0)} suffix={t('common.currency')} hint={t('shifts.currentShift')} />
           <StatCard label={t('sales.stats.checks')} value={sh?.checkCount ?? 0} hint={t('shifts.currentShift')} />
           <StatCard label={t('sales.stats.avg')} value={formatSum(avg)} suffix={t('common.currency')} />
-          <StatCard label={t('shifts.metrics.cashIn')} value={formatSum(sh?.cashIn ?? 0)} suffix={t('common.currency')} />
+          <StatCard
+            label={t('seller.sales.returnsStat')}
+            value={returnsSummaryQuery.data?.count ?? 0}
+            tone={(returnsSummaryQuery.data?.count ?? 0) > 0 ? 'warn' : 'default'}
+            hint={t('seller.sales.returnsSum', { value: formatSum(returnsSummaryQuery.data?.totalAmount ?? 0) })}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -155,12 +189,20 @@ export default function SellerSalesPage() {
             <span>{t('sales.cols.number')}</span>
             <span>{t('sales.cols.time')}</span>
             <span>{t('sales.cols.items')}</span>
-            <span>{t('sales.cols.customer')}</span>
+            <span>{showReturns ? t('returns.cols.reason') : t('sales.cols.customer')}</span>
             <span>{t('sales.cols.pay')}</span>
             <span className="text-right">{t('sales.cols.sum')}</span>
           </div>
 
-          {listQuery.isLoading ? (
+          {showReturns ? (
+            returnsListQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary"><Spinner size={24} /></div>
+            ) : returnsListQuery.data && returnsListQuery.data.items.length > 0 ? (
+              returnsListQuery.data.items.map((r) => <ReturnRow key={r.id} ret={r} />)
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('returns.empty')}</div>
+            )
+          ) : listQuery.isLoading ? (
             <div className="flex items-center justify-center py-20 text-primary">
               <Spinner size={24} />
             </div>
@@ -175,38 +217,58 @@ export default function SellerSalesPage() {
           )}
         </Card>
 
-        {listQuery.data && listQuery.data.totalPages > 1 && (
+        <div className="flex items-center gap-2 text-[12px] text-muted-2">
+          <span>{t('seller.sales.returnHint')}</span>
+        </div>
+
+        {(() => {
+          const pageData = showReturns ? returnsListQuery.data : listQuery.data;
+          const fetching = showReturns ? returnsListQuery.isFetching : listQuery.isFetching;
+          if (!pageData || pageData.totalPages <= 1) return null;
+          return (
           <div className="flex items-center justify-between">
             <span className="text-[12.5px] text-muted-2">
-              {t('sales.showing', { shown: listQuery.data.items.length, total: listQuery.data.total })}
+              {t('sales.showing', { shown: pageData.items.length, total: pageData.total })}
             </span>
             <div className="flex items-center gap-1.5">
-              {listQuery.isFetching && <Spinner size={14} className="mr-1 text-primary" />}
+              {fetching && <Spinner size={14} className="mr-1 text-primary" />}
               <button
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
+                aria-label={t('common.prev')}
                 className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
               >
                 ‹
               </button>
               <span className="px-2 text-[13px] text-muted nums">
-                {page} / {listQuery.data.totalPages}
+                {page} / {pageData.totalPages}
               </span>
               <button
                 type="button"
-                disabled={page >= listQuery.data.totalPages}
+                disabled={page >= pageData.totalPages}
                 onClick={() => setPage((p) => p + 1)}
+                aria-label={t('common.next')}
                 className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
               >
                 ›
               </button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
 
-      <SaleDetailModal sale={openSale} onClose={() => setOpenSale(null)} />
+      <SaleDetailModal
+        sale={openSale}
+        onClose={() => setOpenSale(null)}
+        onReturn={(number) => setReturnFor(String(number))}
+      />
+      <NewReturnModal
+        open={returnFor !== null}
+        onClose={() => setReturnFor(null)}
+        presetSearch={returnFor ?? undefined}
+      />
     </>
   );
 }
@@ -245,5 +307,31 @@ function SaleRow({ sale, onOpen }: { sale: Sale; onOpen: () => void }) {
       </span>
       <span className="text-right font-semibold nums">{formatSum(sale.totalAmount)}</span>
     </button>
+  );
+}
+
+/** Qaytarish qatori — «Возвраты» tab (manfiy/pushti, dizayn bo'yicha). */
+function ReturnRow({ ret }: { ret: SaleReturn }) {
+  const { t } = useTranslation();
+  const itemsText =
+    ret.items.length === 0
+      ? '—'
+      : ret.items.length === 1
+        ? ret.items[0]!.productName
+        : `${ret.items[0]!.productName} +${ret.items.length - 1}`;
+  return (
+    <div className={cn('grid w-full items-center gap-4 border-b border-hairline bg-danger-soft/25 px-6 py-3.5 text-[13px] last:border-0', GRID)}>
+      <span className="font-semibold text-danger nums">В-{ret.number}</span>
+      <span className="text-muted-2 nums">{formatTime(ret.createdAt)}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-muted">{itemsText}</span>
+        <span className="block truncate text-[11px] text-muted-2">{t('seller.sales.returnOf', { number: ret.saleNumber })}</span>
+      </span>
+      <span className="truncate text-muted">{t(`returns.reason.${REASON_KEY[ret.reason] ?? 'other'}` as never)}</span>
+      <span>
+        <Badge tone="danger">{t('sales.payment.returned')}</Badge>
+      </span>
+      <span className="text-right font-bold text-danger nums">− {formatSum(ret.totalAmount)}</span>
+    </div>
   );
 }

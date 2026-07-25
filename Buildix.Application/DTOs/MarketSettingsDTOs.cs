@@ -19,6 +19,10 @@ public record MarketSettingsDto(
     [property: JsonPropertyName("defaultDebtLimit")] decimal DefaultDebtLimit,
     [property: JsonPropertyName("allowedCashDiscrepancy")] decimal AllowedCashDiscrepancy,
     [property: JsonPropertyName("shiftAutoCloseTime")] string? ShiftAutoCloseTime,
+    // Посещаемость (davomat rejasi) — "HH:mm"
+    [property: JsonPropertyName("workDayStart")] string WorkDayStart,
+    [property: JsonPropertyName("workDayEnd")] string WorkDayEnd,
+    [property: JsonPropertyName("lateThreshold")] string LateThreshold,
     // Чек
     [property: JsonPropertyName("receiptHeader")] string? ReceiptHeader,
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
@@ -52,6 +56,9 @@ public record UpdateMarketSettingsRequest(
     [property: JsonPropertyName("defaultDebtLimit")] decimal DefaultDebtLimit,
     [property: JsonPropertyName("allowedCashDiscrepancy")] decimal AllowedCashDiscrepancy,
     [property: JsonPropertyName("shiftAutoCloseTime")] string? ShiftAutoCloseTime,
+    [property: JsonPropertyName("workDayStart")] string WorkDayStart,
+    [property: JsonPropertyName("workDayEnd")] string WorkDayEnd,
+    [property: JsonPropertyName("lateThreshold")] string LateThreshold,
     [property: JsonPropertyName("receiptHeader")] string? ReceiptHeader,
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,

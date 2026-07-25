@@ -164,4 +164,25 @@ public class DebtQueryService : IDebtQueryService
 
         return new DebtSummaryStatsDto(totalDebt, overdueTotal, overdueCount, customerCount, paidToday, paidThisMonth);
     }
+
+    public async Task<IReadOnlyList<DebtPaymentTodayDto>> GetTodayPaymentsAsync(CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarket.GetCurrentMarketId();
+        var todayStart = _clock.LocalDayToUtcRange(_clock.TodayLocal).UtcStart;
+
+        // Bugungi qarz-to'lovlari — qarzli sotuvга yozilgan musbat to'lovlar
+        // (refund manfiy → chiqariladi). «Остаток долга» = joriy qoldiq.
+        return await _context.Payments
+            .Where(p => p.Sale != null && p.Sale.MarketId == marketId && p.Sale.Debt != null
+                && p.CreatedAt >= todayStart && p.Amount > 0)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new DebtPaymentTodayDto(
+                p.CreatedAt,
+                p.Sale!.Customer != null ? p.Sale.Customer.FullName : null,
+                p.Sale.Customer != null ? p.Sale.Customer.Phone : null,
+                p.PaymentType.ToString(),
+                p.Amount,
+                p.Sale.Debt!.RemainingDebt))
+            .ToListAsync(cancellationToken);
+    }
 }

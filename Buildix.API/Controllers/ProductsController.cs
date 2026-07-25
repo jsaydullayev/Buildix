@@ -169,6 +169,15 @@ public class ProductsController : ApiControllerBase
         Guid id, [FromQuery] int limit = 50, CancellationToken ct = default)
         => Ok(await _productQueryService.GetProductMovementsAsync(id, limit, ct));
 
+    /// <summary>Seller tovar kartochkasi statistikasi (supplier/oxirgi приход/oyiga sotilgan).</summary>
+    [HttpGet("~/api/Products/{id}/stats")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<ActionResult<ProductStatsDto>> GetProductStats(Guid id, CancellationToken ct = default)
+    {
+        var stats = await _productQueryService.GetProductStatsAsync(id, ct);
+        return stats is null ? NotFound() : Ok(stats);
+    }
+
     /// <summary>
     /// Товары/Склад ekranidagi inline tahrir — sotuv narxi / min. qoldiq /
     /// ko'rinish (Скрыть). Faqat berilgan maydon(lar)ni o'zgartiradi va

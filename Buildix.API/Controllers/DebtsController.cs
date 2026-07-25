@@ -54,6 +54,12 @@ public class DebtsController : ApiControllerBase
     public async Task<ActionResult<DebtSummaryStatsDto>> GetSummary(CancellationToken ct = default)
         => Ok(await _debtQueries.GetSummaryStatsAsync(ct));
 
+    /// <summary>«Принятые сегодня» — bugungi qabul qilingan qarz-to'lovlari.</summary>
+    [HttpGet("~/api/Debts/payments/today")]
+    [RequirePermission(PermissionKeys.DebtsAccess)]
+    public async Task<ActionResult<IReadOnlyList<DebtPaymentTodayDto>>> GetTodayPayments(CancellationToken ct = default)
+        => Ok(await _debtQueries.GetTodayPaymentsAsync(ct));
+
     /// <summary>Open debts for one customer.</summary>
     [HttpGet("{customerId}")]
     [RequirePermission(PermissionKeys.DebtsAccess)]

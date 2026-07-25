@@ -23,6 +23,16 @@ export interface Product {
   description: string | null;
   /** Hidden from POS / seller catalog (still in reports). Distinct from hidePriceFromSellers. */
   isHidden: boolean;
+  /** «Место на складе» — storage location (МЕСТО column + seller card). */
+  warehouseLocation: string | null;
+}
+
+/** Seller product card stats (supplier / last receipt / sold this month). */
+export interface ProductStats {
+  supplierName: string | null;
+  lastReceiptAt: string | null;
+  lastReceiptNumber: number | null;
+  soldThisMonth: number;
 }
 
 export interface ProductCategory {
@@ -173,6 +183,11 @@ export const productsApi = {
     const { data } = await apiClient.get<StockMovement[]>(`/Products/${productId}/movements`, {
       params: { limit },
     });
+    return data;
+  },
+
+  stats: async (productId: string): Promise<ProductStats> => {
+    const { data } = await apiClient.get<ProductStats>(`/Products/${productId}/stats`);
     return data;
   },
 };

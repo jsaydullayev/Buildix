@@ -41,7 +41,21 @@ public record ProductDto(
     // Sotuvchiga ko'rinadigan tavsif (Товары ekrani "Описание").
     [property: JsonPropertyName("description")] string? Description = null,
     // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
-    [property: JsonPropertyName("isHidden")] bool IsHidden = false
+    [property: JsonPropertyName("isHidden")] bool IsHidden = false,
+    // Omborда saqlash joyi ("МЕСТО" ustuni + kartochka).
+    [property: JsonPropertyName("warehouseLocation")] string? WarehouseLocation = null
+);
+
+/// <summary>
+/// Seller tovar kartochkasi (detal-drawer) statistikasi: kim yetkazib beradi
+/// (oxirgi kelgan postavka bo'yicha), oxirgi приход, oyiga sotilgan miqdor.
+/// Narх-закупа/маржа bu yerда YO'Q (kassirга ko'rsatilmaydi).
+/// </summary>
+public record ProductStatsDto(
+    [property: JsonPropertyName("supplierName")] string? SupplierName,
+    [property: JsonPropertyName("lastReceiptAt")] DateTime? LastReceiptAt,
+    [property: JsonPropertyName("lastReceiptNumber")] int? LastReceiptNumber,
+    [property: JsonPropertyName("soldThisMonth")] decimal SoldThisMonth
 );
 
 /// <summary>
@@ -192,5 +206,10 @@ public record ProductPatchDto(
     decimal? MinThreshold = null,
 
     // POS/katalog ko'rinishi ("Скрыть/Показать"). Null — tegilmaydi.
-    [property: JsonPropertyName("isHidden")] bool? IsHidden = null
+    [property: JsonPropertyName("isHidden")] bool? IsHidden = null,
+
+    // Ombor joyi ("Место на складе"). Null — tegilmaydi; bo'sh satr — tozalaydi.
+    [property: JsonPropertyName("warehouseLocation")]
+    [param: StringLength(120)]
+    string? WarehouseLocation = null
 );

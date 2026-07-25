@@ -60,6 +60,16 @@ public record DebtSummaryStatsDto(
     [property: JsonPropertyName("paidThisMonth")] decimal PaidThisMonth
 );
 
+/// <summary>«Принятые сегодня» — bugungi qarz-to'lovi qatori (Долги ekrani).</summary>
+public record DebtPaymentTodayDto(
+    [property: JsonPropertyName("at")] DateTime At,
+    [property: JsonPropertyName("customerName")] string? CustomerName,
+    [property: JsonPropertyName("customerPhone")] string? CustomerPhone,
+    [property: JsonPropertyName("method")] string Method,
+    [property: JsonPropertyName("amount")] decimal Amount,
+    [property: JsonPropertyName("remainingDebt")] decimal RemainingDebt
+);
+
 /// <summary>
 /// Qarzning to'lov muddatini (due date) yangilash tanasi. Null yuborilsa —
 /// muddat olib tashlanadi.

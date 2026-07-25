@@ -162,7 +162,7 @@ public class ProductService : IProductService
     /// </summary>
     public async Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        if (request.SalePrice is null && request.MinThreshold is null && request.IsHidden is null)
+        if (request.SalePrice is null && request.MinThreshold is null && request.IsHidden is null && request.WarehouseLocation is null)
             return Result.Failure<ProductDto>("O'zgartirish uchun kamida bitta maydon yuboring.");
 
         var marketId = _currentMarketService.GetCurrentMarketId();
@@ -188,6 +188,15 @@ public class ProductService : IProductService
         {
             changes["isHidden"] = new { from = product.IsHidden, to = newHidden };
             product.IsHidden = newHidden;
+        }
+        if (request.WarehouseLocation is not null)
+        {
+            var loc = string.IsNullOrWhiteSpace(request.WarehouseLocation) ? null : request.WarehouseLocation.Trim();
+            if (loc != product.WarehouseLocation)
+            {
+                changes["warehouseLocation"] = new { from = product.WarehouseLocation, to = loc };
+                product.WarehouseLocation = loc;
+            }
         }
 
         // Hech narsa o'zgarmadi — bekorga audit yozmaymiz, joriy holatni qaytaramiz.

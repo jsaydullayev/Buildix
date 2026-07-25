@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Buildix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Buildix.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724174249_AddAttendanceSchedule")]
+    partial class AddAttendanceSchedule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -809,9 +812,6 @@ namespace Buildix.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("WarehouseLocation")
-                        .HasColumnType("text");
-
                     b.Property<uint>("Xmin")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -1561,12 +1561,6 @@ namespace Buildix.Infrastructure.Migrations
 
                     b.Property<int>("DeliveryStatus")
                         .HasColumnType("integer");
-
-                    b.Property<string>("DriverPhone")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ExpectedDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("InvoiceNumber")
                         .HasMaxLength(100)

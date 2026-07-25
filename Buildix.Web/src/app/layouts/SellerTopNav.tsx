@@ -1,9 +1,11 @@
 import { NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Clock, Bell, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { SELLER_NAV_ITEMS } from '@/shared/config/navigation';
 import { PERMISSIONS } from '@/shared/config/permissions';
+import { notificationsApi } from '@/features/notifications/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
@@ -24,6 +26,15 @@ export function SellerTopNav() {
 
   const base = `/${subdomain}/seller`;
   const items = SELLER_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+
+  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
+  const unreadQuery = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: () => notificationsApi.unreadCount(),
+    enabled: canNotifications,
+    refetchInterval: 60_000,
+  });
+  const unread = unreadQuery.data ?? 0;
 
   const pillClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -71,9 +82,14 @@ export function SellerTopNav() {
         {/* Only shown when the user can actually open it — the Seller role has no
             notifications.access by default, and a bell that lands on a
             "no access" screen is a dead end. */}
-        {hasPermission(PERMISSIONS.notifications.access) && (
+        {canNotifications && (
           <NavLink to={`${base}/notifications`} className={iconLinkClass} aria-label={t('seller.nav.notifications')}>
             <Bell size={17} />
+            {unread > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
           </NavLink>
         )}
 

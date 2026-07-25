@@ -37,6 +37,16 @@ public class MarketSettings
     /// <summary>Smena avto-yopilish vaqti (HH:mm), null = avto-yopish yo'q.</summary>
     public TimeOnly? ShiftAutoCloseTime { get; set; }
 
+    // ── Посещаемость (davomat hisobi — §2.15 Смены) ─────────────────────────
+    // Do'kon ish grafigi: reja soati = End − Start; smena shu vaqtdan keyin
+    // ochilsa "kechikish". Standart 08:00–20:00 · 08:15 — mavjud xatti-harakat.
+    /// <summary>Ish kuni boshlanishi (davomat rejasi).</summary>
+    public TimeOnly WorkDayStart { get; set; } = new(8, 0);
+    /// <summary>Ish kuni tugashi (davomat rejasi).</summary>
+    public TimeOnly WorkDayEnd { get; set; } = new(20, 0);
+    /// <summary>Kechikish chegarasi — shundan keyin ochilsa "опоздание".</summary>
+    public TimeOnly LateThreshold { get; set; } = new(8, 15);
+
     // ── Чек (receipt) ────────────────────────────────────────────────────
     public string? ReceiptHeader { get; set; }
     public string? ReceiptFooter { get; set; }

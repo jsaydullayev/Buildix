@@ -16,13 +16,15 @@ public class CustomerService : ICustomerService
     private readonly IAppDbContext _context;
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ITashkentClock _clock;
 
-    public CustomerService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IHttpContextAccessor httpContextAccessor)
+    public CustomerService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IHttpContextAccessor httpContextAccessor, ITashkentClock clock)
     {
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
         _httpContextAccessor = httpContextAccessor;
+        _clock = clock;
     }
 
     private Guid? GetCurrentUserId()
@@ -102,7 +104,7 @@ public class CustomerService : ICustomerService
         )).ToList();
     }
 
-    public async Task<PagedResult<CustomerDto>> GetAllCustomersPagedAsync(int page, int size, string? search = null, bool? withDebt = null, string? customerType = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CustomerDto>> GetAllCustomersPagedAsync(int page, int size, string? search = null, bool? withDebt = null, string? customerType = null, bool? isRegular = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
@@ -136,6 +138,10 @@ public class CustomerService : ICustomerService
             query = query.Where(c => c.CustomerType == type);
         }
 
+        // «Постоянные» chip.
+        if (isRegular == true)
+            query = query.Where(c => c.IsRegular);
+
         var total = await query.CountAsync(cancellationToken);
 
         var customers = await query
@@ -155,6 +161,22 @@ public class CustomerService : ICustomerService
             .Select(g => new { CustomerId = g.Key, Total = g.Sum(d => d.RemainingDebt) })
             .ToDictionaryAsync(x => x.CustomerId, x => x.Total, cancellationToken);
 
+        // Seller ekrani stats — joriy oy xaridi (soni+summa) + oxirgi xarid sanasi.
+        // Sahifadagi mijozlar bo'yicha, Toshkent oyi boshiga anchor.
+        var monthStartUtc = _clock.LocalDayToUtcRange(new DateTime(_clock.TodayLocal.Year, _clock.TodayLocal.Month, 1)).UtcStart;
+        var monthAgg = await _context.Sales
+            .Where(s => s.CustomerId.HasValue && customerIds.Contains(s.CustomerId.Value) && s.MarketId == marketId
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && s.CreatedAt >= monthStartUtc)
+            .GroupBy(s => s.CustomerId!.Value)
+            .Select(g => new { CustomerId = g.Key, Count = g.Count(), Sum = g.Sum(x => x.TotalAmount) })
+            .ToDictionaryAsync(x => x.CustomerId, x => new { x.Count, x.Sum }, cancellationToken);
+        var lastByCustomer = await _context.Sales
+            .Where(s => s.CustomerId.HasValue && customerIds.Contains(s.CustomerId.Value) && s.MarketId == marketId
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
+            .GroupBy(s => s.CustomerId!.Value)
+            .Select(g => new { CustomerId = g.Key, Last = g.Max(x => x.CreatedAt) })
+            .ToDictionaryAsync(x => x.CustomerId, x => x.Last, cancellationToken);
+
         var items = customers.Select(c => new CustomerDto(
             c.Id,
             c.Phone,
@@ -163,7 +185,10 @@ public class CustomerService : ICustomerService
             debtsByCustomer.TryGetValue(c.Id, out var debt) ? debt : 0m,
             c.CustomerType.ToString(),
             c.IsRegular,
-            c.DebtLimit
+            c.DebtLimit,
+            monthAgg.TryGetValue(c.Id, out var m) ? m.Count : 0,
+            monthAgg.TryGetValue(c.Id, out var m2) ? m2.Sum : 0m,
+            lastByCustomer.TryGetValue(c.Id, out var last) ? last : null
         )).ToList();
 
         return PagedResult<CustomerDto>.From(items, page, size, total);
