@@ -587,6 +587,7 @@ export const ru = {
   shifts: {
     title: 'Смены',
     subtitle: 'Кассовые смены и контроль наличных',
+    subtitleLive: 'сейчас открыто: {{open}} · за неделю: {{count}} смен · расхождения кассы: {{diff}} сум',
     openShift: 'Открыть смену',
     closeShift: 'Закрыть смену',
     open: 'Открыта',

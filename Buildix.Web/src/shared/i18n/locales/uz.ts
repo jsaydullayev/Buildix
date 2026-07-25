@@ -585,6 +585,7 @@ export const uz: TranslationSchema = {
   shifts: {
     title: 'Smenalar',
     subtitle: 'Kassa smenalari va naqd nazorati',
+    subtitleLive: 'hozir ochiq: {{open}} · haftada: {{count}} smena · kassa farqi: {{diff}} so‘m',
     openShift: 'Smenani ochish',
     closeShift: 'Smenani yopish',
     open: 'Ochiq',

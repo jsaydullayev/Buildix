@@ -585,6 +585,7 @@ export const en: TranslationSchema = {
   shifts: {
     title: 'Shifts',
     subtitle: 'Cash shifts and cash control',
+    subtitleLive: 'open now: {{open}} · this week: {{count}} shifts · till variance: {{diff}} sum',
     openShift: 'Open shift',
     closeShift: 'Close shift',
     open: 'Open',
