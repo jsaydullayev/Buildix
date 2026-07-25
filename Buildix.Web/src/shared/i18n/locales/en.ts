@@ -602,6 +602,8 @@ export const en: TranslationSchema = {
       noDebts: 'No debts',
       recentPurchases: 'Recent purchases',
       noPurchases: 'No purchases yet',
+      allSales: 'All customer sales',
+      acceptDebt: 'Accept debt payment',
       due: 'due {{date}}',
       status: { open: 'Open', closed: 'Closed' },
     },

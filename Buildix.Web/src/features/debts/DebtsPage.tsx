@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Search, Download } from 'lucide-react';
@@ -31,7 +32,9 @@ export default function DebtsPage() {
   const { hasPermission } = useAuth();
   const canManage = hasPermission(PERMISSIONS.debts.manage);
 
-  const [search, setSearch] = useState('');
+  // Deep-link from the customer card «Принять оплату долга» — ?q=<phone>.
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
   const [due, setDue] = useState<DueFilter>('all');
   const [openCheck, setOpenCheck] = useState<DebtCheck | null>(null);
   const [downloading, setDownloading] = useState(false);

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { startOfDay, subDays } from 'date-fns';
@@ -48,10 +48,14 @@ export default function SalesPage() {
   // Sotuvchi bo'yicha filtr — barcha xodimlar ro'yxati kerak (users.access).
   const canFilterSeller = hasPermission(PERMISSIONS.users.access);
 
-  const [period, setPeriod] = useState<Period>('today');
+  // Deep-link «Все продажи клиента» — ?q=<phone/name> prefills the search and
+  // opens on «Все» so the customer's full history shows, not just today.
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('q') ?? '';
+  const [period, setPeriod] = useState<Period>(initialSearch ? 'all' : 'today');
   const [pay, setPay] = useState<PayFilter>('all');
   const [sellerId, setSellerId] = useState<string>('');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const [downloading, setDownloading] = useState(false);
   // Ochilgan chek — ro'yxatdagi qatorning o'zi (items/payments allaqachon

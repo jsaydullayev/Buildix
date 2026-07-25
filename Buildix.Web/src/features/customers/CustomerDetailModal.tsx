@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Modal, Button, Badge, Spinner } from '@/shared/ui';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { debtsApi } from '@/features/debts/api';
 import { customersApi, type Customer } from './api';
@@ -37,6 +40,23 @@ function payMeta(paymentType: string): { key: string; tone: 'success' | 'info' |
  */
 export function CustomerDetailModal({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const { t, i18n } = useTranslation();
+  const { subdomain } = useParams();
+  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canSeeSales = hasPermission(PERMISSIONS.sales.access);
+  const canManageDebts = hasPermission(PERMISSIONS.debts.manage);
+
+  // Deep-link both quick actions by the customer's phone (Sales/Debts search).
+  const goToSales = () => {
+    if (!customer) return;
+    onClose();
+    navigate(`/${subdomain}/sales?q=${encodeURIComponent(customer.phone)}`);
+  };
+  const goToDebts = () => {
+    if (!customer) return;
+    onClose();
+    navigate(`/${subdomain}/debts?q=${encodeURIComponent(customer.phone)}`);
+  };
 
   const debtsQuery = useQuery({
     queryKey: ['customer-debts', customer?.id],
@@ -60,9 +80,19 @@ export function CustomerDetailModal({ customer, onClose }: { customer: Customer 
       title={customer?.fullName ?? customer?.phone ?? t('customers.detail.title')}
       subtitle={customer ? customer.phone : undefined}
       footer={
-        <Button variant="secondary" onClick={onClose}>
-          {t('common.close')}
-        </Button>
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+          {canManageDebts && (customer?.totalDebt ?? 0) > 0 && (
+            <Button variant="secondary" onClick={goToDebts}>
+              {t('customers.detail.acceptDebt')}
+            </Button>
+          )}
+          {canSeeSales && (
+            <Button onClick={goToSales}>{t('customers.detail.allSales')}</Button>
+          )}
+        </>
       }
     >
       {!customer ? null : (

@@ -602,6 +602,8 @@ export const uz: TranslationSchema = {
       noDebts: 'Qarzlar yo‘q',
       recentPurchases: 'Oxirgi xaridlar',
       noPurchases: 'Hali xaridlar yo‘q',
+      allSales: 'Mijozning barcha sotuvlari',
+      acceptDebt: 'Qarz to‘lovini qabul qilish',
       due: '{{date}} gacha',
       status: { open: 'Ochiq', closed: 'Yopiq' },
     },

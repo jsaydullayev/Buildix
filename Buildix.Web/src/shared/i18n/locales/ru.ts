@@ -604,6 +604,8 @@ export const ru = {
       noDebts: 'Долгов нет',
       recentPurchases: 'Последние покупки',
       noPurchases: 'Покупок пока нет',
+      allSales: 'Все продажи клиента',
+      acceptDebt: 'Принять оплату долга',
       due: 'до {{date}}',
       status: { open: 'Открыт', closed: 'Закрыт' },
     },
