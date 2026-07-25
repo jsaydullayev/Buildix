@@ -35,6 +35,10 @@ public class ZakupReceipt : BaseEntity
     /// <summary>Derived from Paid vs Total; stored for cheap balance queries.</summary>
     public SupplierPaymentStatus PaymentStatus { get; set; } = SupplierPaymentStatus.Unpaid;
 
+    /// <summary>«Способ оплаты» — to'langan summa qanday berilgani ("Cash" | "Transfer").
+    /// Ma'lumot uchun (Новый закуп). Null = ko'rsatilmagan / eski yozuv.</summary>
+    public string? PaymentMethod { get; set; }
+
     /// <summary>
     /// Yetkazish holati (В пути / Принят). Default <see cref="DeliveryStatus.Accepted"/>
     /// — eski yozuvlar va standart oqim (yaratilishi = qabul, darhol stok).

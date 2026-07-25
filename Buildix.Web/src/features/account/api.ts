@@ -71,6 +71,11 @@ export const accountApi = {
     return data.revoked;
   },
 
+  /** «Завершить» a single session by id. */
+  revokeSession: async (id: string): Promise<void> => {
+    await apiClient.post(`/Auth/RevokeSession/${id}`);
+  },
+
   updateProfile: async (body: UpdateProfileBody): Promise<void> => {
     await apiClient.put('/Users/UpdateMyProfile', body);
   },

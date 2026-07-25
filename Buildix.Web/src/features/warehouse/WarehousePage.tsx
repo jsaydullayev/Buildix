@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Move3d, Search, FileDown, ChevronRight } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatQty } from '@/shared/lib/format';
+import { formatQty, formatShortDate } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useExport } from '@/shared/hooks/useExport';
@@ -144,11 +144,12 @@ export default function WarehousePage() {
 
         {/* Table */}
         <Card className="overflow-hidden">
-          <div className="grid grid-cols-[2.4fr_1fr_1.2fr_0.9fr_0.3fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+          <div className="grid grid-cols-[2.2fr_0.9fr_1.1fr_0.9fr_1fr_0.3fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
             <span>{t('warehouse.cols.product')}</span>
             <span className="text-right">{t('warehouse.cols.stock')}</span>
             <span className="text-right">{t('warehouse.cols.minStock')}</span>
             <span>{t('warehouse.cols.status')}</span>
+            <span>{t('warehouse.cols.lastReceipt')}</span>
             <span />
           </div>
 
@@ -208,7 +209,7 @@ function WarehouseRow({
   canEdit: boolean;
   onOpen: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const unit = unitLabel(t, p.unit, p.unitName);
   const stockTone = p.quantity <= 0 ? 'text-danger' : p.isLowStock ? 'text-warn-strong' : 'text-text';
@@ -228,7 +229,7 @@ function WarehouseRow({
   };
 
   return (
-    <div className="grid grid-cols-[2.4fr_1fr_1.2fr_0.9fr_0.3fr] items-center gap-4 border-b border-hairline px-6 py-2.5 text-[13px] last:border-0 hover:bg-bg/40">
+    <div className="grid grid-cols-[2.2fr_0.9fr_1.1fr_0.9fr_1fr_0.3fr] items-center gap-4 border-b border-hairline px-6 py-2.5 text-[13px] last:border-0 hover:bg-bg/40">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-col items-start text-left">
         <span className="truncate font-medium">{p.name}</span>
         <span className="truncate text-[11.5px] text-muted-2">{p.categoryName ?? '—'}</span>
@@ -271,6 +272,19 @@ function WarehouseRow({
           <Badge tone="warn">{t('warehouse.status.low')}</Badge>
         ) : (
           <Badge tone="success">{t('warehouse.status.inStock')}</Badge>
+        )}
+      </span>
+
+      <span className="min-w-0">
+        {p.lastReceiptAt ? (
+          <span className="flex flex-col">
+            <span className="text-muted nums">{formatShortDate(p.lastReceiptAt, i18n.language)}</span>
+            {p.lastReceiptNumber != null && (
+              <span className="text-[11px] text-muted-2 nums">З-{p.lastReceiptNumber}</span>
+            )}
+          </span>
+        ) : (
+          <span className="text-muted-2">—</span>
         )}
       </span>
 

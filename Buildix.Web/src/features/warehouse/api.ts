@@ -25,6 +25,9 @@ export interface Product {
   isHidden: boolean;
   /** «Место на складе» — storage location (МЕСТО column + seller card). */
   warehouseLocation: string | null;
+  /** Склад «ПОСЛ. ПРИХОД» — last accepted goods-receipt date + number (null = none). */
+  lastReceiptAt: string | null;
+  lastReceiptNumber: number | null;
 }
 
 /** Seller product card stats (supplier / last receipt / sold this month). */

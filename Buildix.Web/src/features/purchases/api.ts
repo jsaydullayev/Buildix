@@ -77,6 +77,10 @@ export interface CreateReceiptBody {
   items: CreateReceiptLine[];
   /** true → created as «В пути» (no stock until accepted). Default immediate. */
   inTransit?: boolean;
+  /** «В пути» ETA (ISO date) — arrival date shown on the supply cards. */
+  expectedDate?: string | null;
+  /** «Способ оплаты» — how the paid amount was tendered ("Cash" | "Transfer"). */
+  paymentMethod?: string | null;
 }
 
 export interface SupplierBody {

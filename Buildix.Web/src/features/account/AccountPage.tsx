@@ -86,6 +86,11 @@ export default function AccountPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['sessions'] }),
   });
 
+  const revokeOneMutation = useMutation({
+    mutationFn: (id: string) => accountApi.revokeSession(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+
   // Toggle a single Telegram-notification preference — optimistic, saved at once.
   const notifyMutation = useMutation({
     mutationFn: (body: { notifyDebt?: boolean; notifyStock?: boolean; notifyShift?: boolean }) =>
@@ -271,7 +276,13 @@ export default function AccountPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {sessions.map((s) => (
-                <SessionRow key={s.id} session={s} lang={i18n.language} />
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  lang={i18n.language}
+                  onRevoke={() => revokeOneMutation.mutate(s.id)}
+                  revoking={revokeOneMutation.isPending && revokeOneMutation.variables === s.id}
+                />
               ))}
             </div>
           )}
@@ -347,7 +358,17 @@ function NotifyRow({
   );
 }
 
-function SessionRow({ session: s, lang }: { session: Session; lang: string }) {
+function SessionRow({
+  session: s,
+  lang,
+  onRevoke,
+  revoking,
+}: {
+  session: Session;
+  lang: string;
+  onRevoke: () => void;
+  revoking: boolean;
+}) {
   const { t } = useTranslation();
   const isMobile = /iphone|ipad|android/i.test(s.device ?? '');
   return (
@@ -365,6 +386,16 @@ function SessionRow({ session: s, lang }: { session: Session; lang: string }) {
           {s.lastUsedAt ? formatRelative(s.lastUsedAt, lang) : t('account.sessions.now')}
         </div>
       </div>
+      {!s.isCurrent && (
+        <button
+          type="button"
+          onClick={onRevoke}
+          disabled={revoking}
+          className="flex-none rounded-input border border-input-border px-3 py-1.5 text-[12.5px] font-medium text-muted transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
+        >
+          {t('account.sessions.revoke')}
+        </button>
+      )}
     </div>
   );
 }

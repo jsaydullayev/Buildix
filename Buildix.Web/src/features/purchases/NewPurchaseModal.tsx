@@ -26,7 +26,9 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   const [invoice, setInvoice] = useState('');
   const [comment, setComment] = useState('');
   const [paid, setPaid] = useState('');
+  const [payMethod, setPayMethod] = useState<'Cash' | 'Transfer'>('Transfer');
   const [inTransit, setInTransit] = useState(false);
+  const [expectedDate, setExpectedDate] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,9 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     setInvoice('');
     setComment('');
     setPaid('');
+    setPayMethod('Transfer');
     setInTransit(false);
+    setExpectedDate('');
     setLines([]);
     setSearch('');
     setError(null);
@@ -103,6 +107,8 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
         comment: comment.trim() || null,
         items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, costPrice: l.costPrice })),
         inTransit,
+        expectedDate: inTransit && expectedDate ? new Date(expectedDate).toISOString() : null,
+        paymentMethod: Number(paid) > 0 ? payMethod : null,
       }),
     onSuccess: () => {
       // Xarid ombor qoldig'i, tannarx va yetkazib beruvchi qarzini o'zgartiradi —
@@ -294,6 +300,19 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
             />
           </label>
 
+          {/* «В пути» ETA — arrival date, only relevant for a deferred delivery. */}
+          {inTransit && (
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-[13px] text-muted">{t('purchases.newModal.expectedDate')}</label>
+              <input
+                type="date"
+                value={expectedDate}
+                onChange={(e) => setExpectedDate(e.target.value)}
+                className={cn(inputCls, 'w-[170px] nums')}
+              />
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <label className="text-[13px] text-muted">{t('purchases.newModal.paidNow')}</label>
             <div className="flex items-center gap-2">
@@ -314,6 +333,28 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
               </button>
             </div>
           </div>
+          {/* Способ оплаты — how the paid part is tendered (metadata). */}
+          {Number(paid) > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-[13px] text-muted">{t('purchases.newModal.payMethod')}</label>
+              <div className="inline-flex rounded-input bg-hairline p-1">
+                {(['Cash', 'Transfer'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPayMethod(m)}
+                    className={cn(
+                      'rounded-md px-3.5 py-1 text-[12.5px] font-medium transition-colors',
+                      payMethod === m ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
+                    )}
+                  >
+                    {t(`purchases.newModal.payMethods.${m === 'Cash' ? 'cash' : 'transfer'}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-[13px]">
             <span className="text-muted">{t('purchases.newModal.debtRest')}</span>
             <span className="font-semibold text-warn-text nums">

@@ -150,7 +150,28 @@ public class ProductQueryService : IProductQueryService
             .Take(size)
             .ToListAsync(cancellationToken);
 
-        return PagedResult<ProductDto>.From(items.Select(p => ProductMapper.MapToDto(p, canViewCost)).ToList(), page, size, total);
+        // «ПОСЛ. ПРИХОД» — sahifadagi tovarlar bo'yicha oxirgi qabul qilingan
+        // postavka (sana + chek raqami). Bir tovarда bir nechta qabul bo'lishi
+        // mumkin, shuning uchun eng so'nggisini xotirada tanlaymiz.
+        var productIds = items.Select(p => p.Id).ToList();
+        var receiptRows = await _context.Zakups.AsNoTracking()
+            .Where(z => productIds.Contains(z.ProductId) && z.ReceiptId != null
+                && z.Receipt!.MarketId == marketId && z.Receipt.DeliveryStatus == Domain.Enums.DeliveryStatus.Accepted)
+            .Select(z => new { z.ProductId, z.Receipt!.CreatedAt, z.Receipt.ReceiptNumber })
+            .ToListAsync(cancellationToken);
+        var lastReceipt = receiptRows
+            .GroupBy(r => r.ProductId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var mapped = items.Select(p =>
+        {
+            var dto = ProductMapper.MapToDto(p, canViewCost);
+            return lastReceipt.TryGetValue(p.Id, out var r)
+                ? dto with { LastReceiptAt = r.CreatedAt, LastReceiptNumber = r.ReceiptNumber }
+                : dto;
+        }).ToList();
+
+        return PagedResult<ProductDto>.From(mapped, page, size, total);
     }
 
     public async Task<IEnumerable<ProductDto>> GetLowStockProductsAsync(bool canViewCost = true, CancellationToken cancellationToken = default)

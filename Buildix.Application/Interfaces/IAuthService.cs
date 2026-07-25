@@ -17,6 +17,10 @@ public interface IAuthService
     /// <summary>«Завершить все другие сессии» — revoke every session except the caller's own.</summary>
     Task<int> RevokeOtherSessionsAsync(Guid userId, string currentRefreshToken, CancellationToken cancellationToken = default);
 
+    /// <summary>«Завершить» bitta sessiya — faqat egasining (userId) sessiyasini bekor qiladi.
+    /// Topilmasa/allaqachon bekor bo'lsa false.</summary>
+    Task<bool> RevokeSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+
     /// <summary>Account "Последние входы" — the caller's recent sign-in attempts.</summary>
     Task<IReadOnlyList<DTOs.LoginHistoryDto>> GetLoginHistoryAsync(Guid userId, int limit = 20, CancellationToken cancellationToken = default);
 }

@@ -170,6 +170,7 @@ public class ZakupService : IZakupService
                 DeliveryStatus = request.InTransit ? DeliveryStatus.InTransit : DeliveryStatus.Accepted,
                 DriverPhone = string.IsNullOrWhiteSpace(request.DriverPhone) ? null : request.DriverPhone.Trim(),
                 ExpectedDate = request.ExpectedDate,
+                PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? null : request.PaymentMethod.Trim(),
             };
             await _context.ZakupReceipts.AddAsync(receipt, cancellationToken);
 
