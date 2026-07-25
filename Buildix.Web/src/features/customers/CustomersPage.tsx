@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Search, Pencil, Trash2, FileDown } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum } from '@/shared/lib/format';
+import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -15,7 +15,7 @@ import { CustomerFormModal } from './CustomerFormModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
 
 const PAGE_SIZE = 20;
-const GRID = 'grid-cols-[1.6fr_1fr_130px_120px_90px]';
+const GRID = 'grid-cols-[minmax(0,1.7fr)_140px_100px_140px_140px_72px]';
 
 export default function CustomersPage() {
   const { t, i18n } = useTranslation();
@@ -143,8 +143,9 @@ export default function CustomersPage() {
           <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('customers.cols.name')}</span>
             <span>{t('customers.cols.phone')}</span>
+            <span className="text-right">{t('customers.cols.purchases')}</span>
+            <span className="text-right">{t('customers.cols.totalBought')}</span>
             <span className="text-right">{t('customers.cols.debt')}</span>
-            <span>{t('customers.cols.type')}</span>
             <span />
           </div>
 
@@ -159,19 +160,28 @@ export default function CustomersPage() {
                 className={cn('group grid items-center gap-3 border-b border-hairline px-6 py-3 text-[13px] last:border-0 hover:bg-bg/40', GRID)}
               >
                 <button type="button" onClick={() => setDetail(c)} className="flex min-w-0 items-center gap-3 text-left">
-                  <div className="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-primary/10 text-[11px] font-semibold uppercase text-primary">
+                  <div className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary/10 text-[11px] font-semibold uppercase text-primary">
                     {(c.fullName ?? c.phone).slice(0, 2)}
                   </div>
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-medium">{c.fullName ?? t('sales.walkIn')}</span>
-                    {c.isRegular && <Badge tone="success">{t('seller.clients.regular')}</Badge>}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-medium">{c.fullName ?? t('sales.walkIn')}</span>
+                      {c.isRegular && <Badge tone="success">{t('seller.clients.regular')}</Badge>}
+                    </span>
+                    <span className="truncate text-[11.5px] text-muted-2">
+                      {t(`customers.types.${c.customerType.toLowerCase()}` as never)} ·{' '}
+                      {c.lastPurchaseAt
+                        ? t('customers.lastBuy', { date: formatShortDate(c.lastPurchaseAt, i18n.language) })
+                        : t('customers.noBuys')}
+                    </span>
                   </span>
                 </button>
                 <span className="text-muted-2 nums">{c.phone}</span>
-                <span className={cn('text-right font-semibold nums', c.totalDebt > 0 && 'text-warn-text')}>
-                  {formatSum(c.totalDebt)}
+                <span className="text-right text-muted nums">{c.purchaseCount}</span>
+                <span className="text-right font-semibold nums">{formatSum(c.totalPurchased)}</span>
+                <span className={cn('text-right font-semibold nums', c.totalDebt > 0 ? 'text-warn-text' : 'text-muted-2')}>
+                  {c.totalDebt > 0 ? formatSum(c.totalDebt) : t('suppliers.noDebt')}
                 </span>
-                <span className="text-muted">{t(`customers.types.${c.customerType.toLowerCase()}` as never)}</span>
                 <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   {canManage && (
                     <button

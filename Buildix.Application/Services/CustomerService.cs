@@ -170,12 +170,13 @@ public class CustomerService : ICustomerService
             .GroupBy(s => s.CustomerId!.Value)
             .Select(g => new { CustomerId = g.Key, Count = g.Count(), Sum = g.Sum(x => x.TotalAmount) })
             .ToDictionaryAsync(x => x.CustomerId, x => new { x.Count, x.Sum }, cancellationToken);
-        var lastByCustomer = await _context.Sales
+        // Butun tarix bo'yicha: chek soni + summa + oxirgi xarid sanasi (bitta scan).
+        var allAgg = await _context.Sales
             .Where(s => s.CustomerId.HasValue && customerIds.Contains(s.CustomerId.Value) && s.MarketId == marketId
                 && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
             .GroupBy(s => s.CustomerId!.Value)
-            .Select(g => new { CustomerId = g.Key, Last = g.Max(x => x.CreatedAt) })
-            .ToDictionaryAsync(x => x.CustomerId, x => x.Last, cancellationToken);
+            .Select(g => new { CustomerId = g.Key, Count = g.Count(), Sum = g.Sum(x => x.TotalAmount), Last = g.Max(x => x.CreatedAt) })
+            .ToDictionaryAsync(x => x.CustomerId, x => new { x.Count, x.Sum, x.Last }, cancellationToken);
 
         var items = customers.Select(c => new CustomerDto(
             c.Id,
@@ -188,10 +189,68 @@ public class CustomerService : ICustomerService
             c.DebtLimit,
             monthAgg.TryGetValue(c.Id, out var m) ? m.Count : 0,
             monthAgg.TryGetValue(c.Id, out var m2) ? m2.Sum : 0m,
-            lastByCustomer.TryGetValue(c.Id, out var last) ? last : null
+            allAgg.TryGetValue(c.Id, out var a) ? a.Last : null,
+            allAgg.TryGetValue(c.Id, out var a2) ? a2.Count : 0,
+            allAgg.TryGetValue(c.Id, out var a3) ? a3.Sum : 0m
         )).ToList();
 
         return PagedResult<CustomerDto>.From(items, page, size, total);
+    }
+
+    public async Task<IReadOnlyList<CustomerPurchaseDto>> GetCustomerPurchasesAsync(Guid customerId, int limit = 10, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+        limit = Math.Clamp(limit, 1, 50);
+
+        var sales = await _context.Sales
+            .AsNoTracking()
+            .Where(s => s.CustomerId == customerId && s.MarketId == marketId && !s.IsDeleted
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(limit)
+            .Select(s => new
+            {
+                s.Id,
+                s.SaleNumber,
+                s.CreatedAt,
+                s.TotalAmount,
+                s.Status,
+                Items = s.SaleItems.Select(i => new
+                {
+                    Name = i.IsExternal ? i.ExternalProductName : (i.Product != null ? i.Product.Name : null),
+                    i.Quantity,
+                }).ToList(),
+                PaymentTypes = s.Payments.Select(p => p.PaymentType).Distinct().ToList(),
+            })
+            .ToListAsync(cancellationToken);
+
+        return sales.Select(s =>
+        {
+            // «Тип оплаты» — bitta yorliq: qarz → Debt, bitta to'lov → o'sha, aralash → Mixed.
+            var pay = s.Status == SaleStatus.Debt
+                ? "Debt"
+                : s.PaymentTypes.Count == 0
+                    ? "Debt"
+                    : s.PaymentTypes.Count == 1
+                        ? s.PaymentTypes[0].ToString()
+                        : "Mixed";
+
+            var named = s.Items.Where(i => !string.IsNullOrWhiteSpace(i.Name)).ToList();
+            var summary = string.Join(", ", named
+                .Take(2)
+                .Select(i => $"{i.Name} ×{i.Quantity:0.##}"));
+            if (named.Count > 2)
+                summary += $" +{named.Count - 2}";
+
+            return new CustomerPurchaseDto(
+                s.Id,
+                s.SaleNumber,
+                s.CreatedAt,
+                summary,
+                s.Items.Count,
+                s.TotalAmount,
+                pay);
+        }).ToList();
     }
 
     public async Task<Result<CustomerDto>> CreateCustomerAsync(CreateCustomerDto request, CancellationToken cancellationToken = default)

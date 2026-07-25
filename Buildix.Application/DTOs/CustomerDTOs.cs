@@ -17,7 +17,24 @@ public record CustomerDto(
     // hisoblanadi (TotalDebt kabi), null = xarid yo'q.
     [property: JsonPropertyName("monthPurchaseCount")] int MonthPurchaseCount = 0,
     [property: JsonPropertyName("monthPurchaseSum")] decimal MonthPurchaseSum = 0,
-    [property: JsonPropertyName("lastPurchaseAt")] DateTime? LastPurchaseAt = null
+    [property: JsonPropertyName("lastPurchaseAt")] DateTime? LastPurchaseAt = null,
+    // Admin Клиенты — «Покупок» (butun tarix bo'yicha chek soni) va «Купил всего»
+    // (butun tarix bo'yicha sotuvlar summasi). Ro'yxatда hisoblanadi, xarid
+    // yo'q bo'lsa 0.
+    [property: JsonPropertyName("purchaseCount")] int PurchaseCount = 0,
+    [property: JsonPropertyName("totalPurchased")] decimal TotalPurchased = 0
+);
+
+/// <summary>Mijozning bitta xaridi — Admin Клиенты detal oynasidagi «Последние
+/// покупки» ro'yxati uchun (chek raqami, sana, tovarlar qisqacha, summa, to'lov).</summary>
+public record CustomerPurchaseDto(
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("number")] int Number,
+    [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
+    [property: JsonPropertyName("itemsSummary")] string ItemsSummary,
+    [property: JsonPropertyName("itemCount")] int ItemCount,
+    [property: JsonPropertyName("totalAmount")] decimal TotalAmount,
+    [property: JsonPropertyName("paymentType")] string PaymentType
 );
 
 public record CreateCustomerDto(

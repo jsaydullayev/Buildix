@@ -3,19 +3,37 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Button, Badge, Spinner } from '@/shared/ui';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { debtsApi } from '@/features/debts/api';
-import type { Customer } from './api';
+import { customersApi, type Customer } from './api';
 
 const DEBT_TONE: Record<string, 'warn' | 'success' | 'neutral'> = {
   Open: 'warn',
   Closed: 'success',
 };
 
+/** Payment type → { label key, badge tone } for the «Последние покупки» list. */
+function payMeta(paymentType: string): { key: string; tone: 'success' | 'info' | 'warn' } {
+  switch (paymentType) {
+    case 'Cash':
+      return { key: 'cash', tone: 'success' };
+    case 'Card':
+    case 'Terminal':
+      return { key: 'card', tone: 'info' };
+    case 'Click':
+      return { key: 'click', tone: 'info' };
+    case 'Transfer':
+      return { key: 'transfer', tone: 'info' };
+    case 'Debt':
+    case 'Credit':
+      return { key: 'debt', tone: 'warn' };
+    default:
+      return { key: 'mixed', tone: 'info' };
+  }
+}
+
 /**
- * Read-only customer card: contact + debt-limit summary and the list of the
- * customer's debts (open ones first). Sales history is intentionally left out —
- * there is no customer-scoped sales endpoint yet (see the B4 plan for
- * `GET /Sales?sellerId=`-style filtering); adding a phone-search list here would
- * mismatch on shared phone fragments.
+ * Read-only customer card: at-a-glance stats (покупок / купил всего / текущий
+ * долг), the «Последние покупки» history (GET /Customers/{id}/purchases) and the
+ * list of open/closed debts.
  */
 export function CustomerDetailModal({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const { t, i18n } = useTranslation();
@@ -26,6 +44,13 @@ export function CustomerDetailModal({ customer, onClose }: { customer: Customer 
     enabled: !!customer,
   });
   const debts = debtsQuery.data ?? [];
+
+  const purchasesQuery = useQuery({
+    queryKey: ['customer-purchases', customer?.id],
+    queryFn: () => customersApi.purchases(customer!.id),
+    enabled: !!customer,
+  });
+  const purchases = purchasesQuery.data ?? [];
 
   return (
     <Modal
@@ -42,17 +67,45 @@ export function CustomerDetailModal({ customer, onClose }: { customer: Customer 
     >
       {!customer ? null : (
         <div className="flex flex-col gap-5">
-          {/* Summary */}
+          {/* Summary — покупок / купил всего / текущий долг */}
           <div className="grid grid-cols-3 gap-3">
+            <Stat label={t('customers.cols.purchases')} value={String(customer.purchaseCount)} />
+            <Stat label={t('customers.cols.totalBought')} value={formatSum(customer.totalPurchased)} />
             <Stat label={t('customers.detail.totalDebt')} value={formatSum(customer.totalDebt)} warn={customer.totalDebt > 0} />
-            <Stat
-              label={t('customers.form.debtLimit')}
-              value={customer.debtLimit ? formatSum(customer.debtLimit) : t('customers.form.noLimit')}
-            />
-            <Stat
-              label={t('customers.form.type')}
-              value={t(`customers.types.${customer.customerType.toLowerCase()}` as never)}
-            />
+          </div>
+
+          {/* Последние покупки */}
+          <div>
+            <h3 className="mb-2 text-[13px] font-semibold">{t('customers.detail.recentPurchases')}</h3>
+            {purchasesQuery.isLoading ? (
+              <div className="flex justify-center py-8 text-primary">
+                <Spinner size={20} />
+              </div>
+            ) : purchases.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-muted-2">{t('customers.detail.noPurchases')}</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-hairline rounded-input border border-hairline">
+                {purchases.map((p) => {
+                  const meta = payMeta(p.paymentType);
+                  return (
+                    <div key={p.saleId} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-primary nums">
+                          {t('cash.desc.receipt', { n: p.number })} · {formatShortDate(p.createdAt, i18n.language)}
+                        </div>
+                        <div className="truncate text-[11.5px] text-muted-2">
+                          {p.itemsSummary || t('purchases.itemsCount', { count: p.itemCount })}
+                        </div>
+                      </div>
+                      <div className="flex flex-none items-center gap-3">
+                        <span className="font-semibold nums">{formatSum(p.totalAmount)}</span>
+                        <Badge tone={meta.tone}>{t(`sales.payment.${meta.key}` as never)}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Debts */}
