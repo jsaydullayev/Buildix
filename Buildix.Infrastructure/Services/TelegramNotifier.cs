@@ -70,6 +70,39 @@ public class TelegramNotifier : ITelegramNotifier
         }
     }
 
+    public async Task SendWithKeyboardAsync(long chatId, string message,
+        IReadOnlyList<IReadOnlyList<string>> keyboard, CancellationToken cancellationToken = default)
+    {
+        var token = Token;
+        if (string.IsNullOrWhiteSpace(token)) return;
+
+        // An empty keyboard removes the buttons instead of sending an empty one —
+        // Telegram rejects a keyboard with no rows.
+        object replyMarkup = keyboard.Count == 0
+            ? new { remove_keyboard = true }
+            : new
+            {
+                keyboard = keyboard.Select(row => row.Select(text => new { text }).ToArray()).ToArray(),
+                resize_keyboard = true,
+                is_persistent = true,
+            };
+
+        try
+        {
+            var client = _httpFactory.CreateClient("telegram");
+            var resp = await client.PostAsJsonAsync(
+                $"https://api.telegram.org/bot{token}/sendMessage",
+                new { chat_id = chatId, text = message, parse_mode = "HTML", reply_markup = replyMarkup },
+                cancellationToken);
+            if (!resp.IsSuccessStatusCode)
+                _logger.LogWarning("Telegram sendMessage (keyboard) failed: {Status}", resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Telegram keyboard send failed for chat {ChatId}", chatId);
+        }
+    }
+
     public async Task SendDocumentAsync(long chatId, byte[] content, string fileName, string? caption = null,
         CancellationToken cancellationToken = default)
     {

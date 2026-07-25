@@ -17,6 +17,15 @@ public interface ITelegramNotifier
     Task SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Send a message together with the bot's button keyboard. Each inner list is
+    /// one row of button captions; tapping a button sends its caption back as an
+    /// ordinary message, which is how the handler routes it. Pass an empty
+    /// keyboard to remove the buttons.
+    /// </summary>
+    Task SendWithKeyboardAsync(long chatId, string message,
+        IReadOnlyList<IReadOnlyList<string>> keyboard, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Send a file (Excel report, PDF invoice) to one chat. <paramref name="caption"/>
     /// is the HTML text shown under the attachment.
     /// </summary>

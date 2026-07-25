@@ -70,22 +70,28 @@ an image.
      -d "url=https://<your-host>/api/telegram/webhook" \
      -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
    ```
-3. **One bot serves every market.** Each employee links themselves: send `/id` to
-   the bot, then paste the returned number into **Аккаунт → Telegram ID** in the
-   panel (`User.TelegramChatId`, unique platform-wide). The bot recognises the
-   sender by that id — which yields their market *and* their permissions. A chat
-   with no matching id is told nothing about any shop.
+3. **One bot serves every market.** The employee just writes to the bot — the
+   Telegram id is read from the message itself, never typed. If that id isn't
+   linked yet, the bot answers with it; the employee pastes it into
+   **Аккаунт → Telegram ID** in the panel (`User.TelegramChatId`, unique
+   platform-wide) and is recognised from then on. The id yields their market
+   *and* their permissions. A chat with no match learns nothing about any shop.
 
-#### Bot commands
+#### Bot buttons
 
-| Command | Returns | Permission |
-|---------|---------|------------|
-| `/id` | The sender's Telegram id (works for anyone — this is the onboarding step) | — |
-| `/savdo` | Today's sales — summary text + **Excel** | `sales.access` |
-| `/qarz` | Debtors — **Excel** | `debts.access` |
-| `/qoldiq` | Low-stock products — **Excel** | `products.access` |
-| `/faktura 29` | Invoice for receipt №29 — **PDF** | `sales.invoice` |
-| `/help` | The commands that user may actually run | — |
+The bot answers with a button keyboard — no commands to remember. It shows only
+what that user is allowed to run:
+
+| Button | Returns | Permission |
+|--------|---------|------------|
+| 📊 Kunlik savdo | Today's sales — summary text + **Excel** | `sales.access` |
+| 💰 Qarzdorlar | Debtors — **Excel** | `debts.access` |
+| 📦 Kam qolgan | Low-stock products — **Excel** | `products.access` |
+| 🧾 Faktura | Asks for a receipt number, then sends the **PDF** invoice | `sales.invoice` |
+
+Sending a bare receipt number (e.g. `29`) also returns that invoice. The old
+slash-commands (`/savdo`, `/qarz`, `/qoldiq`, `/faktura 29`) still work as
+aliases.
 
 Cost and profit columns follow `data.costPrice` / `data.profit`, so a cashier's
 workbook never carries the shop's margins.
