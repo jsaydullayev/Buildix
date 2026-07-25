@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
-import { Modal, Button, Badge, Spinner } from '@/shared/ui';
+import { Modal, Button, Spinner } from '@/shared/ui';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
 import { debtsApi, type DebtCheck } from './api';

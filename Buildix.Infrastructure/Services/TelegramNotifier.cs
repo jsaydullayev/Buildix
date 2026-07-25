@@ -36,29 +36,43 @@ public class TelegramNotifier : ITelegramNotifier
 
     public async Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default)
     {
-        var token = Token;
-        if (string.IsNullOrWhiteSpace(token)) return; // bot not configured — silent no-op
-
         var chatId = await _db.MarketSettings
             .Where(s => s.MarketId == marketId)
             .Select(s => s.OwnerTelegramChatId)
             .FirstOrDefaultAsync(cancellationToken);
         if (chatId is null or 0) return; // owner hasn't linked their chat
 
+        await SendToChatAsync(chatId.Value, message, cancellationToken);
+    }
+
+    public async Task SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default)
+    {
+        var token = Token;
+        if (string.IsNullOrWhiteSpace(token)) return; // bot not configured — silent no-op
+
         try
         {
             var client = _httpFactory.CreateClient("telegram");
             var resp = await client.PostAsJsonAsync(
                 $"https://api.telegram.org/bot{token}/sendMessage",
-                new { chat_id = chatId.Value, text = message, parse_mode = "HTML" },
+                new { chat_id = chatId, text = message, parse_mode = "HTML" },
                 cancellationToken);
             if (!resp.IsSuccessStatusCode)
                 _logger.LogWarning("Telegram sendMessage failed: {Status}", resp.StatusCode);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Telegram notification failed for market {MarketId}", marketId);
+            _logger.LogWarning(ex, "Telegram send failed for chat {ChatId}", chatId);
         }
+    }
+
+    public async Task<int?> ResolveMarketByChatAsync(long chatId, CancellationToken cancellationToken = default)
+    {
+        if (chatId == 0) return null;
+        return await _db.MarketSettings
+            .Where(s => s.OwnerTelegramChatId == chatId)
+            .Select(s => (int?)s.MarketId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<bool> TryLinkChatAsync(string username, long chatId, CancellationToken cancellationToken = default)

@@ -116,5 +116,10 @@ public sealed class TestHarness : IDisposable
     public DebtService NewDebtService() =>
         new(Db, UnitOfWork, Market, Audit, NullLogger<DebtService>.Instance, CashLedger);
 
+    // Telegram bot day summary. Deliberately takes marketId per call (it also
+    // runs in a background job with no tenant context), so it does not use Market.
+    public TelegramDailySummaryService NewTelegramDailySummaryService() =>
+        new(Db, Clock);
+
     public void Dispose() => Db.Dispose();
 }

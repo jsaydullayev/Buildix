@@ -75,6 +75,13 @@ public class MarketSettings
     /// yubora oladi (foydalanuvchi botga /start bosgach aniqlanadi).
     /// </summary>
     public long? OwnerTelegramChatId { get; set; }
+    /// <summary>
+    /// Kunlik xulosa oxirgi yuborilgan Toshkent kunining UTC boshlanishi.
+    /// (Sana emas, UTC instant — ustun `timestamptz`, Npgsql Kind=Unspecified
+    /// qiymatni qabul qilmaydi.) Fon vazifasi shu bilan kuniga bir marta
+    /// yuborishni kafolatlaydi — qayta ishga tushirish ham takror yubormaydi.
+    /// </summary>
+    public DateTime? LastDaySummarySentOn { get; set; }
 
     // ── Безопасность (security) ──────────────────────────────────────────
     /// <summary>Harakatsizlikда avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>

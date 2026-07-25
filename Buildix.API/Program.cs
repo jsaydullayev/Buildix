@@ -598,6 +598,11 @@ try
     // Best-effort: no-ops when the token/owner-chat is unconfigured.
     builder.Services.AddHttpClient();
     builder.Services.AddScoped<ITelegramNotifier, Buildix.Infrastructure.Services.TelegramNotifier>();
+    // Bot day summary — served both on demand (/kunlik in the webhook) and by the
+    // nightly job below. Takes marketId explicitly: outside an HTTP request the
+    // tenant query-filter is inert, so it market-filters every query itself.
+    builder.Services.AddScoped<ITelegramDailySummaryService, TelegramDailySummaryService>();
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.DailySummaryBackgroundService>();
     builder.Services.AddScoped<ICurrentMarketService, CurrentMarketService>();
     builder.Services.AddScoped<IExcelService, ExcelService>();
     builder.Services.AddScoped<ISalesExcelExportService, SalesExcelExportService>();

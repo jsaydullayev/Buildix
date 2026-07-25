@@ -55,6 +55,29 @@ an image.
 | `JWT_KEY` | yes | ≥ 32 chars — API fails fast otherwise. `openssl rand -base64 48` |
 | `TELEGRAM_BOT_TOKEN` | no | Empty disables Telegram notifications |
 | `TELEGRAM_WEBHOOK_SECRET` | for webhook | Validated against `X-Telegram-Bot-Api-Secret-Token`; register with `setWebhook secret_token` |
+| `TELEGRAM_DAILY_SUMMARY_HOUR` | no | Tashkent hour (0–23) the automatic day summary is sent at. Default `21` |
+
+### Telegram bot setup
+
+1. Create the bot with [@BotFather](https://t.me/BotFather) → put the token in
+   `TELEGRAM_BOT_TOKEN`.
+2. Pick a random `TELEGRAM_WEBHOOK_SECRET` (e.g. `openssl rand -hex 32`) and
+   register the webhook — without the secret the endpoint **fails closed** and
+   ignores every update:
+
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+     -d "url=https://<your-host>/api/telegram/webhook" \
+     -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+   ```
+3. Each shop owner opens **Настройки → Уведомления** in the Buildix panel, enters
+   their Telegram `@username`, then sends `/start` to the bot. That links the chat
+   (`MarketSettings.OwnerTelegramChatId`) and is what every message is keyed on —
+   an unlinked chat is told nothing about any shop.
+4. Owner commands: `/kunlik` (today), `/kecha` (yesterday), `/help`. The day
+   summary — sales, profit, cash, debts, stock signals, top products — is also
+   pushed automatically once a day (see `TELEGRAM_DAILY_SUMMARY_HOUR`), gated by
+   the market's «Сводка за день» setting.
 
 Production CORS origins live in `appsettings.Production.json`
 (`Cors:AllowedOrigins` → `buildix.uz`); the SPA is same-origin behind nginx so it

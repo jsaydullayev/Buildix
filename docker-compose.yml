@@ -44,6 +44,7 @@ services:
       # Optional Telegram integration (empty = disabled).
       Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
       Telegram__WebhookSecret: ${TELEGRAM_WEBHOOK_SECRET:-}
+      Telegram__DailySummaryHour: ${TELEGRAM_DAILY_SUMMARY_HOUR:-21}
     volumes:
       # Product images persist across deploys in a named volume.
       - uploads:/app/wwwroot/uploads
