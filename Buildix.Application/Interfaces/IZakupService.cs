@@ -16,7 +16,7 @@ public interface IZakupService
     // ── Goods-receipt (multi-item + supplier + payment) ──────────────────────
     Task<ZakupReceiptDto> CreateZakupReceiptAsync(CreateZakupReceiptDto request, Guid adminId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ZakupReceiptDto>> GetAllZakupReceiptsAsync(CancellationToken cancellationToken = default);
-    Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, CancellationToken cancellationToken = default);
+    Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, string? search = null, string? deliveryStatus = null, CancellationToken cancellationToken = default);
 
     /// <summary>Yetkazuvchi qarzini FIFO (eng eski chekdan) yopadi — bir necha chekka taqsimlab.</summary>
     Task<Result<decimal>> PaySupplierDebtFifoAsync(Guid supplierId, decimal amount, Guid userId, CancellationToken cancellationToken = default);

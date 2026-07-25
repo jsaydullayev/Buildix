@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Building2, Pencil, Trash2 } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatShortDate } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -12,6 +12,7 @@ import { PERMISSIONS } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
 import { purchasesApi, type Supplier, type ZakupReceipt } from '@/features/purchases/api';
 import { SupplierFormModal } from '@/features/purchases/SupplierFormModal';
+import { ReceiptDetailModal } from '@/features/purchases/ReceiptDetailModal';
 import { PaySupplierDebtModal } from './PaySupplierDebtModal';
 
 const PAGE_SIZE = 50;
@@ -30,6 +31,7 @@ export default function SuppliersPage() {
   const canManage = hasPermission(PERMISSIONS.suppliers.manage);
   const canDelete = hasPermission(PERMISSIONS.suppliers.delete);
   const canPurchase = hasPermission(PERMISSIONS.zakup.create);
+  const confirm = useConfirm();
 
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -67,8 +69,11 @@ export default function SuppliersPage() {
         ? t('suppliers.deleteConfirm', { name: s.name })
         : (info.warningMessage ??
           t('suppliers.deleteBlocked', { count: info.receiptsCount, debt: formatSum(info.outstandingDebt) }));
-      if (info.canDelete && window.confirm(msg)) del.mutate(s);
-      else if (!info.canDelete) window.alert(msg);
+      if (info.canDelete) {
+        if (await confirm({ title: msg, tone: 'danger', confirmLabel: t('common.delete') })) del.mutate(s);
+      } else {
+        window.alert(msg);
+      }
     } catch (e) {
       window.alert((e as ApiError).message ?? t('common.somethingWrong'));
     }
@@ -263,9 +268,10 @@ const DELIVERY_TONE: Record<string, 'success' | 'info'> = { Accepted: 'success',
 
 function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string }) {
   const { t } = useTranslation();
+  const [openReceiptId, setOpenReceiptId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['supplier-receipts', supplierId],
-    queryFn: () => purchasesApi.receiptsPaged(1, 5, supplierId),
+    queryFn: () => purchasesApi.receiptsPaged(1, 5, { supplierId }),
   });
   const items = query.data?.items ?? [];
 
@@ -279,9 +285,14 @@ function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string
       ) : items.length === 0 ? (
         <p className="py-3 text-center text-[12.5px] text-muted-2">{t('purchases.empty')}</p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           {items.map((r: ZakupReceipt) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 text-[12.5px]">
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setOpenReceiptId(r.id)}
+              className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-bg/60"
+            >
               <div className="min-w-0">
                 <div className="font-semibold text-primary nums">
                   №{r.receiptNumber} · {formatShortDate(r.createdAt, lang)}
@@ -294,10 +305,11 @@ function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string
                   {t(`purchases.delivery.${r.deliveryStatus === 'InTransit' ? 'inTransit' : 'accepted'}`)}
                 </Badge>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+      <ReceiptDetailModal receiptId={openReceiptId} onClose={() => setOpenReceiptId(null)} />
     </div>
   );
 }

@@ -77,6 +77,10 @@ export interface CreateReceiptBody {
   items: CreateReceiptLine[];
   /** true → created as «В пути» (no stock until accepted). Default immediate. */
   inTransit?: boolean;
+  /** «В пути» ETA (ISO date) — arrival date shown on the supply cards. */
+  expectedDate?: string | null;
+  /** «Способ оплаты» — how the paid amount was tendered ("Cash" | "Transfer"). */
+  paymentMethod?: string | null;
 }
 
 export interface SupplierBody {
@@ -111,11 +115,26 @@ export interface ReorderSuggestion {
 }
 
 export const purchasesApi = {
-  receiptsPaged: async (page = 1, size = 20, supplierId?: string): Promise<PagedResult<ZakupReceipt>> => {
+  receiptsPaged: async (
+    page = 1,
+    size = 20,
+    opts?: { supplierId?: string; search?: string; deliveryStatus?: string },
+  ): Promise<PagedResult<ZakupReceipt>> => {
     const { data } = await apiClient.get<PagedResult<ZakupReceipt>>('/Zakups/GetReceiptsPaged', {
-      params: { page, size, supplierId: supplierId || undefined },
+      params: {
+        page,
+        size,
+        supplierId: opts?.supplierId || undefined,
+        search: opts?.search || undefined,
+        deliveryStatus: opts?.deliveryStatus || undefined,
+      },
     });
     return data;
+  },
+
+  /** Delete a purchase receipt (reverses stock if it was accepted). zakup.delete. */
+  deleteReceipt: async (id: string): Promise<void> => {
+    await apiClient.delete(`/Zakups/${id}`);
   },
 
   /** «Погасить долг» — FIFO pay across the supplier's unpaid receipts. */

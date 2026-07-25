@@ -43,7 +43,12 @@ public record ProductDto(
     // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
     [property: JsonPropertyName("isHidden")] bool IsHidden = false,
     // Omborда saqlash joyi ("МЕСТО" ustuni + kartochka).
-    [property: JsonPropertyName("warehouseLocation")] string? WarehouseLocation = null
+    [property: JsonPropertyName("warehouseLocation")] string? WarehouseLocation = null,
+    // Склад «ПОСЛ. ПРИХОД» ustuni — bu tovar bo'yicha oxirgi qabul qilingan
+    // postavka sanasi + chek raqami. Ro'yxatда sahifadagi tovarlar uchun
+    // hisoblanadi (null = hech qanday qabul yo'q).
+    [property: JsonPropertyName("lastReceiptAt")] DateTime? LastReceiptAt = null,
+    [property: JsonPropertyName("lastReceiptNumber")] int? LastReceiptNumber = null
 );
 
 /// <summary>

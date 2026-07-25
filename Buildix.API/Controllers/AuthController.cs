@@ -123,6 +123,17 @@ public class AuthController : ControllerBase
         return Ok(new { revoked = count });
     }
 
+    /// <summary>«Завершить» — bitta sessiyani (id bo'yicha) tugatish.</summary>
+    [HttpPost("{id}")]
+    [Authorize]
+    public async Task<IActionResult> RevokeSession(Guid id, CancellationToken ct = default)
+    {
+        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
+        var ok = await _authService.RevokeSessionAsync(userId, id, ct);
+        return ok ? Ok(new { revoked = 1 }) : NotFound();
+    }
+
     /// <summary>Account "Последние входы" — the caller's recent sign-in attempts.</summary>
     [HttpGet]
     [Authorize]

@@ -53,7 +53,10 @@ public static class PermissionDefaults
         PermissionKeys.ZakupAccess,
         PermissionKeys.ReportsExport,
         PermissionKeys.DebtsAccess, PermissionKeys.DebtsManage, PermissionKeys.DebtsDueDate,
-        PermissionKeys.DataAllSalesView,
+        // NOTE: DataAllSalesView is deliberately NOT a Seller default. By default a
+        // cashier sees only their OWN sales/drafts (server-enforced in
+        // SalesController). Cross-seller visibility is an explicit Owner grant
+        // («sotuvchilar hamkorligi») via the permission matrix.
     };
 
     /// <summary>

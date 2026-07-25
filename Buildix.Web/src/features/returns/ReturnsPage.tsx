@@ -31,7 +31,7 @@ const GRID = 'grid-cols-[0.9fr_0.7fr_1.8fr_1fr_0.9fr_0.9fr]';
 export default function ReturnsPage() {
   const { t, i18n } = useTranslation();
   const { hasPermission } = useAuth();
-  const canCreate = hasPermission(PERMISSIONS.sales.edit);
+  const canCreate = hasPermission(PERMISSIONS.sales.return);
 
   const [reason, setReason] = useState<ReasonFilter>('all');
   const [search, setSearch] = useState('');

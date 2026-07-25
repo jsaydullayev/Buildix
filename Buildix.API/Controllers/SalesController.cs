@@ -108,8 +108,23 @@ public class SalesController : ApiControllerBase
         // Filters: search (chek №/mijoz/telefon/sotuvchi/mahsulot), sellerId,
         // paymentType (Cash|Terminal|Transfer|Click|Debt), status, from/to,
         // shiftId (bitta smena ichidagi cheklar — «Мои продажи за смену»).
+        //
+        // Scope guard: a caller WITHOUT data.allSalesView (a plain cashier) may
+        // only ever see their OWN sales — the requested sellerId is overridden
+        // with the caller's id server-side, so a period switch can't leak other
+        // sellers' receipts. Owner/Admin/SuperAdmin and granted sellers keep the
+        // requested filter (null = whole shop).
+        var effectiveSellerId = sellerId;
+        if (!CanViewAllSales())
+        {
+            var callerIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(callerIdStr) || !Guid.TryParse(callerIdStr, out var callerId))
+                return Unauthorized();
+            effectiveSellerId = callerId;
+        }
+
         var result = await _saleQueryService.GetSalesPagedAsync(
-            page, size, search, sellerId, paymentType, status, from, to, shiftId, ct);
+            page, size, search, effectiveSellerId, paymentType, status, from, to, shiftId, ct);
         return Ok(result);
     }
 

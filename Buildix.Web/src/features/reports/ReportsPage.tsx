@@ -11,6 +11,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,6 +30,7 @@ import {
   type TopProductRow,
   type WeeklySeriesPoint,
 } from './api';
+import { returnsApi } from '@/features/returns/api';
 
 const PERIODS: ReportPeriod[] = ['week', 'month', 'quarter'];
 
@@ -142,6 +144,11 @@ export default function ReportsPage() {
     queryFn: () => reportsApi.staffPerformance(stringPeriod),
     placeholderData: keepPreviousData,
   });
+  const returnsQuery = useQuery({
+    queryKey: ['reports-returns', range.start],
+    queryFn: () => returnsApi.summary(range.start),
+    placeholderData: keepPreviousData,
+  });
 
   const report = periodQuery.data;
   const growth = useMemo(() => {
@@ -239,7 +246,10 @@ export default function ReportsPage() {
             label={t('reports.stats.avgCheck')}
             value={formatSum(report?.averageSale ?? 0)}
             suffix={t('common.currency')}
-            hint={t('reports.stats.checksCount', { count: report?.totalTransactions ?? 0 })}
+            hint={t('reports.stats.checksReturns', {
+              count: report?.totalTransactions ?? 0,
+              returns: returnsQuery.data?.count ?? 0,
+            })}
           />
         </div>
 
@@ -305,15 +315,28 @@ function RevenueProfitChart({
     profit: p.profit,
   }));
   const hasData = data.some((d) => d.revenue > 0 || d.profit > 0);
+  // Best revenue day — highlighted bar + header caption.
+  const bestIdx = hasData
+    ? data.reduce((best, d, i) => (d.revenue > data[best]!.revenue ? i : best), 0)
+    : -1;
+  const best = bestIdx >= 0 ? data[bestIdx]! : null;
 
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-[15px] font-semibold">{t('reports.chart.title')}</h3>
-        <div className="flex gap-4 text-[12px] text-muted">
-          <LegendDot color={CHART_REVENUE} label={t('reports.chart.revenue')} />
-          {showProfit && <LegendDot color={CHART_PROFIT} label={t('reports.chart.profit')} />}
-        </div>
+        {best && (
+          <span className="text-[12.5px] text-muted-2">
+            {t('reports.chart.best')}:{' '}
+            <span className="font-semibold text-text">
+              {best.label} · {formatSum(best.revenue)}
+            </span>
+          </span>
+        )}
+      </div>
+      <div className="mb-4 flex gap-4 text-[12px] text-muted">
+        <LegendDot color={CHART_REVENUE} label={t('reports.chart.revenue')} />
+        {showProfit && <LegendDot color={CHART_PROFIT} label={t('reports.chart.profit')} />}
       </div>
 
       {loading ? (
@@ -337,7 +360,11 @@ function RevenueProfitChart({
               minTickGap={16}
             />
             <Tooltip cursor={{ fill: 'rgba(37,99,235,0.06)' }} content={<ChartTooltip showProfit={showProfit} />} />
-            <Bar dataKey="revenue" name={t('reports.chart.revenue')} fill={CHART_REVENUE} radius={[4, 4, 0, 0]} maxBarSize={26} />
+            <Bar dataKey="revenue" name={t('reports.chart.revenue')} radius={[4, 4, 0, 0]} maxBarSize={26}>
+              {data.map((d, i) => (
+                <Cell key={d.label + i} fill={i === bestIdx ? CHART_REVENUE : '#93c5fd'} />
+              ))}
+            </Bar>
             {showProfit && (
               <Bar dataKey="profit" name={t('reports.chart.profit')} fill={CHART_PROFIT} radius={[4, 4, 0, 0]} maxBarSize={26} />
             )}
@@ -523,15 +550,11 @@ function TopProductsCard({ items, loading }: { items: TopProductRow[]; loading: 
 function StaffCard({ staff, loading }: { staff: StaffRow[]; loading: boolean }) {
   const { t } = useTranslation();
   const totalRevenue = staff.reduce((s, x) => s + x.revenue, 0);
+  // Bars are scaled to the top performer so the leader fills the track.
+  const maxRevenue = staff.reduce((m, x) => Math.max(m, x.revenue), 0);
   return (
-    <Card className="overflow-hidden">
-      <div className="px-[22px] pb-3 pt-4 text-[15px] font-semibold">{t('reports.staff.title')}</div>
-      <div className="grid grid-cols-reports-staff gap-3 border-t border-hairline bg-bg/40 px-[22px] py-2 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
-        <span>{t('reports.staff.cols.seller')}</span>
-        <span className="text-right">{t('reports.staff.cols.checks')}</span>
-        <span className="text-right">{t('reports.staff.cols.revenue')}</span>
-        <span className="text-right">{t('reports.staff.cols.share')}</span>
-      </div>
+    <Card className="p-5">
+      <h3 className="mb-2 text-[15px] font-semibold">{t('reports.staff.title')}</h3>
       {loading ? (
         <div className="flex justify-center py-14 text-primary">
           <Spinner size={20} />
@@ -539,24 +562,38 @@ function StaffCard({ staff, loading }: { staff: StaffRow[]; loading: boolean }) 
       ) : staff.length === 0 ? (
         <p className="py-14 text-center text-[13px] text-muted-2">{t('reports.staff.empty')}</p>
       ) : (
-        staff.map((s) => (
-          <div
-            key={s.userId}
-            className="grid grid-cols-reports-staff items-center gap-3 border-t border-hairline px-[22px] py-2.5 text-[13px]"
-          >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-pill bg-primary-soft text-[11.5px] font-semibold text-primary-hover">
-                {initials(s.fullName)}
-              </span>
-              <span className="truncate font-medium">{s.fullName}</span>
-            </div>
-            <span className="text-right text-muted nums">{s.saleCount}</span>
-            <span className="text-right font-semibold nums">{formatSum(s.revenue)}</span>
-            <span className="text-right text-muted nums">
-              {totalRevenue > 0 ? formatPercent(s.revenue / totalRevenue) : '—'}
-            </span>
+        <>
+          <div className="flex flex-col">
+            {staff.map((s) => (
+              <div
+                key={s.userId}
+                className="flex items-center gap-3 border-b border-hairline py-2.5 last:border-0"
+              >
+                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary-soft text-[12px] font-semibold text-primary-hover">
+                  {initials(s.fullName)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13.5px] font-semibold">{s.fullName}</div>
+                  <div className="mt-0.5 text-[11.5px] text-muted-2 nums">
+                    {t('reports.staff.checksAvg', { count: s.saleCount, avg: formatSum(s.averageCheck) })}
+                  </div>
+                </div>
+                <div className="flex-none text-right">
+                  <div className="text-[14px] font-bold nums">{formatSum(s.revenue)}</div>
+                  <div className="mt-1.5 h-[5px] w-[90px] rounded-pill bg-hairline">
+                    <div
+                      className="h-[5px] rounded-pill bg-primary"
+                      style={{ width: `${maxRevenue > 0 ? Math.max((s.revenue / maxRevenue) * 100, 3) : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))
+          {totalRevenue > 0 && (
+            <p className="mt-3 text-[11.5px] text-muted-2">{t('reports.staff.shareNote')}</p>
+          )}
+        </>
       )}
     </Card>
   );

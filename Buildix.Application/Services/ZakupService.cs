@@ -170,6 +170,7 @@ public class ZakupService : IZakupService
                 DeliveryStatus = request.InTransit ? DeliveryStatus.InTransit : DeliveryStatus.Accepted,
                 DriverPhone = string.IsNullOrWhiteSpace(request.DriverPhone) ? null : request.DriverPhone.Trim(),
                 ExpectedDate = request.ExpectedDate,
+                PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? null : request.PaymentMethod.Trim(),
             };
             await _context.ZakupReceipts.AddAsync(receipt, cancellationToken);
 
@@ -294,7 +295,7 @@ public class ZakupService : IZakupService
         return receipts.Select(MapReceiptToDto).ToList();
     }
 
-    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ZakupReceiptDto>> GetAllZakupReceiptsPagedAsync(int page, int size, Guid? supplierId = null, string? search = null, string? deliveryStatus = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
@@ -303,6 +304,21 @@ public class ZakupService : IZakupService
         var baseQuery = ReceiptQuery(marketId);
         if (supplierId.HasValue)
             baseQuery = baseQuery.Where(r => r.SupplierId == supplierId.Value);
+
+        // «В пути / Принят» tab — server-side (client-side sahifa filtri emas).
+        if (!string.IsNullOrWhiteSpace(deliveryStatus) && Enum.TryParse<DeliveryStatus>(deliveryStatus, ignoreCase: true, out var ds))
+            baseQuery = baseQuery.Where(r => r.DeliveryStatus == ds);
+
+        // Qidiruv — номер (raqam) / поставщик / товар (liniyalardagi mahsulot nomi).
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            var asNumber = int.TryParse(s, out var num) ? num : (int?)null;
+            baseQuery = baseQuery.Where(r =>
+                (asNumber != null && r.ReceiptNumber == asNumber)
+                || (r.Supplier != null && r.Supplier.Name.Contains(s))
+                || r.Items.Any(z => z.Product != null && z.Product.Name.Contains(s)));
+        }
 
         var total = await baseQuery.CountAsync(cancellationToken);
         var receipts = await baseQuery

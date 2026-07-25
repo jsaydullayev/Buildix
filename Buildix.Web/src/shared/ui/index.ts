@@ -10,3 +10,4 @@ export { PageHeader } from './PageHeader';
 export { StatCard } from './StatCard';
 export { Modal } from './Modal';
 export { Toggle } from './Toggle';
+export { ConfirmProvider, useConfirm, type ConfirmOptions } from './ConfirmProvider';

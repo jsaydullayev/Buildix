@@ -69,6 +69,13 @@ public class CustomersController : ApiControllerBase
         return Ok(result);
     }
 
+    /// <summary>Mijozning oxirgi xaridlari — Admin Клиенты detal oynasi «Последние покупки».</summary>
+    [HttpGet("~/api/Customers/{id}/purchases")]
+    [RequirePermission(PermissionKeys.CustomersAccess)]
+    public async Task<ActionResult<IReadOnlyList<CustomerPurchaseDto>>> GetCustomerPurchases(
+        Guid id, [FromQuery] int limit = 10, CancellationToken ct = default)
+        => Ok(await _customerService.GetCustomerPurchasesAsync(id, limit, ct));
+
     [HttpPost]
     [RequirePermission(PermissionKeys.CustomersManage)]
     public async Task<ActionResult<CustomerDto>> CreateCustomer([FromBody] CreateCustomerDto request, CancellationToken ct)

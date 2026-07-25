@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared/api/client';
+import type { SaleItem } from '@/features/sales/api';
 
 export interface DebtorSummary {
   customerId: string;
@@ -39,11 +40,41 @@ export interface CustomerDebt {
   status: string;
   createdAt: string;
   dueDate: string | null;
+  /** Sale line items — present on GetCustomerDebts (debt detail line table). */
+  saleItems?: SaleItem[] | null;
+}
+
+/** One open debt-check row for the per-check Долги list (GET /Debts/checks). */
+export interface DebtCheck {
+  debtId: string;
+  saleId: string;
+  saleNumber: number;
+  customerId: string;
+  customerName: string | null;
+  customerPhone: string;
+  customerType: string; // "Individual" | "Legal"
+  createdAt: string;
+  dueDate: string | null;
+  isOverdue: boolean;
+  totalDebt: number;
+  remainingDebt: number;
+  itemsSummary: string;
+  itemCount: number;
+  /** How many open debts this customer has — >1 renders the «несколько долгов» badge. */
+  customerDebtCount: number;
 }
 
 export const debtsApi = {
   debtors: async (search?: string, due?: string | null): Promise<DebtorSummary[]> => {
     const { data } = await apiClient.get<DebtorSummary[]>('/Debts/debtors', {
+      params: { search: search || undefined, due: due || undefined },
+    });
+    return data;
+  },
+
+  /** Per-check open-debt list (each check = one row). */
+  checks: async (search?: string, due?: string | null): Promise<DebtCheck[]> => {
+    const { data } = await apiClient.get<DebtCheck[]>('/Debts/checks', {
       params: { search: search || undefined, due: due || undefined },
     });
     return data;

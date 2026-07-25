@@ -9,6 +9,10 @@ public interface ICustomerService
     Task<CustomerDto?> GetCustomerByPhoneAsync(string phone, CancellationToken cancellationToken = default);
     Task<IEnumerable<CustomerDto>> GetAllCustomersAsync(CancellationToken cancellationToken = default);
     Task<PagedResult<CustomerDto>> GetAllCustomersPagedAsync(int page, int size, string? search = null, bool? withDebt = null, string? customerType = null, bool? isRegular = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Mijozning oxirgi xaridlari (Admin Клиенты detal oynasi) — chek raqami,
+    /// sana, tovarlar qisqacha, summa, to'lov turi. Draft/Cancelled kiritilmaydi.</summary>
+    Task<IReadOnlyList<CustomerPurchaseDto>> GetCustomerPurchasesAsync(Guid customerId, int limit = 10, CancellationToken cancellationToken = default);
     Task<Result<CustomerDto>> CreateCustomerAsync(CreateCustomerDto request, CancellationToken cancellationToken = default);
     Task<Result<CustomerDto>> UpdateCustomerAsync(UpdateCustomerDto request, CancellationToken cancellationToken = default);
     Task<bool> DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default);

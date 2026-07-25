@@ -21,18 +21,28 @@ function groupOf(key: string): string {
 const PRESETS: Record<string, { add: string[]; disc: number | null; debt: number | null }> = {
   trainee: { add: ['dashboard.access', 'sales.access', 'products.access'], disc: null, debt: 0 },
   seller: {
-    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'zakup.access', 'notifications.access'],
+    // «Продавец» — TZ §2.13: hold, disc3, debt5, payin, supply(приёмка=zakup.accept).
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'zakup.access', 'zakup.accept', 'notifications.access'],
     disc: 3,
     debt: 5_000_000,
   },
   senior: {
-    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.edit', 'sales.delete', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'debts.dueDate', 'zakup.access', 'notifications.access'],
+    // «Старший» — hammasi + ret(sales.return) + price(sales.edit) + supply(zakup.accept).
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.edit', 'sales.delete', 'sales.return', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'debts.dueDate', 'zakup.access', 'zakup.accept', 'notifications.access'],
     disc: 10,
     debt: null,
   },
 };
 const DISC_OPTIONS: (number | null)[] = [3, 5, 10, null];
 const DEBT_OPTIONS: (number | null)[] = [5_000_000, 20_000_000, null];
+
+/** Destructive / sensitive keys — flagged with a РИСК badge so the owner
+ *  grants them deliberately. */
+const RISKY = new Set([
+  'sales.edit', 'sales.delete', 'sales.return',
+  'products.delete', 'suppliers.delete', 'customers.delete', 'zakup.delete',
+  'users.manage', 'cashregister.manage',
+]);
 
 /**
  * Inline permission editor for the Employees master-detail panel. Groups the
@@ -104,7 +114,20 @@ export function PermissionEditor({ employee }: { employee: Employee }) {
   });
 
   const permLabel = (key: string) => t(`permissions.perm.${key}` as never, { defaultValue: key });
+  const permHint = (key: string) => t(`permissions.hint.${key}` as never, { defaultValue: '' }) as string;
   const groupLabel = (g: string) => t(`permissions.groups.${g}` as never, { defaultValue: g });
+
+  // At-a-glance capability chips, derived live from the working selection + limits.
+  const capabilities = useMemo(() => {
+    const out: string[] = [];
+    out.push(maxDisc === null ? t('permissions.cap.discFree') : t('permissions.cap.disc', { value: maxDisc }));
+    if (selected.has('debts.manage'))
+      out.push(maxDebt === null ? t('permissions.cap.debtFree') : t('permissions.cap.debt', { value: formatSum(maxDebt) }));
+    if (selected.has('sales.edit')) out.push(t('permissions.cap.price'));
+    if (selected.has('sales.return')) out.push(t('permissions.cap.ret'));
+    if (selected.has('zakup.accept')) out.push(t('permissions.cap.supply'));
+    return out;
+  }, [selected, maxDisc, maxDebt, t]);
 
   if (query.isLoading || !data) {
     return (
@@ -157,19 +180,45 @@ export function PermissionEditor({ employee }: { employee: Employee }) {
         <LimitRow label={t('permissions.debtLimit')} options={DEBT_OPTIONS} value={maxDebt} onChange={setMaxDebt} render={(v) => (v === null ? t('permissions.noLimit') : formatSum(v))} />
       </div>
 
+      {/* Capability summary — updates live as toggles/limits change. */}
+      <div>
+        <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.4px] text-muted-2">{t('permissions.capabilities')}</h3>
+        {capabilities.length === 0 ? (
+          <p className="text-[12.5px] text-muted-2">{t('permissions.noCapabilities')}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {capabilities.map((c) => (
+              <span key={c} className="rounded-pill bg-primary/10 px-2.5 py-1 text-[11.5px] font-medium text-primary">
+                {c}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       {groups.map(([g, keys]) => (
         <div key={g}>
           <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.4px] text-muted-2">{groupLabel(g)}</h3>
           <div className="flex flex-col divide-y divide-hairline rounded-input border border-hairline">
-            {keys.map((key) => (
-              <div key={key} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <div className="min-w-0">
-                  <div className="text-[13.5px] font-medium">{permLabel(key)}</div>
-                  <div className="text-[11px] text-muted-2 nums">{key}</div>
+            {keys.map((key) => {
+              const hint = permHint(key);
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13.5px] font-medium">{permLabel(key)}</span>
+                      {RISKY.has(key) && (
+                        <span className="flex-none rounded-pill border border-warn-amber/40 bg-warn-soft px-2 py-[1px] text-[10px] font-bold text-warn-strong">
+                          {t('permissions.risk')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11.5px] text-muted-2">{hint || key}</div>
+                  </div>
+                  <Toggle checked={selected.has(key)} onChange={(on) => toggle(key, on)} />
                 </div>
-                <Toggle checked={selected.has(key)} onChange={(on) => toggle(key, on)} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

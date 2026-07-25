@@ -48,6 +48,15 @@ public class DebtsController : ApiControllerBase
         CancellationToken ct = default)
         => Ok(await _debtQueries.GetDebtorSummariesAsync(search, due, ct));
 
+    /// <summary>Долги ekrani: CHEK-DARAJALI qarzlar ro'yxati (har chek = alohida qator).</summary>
+    [HttpGet("~/api/Debts/checks")]
+    [RequirePermission(PermissionKeys.DebtsAccess)]
+    public async Task<ActionResult<IReadOnlyList<DebtCheckDto>>> GetDebtChecks(
+        [FromQuery] string? search = null,
+        [FromQuery] string? due = null,
+        CancellationToken ct = default)
+        => Ok(await _debtQueries.GetDebtChecksAsync(search, due, ct));
+
     /// <summary>Долги sarlavhasidagi stat kartalar.</summary>
     [HttpGet("~/api/Debts/summary")]
     [RequirePermission(PermissionKeys.DebtsAccess)]

@@ -27,6 +27,9 @@ public class SellerPermissionTests
         // Kassir default holatда возврат/приёмка qila olmaydi — Owner alohida yoqadi.
         Assert.DoesNotContain(PermissionKeys.SalesReturn, seller);
         Assert.DoesNotContain(PermissionKeys.ZakupAccept, seller);
+        // «Все продажи» ham default emas — kassir faqat o'z sotuvlarini ko'radi
+        // (server-side majburlanadi); do'kon bo'ylab ko'rish — Owner grant'i.
+        Assert.DoesNotContain(PermissionKeys.DataAllSalesView, seller);
         // Lekin ko'rish/sotuv kabi asosiy kalitlar bor.
         Assert.Contains(PermissionKeys.SalesAccess, seller);
         Assert.Contains(PermissionKeys.ZakupAccess, seller);

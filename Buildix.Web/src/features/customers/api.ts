@@ -15,6 +15,20 @@ export interface Customer {
   monthPurchaseCount: number;
   monthPurchaseSum: number;
   lastPurchaseAt: string | null;
+  /** Admin Клиенты — butun tarix bo'yicha «Покупок» + «Купил всего». */
+  purchaseCount: number;
+  totalPurchased: number;
+}
+
+/** One purchase in the admin customer detail «Последние покупки» list. */
+export interface CustomerPurchase {
+  saleId: string;
+  number: number;
+  createdAt: string;
+  itemsSummary: string;
+  itemCount: number;
+  totalAmount: number;
+  paymentType: string; // Cash | Card | Terminal | Click | Transfer | Credit | Debt | Mixed
 }
 
 export interface CreateCustomerBody {
@@ -80,6 +94,14 @@ export const customersApi = {
 
   update: async (body: UpdateCustomerBody): Promise<Customer> => {
     const { data } = await apiClient.put<Customer>('/Customers/UpdateCustomer', body);
+    return data;
+  },
+
+  /** Recent purchases for the admin customer detail card. */
+  purchases: async (id: string, limit = 10): Promise<CustomerPurchase[]> => {
+    const { data } = await apiClient.get<CustomerPurchase[]>(`/Customers/${id}/purchases`, {
+      params: { limit },
+    });
     return data;
   },
 

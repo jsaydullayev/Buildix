@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Lock, Unlock, Check, Banknote, ChevronRight } from 'lucide-react';
@@ -82,11 +82,31 @@ export default function ShiftsPage() {
   const current = currentQuery.data;
   const pending = pendingQuery.data ?? [];
 
+  // Live health line: open shifts / last-7-days count / till-variance sum,
+  // derived from the loaded history (falls back to the static subtitle).
+  const liveSubtitle = useMemo(() => {
+    if (!canViewHistory) return null;
+    const list = historyQuery.data ?? [];
+    if (list.length === 0 && !current) return null;
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const byId = new Map(list.map((s) => [s.id, s]));
+    if (current) byId.set(current.id, current);
+    const shifts = [...byId.values()];
+    const openNow = shifts.filter((s) => s.isOpen).length;
+    const week = shifts.filter((s) => new Date(s.openedAt).getTime() >= weekAgo);
+    const diffSum = week.reduce((sum, s) => sum + Math.abs(s.discrepancy), 0);
+    return t('shifts.subtitleLive', {
+      open: openNow,
+      count: week.length,
+      diff: formatSum(diffSum),
+    });
+  }, [canViewHistory, historyQuery.data, current, t]);
+
   return (
     <>
       <PageHeader
         title={t('shifts.title')}
-        subtitle={t('shifts.subtitle')}
+        subtitle={liveSubtitle ?? t('shifts.subtitle')}
         actions={
           <>
             {canManageCash && (

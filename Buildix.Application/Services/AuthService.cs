@@ -225,4 +225,19 @@ public partial class AuthService : IAuthService
             await _context.SaveChangesAsync(cancellationToken);
         return others.Count;
     }
+
+    public async Task<bool> RevokeSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        // Faqat egasining aktiv sessiyasi — boshqa foydalanuvchi tokenini bekor qilib bo'lmaydi.
+        var session = await _context.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Id == sessionId && rt.UserId == userId
+                && !rt.IsRevoked && !rt.IsUsed && rt.ExpiresAt > now, cancellationToken);
+        if (session is null) return false;
+
+        session.IsRevoked = true;
+        session.RevokedAt = now;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

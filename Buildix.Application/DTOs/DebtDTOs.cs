@@ -50,6 +50,27 @@ public record DebtorSummaryDto(
     [property: JsonPropertyName("isOverdue")] bool IsOverdue
 );
 
+/// <summary>Долги ekranidagi bitta qator (chek-darajali) — har bir ochiq qarz-chek
+/// alohida qator: mijoz, chek raqami/sana, tovarlar, muddat, qoldiq. «Оплачено X из Y»
+/// ni RemainingDebt/TotalDebt dan hisoblanadi. CustomerDebtCount > 1 → «несколько долгов».</summary>
+public record DebtCheckDto(
+    [property: JsonPropertyName("debtId")] Guid DebtId,
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("saleNumber")] int SaleNumber,
+    [property: JsonPropertyName("customerId")] Guid CustomerId,
+    [property: JsonPropertyName("customerName")] string? CustomerName,
+    [property: JsonPropertyName("customerPhone")] string CustomerPhone,
+    [property: JsonPropertyName("customerType")] string CustomerType,
+    [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
+    [property: JsonPropertyName("dueDate")] DateTime? DueDate,
+    [property: JsonPropertyName("isOverdue")] bool IsOverdue,
+    [property: JsonPropertyName("totalDebt")] decimal TotalDebt,
+    [property: JsonPropertyName("remainingDebt")] decimal RemainingDebt,
+    [property: JsonPropertyName("itemsSummary")] string ItemsSummary,
+    [property: JsonPropertyName("itemCount")] int ItemCount,
+    [property: JsonPropertyName("customerDebtCount")] int CustomerDebtCount
+);
+
 /// <summary>Долги ekrani sarlavhasidagi stat kartalar.</summary>
 public record DebtSummaryStatsDto(
     [property: JsonPropertyName("totalDebt")] decimal TotalDebt,

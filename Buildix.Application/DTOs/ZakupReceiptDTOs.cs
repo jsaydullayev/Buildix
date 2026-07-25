@@ -113,7 +113,12 @@ public record CreateZakupReceiptDto(
     [param: StringLength(30)]
     string? DriverPhone = null,
 
-    [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null
+    [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null,
+
+    // «Способ оплаты» — "Cash" | "Transfer" (ixtiyoriy, ma'lumot uchun).
+    [property: JsonPropertyName("paymentMethod")]
+    [param: StringLength(20)]
+    string? PaymentMethod = null
 );
 
 /// <summary>Register an additional payment toward a receipt's supplier debt.</summary>

@@ -36,6 +36,17 @@ export default function ProductsPage() {
   const resetPage = () => setPage(1);
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list });
+  // Whole-catalog totals for the subtitle (unfiltered) — hidden = all − visible.
+  const countsQuery = useQuery({
+    queryKey: ['products', 'catalog-counts'],
+    queryFn: async () => {
+      const [all, visible] = await Promise.all([
+        productsApi.listPaged({ page: 1, size: 1, includeHidden: true }),
+        productsApi.listPaged({ page: 1, size: 1, includeHidden: false }),
+      ]);
+      return { total: all.total, hidden: Math.max(all.total - visible.total, 0) };
+    },
+  });
   const listQuery = useQuery({
     queryKey: ['products', 'catalog', { page, search: debouncedSearch, categoryId }],
     queryFn: () =>
@@ -67,7 +78,11 @@ export default function ProductsPage() {
     <>
       <PageHeader
         title={t('products.title')}
-        subtitle={t('products.subtitle')}
+        subtitle={
+          countsQuery.data
+            ? `${t('products.catalogCount', { count: countsQuery.data.total, hidden: countsQuery.data.hidden })} · ${t('products.subtitle')}`
+            : t('products.subtitle')
+        }
         actions={
           canCreate && (
             <Button onClick={openCreate}>
