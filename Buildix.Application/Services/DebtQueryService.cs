@@ -132,6 +132,84 @@ public class DebtQueryService : IDebtQueryService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<DebtCheckDto>> GetDebtChecksAsync(string? search, string? due, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarket.GetCurrentMarketId();
+        var now = DateTime.UtcNow;
+
+        var query = _context.Debts
+            .AsNoTracking()
+            .Include(d => d.Customer)
+            .Include(d => d.Sale)
+                .ThenInclude(s => s!.SaleItems)
+                    .ThenInclude(si => si.Product)
+            .Where(d => d.MarketId == marketId && d.Status == DebtStatus.Open && d.RemainingDebt > 0);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            var lower = term.ToLower();
+            var asNumber = int.TryParse(term, out var num) ? num : (int?)null;
+            query = query.Where(d =>
+                (d.Customer.FullName != null && d.Customer.FullName.ToLower().Contains(lower)) ||
+                d.Customer.Phone.Contains(term) ||
+                (asNumber != null && d.Sale != null && d.Sale.SaleNumber == asNumber));
+        }
+
+        var rows = await query.ToListAsync(cancellationToken);
+
+        // «несколько долгов» — mijozning nechta ochiq qarzi borligi (badge uchun).
+        var countByCustomer = rows.GroupBy(d => d.CustomerId).ToDictionary(g => g.Key, g => g.Count());
+
+        var checks = rows.Select(d =>
+        {
+            var items = d.Sale?.SaleItems ?? new List<Buildix.Domain.Entities.SaleItem>();
+            var named = items
+                .Select(si => new
+                {
+                    Name = si.IsExternal ? si.ExternalProductName : si.Product?.Name,
+                    si.Quantity,
+                })
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                .ToList();
+            var summary = string.Join(", ", named.Take(2).Select(i => $"{i.Name} ×{i.Quantity:0.##}"));
+            if (named.Count > 2)
+                summary += $" +{named.Count - 2}";
+
+            return new DebtCheckDto(
+                d.Id,
+                d.SaleId,
+                d.Sale?.SaleNumber ?? 0,
+                d.CustomerId,
+                d.Customer.FullName,
+                d.Customer.Phone,
+                d.Customer.CustomerType.ToString(),
+                d.Sale?.CreatedAt ?? d.CreatedAt,
+                d.DueDate,
+                d.DueDate.HasValue && d.DueDate.Value < now,
+                d.TotalDebt,
+                d.RemainingDebt,
+                summary,
+                items.Count,
+                countByCustomer.TryGetValue(d.CustomerId, out var cc) ? cc : 1);
+        }).ToList();
+
+        checks = due switch
+        {
+            "overdue" => checks.Where(c => c.IsOverdue).ToList(),
+            "today" => checks.Where(c => c.DueDate.HasValue && c.DueDate.Value.Date == now.Date).ToList(),
+            "upcoming" => checks.Where(c => c.DueDate.HasValue && c.DueDate.Value.Date > now.Date).ToList(),
+            _ => checks,
+        };
+
+        // Muddati o'tganlar birinchi, keyin eng yaqin muddat, keyin eng katta qoldiq.
+        return checks
+            .OrderByDescending(c => c.IsOverdue)
+            .ThenBy(c => c.DueDate ?? DateTime.MaxValue)
+            .ThenByDescending(c => c.RemainingDebt)
+            .ToList();
+    }
+
     public async Task<DebtSummaryStatsDto> GetSummaryStatsAsync(CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarket.GetCurrentMarketId();

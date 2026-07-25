@@ -21,6 +21,14 @@ public interface IDebtQueryService
     /// </summary>
     Task<IReadOnlyList<DebtorSummaryDto>> GetDebtorSummariesAsync(string? search, string? due, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Долги ekrani uchun CHEK-DARAJALI qarzlar ro'yxati — har ochiq qarz-chek alohida
+    /// qator (mijoz, chek raqami/sana, tovarlar qisqacha, muddat, qoldiq).
+    /// <paramref name="search"/> — ism/telefon/chek raqami; <paramref name="due"/> —
+    /// "overdue" | "today" | "upcoming" (null = hammasi).
+    /// </summary>
+    Task<IReadOnlyList<DebtCheckDto>> GetDebtChecksAsync(string? search, string? due, CancellationToken cancellationToken = default);
+
     /// <summary>Долги sarlavhasidagi stat kartalar (jami/просрочено/платежи).</summary>
     Task<DebtSummaryStatsDto> GetSummaryStatsAsync(CancellationToken cancellationToken = default);
 
