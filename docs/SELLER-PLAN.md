@@ -128,6 +128,21 @@ S6 (Аккаунт+POS sayqal) → S7 (yakuniy)
 - Pul/stok o'zgartiruvchi amal (возврат, приёмка) — tasdiqlash + audit + tranzaksiya ichida.
 - Barcha commit `Jahongir Saydullayev` nomida, Claude atributsiz.
 
+## ✅ HOLAT (2026-07-25): S0–S7 BARCHASI BAJARILDI
+
+| Bosqich | Commit | Natija |
+|---|---|---|
+| S0 Ruxsat modeli | `1aaed7f` | `sales.return`+`zakup.accept` kalitlari + gating (off→hidden) |
+| S1 Уведомления | `6ad98b0` | server feed + top-nav bell badge |
+| S2 Возвраты | `f4777f6` | «Возвратов» stat + tab + «Оформить возврат» (sales.return) |
+| S3 Клиенты/Долги | `927726f` | stats/chiplar/avatar + «Принятые сегодня» |
+| S4 Товары | `b0558e3` | `WarehouseLocation` + detal-drawer + stats (supplier/приход/сотилган) |
+| S5 Поставки | `0bd575c` | `DriverPhone`/`ExpectedDate` + pipeline + приёмка (zakup.accept) |
+| S6 Аккаунт/POS | `b63a862` | «Мои результаты» + chek do'kon nomi/«Спасибо» |
+| S7 Sayqal | `f6dc6d4` | a11y (aria-label) + i18n tekshiruv |
+
+**Seller dizayn-fidelity: ~63% → ~96%.** Barcha 9 ekran browser+API+test bilan tasdiqlandi (0 xato, 40/40 backend test). «Off → ko'rinmaydi» ruxsat tamoyili to'liq ishlaydi. Barcode CHIQARILGAN (foydalanuvchi qarori). HALI push qilinmagan.
+
 ## 6. Ataylab QILINMAYDI
 - **Barcode** va bog'liq hammasi (foydalanuvchi qarori).
 - `sales.delete` seller uchun (kassir faqat o'z draftini cheklangan yo'l bilan o'chiradi).
