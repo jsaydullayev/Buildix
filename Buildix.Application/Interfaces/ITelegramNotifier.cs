@@ -1,32 +1,25 @@
 namespace Buildix.Application.Interfaces;
 
 /// <summary>
-/// Sends Telegram notifications to a market owner (day summary, overdue debts,
-/// cash-withdrawal requests). Best-effort: silently no-ops when the bot token
-/// is not configured or the owner hasn't linked their chat (sent /start yet).
-/// Never throws into the caller's flow.
+/// Telegram Bot API transport. Best-effort: silently no-ops when the bot token
+/// is not configured or the recipient hasn't saved their Telegram ID, and never
+/// throws into the caller's flow (a Telegram outage must not break a sale).
+///
+/// Recipients are identified by <see cref="Domain.Entities.User.TelegramChatId"/> —
+/// each employee saves their own numeric ID on the Account screen.
 /// </summary>
 public interface ITelegramNotifier
 {
-    /// <summary>Send a message to the given market's owner, if enabled/linked.</summary>
+    /// <summary>Send to the market owner, if they linked their Telegram ID.</summary>
     Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Send to a specific chat id — used by the bot webhook to answer the chat
-    /// that issued a command (the chat may not be linked to any market yet).
-    /// </summary>
+    /// <summary>Send a text message to one chat.</summary>
     Task SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Market whose owner has linked this chat, or null. Lets the webhook decide
-    /// whether the sender is entitled to the market's figures.
+    /// Send a file (Excel report, PDF invoice) to one chat. <paramref name="caption"/>
+    /// is the HTML text shown under the attachment.
     /// </summary>
-    Task<int?> ResolveMarketByChatAsync(long chatId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Links a chat to a market when the owner sends /start: matches the sender's
-    /// @username to MarketSettings.OwnerTelegram and stores the chat id. Returns
-    /// true when a link was made. Used by the webhook.
-    /// </summary>
-    Task<bool> TryLinkChatAsync(string username, long chatId, CancellationToken cancellationToken = default);
+    Task SendDocumentAsync(long chatId, byte[] content, string fileName, string? caption = null,
+        CancellationToken cancellationToken = default);
 }

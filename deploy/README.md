@@ -70,14 +70,35 @@ an image.
      -d "url=https://<your-host>/api/telegram/webhook" \
      -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
    ```
-3. Each shop owner opens **Настройки → Уведомления** in the Buildix panel, enters
-   their Telegram `@username`, then sends `/start` to the bot. That links the chat
-   (`MarketSettings.OwnerTelegramChatId`) and is what every message is keyed on —
-   an unlinked chat is told nothing about any shop.
-4. Owner commands: `/kunlik` (today), `/kecha` (yesterday), `/help`. The day
-   summary — sales, profit, cash, debts, stock signals, top products — is also
-   pushed automatically once a day (see `TELEGRAM_DAILY_SUMMARY_HOUR`), gated by
-   the market's «Сводка за день» setting.
+3. **One bot serves every market.** Each employee links themselves: send `/id` to
+   the bot, then paste the returned number into **Аккаунт → Telegram ID** in the
+   panel (`User.TelegramChatId`, unique platform-wide). The bot recognises the
+   sender by that id — which yields their market *and* their permissions. A chat
+   with no matching id is told nothing about any shop.
+
+#### Bot commands
+
+| Command | Returns | Permission |
+|---------|---------|------------|
+| `/id` | The sender's Telegram id (works for anyone — this is the onboarding step) | — |
+| `/savdo` | Today's sales — summary text + **Excel** | `sales.access` |
+| `/qarz` | Debtors — **Excel** | `debts.access` |
+| `/qoldiq` | Low-stock products — **Excel** | `products.access` |
+| `/faktura 29` | Invoice for receipt №29 — **PDF** | `sales.invoice` |
+| `/help` | The commands that user may actually run | — |
+
+Cost and profit columns follow `data.costPrice` / `data.profit`, so a cashier's
+workbook never carries the shop's margins.
+
+#### Automatic messages
+
+- **Day summary** — once a day after `TELEGRAM_DAILY_SUMMARY_HOUR`, to the owner:
+  summary text with the day's sales workbook attached. Gated by the market's
+  «Сводка за день» setting.
+- **Low stock** — **once per product**, to every user with `products.access` who
+  linked an id and kept stock notifications on. The product is re-armed only when
+  its quantity recovers above the minimum, so a shop hovering at the threshold is
+  not spammed.
 
 Production CORS origins live in `appsettings.Production.json`
 (`Cors:AllowedOrigins` → `buildix.uz`); the SPA is same-origin behind nginx so it

@@ -26,8 +26,7 @@ export interface MarketSettings {
   notifyDaySummary: boolean;
   notifyOverdueDebts: boolean;
   notifyWithdrawalRequests: boolean;
-  ownerTelegram: string | null;
-  ownerTelegramLinked?: boolean;
+  // Telegram bog'lash User.telegramChatId'ga ko'chdi (Аккаунт ekrani).
   inactivityLogoutMinutes: number;
   auditEnabled: boolean;
 }

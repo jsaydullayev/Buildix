@@ -6,6 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwitch } from '@/shared/ui';
 import type { AppLanguage } from '@/shared/i18n';
 import { cn } from '@/shared/lib/cn';
+import type { ApiError } from '@/shared/api/types';
 import { formatRelative, formatShortDate, formatTime, formatSum } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useSessionStore } from '@/shared/auth/sessionStore';
@@ -25,10 +26,12 @@ export default function AccountPage() {
   const [fullName, setFullName] = useState(session?.fullName ?? '');
   const [phone, setPhone] = useState('');
   const [telegram, setTelegram] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [pwSaved, setPwSaved] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
   // Per-user Telegram toggles — seeded from the profile, saved on each flip.
@@ -51,6 +54,7 @@ export default function AccountPage() {
       setFullName(profileQuery.data.fullName);
       setPhone(profileQuery.data.phone ?? '');
       setTelegram(profileQuery.data.telegram ?? '');
+      setTelegramChatId(profileQuery.data.telegramChatId ?? '');
       setNotify({
         debt: profileQuery.data.notifyDebt,
         stock: profileQuery.data.notifyStock,
@@ -60,14 +64,18 @@ export default function AccountPage() {
   }, [profileQuery.data]);
 
   const profileMutation = useMutation({
-    mutationFn: () => accountApi.updateProfile({ fullName, phone, telegram }),
+    mutationFn: () => accountApi.updateProfile({ fullName, phone, telegram, telegramChatId }),
     onSuccess: () => {
       const s = useSessionStore.getState().session;
       if (s) useSessionStore.getState().setSession({ ...s, fullName });
       void qc.invalidateQueries({ queryKey: ['my-profile'] });
+      setProfileError(null);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
     },
+    // A rejected Telegram ID (already taken / not numeric) must be visible —
+    // otherwise the user thinks it saved and the bot never recognises them.
+    onError: (e) => setProfileError((e as ApiError).message ?? t('common.somethingWrong')),
   });
 
   const pwMutation = useMutation({
@@ -136,6 +144,9 @@ export default function AccountPage() {
                 <Check size={15} /> {t('settings.saved')}
               </span>
             )}
+            {profileError && (
+              <span className="max-w-[380px] text-right text-[12.5px] font-medium text-danger">{profileError}</span>
+            )}
             <Button loading={profileMutation.isPending} onClick={() => profileMutation.mutate()}>
               {t('common.save')}
             </Button>
@@ -202,6 +213,18 @@ export default function AccountPage() {
                   <label className="text-[13px] font-medium text-label">{t('account.telegram')}</label>
                   <input className={inputCls} value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="@username" />
                 </div>
+              </div>
+              {/* Telegram bot ID — the bot identifies the user by this number. */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-label">{t('account.telegramId')}</label>
+                <input
+                  className={cn(inputCls, 'nums')}
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value.replace(/[^\d]/g, ''))}
+                  inputMode="numeric"
+                  placeholder="123456789"
+                />
+                <span className="text-[11.5px] text-muted-2">{t('account.telegramIdHint')}</span>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-medium text-label">{t('account.login')}</label>

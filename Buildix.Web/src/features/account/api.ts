@@ -24,6 +24,8 @@ export interface MyProfile {
   role: string;
   phone: string | null;
   telegram: string | null;
+  /** Telegram bot ID (string — a chat id exceeds JS safe-integer range). */
+  telegramChatId: string | null;
   /** Saved UI language ("uz" | "ru" | "en"). */
   language: string;
   /** Per-user Telegram notification toggles (BE-9). */
@@ -38,6 +40,8 @@ export interface UpdateProfileBody {
   newPassword?: string | null;
   phone?: string | null;
   telegram?: string | null;
+  /** Telegram bot ID; "" unlinks, omit (or null) to leave unchanged. */
+  telegramChatId?: string | null;
   /** UI language code; omit (or null) to leave it unchanged. */
   language?: string | null;
   /** Per-user Telegram notification toggles; omit (or null) to leave unchanged. */

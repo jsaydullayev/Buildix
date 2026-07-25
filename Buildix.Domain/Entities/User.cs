@@ -18,6 +18,15 @@ public class User : BaseEntity, ISoftDelete
     /// <summary>Telegram @username (Account profilida tahrirlanadi).</summary>
     public string? Telegram { get; set; }
 
+    /// <summary>
+    /// Telegram raqamli chat ID — bot foydalanuvchini AYNAN shu bo'yicha taniydi
+    /// (@username o'zgarishi mumkin, ID hech qachon). Foydalanuvchi uni Account
+    /// ekranida o'zi saqlaydi (ID ni botdagi /id buyrug'i aytadi). Null = bot
+    /// bilan bog'lanmagan. Bot bundan foydalanuvchining marketi va ruxsatlarini
+    /// aniqlaydi, shuning uchun u butun platforma bo'ylab UNIKAL bo'lishi shart.
+    /// </summary>
+    public long? TelegramChatId { get; set; }
+
     // ── Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9) ──
     // Market darajasidagi MarketSettings.Notify* dan farqli — bu foydalanuvchining
     // o'z tanlovi. Default true → mavjud xatti-harakat o'zgarmaydi.

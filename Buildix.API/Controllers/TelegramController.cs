@@ -1,43 +1,37 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Buildix.Application.Interfaces;
+using Buildix.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 
 namespace Buildix.API.Controllers;
 
 /// <summary>
-/// Telegram Bot webhook. Set it with the Bot API setWebhook to
-/// https://&lt;host&gt;/api/telegram/webhook. When an owner sends /start we match
-/// their @username to MarketSettings.OwnerTelegram and store the chat id so
-/// future notifications can reach them; afterwards that chat can pull the
-/// market's day summary on demand (/kunlik).
+/// Telegram Bot webhook. Register it with the Bot API:
+/// <c>setWebhook url=https://&lt;host&gt;/api/telegram/webhook secret_token=…</c>.
 ///
-/// Anonymous by design (Telegram calls it) but not unguarded: the secret token
-/// proves the caller is Telegram, and every data command answers only chats
-/// already linked to a market — an unlinked chat is told nothing about any shop.
+/// One bot serves every market. A message is only ever answered when its chat id
+/// matches a <c>User.TelegramChatId</c> saved on the Account screen — that lookup
+/// yields the market and the user's permissions, and each command is gated by
+/// them. An unknown chat learns nothing about any shop.
+///
+/// Anonymous by design (Telegram calls it), but the secret token proves the
+/// caller is Telegram; without a configured secret the endpoint fails closed.
 /// </summary>
 [ApiController]
 [Route("api/telegram")]
 public class TelegramController : ControllerBase
 {
-    private readonly ITelegramNotifier _notifier;
-    private readonly ITelegramDailySummaryService _summary;
-    private readonly ITashkentClock _clock;
+    private readonly ITelegramBotCommandHandler _handler;
     private readonly ILogger<TelegramController> _logger;
     private readonly IConfiguration _config;
 
     public TelegramController(
-        ITelegramNotifier notifier,
-        ITelegramDailySummaryService summary,
-        ITashkentClock clock,
+        ITelegramBotCommandHandler handler,
         ILogger<TelegramController> logger,
         IConfiguration config)
     {
-        _notifier = notifier;
-        _summary = summary;
-        _clock = clock;
+        _handler = handler;
         _logger = logger;
         _config = config;
     }
@@ -71,15 +65,7 @@ public class TelegramController : ControllerBase
                 return Ok();
             var chatId = chatIdEl.GetInt64();
 
-            var username = message.TryGetProperty("from", out var from) && from.TryGetProperty("username", out var u)
-                ? u.GetString()
-                : null;
-
-            // "/kunlik@BuildixBot arg" → "kunlik". Group chats append the bot handle.
-            var command = text.TrimStart().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]
-                .TrimStart('/').Split('@')[0].ToLowerInvariant();
-
-            await HandleCommandAsync(command, chatId, username, ct);
+            await _handler.HandleAsync(chatId, text, HttpContext, ct);
         }
         catch (Exception ex)
         {
@@ -88,87 +74,4 @@ public class TelegramController : ControllerBase
         }
         return Ok();
     }
-
-    private async Task HandleCommandAsync(string command, long chatId, string? username, CancellationToken ct)
-    {
-        switch (command)
-        {
-            case "start":
-                await HandleStartAsync(chatId, username, ct);
-                return;
-
-            case "kunlik":
-            case "today":
-            case "otchet":
-            case "hisobot":
-                await HandleSummaryAsync(chatId, offsetDays: 0, ct);
-                return;
-
-            case "kecha":
-            case "yesterday":
-                await HandleSummaryAsync(chatId, offsetDays: -1, ct);
-                return;
-
-            case "help":
-            case "yordam":
-                await _notifier.SendToChatAsync(chatId, HelpText, ct);
-                return;
-
-            default:
-                // Unknown command from a linked chat: show what the bot can do.
-                // From a stranger: stay silent — no hint that any shop exists.
-                if (await _notifier.ResolveMarketByChatAsync(chatId, ct) is not null)
-                    await _notifier.SendToChatAsync(chatId, HelpText, ct);
-                return;
-        }
-    }
-
-    private async Task HandleStartAsync(long chatId, string? username, CancellationToken ct)
-    {
-        // Already linked (owner pressed /start again) — just greet.
-        if (await _notifier.ResolveMarketByChatAsync(chatId, ct) is not null)
-        {
-            await _notifier.SendToChatAsync(chatId, $"<b>Buildix</b>\nВы уже подключены.\n\n{HelpText}", ct);
-            return;
-        }
-
-        var linked = !string.IsNullOrWhiteSpace(username)
-                     && await _notifier.TryLinkChatAsync(username!, chatId, ct);
-        if (linked)
-        {
-            _logger.LogInformation("Telegram chat linked for @{Username}", username);
-            await _notifier.SendToChatAsync(chatId,
-                $"<b>Buildix</b>\n✅ Магазин подключён. Теперь вы будете получать сводку и уведомления.\n\n{HelpText}", ct);
-            return;
-        }
-
-        // No matching handle — tell them how to fix it without naming any market.
-        await _notifier.SendToChatAsync(chatId,
-            "<b>Buildix</b>\nВаш Telegram не привязан к магазину.\n\n" +
-            "Откройте <b>Настройки → Уведомления</b> в панели Buildix, укажите свой Telegram " +
-            (string.IsNullOrWhiteSpace(username) ? "@username" : $"(<code>@{username}</code>)") +
-            " и отправьте сюда /start ещё раз.", ct);
-    }
-
-    private async Task HandleSummaryAsync(long chatId, int offsetDays, CancellationToken ct)
-    {
-        var marketId = await _notifier.ResolveMarketByChatAsync(chatId, ct);
-        if (marketId is null)
-        {
-            await _notifier.SendToChatAsync(chatId,
-                "Этот чат не привязан к магазину. Отправьте /start.", ct);
-            return;
-        }
-
-        var day = _clock.TodayLocal.AddDays(offsetDays);
-        var text = await _summary.BuildAsync(marketId.Value, day, ct);
-        await _notifier.SendToChatAsync(chatId, text ?? "Данные недоступны.", ct);
-    }
-
-    private const string HelpText =
-        "<b>Команды</b>\n" +
-        "/kunlik — сводка за сегодня\n" +
-        "/kecha — сводка за вчера\n" +
-        "/help — это сообщение\n\n" +
-        "Сводка за день приходит автоматически вечером.";
 }

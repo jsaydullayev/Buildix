@@ -10,5 +10,8 @@ namespace Buildix.Application.Interfaces;
 /// </summary>
 public interface IProductsExcelExportService
 {
-    Task<ExcelExportResult> ExportProductsAsync(string lang, bool canViewCost, CancellationToken cancellationToken = default);
+    /// <param name="lowStockOnly">true → only products at or below their minimum
+    /// (the Telegram bot's «kam qolgan mahsulotlar»); false exports the catalogue.</param>
+    Task<ExcelExportResult> ExportProductsAsync(string lang, bool canViewCost,
+        bool lowStockOnly = false, CancellationToken cancellationToken = default);
 }

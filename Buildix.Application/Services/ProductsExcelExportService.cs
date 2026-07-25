@@ -9,9 +9,12 @@ public sealed class ProductsExcelExportService(
     IExcelService excelService,
     ITashkentClock clock) : IProductsExcelExportService
 {
-    public async Task<ExcelExportResult> ExportProductsAsync(string lang, bool canViewCost, CancellationToken cancellationToken = default)
+    public async Task<ExcelExportResult> ExportProductsAsync(string lang, bool canViewCost,
+        bool lowStockOnly = false, CancellationToken cancellationToken = default)
     {
         var products = await productQueryService.GetAllProductsAsync();
+        if (lowStockOnly)
+            products = products.Where(p => p.IsLowStock || p.Quantity <= 0).ToList();
         var isRu = lang.Equals("ru", StringComparison.OrdinalIgnoreCase);
 
         object exportData = isRu

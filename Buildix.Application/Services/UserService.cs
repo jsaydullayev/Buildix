@@ -273,6 +273,33 @@ public class UserService : IUserService
             user.Telegram = string.IsNullOrWhiteSpace(tg) ? null : (tg.StartsWith('@') ? tg : '@' + tg);
         }
 
+        // Telegram bot ID — bot foydalanuvchini shu bo'yicha taniydi. Bo'sh satr
+        // bog'lanishni uzadi. Noto'g'ri raqam sukut bilan yutilmaydi: xato
+        // qaytariladi, aks holda foydalanuvchi "saqladim" deb o'ylab, bot esa
+        // uni hech qachon tanimay qolardi.
+        if (request.TelegramChatId is not null)
+        {
+            var raw = request.TelegramChatId.Trim();
+            if (raw.Length == 0)
+            {
+                user.TelegramChatId = null;
+            }
+            else if (long.TryParse(raw, out var chatId) && chatId != 0)
+            {
+                // Unikal indeks buni DB darajasida ham himoyalaydi; bu yerda
+                // tushunarli xabar berish uchun oldindan tekshiramiz.
+                var taken = await _context.Users.IgnoreQueryFilters()
+                    .AnyAsync(u => u.TelegramChatId == chatId && u.Id != user.Id, cancellationToken);
+                if (taken)
+                    throw new InvalidOperationException("Bu Telegram ID boshqa foydalanuvchiga biriktirilgan");
+                user.TelegramChatId = chatId;
+            }
+            else
+            {
+                throw new InvalidOperationException("Telegram ID faqat raqamlardan iborat bo'lishi kerak");
+            }
+        }
+
         // Per-user Telegram bildirishnoma toggle'lari — null = tegilmaydi (BE-9).
         if (request.NotifyDebt is { } nd) user.NotifyDebt = nd;
         if (request.NotifyStock is { } ns) user.NotifyStock = ns;
@@ -671,6 +698,7 @@ public class UserService : IUserService
             user.Phone,
             user.LastActiveAt,
             user.Telegram,
+            user.TelegramChatId?.ToString(),
             user.NotifyDebt,
             user.NotifyStock,
             user.NotifyShift

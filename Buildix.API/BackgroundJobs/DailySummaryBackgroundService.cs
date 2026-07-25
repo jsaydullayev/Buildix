@@ -88,28 +88,69 @@ public class DailySummaryBackgroundService : BackgroundService
         var todayStampUtc = clock.LocalDayToUtcRange(today).UtcStart;
         var db = sp.GetRequiredService<AppDbContext>();
 
-        // Markets that want the summary, have a linked chat, and haven't got
-        // today's yet.
+        // Markets that want the summary and haven't got today's yet. The
+        // recipient is the market owner's saved Telegram id (User.TelegramChatId);
+        // markets whose owner hasn't linked one are skipped.
         var due = await db.MarketSettings
             .Where(s => s.NotifyDaySummary
-                && s.OwnerTelegramChatId != null
                 && (s.LastDaySummarySentOn == null || s.LastDaySummarySentOn < todayStampUtc))
-            .Select(s => new { s.MarketId, ChatId = s.OwnerTelegramChatId!.Value })
+            .Join(db.Users.IgnoreQueryFilters()
+                    .Where(u => u.Role == Buildix.Domain.Enums.Role.Owner && u.IsActive && u.TelegramChatId != null),
+                s => s.MarketId, u => u.MarketId,
+                (s, u) => new { s.MarketId, ChatId = u.TelegramChatId!.Value })
             .ToListAsync(ct);
         if (due.Count == 0) return;
 
-        var summary = sp.GetRequiredService<ITelegramDailySummaryService>();
-        var notifier = sp.GetRequiredService<ITelegramNotifier>();
+        var (dayStart, dayEnd) = clock.LocalDayToUtcRange(today);
 
         foreach (var market in due)
         {
             if (ct.IsCancellationRequested) return;
             try
             {
+                // A SEPARATE scope per market, each with its own synthetic
+                // HttpContext carrying that market's id.
+                //
+                // This matters for correctness, not tidiness: the Excel export
+                // reaches the tenant through ICurrentMarketService →
+                // HttpContext.Items["MarketId"]. With no context that lookup
+                // returns null, the global query filter switches off, and the
+                // "daily sales" workbook would contain EVERY market's sales.
+                // Filling the same slot the middleware fills scopes it correctly.
+                using var marketScope = _scopeFactory.CreateScope();
+                var msp = marketScope.ServiceProvider;
+                var accessor = msp.GetRequiredService<IHttpContextAccessor>();
+                accessor.HttpContext = new DefaultHttpContext { RequestServices = msp };
+                accessor.HttpContext.Items["MarketId"] = market.MarketId;
+
+                var summary = msp.GetRequiredService<ITelegramDailySummaryService>();
+                var notifier = msp.GetRequiredService<ITelegramNotifier>();
+
                 var text = await summary.BuildAsync(market.MarketId, today, ct);
                 if (text is null) continue; // market vanished — leave the stamp alone
 
-                await notifier.SendToChatAsync(market.ChatId, text, ct);
+                // Text first (readable on a phone at a glance), then the
+                // spreadsheet with the day's receipts. The owner sees profit, so
+                // cost/profit columns are included.
+                byte[]? excel = null;
+                string? excelName = null;
+                try
+                {
+                    var file = await msp.GetRequiredService<ISalesExcelExportService>()
+                        .ExportSalesAsync("ru", canViewCost: true, canViewProfit: true, dayStart, dayEnd, ct);
+                    excel = file.Content;
+                    excelName = $"savdo_{today:yyyy-MM-dd}.xlsx";
+                }
+                catch (Exception ex)
+                {
+                    // The summary is the point; a failed workbook must not hold it back.
+                    _logger.LogWarning(ex, "Daily sales workbook failed for market {MarketId}", market.MarketId);
+                }
+
+                if (excel is not null)
+                    await notifier.SendDocumentAsync(market.ChatId, excel, excelName!, text, ct);
+                else
+                    await notifier.SendToChatAsync(market.ChatId, text, ct);
 
                 // Stamp only after a send was attempted, so a crash mid-loop
                 // retries this market rather than skipping its day.

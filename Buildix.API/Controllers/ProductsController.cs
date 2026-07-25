@@ -235,7 +235,7 @@ public class ProductsController : ApiControllerBase
         [FromQuery] string lang = "uz",
         CancellationToken ct = default)
     {
-        var result = await _productsExcelExportService.ExportProductsAsync(lang, CanViewCost(), ct);
+        var result = await _productsExcelExportService.ExportProductsAsync(lang, CanViewCost(), cancellationToken: ct);
         return File(result.Content, XlsxContentType, result.FileName);
     }
 

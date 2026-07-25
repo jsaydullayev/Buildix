@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Buildix.Application.Interfaces;
+using Buildix.Domain.Enums;
 using Buildix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -36,11 +38,13 @@ public class TelegramNotifier : ITelegramNotifier
 
     public async Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default)
     {
-        var chatId = await _db.MarketSettings
-            .Where(s => s.MarketId == marketId)
-            .Select(s => s.OwnerTelegramChatId)
+        // IgnoreQueryFilters: notifications also fire from background jobs where
+        // there is no tenant context; the MarketId predicate does the scoping.
+        var chatId = await _db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => u.MarketId == marketId && u.Role == Role.Owner && u.IsActive && u.TelegramChatId != null)
+            .Select(u => u.TelegramChatId)
             .FirstOrDefaultAsync(cancellationToken);
-        if (chatId is null or 0) return; // owner hasn't linked their chat
+        if (chatId is null or 0) return; // owner hasn't saved their Telegram ID
 
         await SendToChatAsync(chatId.Value, message, cancellationToken);
     }
@@ -66,26 +70,37 @@ public class TelegramNotifier : ITelegramNotifier
         }
     }
 
-    public async Task<int?> ResolveMarketByChatAsync(long chatId, CancellationToken cancellationToken = default)
+    public async Task SendDocumentAsync(long chatId, byte[] content, string fileName, string? caption = null,
+        CancellationToken cancellationToken = default)
     {
-        if (chatId == 0) return null;
-        return await _db.MarketSettings
-            .Where(s => s.OwnerTelegramChatId == chatId)
-            .Select(s => (int?)s.MarketId)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
+        var token = Token;
+        if (string.IsNullOrWhiteSpace(token)) return;
 
-    public async Task<bool> TryLinkChatAsync(string username, long chatId, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(username)) return false;
-        var handle = username.StartsWith('@') ? username : '@' + username;
+        try
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent(chatId.ToString()), "chat_id" },
+            };
+            if (!string.IsNullOrWhiteSpace(caption))
+            {
+                form.Add(new StringContent(caption), "caption");
+                form.Add(new StringContent("HTML"), "parse_mode");
+            }
 
-        var settings = await _db.MarketSettings
-            .FirstOrDefaultAsync(s => s.OwnerTelegram != null && s.OwnerTelegram.ToLower() == handle.ToLower(), cancellationToken);
-        if (settings is null) return false;
+            var file = new ByteArrayContent(content);
+            file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(file, "document", fileName);
 
-        settings.OwnerTelegramChatId = chatId;
-        await _db.SaveChangesAsync(cancellationToken);
-        return true;
+            var client = _httpFactory.CreateClient("telegram");
+            var resp = await client.PostAsync(
+                $"https://api.telegram.org/bot{token}/sendDocument", form, cancellationToken);
+            if (!resp.IsSuccessStatusCode)
+                _logger.LogWarning("Telegram sendDocument failed: {Status}", resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Telegram document send failed for chat {ChatId}", chatId);
+        }
     }
 }

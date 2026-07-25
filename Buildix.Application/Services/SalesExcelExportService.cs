@@ -14,9 +14,12 @@ public sealed class SalesExcelExportService(
     IExcelService excelService,
     ITashkentClock clock) : ISalesExcelExportService
 {
-    public async Task<ExcelExportResult> ExportSalesAsync(string lang, bool canViewCost, bool canViewProfit, CancellationToken cancellationToken = default)
+    public async Task<ExcelExportResult> ExportSalesAsync(string lang, bool canViewCost, bool canViewProfit,
+        DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
-        var sales = await saleQueryService.GetAllSalesAsync(cancellationToken);
+        var sales = from.HasValue && to.HasValue
+            ? await saleQueryService.GetSalesByDateRangeAsync(from.Value, to.Value, cancellationToken)
+            : await saleQueryService.GetAllSalesAsync(cancellationToken);
         var isRu = lang.Equals("ru", StringComparison.OrdinalIgnoreCase);
         var orderedSales = sales.OrderByDescending(s => s.CreatedAt);
         // Both columns are permission-gated by the controller: cost via

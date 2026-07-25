@@ -63,6 +63,14 @@ public class Product : BaseEntity, ISoftDelete
     public decimal Quantity { get; set; }
     public decimal MinThreshold { get; set; } = 5m;
 
+    /// <summary>
+    /// Telegram'ga "kam qoldi" ogohlantirishi yuborilgan vaqt. Har bir tovar
+    /// haqida BIR MARTA yuborish uchun: qoldiq chegaradan pastga tushganda
+    /// belgilanadi, qoldiq tiklangach (chegaradan yuqori) tozalanadi — shunda
+    /// keyingi tushishда yana bir marta ogohlantiriladi. Null = hali yuborilmagan.
+    /// </summary>
+    public DateTime? LowStockAlertSentAt { get; set; }
+
     // Optimistic concurrency token. Mapped to PostgreSQL's hidden xmin column
     // so concurrent stock changes detect each other and surface a 409.
     public uint Xmin { get; set; }

@@ -31,6 +31,9 @@ public record UserDto(
     [property: JsonPropertyName("phone")] string? Phone = null,
     [property: JsonPropertyName("lastActiveAt")] DateTime? LastActiveAt = null,
     [property: JsonPropertyName("telegram")] string? Telegram = null,
+    // Telegram bot ID — Account'да saqlanadi, bot foydalanuvchini shu bo'yicha
+    // taniydi. Raqam JS'да aniqlikni yo'qotmasligi uchun satr sifatida beriladi.
+    [property: JsonPropertyName("telegramChatId")] string? TelegramChatId = null,
     // Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9).
     [property: JsonPropertyName("notifyDebt")] bool NotifyDebt = true,
     [property: JsonPropertyName("notifyStock")] bool NotifyStock = true,
@@ -145,6 +148,12 @@ public record UpdateProfileDto(
     [property: JsonPropertyName("telegram")]
     [param: StringLength(100)]
     string? Telegram = null,
+
+    // Telegram bot ID. null = tegilmaydi; bo'sh satr = uzish (bog'lanish olib
+    // tashlanadi). Satr sifatida qabul qilinadi — JS raqam aniqligi cheklovi.
+    [property: JsonPropertyName("telegramChatId")]
+    [param: StringLength(32)]
+    string? TelegramChatId = null,
 
     // Interfeys tili ("uz" | "ru" | "en"). null = tegilmaydi. Foydalanuvchining
     // o'z sozlamasi — do'kon bo'yicha MarketSettings.DefaultLanguage'dan alohida.

@@ -602,7 +602,13 @@ try
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
     builder.Services.AddScoped<ITelegramDailySummaryService, TelegramDailySummaryService>();
+    // Bot command surface (/savdo, /qarz, /qoldiq, /faktura). Lives in the API
+    // layer because it fills HttpContext.Items["MarketId"] for the tenant-scoped
+    // export services after resolving the sender's User.TelegramChatId.
+    builder.Services.AddScoped<Buildix.API.Services.ITelegramBotCommandHandler,
+        Buildix.API.Services.TelegramBotCommandHandler>();
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.DailySummaryBackgroundService>();
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.LowStockAlertBackgroundService>();
     builder.Services.AddScoped<ICurrentMarketService, CurrentMarketService>();
     builder.Services.AddScoped<IExcelService, ExcelService>();
     builder.Services.AddScoped<ISalesExcelExportService, SalesExcelExportService>();

@@ -141,7 +141,6 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.WorkingHours).HasMaxLength(100);
             b.Property(x => x.ReceiptHeader).HasMaxLength(300);
             b.Property(x => x.ReceiptFooter).HasMaxLength(300);
-            b.Property(x => x.OwnerTelegram).HasMaxLength(100);
             b.Property(x => x.DefaultDebtLimit).HasPrecision(18, 2);
             b.Property(x => x.AllowedCashDiscrepancy).HasPrecision(18, 2);
             b.Property(x => x.DefaultMarkupPct).HasPrecision(9, 2);
@@ -193,6 +192,12 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.PasswordHash).IsRequired();
             b.Property(x => x.Phone).HasMaxLength(20);
             b.Property(x => x.Telegram).HasMaxLength(100);
+            // The bot identifies a user by this id across ALL markets, so it must
+            // be globally unique — otherwise one Telegram account could resolve to
+            // two shops. Filtered: many users legitimately have no id yet.
+            b.HasIndex(x => x.TelegramChatId)
+                .IsUnique()
+                .HasFilter("\"TelegramChatId\" IS NOT NULL");
             b.Property(x => x.Language).HasDefaultValue(Language.Uzbek).IsRequired();
             // ProfileImage stores base64 encoded image data - use TEXT type for unlimited size
             b.Property(x => x.ProfileImage).HasColumnType("text");

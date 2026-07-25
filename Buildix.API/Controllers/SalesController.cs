@@ -487,7 +487,7 @@ public class SalesController : ApiControllerBase
     {
         try
         {
-            var result = await _salesExcelExportService.ExportSalesAsync(lang, CanViewCost(), CanViewProfit(), ct);
+            var result = await _salesExcelExportService.ExportSalesAsync(lang, CanViewCost(), CanViewProfit(), cancellationToken: ct);
             return File(result.Content, XlsxContentType, result.FileName);
         }
         catch (Exception ex)
