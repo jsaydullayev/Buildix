@@ -15,6 +15,8 @@ export const uz: TranslationSchema = {
     notFound: 'Sahifa topilmadi',
     noAccess: 'Sizda bu bo‘limga ruxsat yo‘q',
     back: 'Orqaga',
+    prev: 'Oldingi sahifa',
+    next: 'Keyingi sahifa',
     comingSoon: 'Bo‘lim ishlab chiqilmoqda',
     comingSoonSubtitle: 'Tez orada bu bo‘lim shu yerda paydo bo‘ladi',
   },

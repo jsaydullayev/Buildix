@@ -410,7 +410,7 @@ export default function SellerPosPage() {
                 <div className="truncate text-[13px] font-medium">{customer.fullName ?? customer.phone}</div>
                 <div className="truncate text-[11.5px] text-muted-2 nums">{customer.phone}</div>
               </div>
-              <button type="button" onClick={() => pickCustomer(null)} className="text-muted-2 hover:text-danger">
+              <button type="button" aria-label={t('common.close')} onClick={() => pickCustomer(null)} className="text-muted-2 hover:text-danger">
                 <X size={16} />
               </button>
             </div>

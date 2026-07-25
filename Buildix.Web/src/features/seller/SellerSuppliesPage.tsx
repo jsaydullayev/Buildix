@@ -144,9 +144,9 @@ export default function SellerSuppliesPage() {
         {listQuery.data && listQuery.data.totalPages > 1 && (
           <div className="flex items-center justify-end gap-1.5">
             {listQuery.isFetching && <Spinner size={14} className="mr-1 text-primary" />}
-            <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40">‹</button>
+            <button type="button" aria-label={t('common.prev')} disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40">‹</button>
             <span className="px-2 text-[13px] text-muted nums">{page} / {listQuery.data.totalPages}</span>
-            <button type="button" disabled={page >= listQuery.data.totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40">›</button>
+            <button type="button" aria-label={t('common.next')} disabled={page >= listQuery.data.totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40">›</button>
           </div>
         )}
       </div>

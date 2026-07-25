@@ -15,6 +15,8 @@ export const en: TranslationSchema = {
     notFound: 'Page not found',
     noAccess: 'You do not have access to this section',
     back: 'Back',
+    prev: 'Previous page',
+    next: 'Next page',
     comingSoon: 'Section in progress',
     comingSoonSubtitle: 'This section will appear here soon',
   },

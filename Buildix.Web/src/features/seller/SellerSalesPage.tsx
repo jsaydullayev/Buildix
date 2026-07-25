@@ -236,6 +236,7 @@ export default function SellerSalesPage() {
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
+                aria-label={t('common.prev')}
                 className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
               >
                 ‹
@@ -247,6 +248,7 @@ export default function SellerSalesPage() {
                 type="button"
                 disabled={page >= pageData.totalPages}
                 onClick={() => setPage((p) => p + 1)}
+                aria-label={t('common.next')}
                 className="h-8 rounded-md border border-input-border bg-surface px-3 text-[13px] disabled:opacity-40"
               >
                 ›
