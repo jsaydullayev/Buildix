@@ -1055,11 +1055,13 @@ export const en: TranslationSchema = {
       margin: 'margin {{value}}',
       purchCount: '{{count}} purchases',
       checksCount: '{{count}} receipts',
+      checksReturns: '{{count}} receipts · returns: {{returns}}',
     },
     chart: {
       title: 'Revenue and profit by day',
       revenue: 'Revenue',
       profit: 'Profit',
+      best: 'best',
     },
     categories: {
       title: 'Sales by category',
@@ -1079,6 +1081,8 @@ export const en: TranslationSchema = {
       title: 'Sellers',
       empty: 'No data for the period',
       cols: { seller: 'SELLER', checks: 'RECEIPTS', revenue: 'REVENUE', share: 'SHARE' },
+      checksAvg: '{{count}} receipts · avg {{avg}}',
+      shareNote: 'Share of the period revenue',
     },
   },
   pos: {

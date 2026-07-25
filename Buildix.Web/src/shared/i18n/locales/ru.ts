@@ -1057,11 +1057,13 @@ export const ru = {
       margin: 'маржа {{value}}',
       purchCount: '{{count}} закупов',
       checksCount: '{{count}} чеков',
+      checksReturns: '{{count}} чеков · возвратов: {{returns}}',
     },
     chart: {
       title: 'Выручка и прибыль по дням',
       revenue: 'Выручка',
       profit: 'Прибыль',
+      best: 'лучший',
     },
     categories: {
       title: 'Продажи по категориям',
@@ -1081,6 +1083,8 @@ export const ru = {
       title: 'Продавцы',
       empty: 'Нет данных за период',
       cols: { seller: 'ПРОДАВЕЦ', checks: 'ЧЕКОВ', revenue: 'ВЫРУЧКА', share: 'ДОЛЯ' },
+      checksAvg: '{{count}} чеков · ср. {{avg}}',
+      shareNote: 'Доля от выручки периода',
     },
   },
   pos: {

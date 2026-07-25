@@ -1055,11 +1055,13 @@ export const uz: TranslationSchema = {
       margin: 'marja {{value}}',
       purchCount: '{{count}} ta xarid',
       checksCount: '{{count}} chek',
+      checksReturns: '{{count}} chek · qaytarish: {{returns}}',
     },
     chart: {
       title: 'Kunlar bo‘yicha tushum va foyda',
       revenue: 'Tushum',
       profit: 'Foyda',
+      best: 'eng yaxshi',
     },
     categories: {
       title: 'Kategoriyalar bo‘yicha sotuvlar',
@@ -1079,6 +1081,8 @@ export const uz: TranslationSchema = {
       title: 'Sotuvchilar',
       empty: 'Davr uchun ma’lumot yo‘q',
       cols: { seller: 'SOTUVCHI', checks: 'CHEKLAR', revenue: 'TUSHUM', share: 'ULUSH' },
+      checksAvg: '{{count}} chek · o‘rt. {{avg}}',
+      shareNote: 'Davr tushumidagi ulush',
     },
   },
   pos: {
