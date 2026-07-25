@@ -21,12 +21,14 @@ function groupOf(key: string): string {
 const PRESETS: Record<string, { add: string[]; disc: number | null; debt: number | null }> = {
   trainee: { add: ['dashboard.access', 'sales.access', 'products.access'], disc: null, debt: 0 },
   seller: {
-    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'zakup.access', 'notifications.access'],
+    // «Продавец» — TZ §2.13: hold, disc3, debt5, payin, supply(приёмка=zakup.accept).
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'zakup.access', 'zakup.accept', 'notifications.access'],
     disc: 3,
     debt: 5_000_000,
   },
   senior: {
-    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.edit', 'sales.delete', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'debts.dueDate', 'zakup.access', 'notifications.access'],
+    // «Старший» — hammasi + ret(sales.return) + price(sales.edit) + supply(zakup.accept).
+    add: ['dashboard.access', 'sales.access', 'sales.create', 'sales.edit', 'sales.delete', 'sales.return', 'sales.invoice', 'products.access', 'customers.access', 'customers.manage', 'debts.access', 'debts.manage', 'debts.dueDate', 'zakup.access', 'zakup.accept', 'notifications.access'],
     disc: 10,
     debt: null,
   },
