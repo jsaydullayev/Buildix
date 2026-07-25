@@ -126,43 +126,63 @@ public class DailySummaryBackgroundService : BackgroundService
                 var summary = msp.GetRequiredService<ITelegramDailySummaryService>();
                 var notifier = msp.GetRequiredService<ITelegramNotifier>();
 
-                var text = await summary.BuildAsync(market.MarketId, today, ct);
+                // CLAIM FIRST: stamp with the "not sent today" predicate in the
+                // same statement. A second instance updates 0 rows and skips, so
+                // the owner never gets the summary twice. The claim is released
+                // below if the send fails.
+                var claimed = await db.MarketSettings
+                    .Where(s => s.MarketId == market.MarketId
+                        && (s.LastDaySummarySentOn == null || s.LastDaySummarySentOn < todayStampUtc))
+                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, todayStampUtc), ct);
+                if (claimed == 0) continue; // another worker already sent today's
+
+                // The recipient is the market owner, so the full picture.
+                var text = await summary.BuildAsync(market.MarketId, today, DailySummaryOptions.Owner, ct);
                 if (text is null) continue; // market vanished — leave the stamp alone
 
-                // Text first (readable on a phone at a glance), then the
-                // spreadsheet with the day's receipts. The owner sees profit, so
-                // cost/profit columns are included.
-                byte[]? excel = null;
-                string? excelName = null;
+                // The summary is its OWN message, never the file caption: captions
+                // are capped at 1024 characters and this text can exceed that,
+                // which would silently cut the report short.
+                if (!await notifier.SendToChatAsync(market.ChatId, text, ct))
+                {
+                    // Undelivered — release the claim so the next tick retries
+                    // instead of the day being marked done with nothing sent.
+                    await db.MarketSettings
+                        .Where(s => s.MarketId == market.MarketId && s.LastDaySummarySentOn == todayStampUtc)
+                        .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, (DateTime?)null), ct);
+                    _logger.LogWarning("Daily summary undelivered for market {MarketId} — claim released", market.MarketId);
+                    continue;
+                }
+
+                // Then the day's receipts as a workbook. The owner sees profit,
+                // so cost/profit columns are included. A failed workbook must not
+                // hold back the summary that already went out.
                 try
                 {
                     var file = await msp.GetRequiredService<ISalesExcelExportService>()
-                        .ExportSalesAsync("ru", canViewCost: true, canViewProfit: true, dayStart, dayEnd, ct);
-                    excel = file.Content;
-                    excelName = $"savdo_{today:yyyy-MM-dd}.xlsx";
+                        .ExportSalesAsync("ru", canViewCost: true, canViewProfit: true, dayStart, dayEnd,
+                            sellerId: null, ct);
+                    await notifier.SendDocumentAsync(market.ChatId, file.Content,
+                        $"savdo_{today:yyyy-MM-dd}.xlsx", $"<b>Kunlik savdo · {today:dd.MM.yyyy}</b>", ct);
                 }
                 catch (Exception ex)
                 {
-                    // The summary is the point; a failed workbook must not hold it back.
                     _logger.LogWarning(ex, "Daily sales workbook failed for market {MarketId}", market.MarketId);
                 }
-
-                if (excel is not null)
-                    await notifier.SendDocumentAsync(market.ChatId, excel, excelName!, text, ct);
-                else
-                    await notifier.SendToChatAsync(market.ChatId, text, ct);
-
-                // Stamp only after a send was attempted, so a crash mid-loop
-                // retries this market rather than skipping its day.
-                await db.MarketSettings
-                    .Where(s => s.MarketId == market.MarketId)
-                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, todayStampUtc), ct);
 
                 _logger.LogInformation("Daily summary sent for market {MarketId}", market.MarketId);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Daily summary failed for market {MarketId}", market.MarketId);
+            }
+            finally
+            {
+                // Drop the synthetic context before the next market. Left set, it
+                // would outlive its disposed scope and silently make the next
+                // iteration (or the next tick) run inside this market's tenant.
+                using var cleanup = _scopeFactory.CreateScope();
+                cleanup.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = null;
             }
         }
     }

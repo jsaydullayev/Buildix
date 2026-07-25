@@ -13,8 +13,13 @@ public interface ITelegramNotifier
     /// <summary>Send to the market owner, if they linked their Telegram ID.</summary>
     Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default);
 
-    /// <summary>Send a text message to one chat.</summary>
-    Task SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Send a text message to one chat. Returns false when it did not reach
+    /// Telegram (no token, transport error, non-2xx). Callers that mark work as
+    /// "announced" MUST check this — a once-per-product alert that is stamped
+    /// after a silent failure is lost for good.
+    /// </summary>
+    Task<bool> SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Send a message together with the bot's button keyboard. Each inner list is

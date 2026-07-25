@@ -27,6 +27,8 @@ public class LowStockAlertBackgroundService : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(15);
     private const int MaxProductsPerMarket = 50;
+    /// <summary>How many product lines the alert message itself carries.</summary>
+    private const int MaxListedInMessage = 20;
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<LowStockAlertBackgroundService> _logger;
@@ -89,6 +91,10 @@ public class LowStockAlertBackgroundService : BackgroundService
                 && p.Quantity <= p.MinThreshold
                 && p.LowStockAlertSentAt == null
                 && p.MarketId != 0)
+            // Ordered so the cap takes a defined slice: without it Postgres may
+            // return any 1000 rows and a market could be starved for many passes.
+            // Emptiest first — those are the ones worth telling first anyway.
+            .OrderBy(p => p.Quantity).ThenBy(p => p.Id)
             .Select(p => new { p.Id, p.MarketId, p.Name, p.Quantity, p.MinThreshold })
             .Take(MaxProductsPerMarket * 20)
             .ToListAsync(ct);
@@ -122,20 +128,41 @@ public class LowStockAlertBackgroundService : BackgroundService
                     .Distinct()
                     .ToList();
 
-                if (chats.Count > 0)
+                // CLAIM FIRST, then send. The stamp is written with the
+                // "still unclaimed" predicate in the same statement, so a second
+                // instance (or an overlapping tick) updates 0 rows and stays
+                // silent — read-then-stamp would have let both send.
+                var ids = items.Select(i => i.Id).ToList();
+                var claimed = await db.Products.IgnoreQueryFilters()
+                    .Where(p => ids.Contains(p.Id) && p.LowStockAlertSentAt == null)
+                    .ExecuteUpdateAsync(u => u.SetProperty(p => p.LowStockAlertSentAt, now), ct);
+                if (claimed == 0) continue; // another worker got there first
+
+                if (chats.Count == 0)
                 {
-                    var text = BuildMessage(items.Select(i => (i.Name, i.Quantity)).ToList());
-                    foreach (var chat in chats)
-                        await notifier.SendToChatAsync(chat, text, ct);
+                    // Nobody to tell. The claim stands: without it this market
+                    // would be re-evaluated every 15 minutes forever.
+                    _logger.LogInformation("Low-stock: {Count} product(s), market {MarketId}, no linked recipients",
+                        items.Count, marketId);
+                    continue;
                 }
 
-                // Stamp regardless of whether anyone was reachable: the alert for
-                // this depletion is done. Without this, a market with no linked
-                // users would re-evaluate the same products every 15 minutes.
-                var ids = items.Select(i => i.Id).ToList();
-                await db.Products.IgnoreQueryFilters()
-                    .Where(p => ids.Contains(p.Id))
-                    .ExecuteUpdateAsync(u => u.SetProperty(p => p.LowStockAlertSentAt, now), ct);
+                var text = BuildMessage(items.Select(i => (i.Name, i.Quantity)).ToList());
+                var delivered = false;
+                foreach (var chat in chats)
+                    delivered |= await notifier.SendToChatAsync(chat, text, ct);
+
+                if (!delivered)
+                {
+                    // Nothing reached Telegram — RELEASE the claim so the next
+                    // tick retries. Stamping through a failure would consume the
+                    // single alert this depletion ever gets.
+                    await db.Products.IgnoreQueryFilters()
+                        .Where(p => ids.Contains(p.Id) && p.LowStockAlertSentAt == now)
+                        .ExecuteUpdateAsync(u => u.SetProperty(p => p.LowStockAlertSentAt, (DateTime?)null), ct);
+                    _logger.LogWarning("Low-stock alert undelivered for market {MarketId} — claim released", marketId);
+                    continue;
+                }
 
                 _logger.LogInformation("Low-stock alert: {Count} product(s), market {MarketId}, {Chats} chat(s)",
                     items.Count, marketId, chats.Count);
@@ -147,18 +174,30 @@ public class LowStockAlertBackgroundService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Lists at most <see cref="MaxListedInMessage"/> products and counts the
+    /// rest. A message is capped at 4096 characters by Telegram; 50 long product
+    /// names would blow past it and the alert would be REJECTED — and since the
+    /// products get stamped either way, a once-per-product alert would be lost
+    /// for good. The workbook behind «📦 Kam qolgan» has the full list.
+    /// </summary>
     private static string BuildMessage(IReadOnlyList<(string Name, decimal Quantity)> items)
     {
         var sb = new StringBuilder("<b>⚠️ Kam qolgan mahsulotlar</b>\n");
-        foreach (var (name, qty) in items)
+        foreach (var (name, qty) in items.Take(MaxListedInMessage))
             sb.Append(qty <= 0 ? "🔴 " : "🟡 ")
-              .Append(Escape(name))
+              .Append(Escape(Shorten(name)))
               .Append(" — ")
               .Append(qty <= 0 ? "tugadi" : qty.ToString("0.##"))
               .Append('\n');
-        sb.Append("\nTo'liq ro'yxat: /qoldiq");
+        if (items.Count > MaxListedInMessage)
+            sb.Append("… va yana ").Append(items.Count - MaxListedInMessage).Append(" ta\n");
+        sb.Append("\nTo'liq ro'yxat: «📦 Kam qolgan» tugmasi");
         return sb.ToString();
     }
+
+    private static string Shorten(string name) =>
+        name.Length <= 60 ? name : name[..59] + "…";
 
     private static string Escape(string? s) =>
         (s ?? string.Empty).Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");

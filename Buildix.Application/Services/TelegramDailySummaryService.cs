@@ -26,7 +26,8 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         _clock = clock;
     }
 
-    public async Task<string?> BuildAsync(int marketId, DateTime localDate, CancellationToken cancellationToken = default)
+    public async Task<string?> BuildAsync(int marketId, DateTime localDate, DailySummaryOptions options,
+        CancellationToken cancellationToken = default)
     {
         var market = await _db.Markets.AsNoTracking()
             .Where(m => m.Id == marketId)
@@ -37,10 +38,13 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         var (dayStart, dayEnd) = _clock.LocalDayToUtcRange(localDate);
 
         // ── Sales for the day (Draft/Cancelled never count as revenue) ───────
+        // SellerId scopes the figures to one cashier's own receipts: without
+        // data.allSalesView they must not read the shop's total takings.
         var daySales = _db.Sales.AsNoTracking().Where(s =>
             s.MarketId == marketId && !s.IsDeleted &&
             s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled &&
-            s.CreatedAt >= dayStart && s.CreatedAt < dayEnd);
+            s.CreatedAt >= dayStart && s.CreatedAt < dayEnd &&
+            (options.SellerId == null || s.SellerId == options.SellerId));
 
         var checkCount = await daySales.CountAsync(cancellationToken);
         var revenue = await daySales.SumAsync(s => (decimal?)s.TotalAmount, cancellationToken) ?? 0m;
@@ -64,12 +68,14 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
             .Where(d => d.MarketId == marketId && d.CreatedAt >= dayStart && d.CreatedAt < dayEnd)
             .SumAsync(d => (decimal?)d.TotalDebt, cancellationToken) ?? 0m;
 
-        // ── Profit (owner-only bot, so always included) ──────────────────────
-        // Effective cost mirrors SaleItem.EffectiveCostPrice: external items
-        // carry their cost in ExternalCostPrice while CostPrice stays 0.
-        var profit = saleIds.Count == 0
-            ? 0m
-            : await _db.SaleItems.AsNoTracking()
+        // ── Profit — data.profit only ────────────────────────────────────────
+        // Not merely hidden at render time: the figure is never even queried for
+        // a reader who may not see it. Effective cost mirrors
+        // SaleItem.EffectiveCostPrice — external items carry their cost in
+        // ExternalCostPrice while CostPrice stays 0.
+        var profit = 0m;
+        if (options.IncludeProfit && saleIds.Count > 0)
+            profit = await _db.SaleItems.AsNoTracking()
                 .Where(si => saleIds.Contains(si.SaleId))
                 .SumAsync(si => (decimal?)((si.SalePrice - (si.IsExternal ? si.ExternalCostPrice : si.CostPrice)) * si.Quantity),
                     cancellationToken) ?? 0m;
@@ -83,38 +89,60 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
             .Select(g => new { Count = g.Count(), Sum = g.Sum(x => x.TotalAmount) })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // ── Cash + debts ─────────────────────────────────────────────────────
-        var cashBalance = await _db.CashRegisters.AsNoTracking()
-            .Where(c => c.MarketId == marketId)
-            .Select(c => (decimal?)c.CurrentBalance)
-            .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+        // ── Cash — data.cashBalance only ─────────────────────────────────────
+        var cashBalance = 0m;
+        if (options.IncludeCash)
+            cashBalance = await _db.CashRegisters.AsNoTracking()
+                .Where(c => c.MarketId == marketId)
+                .Select(c => (decimal?)c.CurrentBalance)
+                .FirstOrDefaultAsync(cancellationToken) ?? 0m;
 
-        var openDebts = _db.Debts.AsNoTracking()
-            .Where(d => d.MarketId == marketId && d.Status == DebtStatus.Open && d.RemainingDebt > 0);
-        var debtTotal = await openDebts.SumAsync(d => (decimal?)d.RemainingDebt, cancellationToken) ?? 0m;
-        var now = _clock.UtcNow;
-        var overdue = await openDebts
-            .Where(d => d.DueDate != null && d.DueDate < now)
-            .GroupBy(d => 1)
-            .Select(g => new { Count = g.Count(), Sum = g.Sum(x => x.RemainingDebt) })
-            .FirstOrDefaultAsync(cancellationToken);
+        // ── Debts — debts.access only ────────────────────────────────────────
+        var debtTotal = 0m;
+        decimal debtPaidToday = 0m;
+        (int Count, decimal Sum)? overdue = null;
+        if (options.IncludeDebts)
+        {
+            var openDebts = _db.Debts.AsNoTracking()
+                .Where(d => d.MarketId == marketId && d.Status == DebtStatus.Open && d.RemainingDebt > 0);
+            debtTotal = await openDebts.SumAsync(d => (decimal?)d.RemainingDebt, cancellationToken) ?? 0m;
+            var now = _clock.UtcNow;
+            var od = await openDebts
+                .Where(d => d.DueDate != null && d.DueDate < now)
+                .GroupBy(d => 1)
+                .Select(g => new { Count = g.Count(), Sum = g.Sum(x => x.RemainingDebt) })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (od is not null) overdue = (od.Count, od.Sum);
 
-        // Debt repayments collected today — payments booked against a sale that
-        // carries a debt. Same definition as DebtQueryService.GetSummaryStatsAsync
-        // so the bot and the Долги screen never disagree.
-        var debtPaidToday = await _db.Payments.AsNoTracking()
-            .Where(p => p.Sale != null && p.Sale.MarketId == marketId && p.Sale.Debt != null
-                && p.CreatedAt >= dayStart && p.CreatedAt < dayEnd)
-            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+            // Debt repayments collected today — payments booked against a sale that
+            // carries a debt. Same definition as DebtQueryService.GetSummaryStatsAsync
+            // so the bot and the Долги screen never disagree.
+            debtPaidToday = await _db.Payments.AsNoTracking()
+                .Where(p => p.Sale != null && p.Sale.MarketId == marketId && p.Sale.Debt != null
+                    && p.CreatedAt >= dayStart && p.CreatedAt < dayEnd)
+                .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        }
 
-        // ── Stock signals + top products ─────────────────────────────────────
-        var stockAlerts = await _db.Products.AsNoTracking()
-            .Where(p => p.MarketId == marketId && !p.IsDeleted && !p.IsHidden && p.Quantity <= p.MinThreshold)
-            .OrderBy(p => p.Quantity)
-            .Select(p => new { p.Name, p.Quantity })
-            .Take(LowStockListLimit + 1)
-            .ToListAsync(cancellationToken);
-        var outOfStock = stockAlerts.Count(x => x.Quantity <= 0);
+        // ── Stock signals — products.access only ─────────────────────────────
+        var stockAlerts = new List<(string Name, decimal Quantity)>();
+        var lowStockTotal = 0;
+        var outOfStock = 0;
+        if (options.IncludeStock)
+        {
+            var lowQuery = _db.Products.AsNoTracking()
+                .Where(p => p.MarketId == marketId && !p.IsDeleted && !p.IsHidden && p.Quantity <= p.MinThreshold);
+            // Counted separately from the listed sample: printing the sample's
+            // length told a shop with 40 depleted items that only 6 were low.
+            lowStockTotal = await lowQuery.CountAsync(cancellationToken);
+            outOfStock = await lowQuery.CountAsync(p => p.Quantity <= 0, cancellationToken);
+            stockAlerts = (await lowQuery
+                .OrderBy(p => p.Quantity)
+                .Select(p => new { p.Name, p.Quantity })
+                .Take(LowStockListLimit)
+                .ToListAsync(cancellationToken))
+                .Select(p => (p.Name, p.Quantity))
+                .ToList();
+        }
 
         var topProducts = saleIds.Count == 0
             ? []
@@ -132,7 +160,8 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         sb.Append("<b>📊 ").Append(Escape(market.Name)).Append(" · ")
           .Append(localDate.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)).Append("</b>\n\n");
 
-        sb.Append("<b>Продажи</b>\n");
+        // «Мои продажи» when scoped to one cashier — otherwise the shop total.
+        sb.Append(options.SellerId is null ? "<b>Продажи</b>\n" : "<b>Мои продажи</b>\n");
         if (checkCount == 0)
         {
             sb.Append("Продаж за день нет.\n");
@@ -145,33 +174,44 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
               .Append(" · Карта: ").Append(Money(cardIn))
               .Append(" · В долг: ").Append(Money(debtSold)).Append('\n');
             sb.Append("Средний чек: ").Append(Money(revenue / checkCount)).Append(" сум\n");
-            sb.Append("Прибыль: <b>").Append(Money(profit)).Append("</b> сум (маржа ")
-              .Append(margin.ToString("0.#", CultureInfo.InvariantCulture)).Append("%)\n");
+            if (options.IncludeProfit)
+                sb.Append("Прибыль: <b>").Append(Money(profit)).Append("</b> сум (маржа ")
+                  .Append(margin.ToString("0.#", CultureInfo.InvariantCulture)).Append("%)\n");
         }
         if (returns is { Count: > 0 })
             sb.Append("Возвраты: ").Append(Money(returns.Sum)).Append(" сум (").Append(returns.Count).Append(")\n");
 
-        sb.Append("\n<b>Касса и долги</b>\n");
-        sb.Append("В кассе сейчас: <b>").Append(Money(cashBalance)).Append("</b> сум\n");
-        if (debtPaidToday > 0)
-            sb.Append("Погашено долгов за день: ").Append(Money(debtPaidToday)).Append(" сум\n");
-        sb.Append("Долги клиентов: ").Append(Money(debtTotal)).Append(" сум\n");
-        if (overdue is { Count: > 0 })
-            sb.Append("⚠️ Просрочено: <b>").Append(Money(overdue.Sum)).Append("</b> сум (")
-              .Append(overdue.Count).Append(")\n");
-
-        sb.Append("\n<b>Склад</b>\n");
-        if (stockAlerts.Count == 0)
+        if (options.IncludeCash || options.IncludeDebts)
         {
-            sb.Append("Все товары в достатке.\n");
+            sb.Append("\n<b>Касса и долги</b>\n");
+            if (options.IncludeCash)
+                sb.Append("В кассе сейчас: <b>").Append(Money(cashBalance)).Append("</b> сум\n");
+            if (options.IncludeDebts)
+            {
+                if (debtPaidToday > 0)
+                    sb.Append("Погашено долгов за день: ").Append(Money(debtPaidToday)).Append(" сум\n");
+                sb.Append("Долги клиентов: ").Append(Money(debtTotal)).Append(" сум\n");
+                if (overdue is { Count: > 0 })
+                    sb.Append("⚠️ Просрочено: <b>").Append(Money(overdue.Value.Sum)).Append("</b> сум (")
+                      .Append(overdue.Value.Count).Append(")\n");
+            }
         }
-        else
+
+        if (options.IncludeStock)
         {
-            if (outOfStock > 0) sb.Append("Закончилось: ").Append(outOfStock).Append('\n');
-            sb.Append("Заканчивается: ").Append(stockAlerts.Count).Append('\n');
-            foreach (var p in stockAlerts.Take(LowStockListLimit))
-                sb.Append("• ").Append(Escape(p.Name)).Append(" — ").Append(Money(p.Quantity)).Append('\n');
-            if (stockAlerts.Count > LowStockListLimit) sb.Append("• …\n");
+            sb.Append("\n<b>Склад</b>\n");
+            if (lowStockTotal == 0)
+            {
+                sb.Append("Все товары в достатке.\n");
+            }
+            else
+            {
+                if (outOfStock > 0) sb.Append("Закончилось: ").Append(outOfStock).Append('\n');
+                sb.Append("Заканчивается: ").Append(lowStockTotal).Append('\n');
+                foreach (var p in stockAlerts)
+                    sb.Append("• ").Append(Escape(p.Name)).Append(" — ").Append(Money(p.Quantity)).Append('\n');
+                if (lowStockTotal > stockAlerts.Count) sb.Append("• …\n");
+            }
         }
 
         if (topProducts.Count > 0)

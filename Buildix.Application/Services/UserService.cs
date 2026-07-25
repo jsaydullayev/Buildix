@@ -443,6 +443,11 @@ public class UserService : IUserService
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
 
+        // Telegram bog'lanishini bo'shatamiz: ID butun platforma bo'ylab unikal,
+        // va o'chirilgan qator uni ushlab tursa, o'sha odam qayta ishga olinganда
+        // (yoki raqam boshqa xodimga o'tganда) uni hech kim saqlay olmasdi.
+        user.TelegramChatId = null;
+
         // O'chirilgan user hozirning o'zida chiqarib yuborilishi kerak — soft-delete
         // qatorni yashiradi, lekin uning access token'i hech narsa tekshirmasdan
         // yana 30 daqiqa POS'da ishlayverardi.

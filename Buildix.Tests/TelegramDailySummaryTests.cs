@@ -1,3 +1,4 @@
+using Buildix.Application.Interfaces;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Enums;
 
@@ -116,7 +117,7 @@ public class TelegramDailySummaryTests
             new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "G'isht", Quantity = 900m, MinThreshold = 100m });
         await h.Db.SaveChangesAsync();
 
-        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, today);
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, today, DailySummaryOptions.Owner);
 
         Assert.NotNull(text);
         Assert.Contains("Demo do'kon", text);
@@ -157,7 +158,7 @@ public class TelegramDailySummaryTests
         using var h = new TestHarness(Market);
         await SeedMarketAsync(h, Market, "Bo'sh do'kon");
 
-        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal);
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
 
         Assert.NotNull(text);
         Assert.Contains("Продаж за день нет", text);
@@ -171,9 +172,114 @@ public class TelegramDailySummaryTests
     {
         using var h = new TestHarness(Market);
 
-        var text = await h.NewTelegramDailySummaryService().BuildAsync(999, h.Clock.TodayLocal);
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(999, h.Clock.TodayLocal, DailySummaryOptions.Owner);
 
         Assert.Null(text);
+    }
+
+    /// <summary>
+    /// Regressiya: bot avval faqat egaga xizmat qilardi va xulosa foyda/kassa/
+    /// qarzni SO'ZSIZ chiqarardi. Endi har bir xodim tugma bosa oladi, shuning
+    /// uchun bu raqamlar ruxsatsiz umuman chiqmasligi shart — aks holda kassir
+    /// do'konning marjasi va kassa qoldig'ini ko'rib qolardi.
+    /// </summary>
+    [Fact]
+    public async Task Summary_hides_profit_cash_and_debts_without_permission()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        var today = h.Clock.TodayLocal;
+        var noonUtc = h.Clock.LocalDayToUtcRange(today).UtcStart.AddHours(12);
+
+        var s1 = AddSale(h, Market, 100_000m, noonUtc);
+        AddItem(h, s1, "Sement", 1m, 100_000m, 40_000m); // foyda 60 000
+        AddPayment(h, s1, PaymentType.Cash, 100_000m, noonUtc);
+        h.Db.CashRegisters.Add(new CashRegister { Id = Guid.NewGuid(), MarketId = Market, CurrentBalance = 250_000m });
+        h.Db.Debts.Add(new Debt
+        {
+            Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = s1.Id,
+            TotalDebt = 80_000m, RemainingDebt = 80_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+        });
+        h.Db.Products.Add(new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "Bo'yoq", Quantity = 0m, MinThreshold = 5m });
+        await h.Db.SaveChangesAsync();
+
+        // Hech qanday qo'shimcha ruxsatsiz — faqat sotuv ko'rinadi.
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, today, new DailySummaryOptions());
+
+        Assert.NotNull(text);
+        Assert.Contains("Выручка", text);      // sotuv — ko'rinadi
+        Assert.DoesNotContain("Прибыль", text); // foyda — data.profit yo'q
+        Assert.DoesNotContain("60 000", text);
+        Assert.DoesNotContain("В кассе", text); // kassa — data.cashBalance yo'q
+        Assert.DoesNotContain("250 000", text);
+        Assert.DoesNotContain("Долги клиентов", text); // qarz — debts.access yo'q
+        Assert.DoesNotContain("Склад", text);   // ombor — products.access yo'q
+    }
+
+    /// <summary>
+    /// Regressiya: data.allSalesView'siz kassir do'kon bo'yicha emas, FAQAT
+    /// o'z cheklari bo'yicha xulosa olishi kerak (veb ro'yxatidagi bilan bir xil
+    /// qoida) — aks holda bot orqali butun do'kon tushumi o'qilardi.
+    /// </summary>
+    [Fact]
+    public async Task Summary_scoped_to_one_seller_excludes_other_sellers()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        var today = h.Clock.TodayLocal;
+        var noonUtc = h.Clock.LocalDayToUtcRange(today).UtcStart.AddHours(12);
+        var me = Guid.NewGuid();
+        var colleague = Guid.NewGuid();
+
+        var mine = AddSale(h, Market, 100_000m, noonUtc);
+        mine.SellerId = me;
+        AddItem(h, mine, "Meniki", 1m, 100_000m, 0m);
+
+        var theirs = AddSale(h, Market, 700_000m, noonUtc);
+        theirs.SellerId = colleague;
+        AddItem(h, theirs, "Hamkasb tovari", 1m, 700_000m, 0m);
+        await h.Db.SaveChangesAsync();
+
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, today, new DailySummaryOptions(SellerId: me));
+
+        Assert.NotNull(text);
+        Assert.Contains("Мои продажи", text);
+        Assert.Contains("Чеков: 1", text);
+        Assert.Contains("100 000", text);
+        Assert.DoesNotContain("700 000", text);
+        Assert.DoesNotContain("Hamkasb tovari", text);
+    }
+
+    /// <summary>
+    /// Regressiya: kam qolgan tovarlar soni ro'yxat namunasining uzunligidan
+    /// olinardi (Take(6)), shuning uchun 40 ta tugagan tovarli do'konga «6» deb
+    /// ko'rsatilardi. Son alohida CountAsync bilan olinishi kerak.
+    /// </summary>
+    [Fact]
+    public async Task Summary_low_stock_count_is_the_real_total_not_the_sample_size()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        // 12 ta kam qolgan tovar — ro'yxat 5 tasini ko'rsatadi, son 12 bo'lishi kerak.
+        for (var i = 0; i < 12; i++)
+            h.Db.Products.Add(new Product
+            {
+                Id = Guid.NewGuid(), MarketId = Market, Name = $"Tovar {i}",
+                Quantity = i, MinThreshold = 100m,
+            });
+        await h.Db.SaveChangesAsync();
+
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
+
+        Assert.NotNull(text);
+        Assert.Contains("Заканчивается: 12", text);
+        Assert.Contains("Закончилось: 1", text); // faqat Quantity=0 bo'lgani
     }
 
     [Fact]
@@ -184,7 +290,7 @@ public class TelegramDailySummaryTests
         await SeedMarketAsync(h, Market, "Do'kon <B&M>");
         await h.Db.SaveChangesAsync();
 
-        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal);
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
 
         Assert.NotNull(text);
         Assert.Contains("Do'kon &lt;B&amp;M&gt;", text);

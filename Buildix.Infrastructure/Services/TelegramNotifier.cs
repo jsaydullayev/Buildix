@@ -36,12 +36,52 @@ public class TelegramNotifier : ITelegramNotifier
 
     private string? Token => _config["Telegram:BotToken"];
 
+    // Bot API hard limits. Exceeding either makes Telegram reject the WHOLE
+    // request with 400, so the user would silently get nothing — worse than a
+    // trimmed message. Clamping here covers every caller at one choke point.
+    private const int MaxMessageLength = 4096;
+    private const int MaxCaptionLength = 1024;
+
+    /// <summary>
+    /// Clamp to the API limit, cutting only where it is safe to cut.
+    ///
+    /// A naive substring is worse than the overflow it fixes: slicing through a
+    /// <c>&lt;b&gt;</c> tag, an <c>&amp;amp;</c> entity or an emoji's surrogate
+    /// pair makes Telegram answer «can't parse entities» and drop the ENTIRE
+    /// message. Cutting at the last newline keeps every tag balanced, because
+    /// each line this codebase emits opens and closes its own markup.
+    /// </summary>
+    private static string Clamp(string? text, int limit)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        if (text.Length <= limit) return text;
+
+        var cut = text[..(limit - 1)];
+        var lastBreak = cut.LastIndexOf('\n');
+        if (lastBreak > 0)
+            return cut[..lastBreak] + "\n…";
+
+        // One enormous line with no break: fall back to a raw cut, but never
+        // between the halves of a surrogate pair, and drop any half-open tag or
+        // entity that the cut may have left behind.
+        if (char.IsHighSurrogate(cut[^1])) cut = cut[..^1];
+        var openTag = cut.LastIndexOf('<');
+        if (openTag >= 0 && cut.IndexOf('>', openTag) < 0) cut = cut[..openTag];
+        var openEntity = cut.LastIndexOf('&');
+        if (openEntity >= 0 && cut.IndexOf(';', openEntity) < 0) cut = cut[..openEntity];
+        return cut + "…";
+    }
+
     public async Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default)
     {
         // IgnoreQueryFilters: notifications also fire from background jobs where
         // there is no tenant context; the MarketId predicate does the scoping.
         var chatId = await _db.Users.IgnoreQueryFilters().AsNoTracking()
-            .Where(u => u.MarketId == marketId && u.Role == Role.Owner && u.IsActive && u.TelegramChatId != null)
+            .Where(u => u.MarketId == marketId && u.Role == Role.Owner && u.IsActive && !u.IsDeleted
+                && u.TelegramChatId != null)
+            // Ordered so a market with two Owner rows always notifies the same
+            // one instead of whichever the plan happened to return.
+            .OrderBy(u => u.CreatedAt)
             .Select(u => u.TelegramChatId)
             .FirstOrDefaultAsync(cancellationToken);
         if (chatId is null or 0) return; // owner hasn't saved their Telegram ID
@@ -49,24 +89,29 @@ public class TelegramNotifier : ITelegramNotifier
         await SendToChatAsync(chatId.Value, message, cancellationToken);
     }
 
-    public async Task SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default)
+    public async Task<bool> SendToChatAsync(long chatId, string message, CancellationToken cancellationToken = default)
     {
         var token = Token;
-        if (string.IsNullOrWhiteSpace(token)) return; // bot not configured — silent no-op
+        if (string.IsNullOrWhiteSpace(token)) return false; // bot not configured — silent no-op
 
         try
         {
             var client = _httpFactory.CreateClient("telegram");
             var resp = await client.PostAsJsonAsync(
                 $"https://api.telegram.org/bot{token}/sendMessage",
-                new { chat_id = chatId, text = message, parse_mode = "HTML" },
+                new { chat_id = chatId, text = Clamp(message, MaxMessageLength), parse_mode = "HTML" },
                 cancellationToken);
             if (!resp.IsSuccessStatusCode)
+            {
                 _logger.LogWarning("Telegram sendMessage failed: {Status}", resp.StatusCode);
+                return false;
+            }
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Telegram send failed for chat {ChatId}", chatId);
+            return false;
         }
     }
 
@@ -92,7 +137,13 @@ public class TelegramNotifier : ITelegramNotifier
             var client = _httpFactory.CreateClient("telegram");
             var resp = await client.PostAsJsonAsync(
                 $"https://api.telegram.org/bot{token}/sendMessage",
-                new { chat_id = chatId, text = message, parse_mode = "HTML", reply_markup = replyMarkup },
+                new
+                {
+                    chat_id = chatId,
+                    text = Clamp(message, MaxMessageLength),
+                    parse_mode = "HTML",
+                    reply_markup = replyMarkup,
+                },
                 cancellationToken);
             if (!resp.IsSuccessStatusCode)
                 _logger.LogWarning("Telegram sendMessage (keyboard) failed: {Status}", resp.StatusCode);
@@ -117,7 +168,9 @@ public class TelegramNotifier : ITelegramNotifier
             };
             if (!string.IsNullOrWhiteSpace(caption))
             {
-                form.Add(new StringContent(caption), "caption");
+                // A caption over 1024 chars makes Telegram reject the whole
+                // upload, so the report would be lost rather than shortened.
+                form.Add(new StringContent(Clamp(caption, MaxCaptionLength)), "caption");
                 form.Add(new StringContent("HTML"), "parse_mode");
             }
 

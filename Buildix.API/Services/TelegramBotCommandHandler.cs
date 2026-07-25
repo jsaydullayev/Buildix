@@ -94,6 +94,28 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
         }
 
         var marketId = user.MarketId!.Value;
+
+        // The webhook is [AllowAnonymous], so TenantResolutionMiddleware's
+        // blocked/expired gates never ran for it. Without this the bot would be
+        // a way around a suspension: the panel returns 423/402 while reports keep
+        // flowing to Telegram.
+        var market = await _db.Markets.IgnoreQueryFilters().AsNoTracking()
+            .Where(m => m.Id == marketId)
+            .Select(m => new { m.IsActive, m.IsBlocked, m.ExpiresAt })
+            .FirstOrDefaultAsync(ct);
+        if (market is null || !market.IsActive || market.IsBlocked)
+        {
+            await _notifier.SendWithKeyboardAsync(chatId,
+                "Do'kon hisobi vaqtincha to'xtatilgan. Administrator bilan bog'laning.", [], ct);
+            return;
+        }
+        if (market.ExpiresAt is { } expires && expires < _clock.UtcNow)
+        {
+            await _notifier.SendWithKeyboardAsync(chatId,
+                "Do'kon obunasi muddati tugagan. Ma'lumot olish uchun obunani yangilang.", [], ct);
+            return;
+        }
+
         // From here on every tenant-scoped query must run in the user's market.
         http.Items["MarketId"] = marketId;
 
@@ -150,14 +172,16 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
 
     private async Task ShowMenuAsync(long chatId, User user, CancellationToken ct)
     {
+        // Keys match the ones each action actually enforces below, so a button is
+        // never shown that would answer «ruxsatingiz yo'q».
         var rows = new List<IReadOnlyList<string>>();
         var top = new List<string>();
-        if (user.HasPermission(PermissionKeys.SalesAccess)) top.Add(BtnSales);
+        if (user.HasPermission(PermissionKeys.SalesExport)) top.Add(BtnSales);
         if (user.HasPermission(PermissionKeys.DebtsAccess)) top.Add(BtnDebts);
         if (top.Count > 0) rows.Add(top);
 
         var bottom = new List<string>();
-        if (user.HasPermission(PermissionKeys.ProductsAccess)) bottom.Add(BtnStock);
+        if (user.HasPermission(PermissionKeys.ProductsExport)) bottom.Add(BtnStock);
         if (user.HasPermission(PermissionKeys.SalesInvoice)) bottom.Add(BtnInvoice);
         if (bottom.Count > 0) rows.Add(bottom);
 
@@ -170,20 +194,41 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
 
     private async Task DailySalesAsync(long chatId, User user, CancellationToken ct)
     {
-        if (!Allowed(chatId, user, PermissionKeys.SalesAccess, out var deny)) { await deny; return; }
+        // The workbook is an export, so it takes the same key the web export
+        // endpoint takes (sales.export) — revoking it there must not leave a
+        // second door open here.
+        if (!Allowed(chatId, user, PermissionKeys.SalesExport, out var deny)) { await deny; return; }
 
         var today = _clock.TodayLocal;
         var (from, to) = _clock.LocalDayToUtcRange(today);
 
-        // A short read-now summary, then the spreadsheet for the details.
-        var caption = await _summary.BuildAsync(user.MarketId!.Value, today, ct);
+        // Without data.allSalesView a cashier sees only their OWN receipts —
+        // the same server-side scoping GetAllSales applies to the web list.
+        // Every figure below is filtered by it, so the bot can't become the
+        // way to read the shop's takings.
+        var ownScope = user.HasPermission(PermissionKeys.DataAllSalesView) ? (Guid?)null : user.Id;
+
+        // The summary goes as its OWN message, not as the file caption: a caption
+        // is capped at 1024 characters and this text (stock list + top products)
+        // can exceed that, which would cost the reader the tail of the report.
+        // A message allows 4096, so it arrives whole.
+        var summary = await _summary.BuildAsync(user.MarketId!.Value, today, new DailySummaryOptions(
+            SellerId: ownScope,
+            IncludeProfit: user.HasPermission(PermissionKeys.DataProfit),
+            IncludeCash: user.HasPermission(PermissionKeys.DataCashBalance),
+            IncludeDebts: user.HasPermission(PermissionKeys.DebtsAccess),
+            IncludeStock: user.HasPermission(PermissionKeys.ProductsAccess)), ct);
+        if (summary is not null)
+            await _notifier.SendToChatAsync(chatId, summary, ct);
+
         var file = await _salesExcel.ExportSalesAsync(
             LangOf(user),
             canViewCost: user.HasPermission(PermissionKeys.DataCostPrice),
             canViewProfit: user.HasPermission(PermissionKeys.DataProfit),
-            from, to, ct);
+            from, to, ownScope, ct);
 
-        await _notifier.SendDocumentAsync(chatId, file.Content, FileName("savdo"), caption, ct);
+        await _notifier.SendDocumentAsync(chatId, file.Content, FileName("savdo"),
+            $"<b>Kunlik savdo · {today:dd.MM.yyyy}</b>", ct);
     }
 
     private async Task DebtorsAsync(long chatId, User user, CancellationToken ct)
@@ -197,7 +242,8 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
 
     private async Task LowStockAsync(long chatId, User user, CancellationToken ct)
     {
-        if (!Allowed(chatId, user, PermissionKeys.ProductsAccess, out var deny)) { await deny; return; }
+        // Same key as the web products export.
+        if (!Allowed(chatId, user, PermissionKeys.ProductsExport, out var deny)) { await deny; return; }
 
         var file = await _productsExcel.ExportProductsAsync(
             LangOf(user),
