@@ -305,6 +305,7 @@ export const uz: TranslationSchema = {
   products: {
     title: 'Tovarlar va narxlar',
     subtitle: 'Sotuv narxi jadvalda to‘g‘ridan-to‘g‘ri o‘zgaradi',
+    catalogCount: '{{count}} tovar · yashirilgan: {{hidden}}',
     margin: 'MARJA',
     hidden: 'Yashirilgan',
     hide: 'Yashirish',
@@ -314,6 +315,8 @@ export const uz: TranslationSchema = {
   cash: {
     title: 'Kassa · naqd',
     subtitle: 'kun davomidagi barcha naqd harakatlari',
+    shiftOpen: '№{{n}} smena ochiq',
+    openingWas: 'ochilishda {{value}} bor edi',
     balance: 'Hozir kassada',
     incomeToday: 'Kunlik kirim',
     expenseToday: 'Kunlik chiqim',

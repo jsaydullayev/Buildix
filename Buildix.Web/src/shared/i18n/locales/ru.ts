@@ -303,6 +303,7 @@ export const ru = {
   products: {
     title: 'Товары и цены',
     subtitle: 'Цена продажи меняется прямо в таблице',
+    catalogCount: '{{count}} товаров · скрыто: {{hidden}}',
     margin: 'МАРЖА',
     hidden: 'Скрыт',
     hide: 'Скрыть',
@@ -312,6 +313,8 @@ export const ru = {
   cash: {
     title: 'Касса · наличные',
     subtitle: 'все движения наличных за день',
+    shiftOpen: 'смена №{{n}} открыта',
+    openingWas: 'на открытии было {{value}}',
     balance: 'Сейчас в кассе',
     incomeToday: 'Приход за день',
     expenseToday: 'Расход за день',

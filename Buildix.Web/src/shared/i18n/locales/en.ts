@@ -305,6 +305,7 @@ export const en: TranslationSchema = {
   products: {
     title: 'Products & prices',
     subtitle: 'Edit the sale price right in the table',
+    catalogCount: '{{count}} products · hidden: {{hidden}}',
     margin: 'MARGIN',
     hidden: 'Hidden',
     hide: 'Hide',
@@ -314,6 +315,8 @@ export const en: TranslationSchema = {
   cash: {
     title: 'Cash register',
     subtitle: 'all cash movements for the day',
+    shiftOpen: 'shift #{{n}} open',
+    openingWas: 'at opening: {{value}}',
     balance: 'In the register now',
     incomeToday: 'Income today',
     expenseToday: 'Outflow today',

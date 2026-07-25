@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime, formatFullDate } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
+import { shiftsApi } from '@/features/shifts/api';
 import { cashLedgerApi, type CashMovement } from './api';
 import { NewCashOperationModal } from './NewCashOperationModal';
 
@@ -36,6 +37,13 @@ export default function CashPage() {
 
   const ledgerQuery = useQuery({ queryKey: ['cash-ledger'], queryFn: () => cashLedgerApi.ledger() });
   const data = ledgerQuery.data;
+  // Current open shift powers the «смена №… открыта» caption + opening-cash line.
+  const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  const shift = shiftQuery.data;
+
+  const subtitle = shift
+    ? `${formatFullDate(new Date(), i18n.language)} · ${t('cash.shiftOpen', { n: shift.shiftNumber })} · ${t('cash.subtitle')}`
+    : `${formatFullDate(new Date(), i18n.language)} · ${t('cash.subtitle')}`;
 
   const rows = useMemo(() => {
     const items = data?.items ?? [];
@@ -50,7 +58,7 @@ export default function CashPage() {
     <>
       <PageHeader
         title={t('cash.title')}
-        subtitle={`${formatFullDate(new Date(), i18n.language)} · ${t('cash.subtitle')}`}
+        subtitle={subtitle}
         actions={
           canManage && (
             <Button onClick={() => setOpOpen(true)}>
@@ -69,6 +77,11 @@ export default function CashPage() {
             <div className="mt-1.5 text-[26px] font-bold tracking-[-0.4px] nums">
               {formatSum(data?.balance ?? 0)} <span className="text-[13px] font-medium text-white/50">{t('common.currency')}</span>
             </div>
+            {shift && (
+              <div className="mt-1.5 text-[11.5px] text-white/50 nums">
+                {t('cash.openingWas', { value: formatSum(shift.openingCash) })}
+              </div>
+            )}
           </div>
           <KpiCard
             label={t('cash.incomeToday')}
