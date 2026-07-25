@@ -64,9 +64,14 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         var cardIn = Tender(PaymentType.Terminal) + Tender(PaymentType.Click) + Tender(PaymentType.Transfer);
 
         // Debt sold today — the part of revenue that did not become money.
-        var debtSold = await _db.Debts.AsNoTracking()
-            .Where(d => d.MarketId == marketId && d.CreatedAt >= dayStart && d.CreatedAt < dayEnd)
-            .SumAsync(d => (decimal?)d.TotalDebt, cancellationToken) ?? 0m;
+        // Scoped through the day's sale ids so it follows options.SellerId: a
+        // market-wide sum here would print the shop's credit sales under a
+        // «Мои продажи» heading.
+        var debtSold = saleIds.Count == 0
+            ? 0m
+            : await _db.Debts.AsNoTracking()
+                .Where(d => d.MarketId == marketId && saleIds.Contains(d.SaleId))
+                .SumAsync(d => (decimal?)d.TotalDebt, cancellationToken) ?? 0m;
 
         // ── Profit — data.profit only ────────────────────────────────────────
         // Not merely hidden at render time: the figure is never even queried for
@@ -82,9 +87,15 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         var margin = revenue > 0 ? profit / revenue * 100m : 0m;
 
         // ── Returns for the day ──────────────────────────────────────────────
-        var returns = await _db.SaleReturns.AsNoTracking()
-            .Where(r => r.MarketId == marketId && r.CreatedAt >= dayStart && r.CreatedAt < dayEnd)
-            // SaleReturn has no soft-delete flag — returns are permanent records.
+        // Also seller-scoped: a return belongs to the receipt it reverses, so
+        // restricting to this reader's sales keeps «Возвраты» consistent with
+        // the «Мои продажи» figures above it.
+        // SaleReturn has no soft-delete flag — returns are permanent records.
+        var returnsQuery = _db.SaleReturns.AsNoTracking()
+            .Where(r => r.MarketId == marketId && r.CreatedAt >= dayStart && r.CreatedAt < dayEnd);
+        if (options.SellerId is not null)
+            returnsQuery = returnsQuery.Where(r => r.Sale != null && r.Sale.SellerId == options.SellerId);
+        var returns = await returnsQuery
             .GroupBy(r => 1)
             .Select(g => new { Count = g.Count(), Sum = g.Sum(x => x.TotalAmount) })
             .FirstOrDefaultAsync(cancellationToken);

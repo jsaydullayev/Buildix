@@ -108,6 +108,13 @@ public class LowStockAlertBackgroundService : BackgroundService
 
             try
             {
+                // Suspended shops get nothing — the panel answers 423/402 for
+                // them, so the bot must not keep pushing either.
+                var live = await db.Markets.IgnoreQueryFilters().AsNoTracking()
+                    .AnyAsync(m => m.Id == marketId && m.IsActive && !m.IsBlocked
+                        && (m.ExpiresAt == null || m.ExpiresAt > now), ct);
+                if (!live) continue;
+
                 var recipients = await db.Users.IgnoreQueryFilters().AsNoTracking()
                     .Where(u => u.MarketId == marketId && u.IsActive && !u.IsDeleted
                         && u.TelegramChatId != null && u.NotifyStock)
@@ -147,25 +154,39 @@ public class LowStockAlertBackgroundService : BackgroundService
                     continue;
                 }
 
-                var text = BuildMessage(items.Select(i => (i.Name, i.Quantity)).ToList());
-                var delivered = false;
-                foreach (var chat in chats)
-                    delivered |= await notifier.SendToChatAsync(chat, text, ct);
+                var delivered = 0;
+                try
+                {
+                    var text = BuildMessage(items.Select(i => (i.Name, i.Quantity)).ToList());
+                    foreach (var chat in chats)
+                        if (await notifier.SendToChatAsync(chat, text, ct)) delivered++;
+                }
+                catch
+                {
+                    // Any throw between claim and delivery must not swallow the
+                    // claim: fall through to the release below, then rethrow.
+                    await ReleaseAsync(db, ids, now);
+                    throw;
+                }
 
-                if (!delivered)
+                if (delivered == 0)
                 {
                     // Nothing reached Telegram — RELEASE the claim so the next
                     // tick retries. Stamping through a failure would consume the
                     // single alert this depletion ever gets.
-                    await db.Products.IgnoreQueryFilters()
-                        .Where(p => ids.Contains(p.Id) && p.LowStockAlertSentAt == now)
-                        .ExecuteUpdateAsync(u => u.SetProperty(p => p.LowStockAlertSentAt, (DateTime?)null), ct);
+                    await ReleaseAsync(db, ids, now);
                     _logger.LogWarning("Low-stock alert undelivered for market {MarketId} — claim released", marketId);
                     continue;
                 }
 
+                if (delivered < chats.Count)
+                    // Deliberate: the claim stands. Retrying for the rest would
+                    // re-alert those who already got it, breaking once-per-product.
+                    _logger.LogWarning("Low-stock alert reached {Ok}/{All} chat(s), market {MarketId}",
+                        delivered, chats.Count, marketId);
+
                 _logger.LogInformation("Low-stock alert: {Count} product(s), market {MarketId}, {Chats} chat(s)",
-                    items.Count, marketId, chats.Count);
+                    items.Count, marketId, delivered);
             }
             catch (Exception ex)
             {
@@ -173,6 +194,21 @@ public class LowStockAlertBackgroundService : BackgroundService
             }
         }
     }
+
+    /// <summary>
+    /// Hand the claim back so a later tick retries.
+    ///
+    /// Runs with <see cref="CancellationToken.None"/> ON PURPOSE: the usual
+    /// reason to release is that the send failed because the app is shutting
+    /// down, and passing that same cancelled token would abort the release too —
+    /// leaving the products stamped with nothing delivered, which for a
+    /// once-per-product alert means it is never sent at all.
+    /// </summary>
+    private static Task ReleaseAsync(AppDbContext db, List<Guid> ids, DateTime claimStamp) =>
+        db.Products.IgnoreQueryFilters()
+            .Where(p => ids.Contains(p.Id) && p.LowStockAlertSentAt == claimStamp)
+            .ExecuteUpdateAsync(u => u.SetProperty(p => p.LowStockAlertSentAt, (DateTime?)null),
+                CancellationToken.None);
 
     /// <summary>
     /// Lists at most <see cref="MaxListedInMessage"/> products and counts the

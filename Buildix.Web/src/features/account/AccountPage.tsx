@@ -75,7 +75,7 @@ export default function AccountPage() {
     },
     // A rejected Telegram ID (already taken / not numeric) must be visible —
     // otherwise the user thinks it saved and the bot never recognises them.
-    onError: (e) => setProfileError((e as ApiError).message ?? t('common.somethingWrong')),
+    onError: (e) => setProfileError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
 
   const pwMutation = useMutation({
@@ -306,7 +306,11 @@ export default function AccountPage() {
               onChange={(v) => flipNotify('shift', v)}
             />
           </div>
-          {!telegram.trim() && <p className="mt-3 text-[11.5px] text-warn-strong">{t('account.notify.noTelegram')}</p>}
+          {/* The bot delivers by Telegram ID, not by @username — warn on the
+              field that actually decides whether anything arrives. */}
+          {!telegramChatId.trim() && (
+            <p className="mt-3 text-[11.5px] text-warn-strong">{t('account.notify.noTelegram')}</p>
+          )}
         </Card>
 
         <Card className="p-6">

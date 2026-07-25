@@ -241,6 +241,25 @@ public class SalesController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>
+    /// Chek qatoriga aniq miqdor qo'yish (o'sish emas — o'rnatish).
+    /// </summary>
+    /// <remarks>
+    /// Gated by sales.CREATE, like /items and /items/remove: this is the same
+    /// "build the basket" action those two express, only stated once instead of
+    /// once per unit. It cannot change a price and cannot touch a finalised
+    /// sale (the service refuses anything but Draft), so it carries no authority
+    /// the cashier did not already have by clicking «+» N times — it just lets
+    /// them say "12 qop" or "3.5 m" in one call, which «+» cannot express at all.
+    /// </remarks>
+    [HttpPatch("{saleId}/items/quantity")]
+    [RequirePermission(PermissionKeys.SalesCreate)]
+    public async Task<ActionResult<SaleItemDto>> SetSaleItemQuantity(Guid saleId, [FromBody] SetSaleItemQuantityDto request, CancellationToken ct = default)
+    {
+        var result = await _saleItemService.SetSaleItemQuantityAsync(saleId, request, ct);
+        return ToActionResult(result);
+    }
+
     [HttpPost("{saleId}/payments")]
     [RequirePermission(PermissionKeys.SalesCreate)]
     [Idempotent("sale-payment")]
@@ -487,7 +506,20 @@ public class SalesController : ApiControllerBase
     {
         try
         {
-            var result = await _salesExcelExportService.ExportSalesAsync(lang, CanViewCost(), CanViewProfit(), cancellationToken: ct);
+            // Same scope guard as GetAllSales: without data.allSalesView the
+            // workbook must contain only the caller's own receipts. sales.export
+            // IS a cashier default, so leaving this unscoped made the export the
+            // one door through which a cashier could read the whole shop's day.
+            Guid? scope = null;
+            if (!CanViewAllSales())
+            {
+                if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var callerId))
+                    return Unauthorized();
+                scope = callerId;
+            }
+
+            var result = await _salesExcelExportService.ExportSalesAsync(
+                lang, CanViewCost(), CanViewProfit(), sellerId: scope, cancellationToken: ct);
             return File(result.Content, XlsxContentType, result.FileName);
         }
         catch (Exception ex)

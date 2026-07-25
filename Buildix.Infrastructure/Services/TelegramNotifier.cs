@@ -69,7 +69,33 @@ public class TelegramNotifier : ITelegramNotifier
         if (openTag >= 0 && cut.IndexOf('>', openTag) < 0) cut = cut[..openTag];
         var openEntity = cut.LastIndexOf('&');
         if (openEntity >= 0 && cut.IndexOf(';', openEntity) < 0) cut = cut[..openEntity];
-        return cut + "…";
+
+        // A COMPLETE opening tag whose closer fell past the cut is just as fatal
+        // as a half-open one — Telegram answers "can't parse entities" and drops
+        // the message. Close whatever is still open, innermost first.
+        return cut + CloseDanglingTags(cut) + "…";
+    }
+
+    /// <summary>Closing tags for any formatting element left open in <paramref name="html"/>.</summary>
+    private static string CloseDanglingTags(string html)
+    {
+        var open = new Stack<string>();
+        foreach (var tag in new[] { "b", "i", "u", "s", "code", "pre" })
+        {
+            var opened = CountOccurrences(html, $"<{tag}>");
+            var closed = CountOccurrences(html, $"</{tag}>");
+            for (var i = 0; i < opened - closed; i++) open.Push(tag);
+        }
+        return open.Count == 0 ? string.Empty : string.Concat(open.Select(t => $"</{t}>"));
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+        for (var i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+             i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+            count++;
+        return count;
     }
 
     public async Task SendToOwnerAsync(int marketId, string message, CancellationToken cancellationToken = default)

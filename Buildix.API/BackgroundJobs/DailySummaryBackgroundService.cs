@@ -62,6 +62,19 @@ public class DailySummaryBackgroundService : BackgroundService
         while (await SafeWaitAsync(timer, stoppingToken));
     }
 
+    /// <summary>
+    /// Hand the day's claim back so a later tick retries. Runs with
+    /// <see cref="CancellationToken.None"/> ON PURPOSE: the usual reason to
+    /// release is a send that failed because the app is shutting down, and the
+    /// same cancelled token would abort the release too — marking the day sent
+    /// with nothing delivered.
+    /// </summary>
+    private static Task ReleaseAsync(AppDbContext db, int marketId, DateTime claimStamp) =>
+        db.MarketSettings
+            .Where(s => s.MarketId == marketId && s.LastDaySummarySentOn == claimStamp)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, (DateTime?)null),
+                CancellationToken.None);
+
     private static async Task<bool> SafeWaitAsync(PeriodicTimer timer, CancellationToken ct)
     {
         try { return await timer.WaitForNextTickAsync(ct); }
@@ -91,11 +104,19 @@ public class DailySummaryBackgroundService : BackgroundService
         // Markets that want the summary and haven't got today's yet. The
         // recipient is the market owner's saved Telegram id (User.TelegramChatId);
         // markets whose owner hasn't linked one are skipped.
+        // Suspended shops are excluded here too. The reactive bot already refuses
+        // them, but without this the nightly push would keep delivering the full
+        // report (profit, till, debts) to a market the panel answers 423/402 for.
+        var nowUtc = clock.UtcNow;
         var due = await db.MarketSettings
             .Where(s => s.NotifyDaySummary
                 && (s.LastDaySummarySentOn == null || s.LastDaySummarySentOn < todayStampUtc))
+            .Join(db.Markets.IgnoreQueryFilters()
+                    .Where(m => m.IsActive && !m.IsBlocked && (m.ExpiresAt == null || m.ExpiresAt > nowUtc)),
+                s => s.MarketId, m => m.Id, (s, m) => s)
             .Join(db.Users.IgnoreQueryFilters()
-                    .Where(u => u.Role == Buildix.Domain.Enums.Role.Owner && u.IsActive && u.TelegramChatId != null),
+                    .Where(u => u.Role == Buildix.Domain.Enums.Role.Owner && u.IsActive && !u.IsDeleted
+                        && u.TelegramChatId != null),
                 s => s.MarketId, u => u.MarketId,
                 (s, u) => new { s.MarketId, ChatId = u.TelegramChatId!.Value })
             .ToListAsync(ct);
@@ -136,20 +157,29 @@ public class DailySummaryBackgroundService : BackgroundService
                     .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, todayStampUtc), ct);
                 if (claimed == 0) continue; // another worker already sent today's
 
-                // The recipient is the market owner, so the full picture.
-                var text = await summary.BuildAsync(market.MarketId, today, DailySummaryOptions.Owner, ct);
-                if (text is null) continue; // market vanished — leave the stamp alone
+                bool sent;
+                try
+                {
+                    // The recipient is the market owner, so the full picture.
+                    var text = await summary.BuildAsync(market.MarketId, today, DailySummaryOptions.Owner, ct);
+                    // The summary is its OWN message, never the file caption:
+                    // captions are capped at 1024 characters and this text can
+                    // exceed that, which would silently cut the report short.
+                    sent = text is not null && await notifier.SendToChatAsync(market.ChatId, text, ct);
+                }
+                catch
+                {
+                    // A throw after the claim would otherwise mark the day done
+                    // with nothing sent, and no later tick would retry it.
+                    await ReleaseAsync(db, market.MarketId, todayStampUtc);
+                    throw;
+                }
 
-                // The summary is its OWN message, never the file caption: captions
-                // are capped at 1024 characters and this text can exceed that,
-                // which would silently cut the report short.
-                if (!await notifier.SendToChatAsync(market.ChatId, text, ct))
+                if (!sent)
                 {
                     // Undelivered — release the claim so the next tick retries
                     // instead of the day being marked done with nothing sent.
-                    await db.MarketSettings
-                        .Where(s => s.MarketId == market.MarketId && s.LastDaySummarySentOn == todayStampUtc)
-                        .ExecuteUpdateAsync(u => u.SetProperty(s => s.LastDaySummarySentOn, (DateTime?)null), ct);
+                    await ReleaseAsync(db, market.MarketId, todayStampUtc);
                     _logger.LogWarning("Daily summary undelivered for market {MarketId} — claim released", market.MarketId);
                     continue;
                 }

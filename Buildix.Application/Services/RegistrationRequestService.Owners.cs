@@ -341,6 +341,11 @@ public partial class RegistrationRequestService
                 owner.IsDeleted = true;
                 owner.DeletedAt = DateTime.UtcNow;
                 owner.Market.IsActive = false;
+                // Free the Telegram link: the id is unique platform-wide and the
+                // index does not exclude deleted rows, so a soft-deleted owner
+                // would hold that number hostage — nobody could ever save it
+                // again, and no screen can reach this row to clear it.
+                owner.TelegramChatId = null;
 
                 // Cascade-deactivate every non-Owner user in this market so they
                 // can't log in either. Previously this only touched Sellers —

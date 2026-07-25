@@ -214,8 +214,15 @@ public class TelegramDailySummaryTests
         Assert.DoesNotContain("60 000", text);
         Assert.DoesNotContain("В кассе", text); // kassa — data.cashBalance yo'q
         Assert.DoesNotContain("250 000", text);
-        Assert.DoesNotContain("Долги клиентов", text); // qarz — debts.access yo'q
+        Assert.DoesNotContain("Долги клиентов", text); // qarz bloki — debts.access yo'q
+        Assert.DoesNotContain("Просрочено", text);
         Assert.DoesNotContain("Склад", text);   // ombor — products.access yo'q
+
+        // Izoh: «В долг: 80 000» qatori ATAYLAB qoladi. U qarz boshqaruvi emas,
+        // sotuv tender-taqsimotining uchinchi ustuni (Наличные · Карта · В долг)
+        // — foydalanuvchi o'zi rasmiylashtirgan sotuv. Uni yashirsak, taqsimot
+        // yig'indisi tushum bilan mos kelmay qolardi.
+        Assert.Contains("В долг: 80 000", text);
     }
 
     /// <summary>
@@ -241,8 +248,31 @@ public class TelegramDailySummaryTests
         var theirs = AddSale(h, Market, 700_000m, noonUtc);
         theirs.SellerId = colleague;
         AddItem(h, theirs, "Hamkasb tovari", 1m, 700_000m, 0m);
+
+        // Har ikkalasida qarz va qaytarish bor. «В долг» va «Возвраты» qatorlari
+        // avval FAQAT market bo'yicha filtrlanardi — natijada «Мои продажи»
+        // sarlavhasi ostida hamkasbning raqamlari chiqardi.
+        h.Db.Debts.AddRange(
+            new Debt
+            {
+                Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = mine.Id,
+                TotalDebt = 50_000m, RemainingDebt = 50_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+            },
+            new Debt
+            {
+                Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = theirs.Id,
+                TotalDebt = 333_000m, RemainingDebt = 333_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+            });
+        h.Db.SaleReturns.Add(new SaleReturn
+        {
+            Id = Guid.NewGuid(), MarketId = Market, SaleId = theirs.Id, Sale = theirs, Number = 1,
+            TotalAmount = 444_000m, CreatedAt = noonUtc,
+        });
         await h.Db.SaveChangesAsync();
 
+        // IncludeDebts ATAYLAB false: do'kon darajasidagi «Долги клиентов» bloki
+        // chiqmasin, shunda 333 000 faqat «В долг» sizib chiqqandagina paydo
+        // bo'ladi — ya'ni test aynan scope'ni tekshiradi.
         var text = await h.NewTelegramDailySummaryService()
             .BuildAsync(Market, today, new DailySummaryOptions(SellerId: me));
 
@@ -252,6 +282,11 @@ public class TelegramDailySummaryTests
         Assert.Contains("100 000", text);
         Assert.DoesNotContain("700 000", text);
         Assert.DoesNotContain("Hamkasb tovari", text);
+        // «В долг» — o'zimniki ko'rinadi, hamkasbniki yo'q
+        Assert.Contains("В долг: 50 000", text);
+        Assert.DoesNotContain("333 000", text);
+        // «Возвраты» — hamkasbning qaytarishi chiqmaydi
+        Assert.DoesNotContain("444 000", text);
     }
 
     /// <summary>
