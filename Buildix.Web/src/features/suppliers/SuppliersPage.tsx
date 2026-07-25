@@ -265,7 +265,7 @@ function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string
   const { t } = useTranslation();
   const query = useQuery({
     queryKey: ['supplier-receipts', supplierId],
-    queryFn: () => purchasesApi.receiptsPaged(1, 5, supplierId),
+    queryFn: () => purchasesApi.receiptsPaged(1, 5, { supplierId }),
   });
   const items = query.data?.items ?? [];
 

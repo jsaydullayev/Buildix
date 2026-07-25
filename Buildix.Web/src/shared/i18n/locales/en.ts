@@ -8,6 +8,7 @@ export const en: TranslationSchema = {
     save: 'Save changes',
     cancel: 'Cancel',
     close: 'Close',
+    delete: 'Delete',
     search: 'Search',
     all: 'All',
     export: 'Export',
@@ -463,6 +464,8 @@ export const en: TranslationSchema = {
     subtitle: 'Deliveries and supplier orders',
     newPurchase: 'New purchase',
     empty: 'No purchases',
+    searchPlaceholder: 'Number, supplier or product…',
+    deleteConfirm: 'Delete purchase #{{number}}? Its goods receipt will be reversed.',
     stats: {
       count: 'Purchases this month',
       sum: 'Amount this month',

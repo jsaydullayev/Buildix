@@ -6,6 +6,7 @@ export const ru = {
     save: 'Сохранить изменения',
     cancel: 'Отмена',
     close: 'Закрыть',
+    delete: 'Удалить',
     search: 'Поиск',
     all: 'Все',
     export: 'Экспорт',
@@ -465,6 +466,8 @@ export const ru = {
     subtitle: 'Поставки и заказы поставщикам',
     newPurchase: 'Новый закуп',
     empty: 'Закупов нет',
+    searchPlaceholder: 'Номер, поставщик или товар…',
+    deleteConfirm: 'Удалить закуп №{{number}}? Приход по нему будет отменён.',
     stats: {
       count: 'Закупов за месяц',
       sum: 'Сумма за месяц',

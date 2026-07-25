@@ -8,6 +8,7 @@ export const uz: TranslationSchema = {
     save: 'O‘zgarishlarni saqlash',
     cancel: 'Bekor qilish',
     close: 'Yopish',
+    delete: 'O‘chirish',
     search: 'Qidiruv',
     all: 'Hammasi',
     export: 'Eksport',
@@ -463,6 +464,8 @@ export const uz: TranslationSchema = {
     subtitle: 'Yetkazib berishlar va yetkazuvchilarga buyurtmalar',
     newPurchase: 'Yangi xarid',
     empty: 'Xaridlar yo‘q',
+    searchPlaceholder: 'Raqam, yetkazuvchi yoki tovar…',
+    deleteConfirm: '№{{number}} xaridni o‘chirasizmi? Uning kirimi bekor qilinadi.',
     stats: {
       count: 'Oylik xaridlar',
       sum: 'Oylik summa',

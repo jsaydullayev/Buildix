@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth } from 'date-fns';
-import { Plus, FileDown, Truck } from 'lucide-react';
+import { Plus, FileDown, Truck, Search, Trash2 } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
+import type { ApiError } from '@/shared/api/types';
 import { purchasesApi, type ZakupReceipt, type ReorderSuggestion, type Supplier } from './api';
 import { NewPurchaseModal } from './NewPurchaseModal';
 import { ReceiptDetailModal } from './ReceiptDetailModal';
@@ -29,13 +31,17 @@ const STATUS_KEY: Record<string, 'paid' | 'partial' | 'unpaid'> = {
 export default function PurchasesPage() {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
+  const qc = useQueryClient();
   const canCreate = hasPermission(PERMISSIONS.zakup.create);
+  const canDelete = hasPermission(PERMISSIONS.zakup.delete);
   const exporter = useExport(() => purchasesApi.exportReceipts(), 'purchases.xlsx');
 
   const [page, setPage] = useState(1);
   const [delivery, setDelivery] = useState<'all' | 'InTransit' | 'Accepted'>('all');
+  const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
   const [openReceiptId, setOpenReceiptId] = useState<string | null>(null);
+  const debouncedSearch = useDebounce(search);
 
   // Month-start (Tashkent) as a UTC instant for the server-side KPI aggregate.
   const monthStart = useMemo(() => startOfMonth(new Date()).toISOString(), []);
@@ -46,10 +52,27 @@ export default function PurchasesPage() {
   const suppliersQuery = useQuery({ queryKey: ['suppliers'], queryFn: purchasesApi.suppliers });
   const reorderQuery = useQuery({ queryKey: ['reorder'], queryFn: () => purchasesApi.reorderSuggestions(6) });
   const listQuery = useQuery({
-    queryKey: ['receipts', page],
-    queryFn: () => purchasesApi.receiptsPaged(page, 8),
+    queryKey: ['receipts', page, delivery, debouncedSearch],
+    queryFn: () =>
+      purchasesApi.receiptsPaged(page, 8, {
+        search: debouncedSearch || undefined,
+        deliveryStatus: delivery === 'all' ? undefined : delivery,
+      }),
     placeholderData: keepPreviousData,
   });
+
+  const del = useMutation({
+    mutationFn: (id: string) => purchasesApi.deleteReceipt(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['receipts'] });
+      void qc.invalidateQueries({ queryKey: ['reorder'] });
+    },
+    onError: (e) => window.alert((e as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  function askDelete(r: ZakupReceipt) {
+    if (window.confirm(t('purchases.deleteConfirm', { number: r.receiptNumber }))) del.mutate(r.id);
+  }
 
   const stats = useMemo(() => {
     const suppliers = suppliersQuery.data ?? [];
@@ -109,23 +132,40 @@ export default function PurchasesPage() {
         <div className="grid grid-cols-[2fr_1fr] items-start gap-[18px]">
           {/* Receipts */}
           <Card className="overflow-hidden">
-            {/* Delivery-status tabs (filter the loaded page). */}
-            <div className="flex items-center gap-1.5 border-b border-hairline px-5 py-2.5">
-              {(['all', 'InTransit', 'Accepted'] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDelivery(d)}
-                  className={cn(
-                    'rounded-input px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
-                    delivery === d
-                      ? 'bg-primary text-white'
-                      : 'border border-input-border bg-surface text-muted hover:text-text',
-                  )}
-                >
-                  {t(`purchases.delivery.${d === 'all' ? 'all' : d === 'InTransit' ? 'inTransit' : 'accepted'}`)}
-                </button>
-              ))}
+            {/* Search + delivery-status tabs (server-side filtered). */}
+            <div className="flex items-center gap-3 border-b border-hairline px-5 py-2.5">
+              <div className="relative flex-none">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-2" />
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder={t('purchases.searchPlaceholder')}
+                  className="h-9 w-[240px] rounded-input border border-input-border bg-surface pl-9 pr-3 text-[13px] outline-none focus:border-primary focus:shadow-focus-ring"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                {(['all', 'InTransit', 'Accepted'] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setDelivery(d);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      'rounded-input px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
+                      delivery === d
+                        ? 'bg-primary text-white'
+                        : 'border border-input-border bg-surface text-muted hover:text-text',
+                    )}
+                  >
+                    {t(`purchases.delivery.${d === 'all' ? 'all' : d === 'InTransit' ? 'inTransit' : 'accepted'}`)}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-purchases items-center gap-3 border-b border-hairline bg-bg/40 px-5 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
               <span>{t('purchases.cols.number')}</span>
@@ -139,16 +179,18 @@ export default function PurchasesPage() {
               <div className="flex items-center justify-center py-20 text-primary">
                 <Spinner size={24} />
               </div>
-            ) : (() => {
-              const items = (listQuery.data?.items ?? []).filter(
-                (r) => delivery === 'all' || r.deliveryStatus === delivery,
-              );
-              return items.length > 0 ? (
-                items.map((r) => <ReceiptRow key={r.id} receipt={r} onOpen={() => setOpenReceiptId(r.id)} />)
-              ) : (
-                <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
-              );
-            })()}
+            ) : (listQuery.data?.items?.length ?? 0) > 0 ? (
+              listQuery.data!.items.map((r) => (
+                <ReceiptRow
+                  key={r.id}
+                  receipt={r}
+                  onOpen={() => setOpenReceiptId(r.id)}
+                  onDelete={canDelete ? () => askDelete(r) : undefined}
+                />
+              ))
+            ) : (
+              <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
+            )}
             {listQuery.data && listQuery.data.totalPages > 1 && (
               <div className="flex items-center justify-end gap-1.5 border-t border-hairline px-5 py-3">
                 <button
@@ -188,32 +230,52 @@ export default function PurchasesPage() {
   );
 }
 
-function ReceiptRow({ receipt: r, onOpen }: { receipt: ZakupReceipt; onOpen: () => void }) {
+function ReceiptRow({
+  receipt: r,
+  onOpen,
+  onDelete,
+}: {
+  receipt: ZakupReceipt;
+  onOpen: () => void;
+  onDelete?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="grid w-full grid-cols-purchases items-center gap-3 border-b border-hairline px-5 py-3.5 text-left text-[13px] last:border-0 hover:bg-bg/40"
-    >
-      <span className="font-semibold text-primary nums">№{r.receiptNumber}</span>
-      <span className="truncate font-medium">{r.supplierName ?? t('purchases.noSupplier')}</span>
-      <span className="text-muted-2">{t('purchases.itemsCount', { count: r.itemCount })}</span>
-      <span className="text-muted-2 nums">{formatShortDate(r.createdAt, i18n.language)}</span>
-      <span className="text-right font-semibold nums">{formatSum(r.totalAmount)}</span>
-      <span className="flex items-center gap-1.5">
-        {r.deliveryStatus === 'InTransit' ? (
-          <Badge tone="info" className="gap-1">
-            <Truck size={11} />
-            {t('purchases.delivery.inTransit')}
-          </Badge>
-        ) : (
-          <Badge tone={STATUS_TONE[r.paymentStatus] ?? 'neutral'}>
-            {t(`purchases.status.${STATUS_KEY[r.paymentStatus] ?? 'unpaid'}`)}
-          </Badge>
-        )}
-      </span>
-    </button>
+    <div className="group relative border-b border-hairline last:border-0 hover:bg-bg/40">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="grid w-full grid-cols-purchases items-center gap-3 px-5 py-3.5 text-left text-[13px]"
+      >
+        <span className="font-semibold text-primary nums">№{r.receiptNumber}</span>
+        <span className="truncate font-medium">{r.supplierName ?? t('purchases.noSupplier')}</span>
+        <span className="text-muted-2">{t('purchases.itemsCount', { count: r.itemCount })}</span>
+        <span className="text-muted-2 nums">{formatShortDate(r.createdAt, i18n.language)}</span>
+        <span className="text-right font-semibold nums">{formatSum(r.totalAmount)}</span>
+        <span className="flex items-center gap-1.5">
+          {r.deliveryStatus === 'InTransit' ? (
+            <Badge tone="info" className="gap-1">
+              <Truck size={11} />
+              {t('purchases.delivery.inTransit')}
+            </Badge>
+          ) : (
+            <Badge tone={STATUS_TONE[r.paymentStatus] ?? 'neutral'}>
+              {t(`purchases.status.${STATUS_KEY[r.paymentStatus] ?? 'unpaid'}`)}
+            </Badge>
+          )}
+        </span>
+      </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={t('common.delete')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-2 opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
   );
 }
 
