@@ -4,8 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
-    <title>Buildix</title>
-    <meta name="description" content="Buildix — система для стройбизнеса: склад, продажи, долги и смены." />
+
+    <!-- ── SEO ──────────────────────────────────────────────────────────────
+         Sarlavha 60, tavsif 160 belgidan oshmasin — Google uzunini kesadi.
+         Nomi «buildex» ga o'xshagani uchun tavsifda sohaning kalit so'zlari
+         («стройматериалы», «строительный магазин») ataylab bor: qidiruv
+         tizimi ularsiz bizni yaqin nomli do'konlar bilan aralashtiradi. -->
+    <title>Buildix — ERP для строительного магазина: склад и продажи</title>
+    <meta
+      name="description"
+      content="Учёт для магазина стройматериалов: продажи и касса, склад и остатки, долги клиентов, смены продавцов, отчёты. Для владельца, администратора и кассира."
+    />
+    <link rel="canonical" href="https://buildix.uz/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <!-- Telegram/WhatsApp/Facebook'da havola tashlanganda ko'rinadigan karta.
+         O'zbekistonda havolalar asosan Telegram orqali tarqaladi, shuning
+         uchun bu oddiy meta-teglardan kam ahamiyatli emas. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Buildix" />
+    <meta property="og:url" content="https://buildix.uz/" />
+    <meta property="og:title" content="Buildix — ERP для строительного магазина" />
+    <meta
+      property="og:description"
+      content="Продажи и касса, склад и остатки, долги клиентов, смены и отчёты — в одной системе."
+    />
+    <meta property="og:image" content="https://buildix.uz/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:locale:alternate" content="uz_UZ" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Buildix — ERP для строительного магазина" />
+    <meta
+      name="twitter:description"
+      content="Продажи и касса, склад и остатки, долги клиентов, смены и отчёты — в одной системе."
+    />
+    <meta name="twitter:image" content="https://buildix.uz/og-image.png" />
 
     <!-- Brand icons (docs/brand) -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -23,9 +58,81 @@
       href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Buildix",
+        "url": "https://buildix.uz/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "inLanguage": ["ru", "uz", "en"],
+        "description": "Система учёта для магазина стройматериалов: продажи и касса, склад и остатки, долги клиентов, смены продавцов и отчёты.",
+        "featureList": [
+          "Продажи и касса",
+          "Склад и остатки",
+          "Долги клиентов",
+          "Смены продавцов",
+          "Закупки и поставщики",
+          "Отчёты и аналитика"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "category": "Subscription"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Buildix",
+          "url": "https://buildix.uz/",
+          "logo": "https://buildix.uz/app-icon-512.png"
+        }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      #root ichidagi bu blok — JS ishga tushmaguncha ko'rinadigan holat, va
+      ayni paytda YAGONA indekslanadigan matn.
+
+      Sabab: bu klient tomonda render bo'ladigan SPA. Google JS'ni ishga
+      tushiradi, lekin ikkinchi navbatda va kafolatsiz; Yandex esa (O'zbekiston
+      bozorida u ham muhim) buni ancha cheklangan qiladi. Bu bloksiz robot bo'sh
+      <div> dan boshqa hech narsa ko'rmaydi.
+
+      Yashirilmagan — ko'rinadigan yuklanish holati, ya'ni cloaking emas.
+      React mount bo'lgach uni to'liq almashtiradi.
+
+      MUHIM: matn landing sahifasi bilan mazmunan mos turishi kerak
+      (features/landing/LandingPage.tsx + i18n `landing.hero`).
+    -->
+    <div id="root">
+      <div
+        style="
+          display: flex;
+          min-height: 100vh;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          padding: 24px;
+          font-family: 'Golos Text', system-ui, sans-serif;
+          color: #0f172a;
+          text-align: center;
+        "
+      >
+        <img src="/favicon.svg" width="56" height="56" alt="Buildix" />
+        <h1 style="margin: 0; font-family: 'Unbounded', sans-serif; font-size: 26px">Buildix</h1>
+        <p style="margin: 0; max-width: 560px; font-size: 16px; line-height: 1.5; color: #334155">
+          ERP для строительного бизнеса. Наведите порядок в строительном магазине: продажи и касса,
+          склад и остатки, долги клиентов, смены продавцов и отчёты — в одной системе для владельца,
+          администратора и продавцов.
+        </p>
+        <p style="margin: 0; font-size: 14px; color: #64748b">
+          Qurilish biznesi uchun ERP — sotuv, ombor, mijoz qarzlari va hisobot bir tizimda.
+        </p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

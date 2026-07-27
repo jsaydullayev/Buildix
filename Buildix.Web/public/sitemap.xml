@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ommaga ochiq yagona sahifa — marketing landing'i. Qolgan marshrutlar
+  (/:subdomain/…) kirish talab qiladi va sitemap'ga kirmaydi.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://buildix.uz/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
