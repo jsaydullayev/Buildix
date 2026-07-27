@@ -1,16 +1,28 @@
 import { NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Bell, LogOut } from 'lucide-react';
+import { Clock, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { SELLER_NAV_ITEMS } from '@/shared/config/navigation';
-import { PERMISSIONS } from '@/shared/config/permissions';
-import { notificationsApi } from '@/features/notifications/api';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
+import { shiftsApi } from '@/features/shifts/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
   return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
+}
+
+/**
+ * "6 s 32 d" — the shift pill is narrow, so hours/minutes stay abbreviated.
+ * Takes the already-resolved unit labels rather than `t` itself: i18next's `t`
+ * is heavily overloaded and passing it through a plain function signature makes
+ * the compiler give up on the call.
+ */
+function duration(minutes: number, hLabel: string, mLabel: string): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}${hLabel} ${m}${mLabel}` : `${m}${mLabel}`;
 }
 
 /**
@@ -27,14 +39,24 @@ export function SellerTopNav() {
   const base = `/${subdomain}/seller`;
   const items = SELLER_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
 
-  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
-  const unreadQuery = useQuery({
-    queryKey: ['notifications-unread'],
-    queryFn: () => notificationsApi.unreadCount(),
-    enabled: canNotifications,
+  // The unread count and the feed now live inside NotificationBell — this bar
+  // only places it.
+
+  // The pill used to read a bare "Smenalar", so the cashier could not tell from
+  // the register whether a shift was even open — the one fact that decides
+  // whether a sale can be rung up at all. Poll: the shift can also be closed
+  // from the owner's panel (force-close), and this bar must not keep claiming
+  // it is open.
+  const currentShift = useQuery({
+    queryKey: ['shift-current'],
+    queryFn: shiftsApi.current,
     refetchInterval: 60_000,
   });
-  const unread = unreadQuery.data ?? 0;
+  const shift = currentShift.data;
+  const shiftOpen = !!shift?.isOpen;
+  const shiftFor = shiftOpen
+    ? duration(shift!.durationMinutes, t('seller.nav.hoursShort'), t('seller.nav.minsShort'))
+    : '';
 
   const pillClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -42,12 +64,6 @@ export function SellerTopNav() {
       isActive
         ? 'bg-primary font-semibold text-white'
         : 'font-medium text-white/60 hover:bg-white/[0.08] hover:text-white',
-    );
-
-  const iconLinkClass = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      'relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
-      isActive ? 'bg-white/[0.14] text-white' : 'text-white/60 hover:bg-white/[0.08] hover:text-white',
     );
 
   return (
@@ -66,6 +82,7 @@ export function SellerTopNav() {
       <div className="flex items-center gap-2.5">
         <NavLink
           to={`${base}/shifts`}
+          title={shiftOpen ? `${t('seller.nav.shiftOpen')} · ${shiftFor}` : t('seller.nav.shiftClosed')}
           className={({ isActive }) =>
             cn(
               'flex items-center gap-2 rounded-pill px-3 py-1.5 text-[12.5px] font-medium transition-colors',
@@ -75,23 +92,32 @@ export function SellerTopNav() {
             )
           }
         >
-          <Clock size={14} />
-          {t('seller.nav.shifts')}
+          {/* A live dot beats an icon here: open/closed is the state the cashier
+              scans for, and it reads at a glance without stopping to parse text. */}
+          <span
+            className={cn(
+              'h-2 w-2 flex-none rounded-pill',
+              shiftOpen ? 'bg-success' : 'bg-white/35',
+            )}
+          />
+          {shiftOpen ? (
+            <>
+              <span className="font-semibold text-white nums">№{shift!.shiftNumber}</span>
+              <span className="text-white/55 nums">{shiftFor}</span>
+            </>
+          ) : (
+            <>
+              <Clock size={14} />
+              {t('seller.nav.shiftClosed')}
+            </>
+          )}
         </NavLink>
 
-        {/* Only shown when the user can actually open it — the Seller role has no
-            notifications.access by default, and a bell that lands on a
-            "no access" screen is a dead end. */}
-        {canNotifications && (
-          <NavLink to={`${base}/notifications`} className={iconLinkClass} aria-label={t('seller.nav.notifications')}>
-            <Bell size={17} />
-            {unread > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white">
-                {unread > 99 ? '99+' : unread}
-              </span>
-            )}
-          </NavLink>
-        )}
+        {/* A DROPDOWN, not a link. The bell used to navigate to the full
+            notifications page, which tore the cashier out of a half-rung sale.
+            The component gates itself on notifications.access, so the Seller
+            role's default (no access) still shows nothing. */}
+        <NotificationBell shell="seller" />
 
         <div className="mx-1 h-7 w-px bg-white/[0.14]" />
 

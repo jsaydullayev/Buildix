@@ -123,8 +123,10 @@ public partial class RegistrationRequestService
 
         Language language = LanguageCodes.FromCode(dto.Language) ?? Language.Uzbek;
 
-        var subdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
-            ? GenerateSubdomain(username)
+        // Qo'lda yozilgan sub-path — o'zi; aks holda tranzaksiya ichida DO'KON
+        // NOMIDAN yasaladi (ApproveAsync bilan bir xil qoida).
+        var explicitSubdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
+            ? null
             : ValidateAndNormalizeSubdomain(dto.Subdomain);
 
         var strategy = _context.Database.CreateExecutionStrategy();
@@ -137,6 +139,9 @@ public partial class RegistrationRequestService
                     throw new InvalidOperationException($"'{username}' allaqachon ishlatilgan.");
                 if (await MarketNameTakenAsync(marketName, excludeMarketId: null, cancellationToken))
                     throw new InvalidOperationException($"'{marketName}' nomli do'kon allaqachon mavjud.");
+
+                var subdomain = explicitSubdomain
+                    ?? await GenerateSubdomainAsync(marketName, username, cancellationToken);
                 if (await _context.Markets.AnyAsync(m => m.Subdomain == subdomain, cancellationToken))
                     throw new InvalidOperationException($"'{subdomain}' subdomeni allaqachon band.");
 
@@ -161,7 +166,7 @@ public partial class RegistrationRequestService
                     Name = marketName,
                     Subdomain = subdomain,
                     IsActive = true,
-                    ExpiresAt = dto.ExpiresAt,
+                    ExpiresAt = NormalizeExpiry(dto.ExpiresAt),
                     OwnerId = userId
                 };
                 await _context.Markets.AddAsync(market, cancellationToken);
@@ -197,7 +202,8 @@ public partial class RegistrationRequestService
                     user.Id,
                     user.Username,
                     market.Id,
-                    market.Name);
+                    market.Name,
+                    market.Subdomain);
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
@@ -272,7 +278,7 @@ public partial class RegistrationRequestService
 
                 if (dto.Description != null) market.Description = dto.Description.Trim();
                 if (dto.MarketActive.HasValue) market.IsActive = dto.MarketActive.Value;
-                if (dto.ExpiresAt.HasValue) market.ExpiresAt = dto.ExpiresAt.Value;
+                if (dto.ExpiresAt.HasValue) market.ExpiresAt = NormalizeExpiry(dto.ExpiresAt);
 
                 await _context.SaveChangesAsync(cancellationToken);
                 await tx.CommitAsync(cancellationToken);
@@ -341,6 +347,11 @@ public partial class RegistrationRequestService
                 owner.IsDeleted = true;
                 owner.DeletedAt = DateTime.UtcNow;
                 owner.Market.IsActive = false;
+                // Free the Telegram link: the id is unique platform-wide and the
+                // index does not exclude deleted rows, so a soft-deleted owner
+                // would hold that number hostage — nobody could ever save it
+                // again, and no screen can reach this row to clear it.
+                owner.TelegramChatId = null;
 
                 // Cascade-deactivate every non-Owner user in this market so they
                 // can't log in either. Previously this only touched Sellers —

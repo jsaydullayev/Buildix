@@ -1,0 +1,333 @@
+using Buildix.Application.Interfaces;
+using Buildix.Domain.Entities;
+using Buildix.Domain.Enums;
+
+namespace Buildix.Tests;
+
+/// <summary>
+/// Telegram bot kunlik xulosasi — sotuv/foyda/kassa-qarz/ombor raqamlari.
+/// Servis marketId'ni ATAYLAB parametr sifatida oladi (fon vazifasida HTTP
+/// konteksti yo'q → tenant filtri ishlamaydi), shuning uchun bu yerda market
+/// izolyatsiyasi ham tekshiriladi.
+/// </summary>
+public class TelegramDailySummaryTests
+{
+    private const int Market = 1;
+    private const int OtherMarket = 2;
+
+    private static Sale AddSale(TestHarness h, int marketId, decimal total, DateTime createdAt,
+        SaleStatus status = SaleStatus.Paid)
+    {
+        var sale = new Sale
+        {
+            Id = Guid.NewGuid(),
+            MarketId = marketId,
+            SaleNumber = Random.Shared.Next(1, 100_000),
+            Status = status,
+            TotalAmount = total,
+            CreatedAt = createdAt,
+        };
+        h.Db.Sales.Add(sale);
+        return sale;
+    }
+
+    private static void AddItem(TestHarness h, Sale sale, string name, decimal qty, decimal sale_, decimal cost)
+    {
+        // External items carry their own name/cost — no Product row needed, and
+        // this is the path the summary uses for the "top products" grouping.
+        h.Db.SaleItems.Add(new SaleItem
+        {
+            Id = Guid.NewGuid(),
+            SaleId = sale.Id,
+            IsExternal = true,
+            ExternalProductName = name,
+            ExternalCostPrice = cost,
+            Quantity = qty,
+            SalePrice = sale_,
+        });
+    }
+
+    private static void AddPayment(TestHarness h, Sale sale, PaymentType type, decimal amount, DateTime at)
+    {
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            MarketId = sale.MarketId,
+            SaleId = sale.Id,
+            PaymentType = type,
+            Amount = amount,
+            CreatedAt = at,
+        });
+    }
+
+    private static async Task SeedMarketAsync(TestHarness h, int id, string name)
+    {
+        h.Db.Markets.Add(new Market { Id = id, Name = name });
+        await h.Db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Summary_reports_sales_profit_cash_debts_and_stock()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo do'kon");
+
+        var today = h.Clock.TodayLocal;
+        var noonUtc = h.Clock.LocalDayToUtcRange(today).UtcStart.AddHours(12);
+
+        // Ikki bugungi chek: 100 000 (naqd) + 60 000 (terminal).
+        var s1 = AddSale(h, Market, 100_000m, noonUtc);
+        AddItem(h, s1, "Sement M500", 2m, 50_000m, 30_000m); // foyda 40 000
+        AddPayment(h, s1, PaymentType.Cash, 100_000m, noonUtc);
+
+        var s2 = AddSale(h, Market, 60_000m, noonUtc);
+        AddItem(h, s2, "Armatura", 1m, 60_000m, 45_000m); // foyda 15 000
+        AddPayment(h, s2, PaymentType.Terminal, 60_000m, noonUtc);
+
+        // Kechagi chek — bugungi hisobga KIRMASLIGI kerak.
+        var old = AddSale(h, Market, 999_000m, noonUtc.AddDays(-1));
+        AddItem(h, old, "Eski tovar", 1m, 999_000m, 0m);
+
+        // Draft — hech qachon tushum emas.
+        AddSale(h, Market, 777_000m, noonUtc, SaleStatus.Draft);
+
+        // Boshqa marketning chegi — SIZIB CHIQMASLIGI kerak.
+        var foreign = AddSale(h, OtherMarket, 500_000m, noonUtc);
+        AddItem(h, foreign, "Begona", 1m, 500_000m, 0m);
+
+        // Kassa qoldig'i + ochiq (muddati o'tgan) qarz.
+        h.Db.CashRegisters.Add(new CashRegister { Id = Guid.NewGuid(), MarketId = Market, CurrentBalance = 250_000m });
+        h.Db.Debts.Add(new Debt
+        {
+            Id = Guid.NewGuid(),
+            MarketId = Market,
+            CustomerId = Guid.NewGuid(),
+            SaleId = s1.Id,
+            TotalDebt = 80_000m,
+            RemainingDebt = 80_000m,
+            Status = DebtStatus.Open,
+            DueDate = h.Clock.UtcNow.AddDays(-3), // просрочено
+            CreatedAt = noonUtc.AddDays(-5),
+        });
+
+        // Ombor: bittasi tugagan, bittasi kam qolgan, bittasi yetarli.
+        h.Db.Products.AddRange(
+            new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "Bo'yoq", Quantity = 0m, MinThreshold = 5m },
+            new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "Mix", Quantity = 3m, MinThreshold = 10m },
+            new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "G'isht", Quantity = 900m, MinThreshold = 100m });
+        await h.Db.SaveChangesAsync();
+
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, today, DailySummaryOptions.Owner);
+
+        Assert.NotNull(text);
+        Assert.Contains("Demo do'kon", text);
+
+        // Sotuv: 2 chek, 160 000 tushum (kechagi/draft/begona kirmagan).
+        Assert.Contains("Чеков: 2", text);
+        Assert.Contains("160 000", text);
+        Assert.DoesNotContain("999 000", text);
+        Assert.DoesNotContain("777 000", text);
+        Assert.DoesNotContain("500 000", text);
+        Assert.DoesNotContain("Begona", text);
+
+        // To'lov taqsimoti: naqd 100 000, karta 60 000.
+        Assert.Contains("Наличные: 100 000", text);
+        Assert.Contains("Карта: 60 000", text);
+
+        // Foyda 40 000 + 15 000 = 55 000.
+        Assert.Contains("55 000", text);
+
+        // Kassa + muddati o'tgan qarz.
+        Assert.Contains("250 000", text);
+        Assert.Contains("Просрочено", text);
+        Assert.Contains("80 000", text);
+
+        // Ombor signali: tugagan 1, kam qolgan 2 (yetarlisi ro'yxatda yo'q).
+        Assert.Contains("Закончилось: 1", text);
+        Assert.Contains("Заканчивается: 2", text);
+        Assert.Contains("Bo'yoq", text);
+        Assert.DoesNotContain("G'isht", text);
+
+        // Top tovar — eng katta summali birinchi.
+        Assert.Contains("1. Sement M500", text);
+    }
+
+    [Fact]
+    public async Task Summary_handles_a_day_with_no_sales()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Bo'sh do'kon");
+
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
+
+        Assert.NotNull(text);
+        Assert.Contains("Продаж за день нет", text);
+        // Bo'sh kunda ham kassa/ombor bloklari bo'ladi (0 bilan).
+        Assert.Contains("Касса и долги", text);
+        Assert.Contains("Все товары в достатке", text);
+    }
+
+    [Fact]
+    public async Task Summary_returns_null_for_unknown_market()
+    {
+        using var h = new TestHarness(Market);
+
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(999, h.Clock.TodayLocal, DailySummaryOptions.Owner);
+
+        Assert.Null(text);
+    }
+
+    /// <summary>
+    /// Regressiya: bot avval faqat egaga xizmat qilardi va xulosa foyda/kassa/
+    /// qarzni SO'ZSIZ chiqarardi. Endi har bir xodim tugma bosa oladi, shuning
+    /// uchun bu raqamlar ruxsatsiz umuman chiqmasligi shart — aks holda kassir
+    /// do'konning marjasi va kassa qoldig'ini ko'rib qolardi.
+    /// </summary>
+    [Fact]
+    public async Task Summary_hides_profit_cash_and_debts_without_permission()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        var today = h.Clock.TodayLocal;
+        var noonUtc = h.Clock.LocalDayToUtcRange(today).UtcStart.AddHours(12);
+
+        var s1 = AddSale(h, Market, 100_000m, noonUtc);
+        AddItem(h, s1, "Sement", 1m, 100_000m, 40_000m); // foyda 60 000
+        AddPayment(h, s1, PaymentType.Cash, 100_000m, noonUtc);
+        h.Db.CashRegisters.Add(new CashRegister { Id = Guid.NewGuid(), MarketId = Market, CurrentBalance = 250_000m });
+        h.Db.Debts.Add(new Debt
+        {
+            Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = s1.Id,
+            TotalDebt = 80_000m, RemainingDebt = 80_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+        });
+        h.Db.Products.Add(new Product { Id = Guid.NewGuid(), MarketId = Market, Name = "Bo'yoq", Quantity = 0m, MinThreshold = 5m });
+        await h.Db.SaveChangesAsync();
+
+        // Hech qanday qo'shimcha ruxsatsiz — faqat sotuv ko'rinadi.
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, today, new DailySummaryOptions());
+
+        Assert.NotNull(text);
+        Assert.Contains("Выручка", text);      // sotuv — ko'rinadi
+        Assert.DoesNotContain("Прибыль", text); // foyda — data.profit yo'q
+        Assert.DoesNotContain("60 000", text);
+        Assert.DoesNotContain("В кассе", text); // kassa — data.cashBalance yo'q
+        Assert.DoesNotContain("250 000", text);
+        Assert.DoesNotContain("Долги клиентов", text); // qarz bloki — debts.access yo'q
+        Assert.DoesNotContain("Просрочено", text);
+        Assert.DoesNotContain("Склад", text);   // ombor — products.access yo'q
+
+        // Izoh: «В долг: 80 000» qatori ATAYLAB qoladi. U qarz boshqaruvi emas,
+        // sotuv tender-taqsimotining uchinchi ustuni (Наличные · Карта · В долг)
+        // — foydalanuvchi o'zi rasmiylashtirgan sotuv. Uni yashirsak, taqsimot
+        // yig'indisi tushum bilan mos kelmay qolardi.
+        Assert.Contains("В долг: 80 000", text);
+    }
+
+    /// <summary>
+    /// Regressiya: data.allSalesView'siz kassir do'kon bo'yicha emas, FAQAT
+    /// o'z cheklari bo'yicha xulosa olishi kerak (veb ro'yxatidagi bilan bir xil
+    /// qoida) — aks holda bot orqali butun do'kon tushumi o'qilardi.
+    /// </summary>
+    [Fact]
+    public async Task Summary_scoped_to_one_seller_excludes_other_sellers()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        var today = h.Clock.TodayLocal;
+        var noonUtc = h.Clock.LocalDayToUtcRange(today).UtcStart.AddHours(12);
+        var me = Guid.NewGuid();
+        var colleague = Guid.NewGuid();
+
+        var mine = AddSale(h, Market, 100_000m, noonUtc);
+        mine.SellerId = me;
+        AddItem(h, mine, "Meniki", 1m, 100_000m, 0m);
+
+        var theirs = AddSale(h, Market, 700_000m, noonUtc);
+        theirs.SellerId = colleague;
+        AddItem(h, theirs, "Hamkasb tovari", 1m, 700_000m, 0m);
+
+        // Har ikkalasida qarz va qaytarish bor. «В долг» va «Возвраты» qatorlari
+        // avval FAQAT market bo'yicha filtrlanardi — natijada «Мои продажи»
+        // sarlavhasi ostida hamkasbning raqamlari chiqardi.
+        h.Db.Debts.AddRange(
+            new Debt
+            {
+                Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = mine.Id,
+                TotalDebt = 50_000m, RemainingDebt = 50_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+            },
+            new Debt
+            {
+                Id = Guid.NewGuid(), MarketId = Market, CustomerId = Guid.NewGuid(), SaleId = theirs.Id,
+                TotalDebt = 333_000m, RemainingDebt = 333_000m, Status = DebtStatus.Open, CreatedAt = noonUtc,
+            });
+        h.Db.SaleReturns.Add(new SaleReturn
+        {
+            Id = Guid.NewGuid(), MarketId = Market, SaleId = theirs.Id, Sale = theirs, Number = 1,
+            TotalAmount = 444_000m, CreatedAt = noonUtc,
+        });
+        await h.Db.SaveChangesAsync();
+
+        // IncludeDebts ATAYLAB false: do'kon darajasidagi «Долги клиентов» bloki
+        // chiqmasin, shunda 333 000 faqat «В долг» sizib chiqqandagina paydo
+        // bo'ladi — ya'ni test aynan scope'ni tekshiradi.
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, today, new DailySummaryOptions(SellerId: me));
+
+        Assert.NotNull(text);
+        Assert.Contains("Мои продажи", text);
+        Assert.Contains("Чеков: 1", text);
+        Assert.Contains("100 000", text);
+        Assert.DoesNotContain("700 000", text);
+        Assert.DoesNotContain("Hamkasb tovari", text);
+        // «В долг» — o'zimniki ko'rinadi, hamkasbniki yo'q
+        Assert.Contains("В долг: 50 000", text);
+        Assert.DoesNotContain("333 000", text);
+        // «Возвраты» — hamkasbning qaytarishi chiqmaydi
+        Assert.DoesNotContain("444 000", text);
+    }
+
+    /// <summary>
+    /// Regressiya: kam qolgan tovarlar soni ro'yxat namunasining uzunligidan
+    /// olinardi (Take(6)), shuning uchun 40 ta tugagan tovarli do'konga «6» deb
+    /// ko'rsatilardi. Son alohida CountAsync bilan olinishi kerak.
+    /// </summary>
+    [Fact]
+    public async Task Summary_low_stock_count_is_the_real_total_not_the_sample_size()
+    {
+        using var h = new TestHarness(Market);
+        await SeedMarketAsync(h, Market, "Demo");
+
+        // 12 ta kam qolgan tovar — ro'yxat 5 tasini ko'rsatadi, son 12 bo'lishi kerak.
+        for (var i = 0; i < 12; i++)
+            h.Db.Products.Add(new Product
+            {
+                Id = Guid.NewGuid(), MarketId = Market, Name = $"Tovar {i}",
+                Quantity = i, MinThreshold = 100m,
+            });
+        await h.Db.SaveChangesAsync();
+
+        var text = await h.NewTelegramDailySummaryService()
+            .BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
+
+        Assert.NotNull(text);
+        Assert.Contains("Заканчивается: 12", text);
+        Assert.Contains("Закончилось: 1", text); // faqat Quantity=0 bo'lgani
+    }
+
+    [Fact]
+    public async Task Summary_escapes_html_in_names()
+    {
+        using var h = new TestHarness(Market);
+        // Telegram parse_mode=HTML — eskeyplanmasa butun xabar yuborilmaydi.
+        await SeedMarketAsync(h, Market, "Do'kon <B&M>");
+        await h.Db.SaveChangesAsync();
+
+        var text = await h.NewTelegramDailySummaryService().BuildAsync(Market, h.Clock.TodayLocal, DailySummaryOptions.Owner);
+
+        Assert.NotNull(text);
+        Assert.Contains("Do'kon &lt;B&amp;M&gt;", text);
+    }
+}

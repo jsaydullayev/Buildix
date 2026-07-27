@@ -63,7 +63,7 @@ public record ZakupReceiptSellerDto(
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("createdBy")] string CreatedBy,
     [property: JsonPropertyName("items")] IReadOnlyList<ZakupReceiptLineSellerDto> Items,
-    // Yetkazish maʼlumotlari — narх emas, seller ko'radi.
+    // Yetkazish maʼlumotlari — narx emas, seller ko'radi.
     [property: JsonPropertyName("driverPhone")] string? DriverPhone = null,
     [property: JsonPropertyName("expectedDate")] DateTime? ExpectedDate = null
 );

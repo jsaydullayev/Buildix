@@ -1,3 +1,5 @@
+using Buildix.Domain.Enums;
+
 namespace Buildix.Domain.Entities;
 
 /// <summary>
@@ -9,8 +11,30 @@ public class Market
     public string Name { get; set; } = string.Empty;
     public string? Subdomain { get; set; }  // market1.example.com
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Shahar — konsoldagi do'konlar ro'yxatida nom ostida ko'rsatiladi va
+    /// qidiruvga kiradi. MarketSettings.Address to'liq manzil (chek uchun),
+    /// bu esa faqat shahar: operator «Samarqanddagi do'konlar» ni bir qarashda
+    /// ajratsin.
+    /// </summary>
+    public string? City { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? ExpiresAt { get; set; }  // Subscription uchun
+
+    /// <summary>
+    /// Obuna tarifi. Narxi va limitlari <see cref="PlatformPlan"/> da —
+    /// bu yerda faqat qaysi tarifda ekani. Default: eng past tarif.
+    /// </summary>
+    public Enums.PlanCode Plan { get; set; } = Enums.PlanCode.Start;
+
+    /// <summary>
+    /// Obunani yangilash eslatmasi qaysi muddat uchun yuborilgani. Stamp
+    /// <see cref="ExpiresAt"/> ning O'ZI: to'lov qilinib muddat surilgach
+    /// qiymat mos kelmay qoladi va keyingi davr uchun eslatma yana ketadi,
+    /// bir davr ichida esa takrorlanmaydi.
+    /// </summary>
+    public DateTime? RenewalReminderSentFor { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // ── Block state (operational, reversible) ────────────────────────────
@@ -59,4 +83,42 @@ public class Market
     /// </summary>
     public bool IsSubscriptionActive(DateTime nowUtc) =>
         IsActive && !IsBlocked && (!ExpiresAt.HasValue || ExpiresAt.Value > nowUtc);
+
+    /// <summary>
+    /// Obuna eshigining TO'LIQ holati — bitta manba. Muddat tugagani darhol
+    /// «yopiq» degani emas: platforma sozlamalarida otsrochka (grace) va to'liq
+    /// blokgacha bo'lgan muddat bor.
+    ///
+    /// <para>Bosqichlar (dizayn: «Правила блокировки»):</para>
+    /// <list type="bullet">
+    ///   <item><b>Active</b> — muddat bor yoki kelajakda.</item>
+    ///   <item><b>Overdue</b> — muddat o'tdi, otsrochka ichida: hamma narsa
+    ///   ishlaydi, foydalanuvchiga sariq plashka ko'rsatiladi.</item>
+    ///   <item><b>Restricted</b> — otsrochka tugadi: ma'lumot O'QILADI, lekin
+    ///   pul harakati (sotuv, zakup qabuli) to'xtaydi.</item>
+    ///   <item><b>Blocked</b> — qo'lda blok yoki to'liq blok muddati o'tdi:
+    ///   kirish umuman yopiq.</item>
+    /// </list>
+    ///
+    /// <para>Login, middleware va public state endpoint AYNAN shu metodni
+    /// chaqiradi — aks holda «yopiq»ning ta'rifi uch joyda uch xil bo'lib
+    /// ketardi.</para>
+    /// </summary>
+    /// <param name="graceDays">Muddat tugagach xizmat ochiq qoladigan kunlar.</param>
+    /// <param name="fullBlockAfterDays">
+    /// Muddatdan keyin kirish butunlay yopiladigan kun. <c>0</c> = hech qachon
+    /// (faqat <c>Restricted</c> da qoladi).
+    /// </param>
+    public SubscriptionState EvaluateSubscription(DateTime nowUtc, int graceDays, int fullBlockAfterDays)
+    {
+        // Soft-delete va qo'lda blok — obuna hisobidan oldin: ular boshqa
+        // sabab va boshqa ekran (423), obuna esa 402.
+        if (!IsActive || IsBlocked) return SubscriptionState.Blocked;
+        if (!ExpiresAt.HasValue || ExpiresAt.Value > nowUtc) return SubscriptionState.Active;
+
+        var daysOverdue = (nowUtc - ExpiresAt.Value).TotalDays;
+        if (daysOverdue <= graceDays) return SubscriptionState.Overdue;
+        if (fullBlockAfterDays > 0 && daysOverdue > fullBlockAfterDays) return SubscriptionState.Blocked;
+        return SubscriptionState.Restricted;
+    }
 }

@@ -68,16 +68,20 @@ public class MarketSettings
     public bool NotifyDaySummary { get; set; } = true;
     public bool NotifyOverdueDebts { get; set; } = true;
     public bool NotifyWithdrawalRequests { get; set; } = true;
-    /// <summary>Egasining Telegram @username'i.</summary>
-    public string? OwnerTelegram { get; set; }
+    // Telegram bog'lash MarketSettings'dan User.TelegramChatId'ga ko'chirildi:
+    // bot endi har bir XODIMNI o'z ID si bo'yicha taniydi (faqat egasini emas),
+    // shuning uchun bu yerda market darajasidagi @username/chat_id saqlanmaydi.
+    // Bu blokda faqat market darajasidagi Notify* kalitlari qoladi.
     /// <summary>
-    /// Egasining Telegram chat_id'si — bot faqat shu ma'lum bo'lgach xabar
-    /// yubora oladi (foydalanuvchi botga /start bosgach aniqlanadi).
+    /// Kunlik xulosa oxirgi yuborilgan Toshkent kunining UTC boshlanishi.
+    /// (Sana emas, UTC instant — ustun `timestamptz`, Npgsql Kind=Unspecified
+    /// qiymatni qabul qilmaydi.) Fon vazifasi shu bilan kuniga bir marta
+    /// yuborishni kafolatlaydi — qayta ishga tushirish ham takror yubormaydi.
     /// </summary>
-    public long? OwnerTelegramChatId { get; set; }
+    public DateTime? LastDaySummarySentOn { get; set; }
 
     // ── Безопасность (security) ──────────────────────────────────────────
-    /// <summary>Harakatsizlikда avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>
+    /// <summary>Harakatsizlikda avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>
     public int InactivityLogoutMinutes { get; set; } = 0;
     public bool AuditEnabled { get; set; } = true;
 

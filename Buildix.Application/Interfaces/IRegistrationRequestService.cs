@@ -42,6 +42,17 @@ public interface IRegistrationRequestService
     Task<bool> RejectAsync(Guid requestId, string reason, Guid superAdminUserId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Move a request between the two open states WITHOUT creating anything:
+    /// <c>Accepted</c> ("called the client") or back to <c>Pending</c> ("undo").
+    /// Leaving <c>Approved</c> is refused — the market already exists.
+    /// </summary>
+    Task<bool> SetStatusAsync(
+        Guid requestId,
+        Buildix.Domain.Enums.RegistrationRequestStatus target,
+        Guid superAdminUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Real-time uniqueness check for the approve form. Any combination of fields
     /// may be supplied; each comes back as <c>true</c> (free), <c>false</c> (taken),
     /// or <c>null</c> (not asked). When a market name is supplied without a

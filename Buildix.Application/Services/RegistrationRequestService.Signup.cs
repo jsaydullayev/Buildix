@@ -42,6 +42,9 @@ public partial class RegistrationRequestService
             Id = Guid.NewGuid(),
             FullName = fullName.Trim(),
             Phone = phone,
+            // Ixtiyoriy — bo'sh satr null bo'lib saqlanadi, ustunda "" va null
+            // ikkalasi ham "izoh yo'q" degani bo'lib chalkashmasin.
+            Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
             Status = RegistrationRequestStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -103,11 +106,13 @@ public partial class RegistrationRequestService
             else
                 subdomainAvailable = !await _context.Markets.AnyAsync(x => x.Subdomain == s, cancellationToken);
         }
-        else if (!string.IsNullOrEmpty(u))
+        else if (!string.IsNullOrEmpty(mRaw) || !string.IsNullOrEmpty(u))
         {
-            // Supplied a username but no subdomain — offer the auto-generated one
-            // so the UI can show a live preview without the user having to type.
-            suggested = GenerateSubdomain(u);
+            // Sub-path yozilmagan — «Создать магазин» modalida jonli ko'rinsin.
+            // Manba DO'KON NOMI (login emas): mijoz manzilni do'kon nomidan
+            // taniydi. Taklif serverning o'zi yozadigan qiymatning AYNAN
+            // o'zi — band bo'lsa '-2' bilan.
+            suggested = await GenerateSubdomainAsync(mRaw, u, cancellationToken);
         }
 
         return new CheckAvailabilityResultDto(

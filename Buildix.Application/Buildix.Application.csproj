@@ -12,7 +12,7 @@
     <!-- Exposes internal PDF renderers (RenderInvoicePdf / RenderSalesListPdf
          and their data records) to the test project so QuestPDF layout can be
          exercised without a database. -->
-    <InternalsVisibleTo Include="Buildix.IntegrationTests" />
+    <InternalsVisibleTo Include="Buildix.Tests" />
   </ItemGroup>
 
   <ItemGroup>

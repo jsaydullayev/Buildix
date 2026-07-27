@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock } from 'lucide-react';
+import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock, Send } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwitch } from '@/shared/ui';
+import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwitch, PasswordInput } from '@/shared/ui';
 import type { AppLanguage } from '@/shared/i18n';
 import { cn } from '@/shared/lib/cn';
+import type { ApiError } from '@/shared/api/types';
 import { formatRelative, formatShortDate, formatTime, formatSum } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useSessionStore } from '@/shared/auth/sessionStore';
@@ -25,10 +26,19 @@ export default function AccountPage() {
   const [fullName, setFullName] = useState(session?.fullName ?? '');
   const [phone, setPhone] = useState('');
   const [telegram, setTelegram] = useState('');
+  // Bog'langan chat — faqat KO'RSATISH uchun (server bergan). Uni qo'lda
+  // o'zgartirib bo'lmaydi: bog'lanish botning bir martalik kodi orqali.
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [linkCode, setLinkCode] = useState('');
+  const [tgSaved, setTgSaved] = useState(false);
+  const [tgError, setTgError] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSaved, setLinkSaved] = useState(false);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [pwSaved, setPwSaved] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
   // Per-user Telegram toggles — seeded from the profile, saved on each flip.
@@ -36,6 +46,12 @@ export default function AccountPage() {
 
   const isSeller = session?.role === 'Seller';
   const profileQuery = useQuery({ queryKey: ['my-profile'], queryFn: accountApi.profile });
+  // Bot @username'i — «Botni ochish» tugmasi uchun; sozlanmagan bo'lsa tugma yo'q.
+  const botQuery = useQuery({
+    queryKey: ['telegram-bot'],
+    queryFn: accountApi.telegramBot,
+    staleTime: 30 * 60_000,
+  });
   const sessionsQuery = useQuery({ queryKey: ['sessions'], queryFn: accountApi.sessions });
   const historyQuery = useQuery({ queryKey: ['login-history'], queryFn: accountApi.loginHistory });
   // «Мои результаты · <oy>» — kassirning shu oylik shaxsiy natijasi (self-service).
@@ -51,6 +67,7 @@ export default function AccountPage() {
       setFullName(profileQuery.data.fullName);
       setPhone(profileQuery.data.phone ?? '');
       setTelegram(profileQuery.data.telegram ?? '');
+      setTelegramChatId(profileQuery.data.telegramChatId ?? '');
       setNotify({
         debt: profileQuery.data.notifyDebt,
         stock: profileQuery.data.notifyStock,
@@ -60,14 +77,58 @@ export default function AccountPage() {
   }, [profileQuery.data]);
 
   const profileMutation = useMutation({
+    // telegramChatId DELIBERATELY not sent: the bot link is its own action
+    // below, and the server rejects a hand-typed id outright.
     mutationFn: () => accountApi.updateProfile({ fullName, phone, telegram }),
     onSuccess: () => {
       const s = useSessionStore.getState().session;
       if (s) useSessionStore.getState().setSession({ ...s, fullName });
       void qc.invalidateQueries({ queryKey: ['my-profile'] });
+      setProfileError(null);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
     },
+    onError: (e) => setProfileError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  // Faqat Telegram @username'ini saqlash — kichik tugma input yonida.
+  // Butun formani saqlashdan farqi: ism/telefonga tegilmaydi va natija
+  // darhol shu maydon yonida ko'rinadi.
+  const telegramMutation = useMutation({
+    mutationFn: () => accountApi.updateProfile({ telegram }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-profile'] });
+      setTgError(null);
+      setTgSaved(true);
+      setTimeout(() => setTgSaved(false), 2500);
+    },
+    // Xato aynan shu maydon ostida ko'rinadi — pastdagi bog'lash blokining
+    // xabari bilan aralashmaydi.
+    onError: (e) => setTgError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  // Telegram bog'lash — botdan olingan bir martalik kod. Serverning xatosi
+  // (kod noto'g'ri / muddati tugagan / urinishlar tugadi) ko'rsatiladi: aks
+  // holda foydalanuvchi bog'landim deb o'ylab qolardi.
+  const linkMutation = useMutation({
+    mutationFn: () => accountApi.updateProfile({ telegramLinkCode: linkCode }),
+    onSuccess: () => {
+      setLinkCode('');
+      setLinkError(null);
+      setLinkSaved(true);
+      setTimeout(() => setLinkSaved(false), 2500);
+      void qc.invalidateQueries({ queryKey: ['my-profile'] });
+    },
+    onError: (e) => setLinkError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => accountApi.updateProfile({ telegramChatId: '' }),
+    onSuccess: () => {
+      setLinkError(null);
+      void qc.invalidateQueries({ queryKey: ['my-profile'] });
+    },
+    onError: (e) => setLinkError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
 
   const pwMutation = useMutation({
@@ -136,6 +197,9 @@ export default function AccountPage() {
                 <Check size={15} /> {t('settings.saved')}
               </span>
             )}
+            {profileError && (
+              <span className="max-w-[380px] text-right text-[12.5px] font-medium text-danger">{profileError}</span>
+            )}
             <Button loading={profileMutation.isPending} onClick={() => profileMutation.mutate()}>
               {t('common.save')}
             </Button>
@@ -200,8 +264,82 @@ export default function AccountPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-medium text-label">{t('account.telegram')}</label>
-                  <input className={inputCls} value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="@username" />
+                  <div className="flex items-center gap-2">
+                    <input
+                      className={cn(inputCls, 'min-w-0 flex-1')}
+                      value={telegram}
+                      onChange={(e) => setTelegram(e.target.value)}
+                      placeholder="@username"
+                    />
+                    {/* Faqat shu maydonni saqlaydigan kichik tugma — butun
+                        formani saqlashga yubormasdan. */}
+                    <button
+                      type="button"
+                      title={t('common.save')}
+                      aria-label={t('common.save')}
+                      onClick={() => telegramMutation.mutate()}
+                      disabled={telegramMutation.isPending}
+                      className={cn(
+                        'flex h-11 w-11 flex-none items-center justify-center rounded-input border transition-colors',
+                        tgSaved
+                          ? 'border-success bg-success-soft text-success'
+                          : 'border-input-border bg-surface text-muted hover:border-primary hover:text-primary',
+                      )}
+                    >
+                      <Check size={16} />
+                    </button>
+                  </div>
+                  {tgSaved && <span className="text-[11.5px] text-success">{t('account.telegramSaved')}</span>}
+                  {tgError && <span className="text-[11.5px] text-danger">{tgError}</span>}
                 </div>
+              </div>
+              {/* Telegram bog'lanishi — botning bir martalik kodi bilan. Chat ID
+                  qo'lda kiritilmaydi: u egalikni isbotlamaydi. */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-label">{t('account.telegramLink')}</label>
+                {telegramChatId.trim() ? (
+                  <div className="flex items-center gap-3">
+                    <Badge tone="success">{t('account.telegramLinked')}</Badge>
+                    <span className="nums text-[13px] text-muted">ID: {telegramChatId}</span>
+                    <Button
+                      variant="ghost"
+                      onClick={() => unlinkMutation.mutate()}
+                      disabled={unlinkMutation.isPending}
+                    >
+                      {t('account.telegramUnlink')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      className={cn(inputCls, 'nums w-[140px]')}
+                      value={linkCode}
+                      onChange={(e) => setLinkCode(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+                      inputMode="numeric"
+                      placeholder="000000"
+                    />
+                    <Button
+                      onClick={() => linkMutation.mutate()}
+                      disabled={linkCode.length !== 6 || linkMutation.isPending}
+                    >
+                      {t('account.telegramLinkAction')}
+                    </Button>
+                    {botQuery.data && (
+                      <a
+                        href={`https://t.me/${botQuery.data}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex h-[42px] items-center gap-2 rounded-input border border-input-border bg-surface px-4 text-[13px] font-medium text-primary transition-colors hover:border-primary"
+                      >
+                        <Send size={14} />
+                        {t('account.openBot')}
+                      </a>
+                    )}
+                  </div>
+                )}
+                <span className="text-[11.5px] text-muted-2">{t('account.telegramLinkHint')}</span>
+                {linkSaved && <span className="text-[11.5px] text-success">{t('account.telegramLinkDone')}</span>}
+                {linkError && <span className="text-[11.5px] text-danger">{linkError}</span>}
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-medium text-label">{t('account.login')}</label>
@@ -218,10 +356,10 @@ export default function AccountPage() {
               <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.password.hint')}</p>
             </div>
             <div className="flex flex-col gap-4">
-              <input className={inputCls} type="password" placeholder={t('account.password.current')} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+              <PasswordInput className={inputCls} placeholder={t('account.password.current')} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
               <div className="grid grid-cols-2 gap-4">
-                <input className={inputCls} type="password" placeholder={t('account.password.new')} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
-                <input className={inputCls} type="password" placeholder={t('account.password.repeat')} value={repeat} onChange={(e) => setRepeat(e.target.value)} autoComplete="new-password" />
+                <PasswordInput className={inputCls} placeholder={t('account.password.new')} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+                <PasswordInput className={inputCls} placeholder={t('account.password.repeat')} value={repeat} onChange={(e) => setRepeat(e.target.value)} autoComplete="new-password" />
               </div>
               {pwError && <span className="text-[12.5px] text-danger">{pwError}</span>}
               {pwSaved && <span className="text-[12.5px] text-success">{t('account.password.changed')}</span>}
@@ -283,7 +421,11 @@ export default function AccountPage() {
               onChange={(v) => flipNotify('shift', v)}
             />
           </div>
-          {!telegram.trim() && <p className="mt-3 text-[11.5px] text-warn-strong">{t('account.notify.noTelegram')}</p>}
+          {/* The bot delivers by Telegram ID, not by @username — warn on the
+              field that actually decides whether anything arrives. */}
+          {!telegramChatId.trim() && (
+            <p className="mt-3 text-[11.5px] text-warn-strong">{t('account.notify.noTelegram')}</p>
+          )}
         </Card>
 
         <Card className="p-6">

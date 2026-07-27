@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Super Users" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:{{ sideBg }};color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <div style="width:30px;height:30px;border-radius:8px;background:{{ accent }};display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px">B</div>
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(167,139,250,.22);border:1px solid rgba(167,139,250,.5);font-size:10px;font-weight:700;letter-spacing:.5px;color:#c4b5fd">SUPER</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <a href="Super Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <a href="Super Requests.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5V6l-9-3-9 3v5.5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11z"></path></svg>Заявки<span style="margin-left:auto;min-width:18px;height:18px;border-radius:999px;background:#7c3aed;color:#ffffff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box;background:{{ accent }}">3</span></a>
+      <a href="Super Stores.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Магазины</a>
+      <a href="Super Billing.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>Подписки и оплаты</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Пользователи</div>
+      <a href="Super Settings.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Настройки</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <div style="width:34px;height:34px;border-radius:999px;background:{{ accentSoft }};color:{{ sideBg }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">SA</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">Superadmin</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Buildix HQ</div></div>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Пользователи платформы</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">{{ total }} пользователей во всех магазинах · владельцев: {{ ownersN }} · админов: {{ adminsN }} · продавцов: {{ sellersN }}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <sc-for list="{{ roleChips }}" as="c" hint-placeholder-count="4">
+          <button onClick="{{ c.pick }}" type="button" style="height:38px;padding:0 16px;border:1.5px solid {{ c.bd }};border-radius:999px;background:{{ c.bg }};color:{{ c.color }};font-size:12.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer">{{ c.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 32px 40px;display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="position:relative;flex:1;max-width:340px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:14px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+          <input type="text" placeholder="Имя, логин или телефон…" value="{{ q }}" onChange="{{ setQ }}" style="width:100%;height:43px;border:1px solid #e2e8f0;border-radius:10px;padding:0 14px 0 38px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff;box-sizing:border-box" style-focus="border:1px solid #7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12)">
+        </div>
+        <div style="position:relative;width:250px">
+          <select onChange="{{ setStore }}" style="width:100%;height:43px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff;appearance:none;cursor:pointer">
+            <option>Все магазины</option>
+            <option>Стройбаза №1</option>
+            <option>«Тош Кон Строй Маркет»</option>
+            <option>«Барака Строй»</option>
+            <option>«Евро Дом»</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:12px;top:15px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:{{ gridCols }};gap:12px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ПОЛЬЗОВАТЕЛЬ</div><div>РОЛЬ</div><div>МАГАЗИН</div><sc-if value="{{ showActivity }}" hint-placeholder-val="{{ true }}"><div>ПОСЛЕДНИЙ ВХОД</div></sc-if><div>СТАТУС</div><div></div></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:{{ gridCols }};gap:12px;align-items:center;padding:{{ rowPad }};border-bottom:1px solid #f1f5f9;background:{{ r.rowBg }}">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0">
+              <div style="width:{{ avSize }};height:{{ avSize }};border-radius:999px;background:{{ r.avBg }};display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:{{ r.avC }};flex:none">{{ r.initials }}</div>
+              <div style="min-width:0">
+                <div style="font-size:{{ nameFs }};font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:1px">{{ r.login }} · {{ r.phone }}</div>
+              </div>
+            </div>
+            <div><span style="padding:4px 11px;border-radius:999px;background:{{ r.roleBg }};font-size:11px;font-weight:600;color:{{ r.roleC }}">{{ r.role }}</span></div>
+            <div style="font-size:13px;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.store }}</div>
+            <sc-if value="{{ showActivity }}" hint-placeholder-val="{{ true }}"><div style="font-size:12.5px;color:#64748b">{{ r.lastSeen }}</div></sc-if>
+            <div><span style="padding:4px 11px;border-radius:999px;background:{{ r.stBg }};font-size:11px;font-weight:600;color:{{ r.stC }}">{{ r.status }}</span></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button onClick="{{ r.resetPass }}" type="button" title="Задать новый пароль вручную" style="height:34px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:{{ r.resetC }};font-size:11.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #7c3aed;color:#7c3aed">{{ r.resetLabel }}</button>
+              <button onClick="{{ r.toggle }}" type="button" style="height:34px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:{{ r.btnC }};font-size:11.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">{{ r.btn }}</button>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px;text-align:center;font-size:13px;color:#94a3b8">Ничего не найдено</div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ showPass }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closePass }}" style="position:fixed;inset:0;background:rgba(14,8,40,.6);display:flex;align-items:center;justify-content:center;z-index:50">
+          <div onClick="{{ stop }}" style="width:460px;background:#ffffff;border-radius:16px;box-shadow:0 30px 80px rgba(3,10,30,.4);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:16px;font-weight:600">Новый пароль · {{ pName }}</div>
+              <div onClick="{{ closePass }}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer" style-hover="background:#f1f5f9;color:#0f172a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></div>
+            </div>
+            <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:12.5px;color:#64748b">Логин: <span style="font-weight:600;color:#0f172a">{{ pLogin }}</span> · {{ pStore }}</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:12.5px;font-weight:500;color:#334155">Новый пароль</label>
+                <div style="display:flex;gap:10px">
+                  <input type="text" placeholder="минимум 8 символов" value="{{ pValue }}" onChange="{{ setPValue }}" style="flex:1;height:46px;border:1px solid #cbd5e1;border-radius:9px;padding:0 13px;font-size:15px;font-weight:600;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;box-sizing:border-box" style-focus="border:1px solid #7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12)">
+                  <button onClick="{{ genPass }}" type="button" style="height:46px;padding:0 15px;border:1px solid #cbd5e1;border-radius:9px;background:#ffffff;color:#7c3aed;font-size:12.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;flex:none" style-hover="border:1px solid #7c3aed;background:#f5f3ff">Сгенерировать</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:11px 14px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+                <span style="font-size:12px;line-height:1.5;color:#9a3412">Старый пароль перестанет работать сразу. Передайте новый пароль пользователю лично.</span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #f1f5f9;background:#f8fafc">
+              <button onClick="{{ closePass }}" type="button" style="height:44px;padding:0 18px;border:1px solid #cbd5e1;border-radius:9px;background:#ffffff;color:#475569;font-size:13px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Отмена</button>
+              <button onClick="{{ applyPass }}" type="button" style="height:44px;padding:0 24px;border:none;border-radius:9px;background:{{ pBg }};color:#ffffff;font-size:13.5px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:{{ pCur }}" style-hover="background:{{ pHov }}">Установить пароль</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <div style="display:flex;gap:11px;align-items:flex-start;font-size:12.5px;color:#64748b;padding:0 4px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+        «Сменить пароль» — суперадмин сам задаёт новый пароль и передаёт его пользователю. Роли и доступы внутри магазина настраивает его владелец или админ — суперадмин управляет только доступом к платформе.
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;density&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;comfortable&quot;, &quot;compact&quot;], &quot;default&quot;: &quot;comfortable&quot;, &quot;section&quot;: &quot;Layout&quot;, &quot;tsType&quot;: &quot;string&quot;},
+  &quot;accent&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;options&quot;: [[&quot;#7c3aed&quot;, &quot;#1e1145&quot;, &quot;#a78bfa&quot;], [&quot;#2563eb&quot;, &quot;#0f2557&quot;, &quot;#93c5fd&quot;], [&quot;#0d9488&quot;, &quot;#042f2e&quot;, &quot;#5eead4&quot;], [&quot;#dc2626&quot;, &quot;#450a0a&quot;, &quot;#fca5a5&quot;]], &quot;default&quot;: [&quot;#7c3aed&quot;, &quot;#1e1145&quot;, &quot;#a78bfa&quot;], &quot;section&quot;: &quot;Theme&quot;, &quot;tsType&quot;: &quot;string[]&quot;},
+  &quot;showActivity&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Layout&quot;, &quot;tsType&quot;: &quot;boolean&quot;}
+}">
+class Component extends DCLogic {
+  state = {
+    q: '', role: 'Все', store: 'Все магазины', blocked: {}, reset: {}, passFor: null, passVal: '',
+    users: [
+      { id: 1, name: 'Санжар Тураев', login: 'sanjar.t', phone: '+998 90 811 42 33', role: 'Владелец', store: 'Стройбаза №1', lastSeen: 'сегодня, 13:58' },
+      { id: 2, name: 'Дилшод Рахимов', login: 'dilshod.r', phone: '+998 90 512 44 07', role: 'Админ', store: 'Стройбаза №1', lastSeen: 'сегодня, 14:21' },
+      { id: 3, name: 'Жасур Тошев', login: 'jasur.t', phone: '+998 91 233 08 54', role: 'Продавец', store: 'Стройбаза №1', lastSeen: 'сегодня, 14:32' },
+      { id: 4, name: 'Отабек Рустамов', login: 'otabek.r', phone: '+998 93 640 12 78', role: 'Продавец', store: 'Стройбаза №1', lastSeen: 'сегодня, 14:18' },
+      { id: 5, name: 'Улугбек Хамидов', login: 'ulugbek.h', phone: '+998 93 224 90 17', role: 'Владелец', store: '«Тош Кон Строй Маркет»', lastSeen: 'сегодня, 12:44' },
+      { id: 6, name: 'Нодира Азимова', login: 'nodira.a', phone: '+998 94 118 25 60', role: 'Админ', store: '«Тош Кон Строй Маркет»', lastSeen: 'сегодня, 14:05' },
+      { id: 7, name: 'Жахонгир Исмаилов', login: 'jahongir.i', phone: '+998 91 340 55 26', role: 'Владелец', store: '«Барака Строй»', lastSeen: 'вчера, 19:12' },
+      { id: 8, name: 'Азизбек Рахмонов', login: 'azizbek.r', phone: '+998 94 502 71 08', role: 'Владелец', store: '«Евро Дом»', lastSeen: 'сегодня, 11:47' },
+      { id: 9, name: 'Мадина Каримова', login: 'madina.k', phone: '+998 97 415 62 30', role: 'Продавец', store: '«Евро Дом»', lastSeen: '3 дня назад' },
+    ],
+  };
+  renderVals() {
+    const [accent, sideBg, accentSoft] = this.props.accent ?? ['#7c3aed', '#1e1145', '#a78bfa'];
+    const compact = (this.props.density ?? 'comfortable') === 'compact';
+    const showActivity = this.props.showActivity ?? true;
+    const q = this.state.q.toLowerCase().trim();
+    const ROLE_STYLE = {
+      'Владелец': { roleBg: '#eef2ff', roleC: '#4338ca', avBg: '#eef2ff', avC: '#4338ca' },
+      'Админ': { roleBg: '#fff7ed', roleC: '#9a3412', avBg: '#fff7ed', avC: '#9a3412' },
+      'Продавец': { roleBg: '#eff6ff', roleC: '#1e40af', avBg: '#eff6ff', avC: '#1e40af' },
+    };
+    const list = this.state.users.filter(u =>
+      (this.state.role === 'Все' || u.role === this.state.role) &&
+      (this.state.store === 'Все магазины' || u.store === this.state.store) &&
+      (!q || u.name.toLowerCase().includes(q) || u.login.toLowerCase().includes(q) || u.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))));
+    const inits = (n) => n.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    return {
+      accent, sideBg, accentSoft,
+      accentShadow: 'rgba(124,58,237,.12)',
+      rowPad: compact ? '7px 22px' : '12px 22px',
+      avSize: compact ? '30px' : '38px',
+      nameFs: compact ? '13px' : '14px',
+      gridCols: showActivity ? 'minmax(0,1.3fr) 130px minmax(0,1.1fr) 160px 140px 170px' : 'minmax(0,1.5fr) 140px minmax(0,1.3fr) 150px 190px',
+      showActivity,
+      total: this.state.users.length,
+      ownersN: this.state.users.filter(u => u.role === 'Владелец').length,
+      adminsN: this.state.users.filter(u => u.role === 'Админ').length,
+      sellersN: this.state.users.filter(u => u.role === 'Продавец').length,
+      q: this.state.q,
+      setQ: (e) => this.setState({ q: e.target.value }),
+      setStore: (e) => this.setState({ store: e.target.value }),
+      roleChips: ['Все', 'Владелец', 'Админ', 'Продавец'].map(c => ({
+        label: c,
+        bg: this.state.role === c ? accent : '#ffffff',
+        color: this.state.role === c ? '#ffffff' : '#475569',
+        bd: this.state.role === c ? accent : '#e2e8f0',
+        pick: () => this.setState({ role: c }),
+      })),
+      rows: list.map(u => {
+        const blocked = !!this.state.blocked[u.id];
+        const wasReset = !!this.state.reset[u.id];
+        return {
+          name: u.name, login: u.login, phone: u.phone, role: u.role, store: u.store, lastSeen: u.lastSeen,
+          initials: inits(u.name),
+          ...ROLE_STYLE[u.role],
+          status: blocked ? 'Заблокирован' : 'Активен',
+          stBg: blocked ? '#f1f5f9' : '#f0fdf4',
+          stC: blocked ? '#64748b' : '#15803d',
+          rowBg: blocked ? '#fafbfc' : '#ffffff',
+          resetLabel: wasReset ? '✓ Пароль изменён' : 'Сменить пароль',
+          resetC: wasReset ? '#15803d' : '#475569',
+          resetPass: () => this.setState({ passFor: u.id, passVal: '' }),
+          btn: blocked ? 'Включить' : 'Блокировать',
+          btnC: blocked ? '#15803d' : '#dc2626',
+          toggle: () => this.setState(s => ({ blocked: { ...s.blocked, [u.id]: !s.blocked[u.id] } })),
+        };
+      }),
+      noRows: list.length === 0,
+      ...this.passVals(),
+    };
+  }
+  passVals() {
+    const u = this.state.users.find(x => x.id === this.state.passFor);
+    if (!u) return { showPass: false, closePass: () => {}, stop: (e) => e.stopPropagation() };
+    const ok = this.state.passVal.length >= 8;
+    return {
+      showPass: true,
+      closePass: () => this.setState({ passFor: null }),
+      stop: (e) => e.stopPropagation(),
+      pName: u.name, pLogin: u.login, pStore: u.store,
+      pValue: this.state.passVal,
+      setPValue: (e) => this.setState({ passVal: e.target.value }),
+      pAccent: this.props.accent ? this.props.accent[0] : '#7c3aed',
+      genPass: () => {
+        const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        let p = '';
+        for (let i = 0; i < 10; i++) p += chars[Math.floor(Math.random() * chars.length)];
+        this.setState({ passVal: p });
+      },
+      pBg: ok ? '#7c3aed' : '#94a3b8',
+      pHov: ok ? '#6d28d9' : '#94a3b8',
+      pCur: ok ? 'pointer' : 'not-allowed',
+      applyPass: () => { if (ok) this.setState(s => ({ reset: { ...s.reset, [u.id]: true }, passFor: null })); },
+    };
+  }
+}
+</script>
+</body>
+</html>

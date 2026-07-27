@@ -35,10 +35,10 @@ public class Shift : BaseEntity
     /// <summary>Smena boshida kassada bo'lgan naqd ("В кассе на начало").</summary>
     public decimal OpeningCash { get; set; }
 
-    /// <summary>Yopishда kassir sanab kiritgan faktik naqd. Null = hali yopilmagan.</summary>
+    /// <summary>Yopishda kassir sanab kiritgan faktik naqd. Null = hali yopilmagan.</summary>
     public decimal? CountedCash { get; set; }
 
-    /// <summary>Faktik − kutilgan (Расхождение). 0 = сошлась. Yopilганда hisoblanadi.</summary>
+    /// <summary>Faktik − kutilgan (Расхождение). 0 = сошлась. Yopilganda hisoblanadi.</summary>
     public decimal Discrepancy { get; set; }
 
     /// <summary>Rekonsiliatsiya holati: Open / Balanced / Discrepancy.</summary>

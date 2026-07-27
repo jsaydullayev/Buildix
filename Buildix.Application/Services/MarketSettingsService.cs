@@ -59,15 +59,6 @@ public class MarketSettingsService : IMarketSettingsService
         s.InactivityLogoutMinutes = Math.Max(0, r.InactivityLogoutMinutes);
         s.AuditEnabled = r.AuditEnabled;
 
-        // Changing the @username invalidates the cached chat_id link — the new
-        // account must /start the bot again before notifications resume.
-        var newTelegram = NormalizeTelegram(r.OwnerTelegram);
-        if (!string.Equals(newTelegram, s.OwnerTelegram, StringComparison.OrdinalIgnoreCase))
-        {
-            s.OwnerTelegram = newTelegram;
-            s.OwnerTelegramChatId = null;
-        }
-
         s.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(s);
@@ -110,19 +101,10 @@ public class MarketSettingsService : IMarketSettingsService
         NotifyDaySummary: s.NotifyDaySummary,
         NotifyOverdueDebts: s.NotifyOverdueDebts,
         NotifyWithdrawalRequests: s.NotifyWithdrawalRequests,
-        OwnerTelegram: s.OwnerTelegram,
-        OwnerTelegramLinked: s.OwnerTelegramChatId.HasValue,
         InactivityLogoutMinutes: s.InactivityLogoutMinutes,
         AuditEnabled: s.AuditEnabled);
 
     private static string? Trim(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
-
-    private static string? NormalizeTelegram(string? v)
-    {
-        var t = Trim(v);
-        if (t is null) return null;
-        return t.StartsWith('@') ? t : '@' + t;
-    }
 
     // Nomarkaziy edi: "uz" dan boshqa hamma narsa (jumladan "en") Russian bo'lib
     // ketardi. Endi yagona LanguageCodes orqali; tanilmagan kodda o'zgarishsiz

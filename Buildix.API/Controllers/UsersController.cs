@@ -19,13 +19,16 @@ public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IImageIngestService _imageIngest;
+    private readonly IConfiguration _config;
 
     public UsersController(
         IUserService userService,
-        IImageIngestService imageIngest)
+        IImageIngestService imageIngest,
+        IConfiguration config)
     {
         _userService = userService;
         _imageIngest = imageIngest;
+        _config = config;
     }
 
     /// <summary>The authenticated caller's user id, taken from the JWT — recorded
@@ -56,6 +59,19 @@ public class UsersController : ControllerBase
             return NotFound();
 
         return Ok(user);
+    }
+
+    /// <summary>
+    /// Platforma botining @username'i — Akkaunt sahifasidagi «Botni ochish»
+    /// tugmasi uchun. Konfiguratsiyadan keladi (Telegram:BotUsername), shuning
+    /// uchun bot almashtirilsa frontend'ni qayta yig'ish shart emas. Bo'sh
+    /// bo'lsa frontend tugmani ko'rsatmaydi.
+    /// </summary>
+    [HttpGet]
+    public ActionResult<object> TelegramBotInfo()
+    {
+        var username = _config["Telegram:BotUsername"]?.TrimStart('@');
+        return Ok(new { botUsername = string.IsNullOrWhiteSpace(username) ? null : username });
     }
 
     [HttpGet]

@@ -248,7 +248,7 @@ public class DebtQueryService : IDebtQueryService
         var marketId = _currentMarket.GetCurrentMarketId();
         var todayStart = _clock.LocalDayToUtcRange(_clock.TodayLocal).UtcStart;
 
-        // Bugungi qarz-to'lovlari — qarzli sotuvга yozilgan musbat to'lovlar
+        // Bugungi qarz-to'lovlari — qarzli sotuvga yozilgan musbat to'lovlar
         // (refund manfiy → chiqariladi). «Остаток долга» = joriy qoldiq.
         return await _context.Payments
             .Where(p => p.Sale != null && p.Sale.MarketId == marketId && p.Sale.Debt != null

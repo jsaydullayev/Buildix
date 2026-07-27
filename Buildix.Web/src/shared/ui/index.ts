@@ -1,10 +1,11 @@
 export { Button } from './Button';
 export { Card, CardBody } from './Card';
 export { Input } from './Input';
+export { PasswordInput } from './PasswordInput';
 export { Badge } from './Badge';
 export { Spinner } from './Spinner';
 export { FullscreenLoader } from './FullscreenLoader';
-export { BrandLogo } from './BrandLogo';
+export { BrandLogo, BrandMark } from './BrandLogo';
 export { LanguageSwitch } from './LanguageSwitch';
 export { PageHeader } from './PageHeader';
 export { StatCard } from './StatCard';

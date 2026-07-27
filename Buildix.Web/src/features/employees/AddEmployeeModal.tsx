@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Modal, Button } from '@/shared/ui';
+import { Modal, Button, PasswordInput } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { employeesApi } from './api';
 import type { ApiError } from '@/shared/api/types';
@@ -65,7 +65,7 @@ export function AddEmployeeModal({ open, onClose }: { open: boolean; onClose: ()
             <input className={inputCls} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
           </Field>
           <Field label={t('employees.form.password')}>
-            <input className={inputCls} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+            <PasswordInput className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
           </Field>
         </div>
         <Field label={t('employees.form.role')}>

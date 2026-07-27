@@ -135,7 +135,7 @@ public class SaleReturnService : ISaleReturnService
                 });
 
                 // Naqd qaytarish faqat kassadan chiqadi (Terminal/Transfer tashqi
-                // rельslarда — bank/platforma qaytaradi, kassaga tegmaydi).
+                // relslarda — bank/platforma qaytaradi, kassaga tegmaydi).
                 if (refundMethod == PaymentType.Cash)
                 {
                     var register = await _context.CashRegisters
@@ -203,6 +203,9 @@ public class SaleReturnService : ISaleReturnService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
+            // Kirill 'В'/'Ч' ATAYLAB: foydalanuvchi ekranda ko'rgan «В12» (возврат)
+            // yoki «Ч34» (чек) prefiksini xuddi shunday yozadi. Lotin B/C esa
+            // klaviatura almashmagan holat uchun.
             if (int.TryParse(term.TrimStart('В', 'B', 'Ч', 'C', '-', '№', ' '), out var num))
                 query = query.Where(r => r.Number == num || (r.Sale != null && r.Sale.SaleNumber == num));
             else

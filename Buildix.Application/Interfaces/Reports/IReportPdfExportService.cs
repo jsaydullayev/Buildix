@@ -14,4 +14,8 @@ public interface IReportPdfExportService
     Task<byte[]> ExportPeriodReportToPdfAsync(PeriodReportRequest request, bool canViewProfit = false, string lang = "uz", CancellationToken cancellationToken = default);
     Task<byte[]> ExportComprehensiveReportToPdfAsync(DateTime date, bool canViewProfit = false, string lang = "uz", CancellationToken cancellationToken = default);
     Task<byte[]> GenerateInvoicePdfAsync(Guid saleId, string lang = "uz", bool compact = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Kassa cheki — termal rulon (58/80 mm) uchun. A4 fakturadan
+    /// farqli o'laroq XPrinter kabi printerlarga to'g'ridan-to'g'ri tushadi.</summary>
+    Task<byte[]> GenerateThermalReceiptPdfAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default);
 }

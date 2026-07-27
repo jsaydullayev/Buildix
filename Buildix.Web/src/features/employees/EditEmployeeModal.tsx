@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Modal, Button } from '@/shared/ui';
+import { Modal, Button, PasswordInput } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { employeesApi, type Employee } from './api';
 import type { ApiError } from '@/shared/api/types';
@@ -69,9 +69,8 @@ export function EditEmployeeModal({ employee, onClose }: { employee: Employee | 
           <input className={cn(inputCls, 'w-full')} value={fullName} onChange={(e) => setFullName(e.target.value)} />
         </Field>
         <Field label={t('employees.resetPassword')}>
-          <input
+          <PasswordInput
             className={cn(inputCls, 'w-full')}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t('employees.resetPasswordHint')}

@@ -1,23 +1,80 @@
 import type { ReactNode } from 'react';
 import { Navigate, useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Lock } from 'lucide-react';
 import { FullscreenLoader } from '@/shared/ui/FullscreenLoader';
 import { Button } from '@/shared/ui';
 import { AccessBlockedScreen } from '@/features/auth/AccessBlockedScreen';
+import { consoleApi } from '@/shared/api/auth';
+import { ROLES } from '@/shared/config/permissions';
 import { useAuth } from './useAuth';
 import { useFirstAccessiblePath } from './useFirstAccessiblePath';
 
 /** Gate a subtree behind an authenticated session (with silent-login wait). */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { subdomain } = useParams();
+  const { subdomain, segment } = useParams();
   const { isAuthenticated, bootstrapping } = useAuth();
 
   if (bootstrapping) return <FullscreenLoader />;
   if (!isAuthenticated) {
-    const loginPath = subdomain ? `/${subdomain}/login` : '/';
+    // SuperAdmin konsoli (`/_sa/:segment/...`) o'z login sahifasiga qaytadi —
+    // landingga tashlansa, operator yashirin segmentni qaytadan yozishga
+    // majbur bo'lardi.
+    const loginPath = segment
+      ? `/_sa/${segment}/login`
+      : subdomain
+        ? `/${subdomain}/login`
+        : '/';
     return <Navigate to={loginPath} replace />;
   }
+  return <>{children}</>;
+}
+
+/**
+ * Do'kon qobig'ini (`/{sub-path}/...`) SESSIYAGA moslashtiradi.
+ *
+ * <p>Ikki nomuvofiqlikni to'xtatadi:</p>
+ * <ol>
+ *   <li><b>SuperAdmin do'kon manzilida.</b> Uning tokenida <code>MarketId</code>
+ *   yo'q, shuning uchun backend har bir do'kon endpointiga 401 qaytaradi.
+ *   Ilgari qobiq baribir ochilib, hamma joyda nol va «topilmadi» ko'rinardi —
+ *   go'yo do'konda savdo yo'qdek. Endi u konsolga qaytariladi.</li>
+ *   <li><b>Xodim BOSHQA do'konning manzilida.</b> Ijara faqat tokendan
+ *   aniqlanadi, ya'ni u o'z ma'lumotini ko'radi, lekin manzilda begona do'kon
+ *   turadi — ekrandagi narsa qaysi do'konniki ekani yolg'on bo'lib qoladi.
+ *   O'z sub-path'iga qaytariladi.</li>
+ * </ol>
+ */
+export function RequireTenant({ children }: { children: ReactNode }) {
+  const { subdomain } = useParams();
+  const { session } = useAuth();
+  const isSuperAdmin = session?.role === ROLES.SuperAdmin;
+
+  // Segment sessiyada saqlanmaydi (u sir) — serverdan so'raladi.
+  const consoleQuery = useQuery({
+    queryKey: ['console-segment'],
+    queryFn: consoleApi.segment,
+    enabled: isSuperAdmin,
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  if (isSuperAdmin) {
+    if (consoleQuery.isPending) return <FullscreenLoader />;
+    // Segment sozlanmagan bo'lsa konsol yo'q — kirish sahifasi yagona
+    // mantiqiy joy (u yerda tushunarli xato ko'rsatiladi).
+    return consoleQuery.data ? (
+      <Navigate to={`/_sa/${consoleQuery.data}/dashboard`} replace />
+    ) : (
+      <Navigate to="/login" replace />
+    );
+  }
+
+  if (session?.subdomain && subdomain && session.subdomain !== subdomain) {
+    return <Navigate to={`/${session.subdomain}`} replace />;
+  }
+
   return <>{children}</>;
 }
 

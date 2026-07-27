@@ -14,7 +14,7 @@ public class CashWithdrawal : BaseEntity
     /// <summary>Tasdiq holati. NotRequired = eski/darhol yechish.</summary>
     public WithdrawalApprovalStatus ApprovalStatus { get; set; } = WithdrawalApprovalStatus.NotRequired;
 
-    /// <summary>So'rovni yuborgan (odatда administrator).</summary>
+    /// <summary>So'rovni yuborgan (odatda administrator).</summary>
     public Guid? RequestedByUserId { get; set; }
 
     /// <summary>Tasdiqlagan/rad etgan egasi.</summary>

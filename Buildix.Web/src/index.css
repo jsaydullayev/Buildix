@@ -5,6 +5,24 @@
 @layer base {
   :root {
     color-scheme: light;
+
+    /* Akcent va sidebar — RGB kanallari (Tailwind `rgb(var(--…) / <alpha>)`
+       bilan o'qiydi). Standart qiymatlar: admin/kassir panelining ko'ki. */
+    --color-primary: 37 99 235; /* #2563eb */
+    --color-primary-hover: 30 64 175; /* #1e40af */
+    --color-primary-soft: 239 246 255; /* #eff6ff */
+    --color-sidebar: 15 37 87; /* #0f2557 */
+  }
+
+  /* SuperAdmin konsoli — binafsha akcent, quyuq binafsha sidebar
+     (docs/Web design superadmin). Layout ildizida `data-theme="super"`
+     qo'yiladi va butun daraxt shu palitrada chiziladi; komponentlarning
+     o'zi o'zgarmaydi. */
+  [data-theme='super'] {
+    --color-primary: 124 58 237; /* #7c3aed */
+    --color-primary-hover: 109 40 217; /* #6d28d9 */
+    --color-primary-soft: 245 243 255; /* #f5f3ff */
+    --color-sidebar: 30 17 69; /* #1e1145 */
   }
 
   html,

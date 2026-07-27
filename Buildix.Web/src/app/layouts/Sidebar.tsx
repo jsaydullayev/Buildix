@@ -1,12 +1,10 @@
 import { NavLink, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ChevronsUpDown, Settings, LogOut, Bell } from 'lucide-react';
+import { ChevronsUpDown, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { BrandLogo } from '@/shared/ui';
 import { NAV_SECTIONS } from '@/shared/config/navigation';
-import { ROLES, PERMISSIONS } from '@/shared/config/permissions';
-import { notificationsApi } from '@/features/notifications/api';
+import { ROLES } from '@/shared/config/permissions';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
 
 function initials(fullName: string): string {
@@ -28,17 +26,8 @@ export function Sidebar() {
     items: s.items.filter((i) => !i.permission || hasPermission(i.permission)),
   })).filter((s) => s.items.length > 0);
 
-  const canNotifications = hasPermission(PERMISSIONS.notifications.access);
-  // Badge = unread notifications from the server feed. Polls periodically so a
-  // freshly reconciled stock/debt alert or a pushed shift/supply event shows up
-  // without a manual refresh.
-  const unreadQuery = useQuery({
-    queryKey: ['notifications-unread'],
-    queryFn: () => notificationsApi.unreadCount(),
-    enabled: canNotifications,
-    refetchInterval: 60_000,
-  });
-  const unreadCount = unreadQuery.data ?? 0;
+  // Bildirishnomalar bu yerda emas: qo'ng'iroq yuqori panelda (PageHeader →
+  // NotificationBell), maketdagidek. Yon menyu faqat bo'limlar ro'yxati.
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -53,7 +42,7 @@ export function Sidebar() {
       <div className="mb-[26px] flex items-center gap-2 px-2.5">
         <BrandLogo size="sm" onDark />
         {/* ADMIN badge — marks the owner/admin panel apart from the cashier shell. */}
-        <span className="ml-auto rounded-pill border border-[#f5a623]/45 bg-[#f5a623]/20 px-2.5 py-[3px] text-[10px] font-bold tracking-[0.5px] text-[#fcd34d]">
+        <span className="ml-auto rounded-pill border border-brand-amber/45 bg-brand-amber/20 px-2.5 py-[3px] text-[10px] font-bold tracking-[0.5px] text-[#fcd34d]">
           ADMIN
         </span>
       </div>
@@ -95,19 +84,6 @@ export function Sidebar() {
           <NavLink to={`${base}/settings`} className={linkClass}>
             <Settings size={17} />
             {t('nav.settings')}
-          </NavLink>
-        )}
-        {canNotifications && (
-          <NavLink to={`${base}/notifications`} className={linkClass}>
-            <span className="relative flex">
-              <Bell size={17} />
-              {unreadCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </span>
-            {t('nav.notifications')}
           </NavLink>
         )}
         <div className="mt-2 flex items-center gap-2.5 border-t border-white/[0.12] p-3">

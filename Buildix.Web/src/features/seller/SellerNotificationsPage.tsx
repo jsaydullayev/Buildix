@@ -8,6 +8,7 @@ import { PageHeader, Button, Card, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatTime } from '@/shared/lib/format';
 import { notificationsApi, type NotificationItem } from '@/features/notifications/api';
+import { SELLER_TARGET } from './notificationTargets';
 
 const CAT_ICON: Record<string, LucideIcon> = { Warehouse: Boxes, Debt: CreditCard, Shift: Clock, Supply: Truck };
 const SEV_TONE: Record<string, { dot: string; icon: string; bg: string }> = {
@@ -15,17 +16,6 @@ const SEV_TONE: Record<string, { dot: string; icon: string; bg: string }> = {
   Warning: { dot: 'bg-warn-strong', icon: 'text-warn-strong', bg: 'bg-warn-soft' },
   Success: { dot: 'bg-success', icon: 'text-success', bg: 'bg-success-soft' },
   Info: { dot: 'bg-primary', icon: 'text-primary', bg: 'bg-primary-soft' },
-};
-
-// Server actionTarget (admin marshrutlari) → seller marshruti.
-const SELLER_TARGET: Record<string, string> = {
-  warehouse: 'products',
-  products: 'products',
-  debts: 'debts',
-  shifts: 'shifts',
-  purchases: 'supplies',
-  suppliers: 'supplies',
-  supply: 'supplies',
 };
 
 const TASHKENT_TZ = 'Asia/Tashkent';

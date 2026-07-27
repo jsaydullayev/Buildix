@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Buildix.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Buildix.Infrastructure.Data;
 
@@ -8,6 +9,13 @@ namespace Buildix.API.Middleware;
 /// </summary>
 public class TenantResolutionMiddleware
 {
+    /// <summary>
+    /// Obuna bosqichi shu kalit ostida <c>HttpContext.Items</c> ga qo'yiladi.
+    /// <c>[RequiresActiveSubscription]</c> uni shu yerdan o'qiydi — market
+    /// qatorini ikkinchi marta so'ramaslik uchun.
+    /// </summary>
+    public const string SubscriptionStateKey = "SubscriptionState";
+
     private readonly RequestDelegate _next;
     private readonly ILogger<TenantResolutionMiddleware> _logger;
 
@@ -17,7 +25,10 @@ public class TenantResolutionMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
+    public async Task InvokeAsync(
+        HttpContext context,
+        AppDbContext dbContext,
+        IPlatformSettingsProvider platformSettings)
     {
         // Skip tenant resolution for endpoints that don't operate on a single
         // tenant. The SuperAdmin console (`/api/_sa/...`) is cross-tenant by
@@ -108,7 +119,23 @@ public class TenantResolutionMiddleware
                 return;
             }
 
-            if (market is not null && market.IsSubscriptionExpired(DateTime.UtcNow))
+            // Obuna bosqichi — YAGONA manba (Market.EvaluateSubscription).
+            // Muddat o'tgani darhol eshikni yopmaydi: otsrochka va «faqat
+            // ko'rish» bosqichlarida so'rov o'tadi, holat esa header orqali
+            // klientga beriladi (sariq plashka) va yozuv-amallar uchun
+            // HttpContext'da qoladi ([RequiresActiveSubscription]).
+            var subscriptionState = Domain.Enums.SubscriptionState.Active;
+            if (market is not null)
+            {
+                var settings = platformSettings.Current;
+                subscriptionState = market.EvaluateSubscription(
+                    DateTime.UtcNow, settings.GraceDays, settings.FullBlockAfterDays);
+                context.Items[SubscriptionStateKey] = subscriptionState;
+                if (subscriptionState != Domain.Enums.SubscriptionState.Active)
+                    context.Response.Headers["X-Subscription-State"] = subscriptionState.ToString();
+            }
+
+            if (market is not null && subscriptionState == Domain.Enums.SubscriptionState.Blocked)
             {
                 _logger.LogWarning(
                     "Request rejected — market {MarketId} subscription expired at {ExpiresAt:O}. User={User} Path={Path}",

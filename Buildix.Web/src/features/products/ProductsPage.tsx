@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Eye, EyeOff } from 'lucide-react';
@@ -244,8 +244,9 @@ function ProductRow({
 
   // Local mirror of the editable sale price so typing feels immediate; committed
   // on blur/Enter and only when it actually changed.
-  const [price, setPrice] = useState(String(p.salePrice));
-  useEffect(() => setPrice(String(p.salePrice)), [p.salePrice]);
+  // 0 narx bo'sh maydon sifatida ko'rinadi — «0» ni o'chirish shart emas.
+  const [price, setPrice] = useState(p.salePrice === 0 ? '' : String(p.salePrice));
+  useEffect(() => setPrice(p.salePrice === 0 ? '' : String(p.salePrice)), [p.salePrice]);
 
   const patch = useMutation({
     mutationFn: (body: { salePrice?: number; isHidden?: boolean }) => productsApi.patch(p.id, body),
@@ -254,10 +255,17 @@ function ProductRow({
     },
   });
 
+  // Escape bekor qiladi (blur sinxron commit poygasi — WarehousePage'dagi kabi).
+  const cancelRef = useRef(false);
   const commitPrice = () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setPrice(p.salePrice === 0 ? '' : String(p.salePrice));
+      return;
+    }
     const next = Math.max(0, Number(price) || 0);
     if (next !== p.salePrice) patch.mutate({ salePrice: next });
-    else setPrice(String(p.salePrice));
+    else setPrice(p.salePrice === 0 ? '' : String(p.salePrice));
   };
 
   const margin = canViewCost ? marginPct(p.costPrice, p.salePrice) : null;
@@ -284,6 +292,8 @@ function ProductRow({
           )}
         </span>
         <span className="truncate text-[11.5px] text-muted-2">
+          {/* Artikul qidiruv unga ishlasa-da ko'rinmasdi — endi birinchi turadi. */}
+          {p.sku && <span className="font-medium text-muted">{p.sku} · </span>}
           {p.categoryName ?? '—'} · {unitLabel(t, p.unit, p.unitName)}
         </span>
       </button>
@@ -301,14 +311,16 @@ function ProductRow({
             type="number"
             step="any"
             min="0"
+            placeholder="0"
             value={price}
             disabled={patch.isPending}
+            onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => setPrice(e.target.value)}
             onBlur={commitPrice}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
               if (e.key === 'Escape') {
-                setPrice(String(p.salePrice));
+                cancelRef.current = true;
                 e.currentTarget.blur();
               }
             }}

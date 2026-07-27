@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
-import { PageHeader, Button, Card, Toggle, Spinner, Badge, LanguageSwitch } from '@/shared/ui';
+import { PageHeader, Button, Card, Toggle, Spinner, LanguageSwitch } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
 import { accountApi } from '@/features/account/api';
@@ -170,20 +170,9 @@ export default function SettingsPage() {
           <ToggleRow label={t('settings.notify.daySummary')} checked={form.notifyDaySummary} onChange={(v) => set('notifyDaySummary', v)} />
           <ToggleRow label={t('settings.notify.overdue')} checked={form.notifyOverdueDebts} onChange={(v) => set('notifyOverdueDebts', v)} />
           <ToggleRow label={t('settings.notify.withdrawals')} checked={form.notifyWithdrawalRequests} onChange={(v) => set('notifyWithdrawalRequests', v)} />
-          <div className="flex items-center justify-between gap-4 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-medium">{t('settings.notify.telegram')}</span>
-              <Badge tone={form.ownerTelegramLinked ? 'success' : 'neutral'}>
-                {form.ownerTelegramLinked ? t('settings.notify.linked') : t('settings.notify.notLinked')}
-              </Badge>
-            </div>
-            <input
-              value={form.ownerTelegram ?? ''}
-              onChange={(e) => set('ownerTelegram', e.target.value)}
-              placeholder="@username"
-              className="h-11 w-[220px] rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
-            />
-          </div>
+          {/* Telegram bog'lash bu yerdan Аккаунт'ga ko'chdi: bot endi har bir
+              xodimni o'z ID si bo'yicha taniydi, market darajasida emas. */}
+          <p className="pt-2 text-[12.5px] text-muted-2">{t('settings.notify.telegramHint')}</p>
         </Section>
 
         {/* Система — do'kon standart tili (yangi xodim uchun), audit, avto-logout */}

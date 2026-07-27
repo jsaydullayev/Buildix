@@ -18,6 +18,30 @@ public class User : BaseEntity, ISoftDelete
     /// <summary>Telegram @username (Account profilida tahrirlanadi).</summary>
     public string? Telegram { get; set; }
 
+    /// <summary>
+    /// Telegram raqamli chat ID — bot foydalanuvchini AYNAN shu bo'yicha taniydi
+    /// (@username o'zgarishi mumkin, ID hech qachon). Null = bot bilan
+    /// bog'lanmagan. Bot bundan foydalanuvchining marketi va ruxsatlarini
+    /// aniqlaydi, shuning uchun u butun platforma bo'ylab UNIKAL bo'lishi shart.
+    ///
+    /// Bu maydonga QO'LDA qiymat yozilmaydi: u faqat
+    /// <see cref="TelegramLinkCode"/> — botning o'zi bergan bir martalik kod —
+    /// orqali to'ldiriladi. Aks holda istalgan xodim begona Telegram akkaunt
+    /// raqamini yozib qo'yib, o'sha akkauntga bot orqali o'z do'konining
+    /// ma'lumotini (cheklar, faktura, qoldiq) ochib bera olardi.
+    /// </summary>
+    public long? TelegramChatId { get; set; }
+
+    /// <summary>
+    /// Bog'lanish kodini noto'g'ri kiritish urinishlari — brute-force to'ri.
+    /// <see cref="TelegramLinkAttemptsResetUtc"/> oynasi ichida sanaladi va
+    /// muvaffaqiyatli bog'lanishda nolga tushadi.
+    /// </summary>
+    public int TelegramLinkAttempts { get; set; }
+
+    /// <summary>Urinishlar oynasi tugaydigan vaqt (UTC). Null = oyna ochilmagan.</summary>
+    public DateTime? TelegramLinkAttemptsResetUtc { get; set; }
+
     // ── Per-user Telegram bildirishnoma preferensiyalari (Account §2.16, BE-9) ──
     // Market darajasidagi MarketSettings.Notify* dan farqli — bu foydalanuvchining
     // o'z tanlovi. Default true → mavjud xatti-harakat o'zgarmaydi.

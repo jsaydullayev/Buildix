@@ -11,15 +11,26 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Brand / actions
-        primary: {
-          DEFAULT: '#2563eb',
-          hover: '#1e40af',
-          soft: '#eff6ff', // icon chip bg / "Карта" badge
+        // Brand palette — 1:1 with docs/brand (logo, favicon, app icon)
+        brand: {
+          navy: '#0f2557',
+          blue: '#2563eb',
+          amber: '#f5a623',
         },
-        // Navy sidebar
+        // Brand / actions. CSS o'zgaruvchisi orqali — qiymatlar `index.css`
+        // dagi `:root` da (aynan o'sha ko'k). Buning yagona sababi:
+        // SuperAdmin konsoli boshqa akcent (binafsha) talab qiladi va uni
+        // `data-theme="super"` ostida BITTA joyda almashtirish mumkin bo'lsin —
+        // aks holda har bir komponentga ikkinchi variant yozib chiqishga
+        // to'g'ri kelardi.
+        primary: {
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          hover: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          soft: 'rgb(var(--color-primary-soft) / <alpha-value>)', // icon chip bg / "Карта" badge
+        },
+        // Sidebar (admin — navy, superadmin — quyuq binafsha)
         sidebar: {
-          DEFAULT: '#0f2557',
+          DEFAULT: 'rgb(var(--color-sidebar) / <alpha-value>)',
         },
         // Surfaces
         bg: '#f6f8fb', // page background
@@ -62,9 +73,13 @@ export default {
         pill: '999px',
       },
       boxShadow: {
-        btn: '0 8px 20px rgba(37,99,235,.25)',
-        'focus-ring': '0 0 0 4px rgba(37,99,235,.14)',
+        // Akcent bilan birga o'zgaradi (yuqoridagi izohga qarang) — konsolda
+        // ko'k soya binafsha tugma ostida qolib ketmasin.
+        btn: '0 8px 20px rgb(var(--color-primary) / .25)',
+        'focus-ring': '0 0 0 4px rgb(var(--color-primary) / .14)',
         card: '0 1px 3px rgba(15,23,42,.14)',
+        // Suzuvchi panellar (bildirishnoma dropdown'i) — kartadan chuqurroq.
+        pop: '0 12px 32px rgba(15,23,42,.16), 0 2px 6px rgba(15,23,42,.08)',
       },
       spacing: {
         sidebar: '232px',

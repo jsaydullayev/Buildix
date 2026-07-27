@@ -42,10 +42,10 @@ public record ProductDto(
     [property: JsonPropertyName("description")] string? Description = null,
     // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
     [property: JsonPropertyName("isHidden")] bool IsHidden = false,
-    // Omborда saqlash joyi ("МЕСТО" ustuni + kartochka).
+    // Omborda saqlash joyi ("МЕСТО" ustuni + kartochka).
     [property: JsonPropertyName("warehouseLocation")] string? WarehouseLocation = null,
     // Склад «ПОСЛ. ПРИХОД» ustuni — bu tovar bo'yicha oxirgi qabul qilingan
-    // postavka sanasi + chek raqami. Ro'yxatда sahifadagi tovarlar uchun
+    // postavka sanasi + chek raqami. Ro'yxatda sahifadagi tovarlar uchun
     // hisoblanadi (null = hech qanday qabul yo'q).
     [property: JsonPropertyName("lastReceiptAt")] DateTime? LastReceiptAt = null,
     [property: JsonPropertyName("lastReceiptNumber")] int? LastReceiptNumber = null
@@ -54,7 +54,7 @@ public record ProductDto(
 /// <summary>
 /// Seller tovar kartochkasi (detal-drawer) statistikasi: kim yetkazib beradi
 /// (oxirgi kelgan postavka bo'yicha), oxirgi приход, oyiga sotilgan miqdor.
-/// Narх-закупа/маржа bu yerда YO'Q (kassirга ko'rsatilmaydi).
+/// Narx-закупа/маржа bu yerda YO'Q (kassirga ko'rsatilmaydi).
 /// </summary>
 public record ProductStatsDto(
     [property: JsonPropertyName("supplierName")] string? SupplierName,

@@ -4,18 +4,41 @@ import { useTranslation } from 'react-i18next';
 import { Search, Plus, X, Package } from 'lucide-react';
 import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty } from '@/shared/lib/format';
+import { formatSum, formatQty, formatMoneyInput, parseMoneyInput } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { productsApi, type Product } from '@/features/warehouse/api';
 import { purchasesApi, type CreateReceiptLine } from './api';
 
-/** A cart line being built — product snapshot plus the entered qty/cost. */
-interface DraftLine extends CreateReceiptLine {
+/**
+ * A cart line being built — product snapshot plus the entered qty/cost.
+ *
+ * Miqdor va narx SATR sifatida saqlanadi, raqam emas: raqamli state bo'sh
+ * maydonni majburan «0» ga aylantirib, foydalanuvchini avval 0 ni o'chirishga
+ * majbur qilardi («0500» muammosi). Raqamlar faqat hisob-kitob va yuborish
+ * paytida olinadi.
+ */
+interface DraftLine {
+  productId: string;
   name: string;
   unit: number;
   unitName: string;
+  /** O'nlik miqdor matni (kg uchun kasr mumkin), masalan "5" yoki "2.5". */
+  qtyText: string;
+  /** Kelish narxi — faqat raqamlar; ko'rinishda «1 000» deb guruhlanadi. */
+  costText: string;
+}
+
+const lineQty = (l: DraftLine): number => Number(l.qtyText.replace(',', '.')) || 0;
+const lineCost = (l: DraftLine): number => Number(l.costText) || 0;
+
+/** Miqdor maydoni: raqamlar + bitta o'nlik ajratgich, boshqa hech narsa. */
+function sanitizeQty(raw: string): string {
+  const cleaned = raw.replace(/[^\d.,]/g, '').replace(/,/g, '.');
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot === -1) return cleaned;
+  return cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
 }
 
 export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -52,7 +75,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   });
   const quickAdd = (reorderQuery.data ?? []).filter((r) => !lines.some((l) => l.productId === r.productId));
 
-  const total = useMemo(() => lines.reduce((s, l) => s + l.quantity * l.costPrice, 0), [lines]);
+  const total = useMemo(() => lines.reduce((s, l) => s + lineQty(l) * lineCost(l), 0), [lines]);
 
   function reset() {
     setSupplierId('');
@@ -71,13 +94,22 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === p.id);
       if (existing) {
-        return prev.map((l) => (l.productId === p.id ? { ...l, quantity: l.quantity + 1 } : l));
+        return prev.map((l) =>
+          l.productId === p.id ? { ...l, qtyText: String(lineQty(l) + 1) } : l,
+        );
       }
       // Kelish narxi standart sifatida mahsulotning oxirgi tannarxidan olinadi;
-      // kassir uni har qatorda o'zgartira oladi.
+      // kassir uni har qatorda o'zgartira oladi. 0 tannarx = bo'sh maydon.
       return [
         ...prev,
-        { productId: p.id, name: p.name, unit: p.unit, unitName: p.unitName, quantity: 1, costPrice: p.costPrice },
+        {
+          productId: p.id,
+          name: p.name,
+          unit: p.unit,
+          unitName: p.unitName,
+          qtyText: '1',
+          costText: p.costPrice > 0 ? String(Math.round(p.costPrice)) : '',
+        },
       ];
     });
   }
@@ -93,7 +125,14 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
         ? prev
         : [
             ...prev,
-            { productId: s.productId, name: s.name, unit: s.unit, unitName: s.unitName, quantity: Math.max(1, Math.round(s.suggestedQty)) || 1, costPrice: 0 },
+            {
+              productId: s.productId,
+              name: s.name,
+              unit: s.unit,
+              unitName: s.unitName,
+              qtyText: String(Math.max(1, Math.round(s.suggestedQty)) || 1),
+              costText: '',
+            },
           ],
     );
   }
@@ -105,7 +144,9 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
         invoiceNumber: invoice.trim() || null,
         paidAmount: Math.min(Math.max(0, Number(paid) || 0), total),
         comment: comment.trim() || null,
-        items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, costPrice: l.costPrice })),
+        items: lines.map(
+          (l): CreateReceiptLine => ({ productId: l.productId, quantity: lineQty(l), costPrice: lineCost(l) }),
+        ),
         inTransit,
         expectedDate: inTransit && expectedDate ? new Date(expectedDate).toISOString() : null,
         paymentMethod: Number(paid) > 0 ? payMethod : null,
@@ -125,7 +166,7 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
 
-  const canSubmit = lines.length > 0 && lines.every((l) => l.quantity > 0 && l.costPrice >= 0) && !create.isPending;
+  const canSubmit = lines.length > 0 && lines.every((l) => lineQty(l) > 0) && !create.isPending;
 
   const inputCls =
     'h-10 rounded-input border border-input-border bg-surface px-3 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring';
@@ -251,21 +292,27 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
                 className="grid grid-cols-[1fr_92px_120px_120px_32px] items-center gap-2 border-b border-hairline py-2 last:border-0"
               >
                 <span className="truncate text-[13px] font-medium">{l.name}</span>
+                {/* Fokusda matn belgilanadi — yozish eski qiymatni almashtiradi,
+                    hech narsani o'chirish shart emas. */}
                 <input
-                  type="number"
-                  step="any"
-                  value={l.quantity}
-                  onChange={(e) => setLine(l.productId, { quantity: Math.max(0, Number(e.target.value) || 0) })}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={l.qtyText}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setLine(l.productId, { qtyText: sanitizeQty(e.target.value) })}
                   className={cn(inputCls, 'w-full text-right nums')}
                 />
                 <input
-                  type="number"
-                  step="any"
-                  value={l.costPrice}
-                  onChange={(e) => setLine(l.productId, { costPrice: Math.max(0, Number(e.target.value) || 0) })}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={formatMoneyInput(l.costText)}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setLine(l.productId, { costText: parseMoneyInput(e.target.value) })}
                   className={cn(inputCls, 'w-full text-right nums')}
                 />
-                <span className="text-right text-[13px] font-semibold nums">{formatSum(l.quantity * l.costPrice)}</span>
+                <span className="text-right text-[13px] font-semibold nums">{formatSum(lineQty(l) * lineCost(l))}</span>
                 <button
                   type="button"
                   onClick={() => removeLine(l.productId)}
@@ -317,16 +364,16 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
             <label className="text-[13px] text-muted">{t('purchases.newModal.paidNow')}</label>
             <div className="flex items-center gap-2">
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
-                value={paid}
-                onChange={(e) => setPaid(e.target.value)}
+                value={formatMoneyInput(paid)}
+                onChange={(e) => setPaid(parseMoneyInput(e.target.value))}
                 className={cn(inputCls, 'w-[140px] text-right nums')}
               />
               <button
                 type="button"
-                onClick={() => setPaid(String(total))}
+                onClick={() => setPaid(String(Math.round(total)))}
                 className="text-[12px] font-medium text-primary hover:text-primary-hover"
               >
                 {t('purchases.newModal.payFull')}

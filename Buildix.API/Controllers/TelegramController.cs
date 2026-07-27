@@ -1,30 +1,37 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Buildix.Application.Interfaces;
+using Buildix.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 
 namespace Buildix.API.Controllers;
 
 /// <summary>
-/// Telegram Bot webhook. Set it with the Bot API setWebhook to
-/// https://&lt;host&gt;/api/telegram/webhook. When an owner sends /start we match
-/// their @username to MarketSettings.OwnerTelegram and store the chat id so
-/// future notifications can reach them. Anonymous by design (Telegram calls it);
-/// it performs no privileged action beyond linking a chat to a matching handle.
+/// Telegram Bot webhook. Register it with the Bot API:
+/// <c>setWebhook url=https://&lt;host&gt;/api/telegram/webhook secret_token=…</c>.
+///
+/// One bot serves every market. A message is only ever answered when its chat id
+/// matches a <c>User.TelegramChatId</c> saved on the Account screen — that lookup
+/// yields the market and the user's permissions, and each command is gated by
+/// them. An unknown chat learns nothing about any shop.
+///
+/// Anonymous by design (Telegram calls it), but the secret token proves the
+/// caller is Telegram; without a configured secret the endpoint fails closed.
 /// </summary>
 [ApiController]
 [Route("api/telegram")]
 public class TelegramController : ControllerBase
 {
-    private readonly ITelegramNotifier _notifier;
+    private readonly ITelegramBotCommandHandler _handler;
     private readonly ILogger<TelegramController> _logger;
     private readonly IConfiguration _config;
 
-    public TelegramController(ITelegramNotifier notifier, ILogger<TelegramController> logger, IConfiguration config)
+    public TelegramController(
+        ITelegramBotCommandHandler handler,
+        ILogger<TelegramController> logger,
+        IConfiguration config)
     {
-        _notifier = notifier;
+        _handler = handler;
         _logger = logger;
         _config = config;
     }
@@ -52,21 +59,13 @@ public class TelegramController : ControllerBase
             if (!update.TryGetProperty("message", out var message)) return Ok();
 
             var text = message.TryGetProperty("text", out var t) ? t.GetString() : null;
-            if (text is null || !text.TrimStart().StartsWith("/start", StringComparison.OrdinalIgnoreCase))
-                return Ok();
+            if (string.IsNullOrWhiteSpace(text)) return Ok();
 
             if (!message.TryGetProperty("chat", out var chat) || !chat.TryGetProperty("id", out var chatIdEl))
                 return Ok();
             var chatId = chatIdEl.GetInt64();
 
-            var username = message.TryGetProperty("from", out var from) && from.TryGetProperty("username", out var u)
-                ? u.GetString()
-                : null;
-            if (string.IsNullOrWhiteSpace(username)) return Ok();
-
-            var linked = await _notifier.TryLinkChatAsync(username, chatId, ct);
-            if (linked)
-                _logger.LogInformation("Telegram chat linked for @{Username}", username);
+            await _handler.HandleAsync(chatId, text, HttpContext, ct);
         }
         catch (Exception ex)
         {

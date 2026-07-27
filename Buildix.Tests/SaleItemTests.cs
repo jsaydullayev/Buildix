@@ -82,4 +82,133 @@ public class SaleItemTests
         Assert.True(removed.IsSuccess, removed.Error);
         Assert.Equal(100, await StockAsync(h, productId)); // stock restored
     }
+
+    // ── set-exact-quantity (the register's decimal quantity field) ──────────
+
+    [Fact]
+    public async Task Setting_a_larger_quantity_takes_only_the_difference_from_stock()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 2));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 30));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(30, result.Value.Quantity);
+        Assert.Equal(70, await StockAsync(h, productId));         // 100 − 30, not 100 − 2 − 30
+        Assert.Equal(1_500_000, await SaleTotalAsync(h, saleId)); // 30 × 50 000
+    }
+
+    [Fact]
+    public async Task Setting_a_smaller_quantity_gives_the_difference_back()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 20));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 5));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(95, await StockAsync(h, productId));       // 20 taken, 15 returned
+        Assert.Equal(250_000, await SaleTotalAsync(h, saleId)); // 5 × 50 000
+    }
+
+    [Fact]
+    public async Task A_fractional_quantity_is_stored_and_priced_as_typed()
+    {
+        using var h = new TestHarness();
+        // The shop sells m / kg / tonna — "3.5" has to survive the round trip,
+        // which the old click-per-unit stepper could not even express.
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 10);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 3.5m));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(3.5m, result.Value.Quantity);
+        Assert.Equal(6.5m, await StockAsync(h, productId));     // 10 − 3.5
+        Assert.Equal(175_000, await SaleTotalAsync(h, saleId)); // 3.5 × 50 000
+    }
+
+    [Fact]
+    public async Task Setting_a_quantity_above_stock_is_rejected_and_leaves_the_line_intact()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 10);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 4));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 50));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(6, await StockAsync(h, productId));        // still just the original 4 taken
+        Assert.Equal(200_000, await SaleTotalAsync(h, saleId)); // 4 × 50 000
+    }
+
+    [Fact]
+    public async Task Setting_the_quantity_of_an_external_line_moves_no_stock()
+    {
+        using var h = new TestHarness();
+        // The external branch skips the product lock entirely, so it also skips
+        // the post-lock quantity re-read — worth pinning that it still prices
+        // correctly and leaves the catalogue alone.
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+        var external = new AddSaleItemDto(true, null, "Yetkazib berish", 10_000m, 1, 80_000m, 0, null);
+        var added = await svc.AddSaleItemAsync(saleId, external);
+        Assert.True(added.IsSuccess, added.Error);
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 2.5m));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(2.5m, result.Value.Quantity);
+        Assert.Equal(100, await StockAsync(h, productId));      // untouched
+        Assert.Equal(200_000, await SaleTotalAsync(h, saleId)); // 2.5 × 80 000
+    }
+
+    [Fact]
+    public async Task Setting_the_same_quantity_again_moves_no_stock()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 6));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 6));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(94, await StockAsync(h, productId)); // still just the one deduction
+    }
+
+    [Fact]
+    public async Task Setting_the_quantity_to_zero_drops_the_line_and_restores_stock()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+        var added = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 7));
+        Assert.True(added.IsSuccess, added.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.SetSaleItemQuantityAsync(saleId, new SetSaleItemQuantityDto(added.Value.Id, 0));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(100, await StockAsync(h, productId));
+        Assert.Equal(0, await SaleTotalAsync(h, saleId));
+        Assert.False(await h.Db.SaleItems.IgnoreQueryFilters().AnyAsync(si => si.SaleId == saleId));
+    }
 }

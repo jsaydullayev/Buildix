@@ -11,7 +11,7 @@ import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useExport } from '@/shared/hooks/useExport';
 import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
+import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
 import { purchasesApi, type ZakupReceipt, type ReorderSuggestion, type Supplier } from './api';
 import { NewPurchaseModal } from './NewPurchaseModal';
@@ -30,11 +30,13 @@ const STATUS_KEY: Record<string, 'paid' | 'partial' | 'unpaid'> = {
 
 export default function PurchasesPage() {
   const { t } = useTranslation();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const qc = useQueryClient();
   const confirm = useConfirm();
   const canCreate = hasPermission(PERMISSIONS.zakup.create);
-  const canDelete = hasPermission(PERMISSIONS.zakup.delete);
+  // O'chirish — faqat do'kon egasi (backend ham rol darajasida tekshiradi).
+  // Ruxsat matritsasi orqali Admin/Sotuvchiga berib bo'lmaydi.
+  const canDelete = hasRole(ROLES.Owner, ROLES.SuperAdmin);
   const exporter = useExport(() => purchasesApi.exportReceipts(), 'purchases.xlsx');
 
   const [page, setPage] = useState(1);
@@ -68,7 +70,7 @@ export default function PurchasesPage() {
       void qc.invalidateQueries({ queryKey: ['receipts'] });
       void qc.invalidateQueries({ queryKey: ['reorder'] });
     },
-    onError: (e) => window.alert((e as ApiError).message ?? t('common.somethingWrong')),
+    onError: (e) => window.alert((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
 
   async function askDelete(r: ZakupReceipt) {

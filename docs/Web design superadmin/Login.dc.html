@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+body{margin:0;background:#ffffff;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Login" style="width:100%;min-width:1280px;height:100vh;min-height:760px;display:flex;flex-direction:column;justify-content:space-between;background:#ffffff;color:#0f172a">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:40px 60px 32px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <a href="Welcome.dc.html" style="display:flex;align-items:center;gap:11px;color:#0f172a">
+        <img src="assets/logo-mark.svg" alt="Buildix" style="width:32px;height:32px;flex:none">
+        <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:18px;letter-spacing:.4px">Buildix</div>
+      </a>
+      <div style="display:inline-flex;background:#f1f5f9;border-radius:999px;padding:4px">
+        <div style="padding:7px 16px;border-radius:999px;font-size:14px;font-weight:500;color:#64748b;cursor:pointer" style-hover="color:#0f172a">UZ</div>
+        <div style="padding:7px 16px;border-radius:999px;font-size:14px;font-weight:600;color:#0f172a;background:#ffffff;box-shadow:0 1px 3px rgba(15,23,42,.14)">RU</div>
+        <div style="padding:7px 16px;border-radius:999px;font-size:14px;font-weight:500;color:#64748b;cursor:pointer" style-hover="color:#0f172a">EN</div>
+      </div>
+    </div>
+    <div style="width:100%;max-width:440px;align-self:center">
+      <div style="font-size:33px;font-weight:600;letter-spacing:-.4px;margin-bottom:10px;text-align:center">Вход в систему</div>
+      <div style="font-size:15px;line-height:1.55;color:#64748b;margin-bottom:34px;text-align:center">Введите данные, выданные владельцем<br>или администратором магазина.</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <label style="font-size:14.5px;font-weight:500;color:#334155">Логин</label>
+          <input type="text" placeholder="Введите логин" style="height:56px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 18px;font-size:16px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <label style="font-size:14.5px;font-weight:500;color:#334155">Пароль</label>
+            <a href="#" style="font-size:13px;color:#2563eb">Забыли пароль?</a>
+          </div>
+          <input type="password" placeholder="••••••••" style="height:56px;border:1.5px solid #cbd5e1;border-radius:11px;padding:0 18px;font-size:16px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff" style-focus="border:1.5px solid #2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14)">
+        </div>
+        <button type="button" style="height:58px;border:none;border-radius:11px;background:#2563eb;color:#ffffff;font-size:17px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer;margin-top:6px;box-shadow:0 8px 20px rgba(37,99,235,.25)" style-hover="background:#1e40af">Войти</button>
+      </div>
+      <div style="margin-top:28px;padding-top:22px;border-top:1px solid #f1f5f9">
+        <div style="font-size:12px;font-weight:600;letter-spacing:1.2px;color:#94a3b8;margin-bottom:12px;text-align:center">СВЯЗЬ С АДМИНИСТРАТОРОМ</div>
+        <div style="display:flex;flex-direction:column;gap:9px;align-items:center">
+          <a href="tel:+998901234567" style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:#334155" style-hover="color:#2563eb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z"></path></svg>+998 90 123 45 67</a>
+          <a href="mailto:admin@buildix.uz" style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:#334155" style-hover="color:#2563eb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 7 10 6 10-6"></path></svg>admin@buildix.uz</a>
+          <a href="https://t.me/buildix_admin" style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:#334155" style-hover="color:#2563eb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3 2 10.5l5.5 2L18 6l-8 8v5l3-3 4.5 3.5z"></path></svg>@buildix_admin</a>
+        </div>
+      </div>
+    </div>
+    <div style="align-self:center;font-size:12px;color:#cbd5e1">© 2026 Buildix · Strotech</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

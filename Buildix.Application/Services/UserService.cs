@@ -20,11 +20,15 @@ public class UserService : IUserService
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IUserTokenEpochStore _tokenEpochStore;
     private readonly IAuditLogService _auditLog;
+    private readonly ITelegramLinkService _telegramLink;
+    private readonly ITelegramNotifier _telegramNotifier;
 
     public UserService(
         IUnitOfWork unitOfWork,
         IAppDbContext context,
         ICurrentMarketService currentMarketService,
+        ITelegramLinkService telegramLink,
+        ITelegramNotifier telegramNotifier,
         // MAJBURIY. Ilgari bu opsional (null default) edi — ya'ni DI'da ro'yxatdan
         // o'tkazish tushib qolsa, xavfsizlik nazorati jimgina o'chib qolardi:
         // TokensInvalidBeforeUtc DB'ga yozilaverardi, lekin kesh yangilanmagani
@@ -36,6 +40,8 @@ public class UserService : IUserService
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
+        _telegramLink = telegramLink;
+        _telegramNotifier = telegramNotifier;
         _tokenEpochStore = tokenEpochStore;
         _auditLog = auditLog;
     }
@@ -66,6 +72,20 @@ public class UserService : IUserService
     /// </summary>
     private void PublishEpoch(Guid userId, DateTime utcNow)
         => _tokenEpochStore.Publish(userId, utcNow);
+
+    /// <summary>
+    /// Users.TelegramChatId unikal indeksining buzilishi. PostgreSQL SQLSTATE
+    /// "23505" ni xabar matnida qaytaradi — uni matndan o'qish Application
+    /// qatlamiga Npgsql paketini olib kirmaslik uchun (RegistrationRequestService
+    /// dagi bilan bir xil usul).
+    /// </summary>
+    private static bool IsTelegramChatIdConflict(DbUpdateException ex) =>
+        ex.InnerException?.Message is { } message
+        && message.Contains("23505")
+        && message.Contains("IX_Users_TelegramChatId");
+
+    private static string EscapeHtml(string? s) =>
+        (s ?? string.Empty).Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
     public async Task<UserDto?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -273,6 +293,37 @@ public class UserService : IUserService
             user.Telegram = string.IsNullOrWhiteSpace(tg) ? null : (tg.StartsWith('@') ? tg : '@' + tg);
         }
 
+        // Telegram bog'lanishi. Bo'sh satr = UZISH; boshqa har qanday qiymat rad
+        // etiladi. Qo'lda yozilgan ID egalikni ISBOTLAMAYDI, bot esa
+        // foydalanuvchini aynan shu ID bo'yicha taniydi — ya'ni begona raqam
+        // yozilsa, o'sha begona Telegram akkaunt bot orqali shu xodimning
+        // do'konidan chek, faktura va qoldiq ma'lumotini ola boshlardi.
+        // Bog'lanishning yagona yo'li — botning bir martalik kodi (pastda).
+        if (request.TelegramChatId is not null)
+        {
+            if (request.TelegramChatId.Trim().Length > 0)
+                throw new InvalidOperationException(
+                    "Telegram ID qo'lda kiritilmaydi. Botga xabar yozing va u bergan kodni kiriting.");
+
+            user.TelegramChatId = null;
+            // Uzilgandan keyin kod bilan qaytadan bog'lanish mumkin — urinishlar
+            // hisoblagichi ham tozalanadi, aks holda oldingi noto'g'ri
+            // urinishlar yangi bog'lanishga to'siq bo'lib qolardi.
+            user.TelegramLinkAttempts = 0;
+            user.TelegramLinkAttemptsResetUtc = null;
+        }
+
+        // Botdan olingan kod — chat ID ning YAGONA manbai. ConsumeAsync kodni
+        // "ishlatilgan" deb belgilaydi, lekin saqlamaydi: quyidagi
+        // SaveChangesAsync ikkalasini bitta tranzaksiyada yozadi, shuning uchun
+        // kod ham, bog'lanish ham yarim holatda qolmaydi.
+        long? linkedChatId = null;
+        if (!string.IsNullOrWhiteSpace(request.TelegramLinkCode))
+        {
+            linkedChatId = await _telegramLink.ConsumeAsync(user, request.TelegramLinkCode, cancellationToken);
+            user.TelegramChatId = linkedChatId;
+        }
+
         // Per-user Telegram bildirishnoma toggle'lari — null = tegilmaydi (BE-9).
         if (request.NotifyDebt is { } nd) user.NotifyDebt = nd;
         if (request.NotifyStock is { } ns) user.NotifyStock = ns;
@@ -299,10 +350,28 @@ public class UserService : IUserService
             await InvalidateSessionsAsync(user, utcNow, cancellationToken);
 
         _unitOfWork.Users.Update(user);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsTelegramChatIdConflict(ex))
+        {
+            // Poyga: kod ishlatilgan va DB yozuvi orasida o'sha chatni boshqa
+            // hisob bog'lab ulgurdi. Ilgari bu foydalanuvchiga 500 bo'lib
+            // qaytardi; endi klient ko'rsatishga tayyor xabar.
+            throw new InvalidOperationException("Bu Telegram akkaunt boshqa foydalanuvchiga biriktirilgan.");
+        }
 
         if (passwordChanged)
             PublishEpoch(user.Id, utcNow);
+
+        // Tasdiq — aynan bog'langan chatga. Noto'g'ri bog'lanish (masalan kod
+        // begonaga o'tib ketgan bo'lsa) shu xabar bilan darhol ko'rinadi.
+        // Best-effort: notifier transport xatolarini o'zi yutadi.
+        if (linkedChatId is { } linkedChat)
+            await _telegramNotifier.SendToChatAsync(linkedChat,
+                $"✅ Telegram <b>{EscapeHtml(user.FullName)}</b> hisobiga bog'landi.\n" +
+                "Menyuni ochish uchun istalgan xabar yuboring.", cancellationToken);
 
         // Y1 — audit-log profile updates. PasswordChange is the security-critical
         // case (a successful password change is a forensic event); FullName-only
@@ -415,6 +484,11 @@ public class UserService : IUserService
         user.IsActive = false;
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
+
+        // Telegram bog'lanishini bo'shatamiz: ID butun platforma bo'ylab unikal,
+        // va o'chirilgan qator uni ushlab tursa, o'sha odam qayta ishga olinganda
+        // (yoki raqam boshqa xodimga o'tganda) uni hech kim saqlay olmasdi.
+        user.TelegramChatId = null;
 
         // O'chirilgan user hozirning o'zida chiqarib yuborilishi kerak — soft-delete
         // qatorni yashiradi, lekin uning access token'i hech narsa tekshirmasdan
@@ -671,6 +745,7 @@ public class UserService : IUserService
             user.Phone,
             user.LastActiveAt,
             user.Telegram,
+            user.TelegramChatId?.ToString(),
             user.NotifyDebt,
             user.NotifyStock,
             user.NotifyShift

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Modal, Button } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum } from '@/shared/lib/format';
+import { formatSum, formatMoneyInput, parseMoneyInput } from '@/shared/lib/format';
 import { cashLedgerApi } from './api';
 
 type OpType = 'expense' | 'collection' | 'deposit';
@@ -141,14 +141,16 @@ export function NewCashOperationModal({
         {/* Amount */}
         <div>
           <label className="mb-1.5 block text-[13px] font-medium text-label">{t('cash.newOp.amount')}</label>
+          {/* Matnli input: type="number" probellarni rad etadi, guruhlangan
+              «100 000» ko'rinishi esa aynan probel bilan yoziladi. State'da
+              faqat raqamlar saqlanadi. */}
           <input
-            type="number"
-            step="any"
-            min="0"
+            type="text"
+            inputMode="numeric"
             placeholder="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className={cn(inputCls, overdraft && 'border-danger')}
+            value={formatMoneyInput(amount)}
+            onChange={(e) => setAmount(parseMoneyInput(e.target.value))}
+            className={cn(inputCls, 'nums', overdraft && 'border-danger')}
             autoFocus
           />
           {isOutflow && (

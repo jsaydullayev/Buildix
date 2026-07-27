@@ -598,6 +598,28 @@ try
     // Best-effort: no-ops when the token/owner-chat is unconfigured.
     builder.Services.AddHttpClient();
     builder.Services.AddScoped<ITelegramNotifier, Buildix.Infrastructure.Services.TelegramNotifier>();
+    // Bog'lanishni tasdiqlash: botning bir martalik kodi. Chat ID qo'lda
+    // kiritilmaydi — u faqat shu kod orqali isbotlanadi.
+    builder.Services.AddScoped<ITelegramLinkService, TelegramLinkService>();
+    // Bot day summary — served both on demand (/kunlik in the webhook) and by the
+    // nightly job below. Takes marketId explicitly: outside an HTTP request the
+    // tenant query-filter is inert, so it market-filters every query itself.
+    builder.Services.AddScoped<ITelegramDailySummaryService, TelegramDailySummaryService>();
+    // Bot command surface (/savdo, /qarz, /qoldiq, /faktura). Lives in the API
+    // layer because it fills HttpContext.Items["MarketId"] for the tenant-scoped
+    // export services after resolving the sender's User.TelegramChatId.
+    builder.Services.AddScoped<Buildix.API.Services.ITelegramBotCommandHandler,
+        Buildix.API.Services.TelegramBotCommandHandler>();
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.DailySummaryBackgroundService>();
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.LowStockAlertBackgroundService>();
+    // Obuna tugashi haqida egaga Telegram eslatmasi (SMS o'rniga).
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.SubscriptionReminderBackgroundService>();
+    // app_logs Serilog tomonidan yaratiladi, lekin hech qachon tozalanmaydi —
+    // sutkalik tozalash (Logging:RetentionDays, standart 30 kun).
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.LogRetentionBackgroundService>();
+    // Webhook'siz muhitlar (lokal dev, ochiq IP'siz server) uchun Telegram
+    // long-polling. Faqat Telegram:UseLongPolling=true bo'lganda ishga tushadi.
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.TelegramLongPollingBackgroundService>();
     builder.Services.AddScoped<ICurrentMarketService, CurrentMarketService>();
     builder.Services.AddScoped<IExcelService, ExcelService>();
     builder.Services.AddScoped<ISalesExcelExportService, SalesExcelExportService>();
@@ -612,6 +634,17 @@ try
     builder.Services.AddScoped<Buildix.API.Services.IImageIngestService, Buildix.API.Services.ImageIngestService>();
     builder.Services.AddSingleton<ITashkentClock, TashkentClock>();
     builder.Services.AddScoped<IRegistrationRequestService, RegistrationRequestService>();
+    // Konsol paneli — platforma-keng agregat (tenant filtri o'chiq holatda
+    // ishlaydi, shuning uchun har so'rov o'z shartini o'zi yozadi).
+    builder.Services.AddScoped<ISuperAdminDashboardService, SuperAdminDashboardService>();
+    builder.Services.AddScoped<ISuperAdminStoreService, SuperAdminStoreService>();
+    builder.Services.AddScoped<ISuperAdminBillingService, SuperAdminBillingService>();
+    builder.Services.AddScoped<ISuperAdminUserService, SuperAdminUserService>();
+    builder.Services.AddScoped<ISuperAdminSettingsService, SuperAdminSettingsService>();
+    builder.Services.AddScoped<ISubscriptionNotifier, SubscriptionNotifierService>();
+    // Platforma sozlamalari SINGLETON keshda: obuna eshigi har so'rovda shu
+    // yerdan o'qiladi, DB'ga tegmasdan.
+    builder.Services.AddSingleton<IPlatformSettingsProvider, CachedPlatformSettingsProvider>();
     builder.Services.AddScoped<IDebtService, DebtService>();
     builder.Services.AddScoped<IDebtQueryService, DebtQueryService>();
     builder.Services.AddScoped<IShiftService, ShiftService>();
@@ -699,6 +732,14 @@ try
         using var scope = app.Services.CreateScope();
         var epochStore = scope.ServiceProvider.GetRequiredService<DbUserTokenEpochStore>();
         await epochStore.LoadFromDbAsync();
+    }
+
+    // Platforma sozlamalari keshi. Obuna eshigi (otsrochka, «faqat ko'rish»,
+    // to'liq blok) har so'rovda shu keshdan o'qiladi — u to'lmasa, qoidalar
+    // default qiymatlarda qolib ketardi.
+    {
+        var settingsProvider = app.Services.GetRequiredService<IPlatformSettingsProvider>();
+        await settingsProvider.ReloadAsync();
     }
 
     // M1 — hydrate the brute-force lockout cache from the LoginAttempts

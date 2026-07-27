@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
+using Buildix.API.Filters;
 using Buildix.API.Authorization;
 using Buildix.Domain.Constants;
 using System.Security.Claims;
@@ -82,6 +83,7 @@ public class ZakupsController : ApiControllerBase
 
     [HttpPost]
     [RequirePermission(PermissionKeys.ZakupCreate)]
+    [RequiresActiveSubscription]
     public async Task<ActionResult<ZakupDto>> CreateZakup([FromBody] CreateZakupDto request)
     {
         var adminIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -100,6 +102,10 @@ public class ZakupsController : ApiControllerBase
     }
 
     [HttpDelete("{id}")]
+    // Zakupni o'chirish kirgan tovarni ham qaytaradi — bu ma'lumot tozalash
+    // ishi, faqat do'kon egasining o'zi (ruxsat matritsasi orqali Admin'ga
+    // ham berib bo'lmaydi: rol darajasida qat'iy chek).
+    [Authorize(Roles = "Owner,SuperAdmin")]
     [RequirePermission(PermissionKeys.ZakupDelete)]
     public async Task<IActionResult> DeleteZakup(Guid id)
     {
@@ -170,6 +176,7 @@ public class ZakupsController : ApiControllerBase
     /// <summary>«Отметить принятым» — «В пути» postavkani qabul qiladi (stok kiradi).</summary>
     [HttpPost("~/api/Zakups/{id}/accept")]
     [RequirePermission(PermissionKeys.ZakupAccept)]
+    [RequiresActiveSubscription]
     public async Task<IActionResult> AcceptReceipt(Guid id)
     {
         var adminIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -190,6 +197,8 @@ public class ZakupsController : ApiControllerBase
     }
 
     [HttpDelete("{id}")]
+    // Yuqoridagi DeleteZakup bilan bir xil siyosat: faqat Owner.
+    [Authorize(Roles = "Owner,SuperAdmin")]
     [RequirePermission(PermissionKeys.ZakupDelete)]
     public async Task<IActionResult> DeleteReceipt(Guid id)
     {

@@ -28,7 +28,7 @@ public class Product : BaseEntity, ISoftDelete
     public string? Description { get; set; }
 
     /// <summary>
-    /// Omborда saqlash joyi ("Место на складе" — masalan «Навес А · ряд 2»).
+    /// Omborda saqlash joyi ("Место на складе" — masalan «Навес А · ряд 2»).
     /// Sotuvchi tovar kartochkasida ko'radi; qidirib topishga yordam beradi. Ixtiyoriy.
     /// </summary>
     public string? WarehouseLocation { get; set; }
@@ -62,6 +62,14 @@ public class Product : BaseEntity, ISoftDelete
     // Stock - DECIMAL qilib o'zgartirdik (1.5 kg bo'lishi mumkin)
     public decimal Quantity { get; set; }
     public decimal MinThreshold { get; set; } = 5m;
+
+    /// <summary>
+    /// Telegram'ga "kam qoldi" ogohlantirishi yuborilgan vaqt. Har bir tovar
+    /// haqida BIR MARTA yuborish uchun: qoldiq chegaradan pastga tushganda
+    /// belgilanadi, qoldiq tiklangach (chegaradan yuqori) tozalanadi — shunda
+    /// keyingi tushishda yana bir marta ogohlantiriladi. Null = hali yuborilmagan.
+    /// </summary>
+    public DateTime? LowStockAlertSentAt { get; set; }
 
     // Optimistic concurrency token. Mapped to PostgreSQL's hidden xmin column
     // so concurrent stock changes detect each other and surface a 409.

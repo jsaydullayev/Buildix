@@ -9,8 +9,9 @@ import { Phone, Mail, Send } from 'lucide-react';
 import { BrandLogo, Button, Input, LanguageSwitch } from '@/shared/ui';
 import { useAuth, useLogin } from '@/shared/auth/useAuth';
 import { useFirstAccessiblePath } from '@/shared/auth/useFirstAccessiblePath';
-import { publicMarketApi } from '@/shared/api/auth';
+import { consoleApi, publicMarketApi } from '@/shared/api/auth';
 import type { ApiError } from '@/shared/api/types';
+import { ROLES } from '@/shared/config/permissions';
 
 const schema = z.object({
   username: z.string().min(3),
@@ -34,6 +35,15 @@ export function LoginPage() {
     retry: false,
   });
 
+  // Qo'llab-quvvatlash kontaktlari — platforma sozlamalaridan. Bloklanmaydi:
+  // so'rov yiqilsa, blok umuman ko'rsatilmaydi va login shundoq ishlayveradi.
+  const supportQuery = useQuery({
+    queryKey: ['public-support'],
+    queryFn: publicMarketApi.support,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
   const {
     register,
     handleSubmit,
@@ -45,6 +55,24 @@ export function LoginPage() {
     if (login.isSuccess && subdomain) navigate(home, { replace: true });
   }, [login.isSuccess, subdomain, navigate, home]);
 
+  // Allaqachon SuperAdmin sifatida kirgan bo'lsa, formani qayta ko'rsatmaymiz:
+  // uning uyi — konsol. Segment sessiyada saqlanmaydi (u sir), shuning uchun
+  // har safar serverdan so'raladi.
+  useEffect(() => {
+    if (!isAuthenticated || subdomain || session?.role !== ROLES.SuperAdmin) return;
+    let cancelled = false;
+    consoleApi
+      .segment()
+      .then((segment) => {
+        if (!cancelled) navigate(`/_sa/${segment}/dashboard`, { replace: true });
+      })
+      // Segment sozlanmagan — formada qolamiz, xatoni login urinishi ko'rsatadi.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, subdomain, session?.role, navigate]);
+
   // Already signed in for this tenant → skip the form.
   if (isAuthenticated && session?.subdomain && session.subdomain === subdomain) {
     return <Navigate to={home} replace />;
@@ -52,7 +80,31 @@ export function LoginPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await login.mutateAsync({ ...values, subdomain: subdomain ?? null });
+      const data = await login.mutateAsync({ ...values, subdomain: subdomain ?? null });
+
+      // SuperAdmin hech qaysi do'konga tegishli emas — uning uyi konsol.
+      // Yashirin segmentni QO'LDA yozish shart emas: u autentifikatsiyadan
+      // keyin server tomonidan beriladi (segment pre-auth qatlami bo'lib
+      // qolaveradi — skaner uni bilmaydi).
+      if (data.role === ROLES.SuperAdmin) {
+        try {
+          const segment = await consoleApi.segment();
+          navigate(`/_sa/${segment}/dashboard`, { replace: true });
+        } catch {
+          // Segment sozlanmagan bo'lsa konsol ochilmaydi — buni jimgina
+          // yutib yubormaymiz, aks holda operator «login ishlamadi» deb
+          // o'ylardi.
+          setError('password', { message: t('auth.errors.consoleNotConfigured') });
+        }
+        return;
+      }
+
+      // Slug'siz (ildizdagi) login — do'kon xodimi ham shu yerdan kirishi
+      // mumkin: uni o'z do'koniga yuboramiz, aks holda muvaffaqiyatli login
+      // hech qayerga olib bormay, forma joyida turib qolardi.
+      if (!subdomain && data.subdomain) {
+        navigate(`/${data.subdomain}`, { replace: true });
+      }
     } catch (err) {
       const apiErr = err as ApiError;
       const message =
@@ -119,16 +171,34 @@ export function LoginPage() {
           <div className="mb-3 text-center text-[12px] font-semibold tracking-[1.2px] text-muted-2">
             {t('auth.contactAdmin')}
           </div>
+          {/* Kontaktlar platforma sozlamalaridan (SuperAdmin → Настройки).
+              Ilgari ular shu yerga yozib qo'yilgan edi — operator sozlamani
+              o'zgartirsa, kirish sahifasi eskisini ko'rsatib turaverardi. */}
           <div className="flex flex-col items-center gap-[9px] text-[13.5px] text-label">
-            <a href="tel:+998901234567" className="flex items-center gap-2.5 hover:text-primary">
-              <Phone size={15} className="text-primary" /> +998 90 123 45 67
-            </a>
-            <a href="mailto:admin@buildix.uz" className="flex items-center gap-2.5 hover:text-primary">
-              <Mail size={15} className="text-primary" /> admin@buildix.uz
-            </a>
-            <a href="https://t.me/buildix_admin" className="flex items-center gap-2.5 hover:text-primary">
-              <Send size={15} className="text-primary" /> @buildix_admin
-            </a>
+            {supportQuery.data?.phone && (
+              <a
+                href={`tel:${supportQuery.data.phone.replace(/\s/g, '')}`}
+                className="flex items-center gap-2.5 hover:text-primary"
+              >
+                <Phone size={15} className="text-primary" /> {supportQuery.data.phone}
+              </a>
+            )}
+            {supportQuery.data?.email && (
+              <a
+                href={`mailto:${supportQuery.data.email}`}
+                className="flex items-center gap-2.5 hover:text-primary"
+              >
+                <Mail size={15} className="text-primary" /> {supportQuery.data.email}
+              </a>
+            )}
+            {supportQuery.data?.telegram && (
+              <a
+                href={`https://t.me/${supportQuery.data.telegram.replace(/^@/, '')}`}
+                className="flex items-center gap-2.5 hover:text-primary"
+              >
+                <Send size={15} className="text-primary" /> {supportQuery.data.telegram}
+              </a>
+            )}
           </div>
         </div>
       </div>

@@ -105,7 +105,7 @@ public class ProductService : IProductService
 
         product.Name = request.Name;
         product.IsTemporary = request.IsTemporary;
-        // Quantity odatда zakup/sotuv orqali harakatlanadi — istisno: Owner
+        // Quantity odatda zakup/sotuv orqali harakatlanadi — istisno: Owner
         // (canEditStock) uni qo'lda tuzatishi mumkin. CostPrice ham endi forma
         // orqali (canEditCost = Owner/Admin) o'zgartirilishi mumkin; aks holda
         // zakup orqali yangilanadi.
@@ -157,7 +157,7 @@ public class ProductService : IProductService
     /// <summary>
     /// Товары/Склад ekranidagi inline tahrir: sotuv narxi / min. qoldiq /
     /// ko'rinish (Скрыть). Faqat berilgan maydon(lar) o'zgaradi. Narx o'zgarishi
-    /// marjaга ta'sir qiladi, ko'rinish esa kassa katalogini o'zgartiradi —
+    /// marjaga ta'sir qiladi, ko'rinish esa kassa katalogini o'zgartiradi —
     /// ikkalasi ham auditlanadi (eski→yangi). Qoldiq/tannarxga TEGMAYDI.
     /// </summary>
     public async Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -206,7 +206,7 @@ public class ProductService : IProductService
         _unitOfWork.Products.Update(product);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Narx marjaга, ko'rinish kassa katalogiga ta'sir qiladi — inline bo'lsa
+        // Narx marjaga, ko'rinish kassa katalogiga ta'sir qiladi — inline bo'lsa
         // ham iz qoldiramiz (kim, nima, eski→yangi).
         await _auditLog.LogActionAsync(
             AuditEntityTypes.Product, product.Id, AuditActions.Update, actorUserId,

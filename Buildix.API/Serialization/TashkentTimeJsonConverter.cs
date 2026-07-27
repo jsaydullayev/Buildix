@@ -20,14 +20,29 @@ public class TashkentTimeJsonConverter : JsonConverter<DateTime>
 
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        // When reading from JSON, assume it's already in Tashkent time or convert appropriately
         if (reader.TryGetDateTime(out var dateTime))
-        {
-            return dateTime; // Keep as-is, let application layer handle conversion
-        }
+            return Normalize(dateTime);
 
         return default;
     }
+
+    /// <summary>
+    /// Offset bilan kelgan qiymatni UTC ga keltiradi.
+    ///
+    /// <para><c>Utf8JsonReader.TryGetDateTime</c> «2026-08-25T10:00:00+00:00»
+    /// ni <c>Kind=Local</c> qilib qaytaradi — ya'ni natija SERVER vaqt
+    /// mintaqasiga bog'liq bo'lib qoladi, va Npgsql bunday qiymatni
+    /// <c>timestamp with time zone</c> ustuniga yozishdan bosh tortadi (500).
+    /// Bir xil lahzani UTC ko'rinishida qaytaramiz: qiymat o'zgarmaydi, faqat
+    /// Kind to'g'rilanadi.</para>
+    ///
+    /// <para><c>Unspecified</c> ATAYLAB tegilmaydi: mijoz «2026-08-01» kabi
+    /// faqat KUN yuborganda uni vaqt mintaqasiga ko'ra surish sanani bir kunga
+    /// siljitib yuborardi. Bunday qiymatlarni servislar o'zi UTC deb
+    /// belgilaydi (DebtService, SaleService).</para>
+    /// </summary>
+    internal static DateTime Normalize(DateTime value) =>
+        value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : value;
 
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
     {
@@ -67,9 +82,7 @@ public class TashkentTimeJsonConverterNullable : JsonConverter<DateTime?>
             return null;
 
         if (reader.TryGetDateTime(out var dateTime))
-        {
-            return dateTime;
-        }
+            return TashkentTimeJsonConverter.Normalize(dateTime);
 
         return null;
     }
