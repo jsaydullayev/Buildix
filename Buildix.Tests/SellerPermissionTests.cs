@@ -6,7 +6,7 @@ namespace Buildix.Tests;
 /// <summary>
 /// S0 — seller ruxsat modeli. Yangi risk-amallar (возврат, приёмка) alohida
 /// kalitlar bilan gate qilinadi: seller default'ida YO'Q (admin yoqadi), Admin'da
-/// BOR, katalogда ro'yxatga olingan. «Off → panelda ko'rinmaydi» tamoyilining
+/// BOR, katalogda ro'yxatga olingan. «Off → panelda ko'rinmaydi» tamoyilining
 /// backend tomoni: kalit yo'q → endpoint 403, UI banni yashiradi.
 /// </summary>
 public class SellerPermissionTests
@@ -24,7 +24,7 @@ public class SellerPermissionTests
     public void Seller_default_does_NOT_include_return_or_accept()
     {
         var seller = PermissionDefaults.ForRole(Role.Seller);
-        // Kassir default holatда возврат/приёмка qila olmaydi — Owner alohida yoqadi.
+        // Kassir default holatda возврат/приёмка qila olmaydi — Owner alohida yoqadi.
         Assert.DoesNotContain(PermissionKeys.SalesReturn, seller);
         Assert.DoesNotContain(PermissionKeys.ZakupAccept, seller);
         // «Все продажи» ham default emas — kassir faqat o'z sotuvlarini ko'radi

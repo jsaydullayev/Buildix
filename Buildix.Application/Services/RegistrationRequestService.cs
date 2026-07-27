@@ -68,6 +68,19 @@ public partial class RegistrationRequestService : IRegistrationRequestService
     /// case-sensitive — without this the login query would non-deterministically
     /// pick a row when duplicates exist).
     /// </summary>
+    /// <summary>
+    /// Obuna muddatini <c>timestamptz</c> uchun UTC ga keltiradi. Npgsql
+    /// <c>Local</c>/<c>Unspecified</c> qiymatni rad etadi (500), mijoz esa
+    /// sanani turli formatda yuborishi mumkin — normalizatsiya bitta joyda.
+    /// </summary>
+    private static DateTime? NormalizeExpiry(DateTime? value) => value?.Kind switch
+    {
+        null => null,
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value!.Value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value!.Value, DateTimeKind.Utc),
+    };
+
     private static string NormalizeUsername(string? username)
     {
         var u = (username ?? string.Empty).Trim().ToLowerInvariant();
@@ -92,11 +105,37 @@ public partial class RegistrationRequestService : IRegistrationRequestService
         return s;
     }
 
-    private static string GenerateSubdomain(string username)
+    /// <summary>
+    /// Do'kon nomidan bo'sh sub-path tanlaydi: <c>tosh-kon-stroy-market</c>,
+    /// band bo'lsa <c>...-2</c>, <c>...-3</c>. Login emas, NOM manba —
+    /// sabablari <see cref="SubdomainSlug"/> da.
+    ///
+    /// TRANZAKSIYA ICHIDA chaqiriladi: tanlash va yozish orasida boshqa
+    /// SuperAdmin o'sha slug'ni olib qo'ymasin. Baribir poyga bo'lsa,
+    /// <c>Markets.Subdomain</c> unikal indeksi oxirgi to'siq bo'lib qoladi.
+    /// </summary>
+    private async Task<string> GenerateSubdomainAsync(string? marketName, string? username, CancellationToken ct)
     {
-        var cleaned = new string(username.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
-        if (string.IsNullOrEmpty(cleaned)) cleaned = "market";
-        return $"{cleaned}{Guid.NewGuid().ToString("N")[..6]}";
+        var seed = SubdomainSlug.From(marketName, username);
+
+        // Bir so'rovda shu asosdagi barcha bandlarni olamiz — nomzodni
+        // birma-bir DB'dan so'ramaslik uchun.
+        var taken = await _context.Markets
+            .Where(m => m.Subdomain != null && m.Subdomain.StartsWith(seed))
+            .Select(m => m.Subdomain!)
+            .ToListAsync(ct);
+        var used = new HashSet<string>(taken, StringComparer.Ordinal);
+
+        if (!used.Contains(seed)) return seed;
+        for (var n = 2; n <= 200; n++)
+        {
+            var candidate = $"{seed}-{n}";
+            if (!used.Contains(candidate)) return candidate;
+        }
+
+        // 200 ta bir xil nomli do'kon — amalda bo'lmaydi, lekin jimgina
+        // yiqilmaslik uchun tasodifiy quyruq.
+        return $"{seed}-{Guid.NewGuid().ToString("N")[..6]}";
     }
 
     /// <summary>

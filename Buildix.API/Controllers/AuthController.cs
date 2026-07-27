@@ -13,11 +13,13 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
+    private readonly IConfiguration _config;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(IAuthService authService, ILogger<AuthController> logger, IConfiguration config)
     {
         _authService = authService;
         _logger = logger;
+        _config = config;
     }
 
     [HttpPost]
@@ -132,6 +134,33 @@ public class AuthController : ControllerBase
         if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
         var ok = await _authService.RevokeSessionAsync(userId, id, ct);
         return ok ? Ok(new { revoked = 1 }) : NotFound();
+    }
+
+    /// <summary>
+    /// SuperAdmin konsolining yashirin segmentini qaytaradi — FAQAT
+    /// autentifikatsiyadan o'tgan SuperAdmin uchun.
+    ///
+    /// <para><b>Nega bu segmentni oshkor qilmaydi.</b> Segment
+    /// autentifikatsiyagacha bo'lgan qatlam: noto'g'ri URL bilan kelgan
+    /// skaner konsol borligini ham bilmaydi (404). Bu endpoint esa allaqachon
+    /// JWT bilan tasdiqlangan va roli tekshirilgan chaqiruvchiga javob beradi —
+    /// ya'ni himoya qatlami joyida qoladi, lekin operator uzun sirni qo'lda
+    /// yozib yurishi shart emas: u oddiy login/parol bilan kiradi va konsolga
+    /// o'zi yo'naltiriladi.</para>
+    /// </summary>
+    [HttpGet]
+    [Authorize(Roles = "SuperAdmin")]
+    public ActionResult<object> ConsoleSegment()
+    {
+        var segment = _config["SuperAdmin:ConsoleSegment"];
+        if (string.IsNullOrWhiteSpace(segment))
+        {
+            // Sozlanmagan bo'lsa konsol umuman ochilmaydi (middleware tasodifiy
+            // qiymat qo'yadi) — buni jimgina 200 bilan yashirmaymiz.
+            _logger.LogError("SuperAdmin:ConsoleSegment is not configured — the console is unreachable.");
+            return NotFound(new { message = "Konsol sozlanmagan. SuperAdmin__ConsoleSegment ni o'rnating." });
+        }
+        return Ok(new { segment });
     }
 
     /// <summary>Account "Последние входы" — the caller's recent sign-in attempts.</summary>

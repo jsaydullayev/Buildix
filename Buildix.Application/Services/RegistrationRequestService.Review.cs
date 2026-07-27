@@ -28,18 +28,93 @@ public partial class RegistrationRequestService
 
         var items = await query.ToListAsync(cancellationToken);
 
-        return items.Select(r => new RegistrationRequestDto(
-            r.Id,
-            r.FullName,
-            r.Phone,
-            r.Status.ToString(),
-            r.CreatedAt,
-            r.ProcessedAt,
-            r.ProcessedByUser?.FullName,
-            r.CreatedUserId,
-            r.CreatedMarketId,
-            r.RejectReason
-        ));
+        return items.Select(ToDto);
+    }
+
+    private static RegistrationRequestDto ToDto(RegistrationRequest r) => new(
+        r.Id,
+        r.FullName,
+        r.Phone,
+        r.Status.ToString(),
+        r.CreatedAt,
+        r.ProcessedAt,
+        r.ProcessedByUser?.FullName,
+        r.CreatedUserId,
+        r.CreatedMarketId,
+        r.RejectReason,
+        r.Note,
+        r.Status == RegistrationRequestStatus.Approved && r.CreatedMarketId != null);
+
+    /// <summary>
+    /// «Принять» va «Вернуть» — arizani do'kon yaratmasdan holatdan holatga
+    /// o'tkazish. Ikkalasi bitta metod: farqi faqat maqsad holatida.
+    ///
+    /// <para>Ruxsat etilgan o'tishlar ATAYLAB tor:
+    /// <c>Pending → Accepted</c> (qo'ng'iroq qilindi),
+    /// <c>Accepted → Pending</c> (xato bosildi, qaytarish),
+    /// <c>Rejected → Pending</c> (rad etish qaytariladi).
+    /// <c>Approved</c> dan chiqish YO'Q — do'kon allaqachon yaratilgan, uni
+    /// «yangi ariza» holatiga qaytarish yaratilgan market va owner bilan
+    /// aloqani uzib qo'yardi.</para>
+    /// </summary>
+    public async Task<bool> SetStatusAsync(
+        Guid requestId,
+        RegistrationRequestStatus target,
+        Guid superAdminUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (target is not (RegistrationRequestStatus.Accepted or RegistrationRequestStatus.Pending))
+            throw new InvalidOperationException("Bu holatga qo'lda o'tkazib bo'lmaydi.");
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var request = await LoadRequestForUpdateAsync(requestId, cancellationToken);
+                if (request == null) return false;
+                if (request.Status == target) return true; // idempotent
+
+                if (request.Status == RegistrationRequestStatus.Approved)
+                    throw new InvalidOperationException(
+                        "Do'kon allaqachon yaratilgan — arizani qaytarib bo'lmaydi.");
+
+                request.Status = target;
+                if (target == RegistrationRequestStatus.Pending)
+                {
+                    // Yangi arizaga qaytdi — eski ko'rib chiqish izlari qolmasin,
+                    // aks holda ro'yxatda «yangi, lekin rad etish sababi bor»
+                    // degan qarama-qarshi qator paydo bo'lardi.
+                    request.ProcessedAt = null;
+                    request.ProcessedByUserId = null;
+                    request.RejectReason = null;
+                }
+                else
+                {
+                    request.ProcessedAt = DateTime.UtcNow;
+                    request.ProcessedByUserId = superAdminUserId;
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+
+                await _auditLog.LogActionAsync(
+                    entityType: "RegistrationRequest",
+                    entityId: requestId,
+                    action: target.ToString(),
+                    userId: superAdminUserId,
+                    payload: new { Status = target.ToString() },
+                    cancellationToken);
+
+                return true;
+            }
+            catch (Exception)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
 
     public async Task<ApproveRegistrationResultDto> ApproveAsync(Guid requestId, ApproveRegistrationRequestDto dto, Guid superAdminUserId, CancellationToken cancellationToken = default)
@@ -53,8 +128,10 @@ public partial class RegistrationRequestService
 
         Language language = LanguageCodes.FromCode(dto.Language) ?? Language.Uzbek;
 
-        var subdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
-            ? GenerateSubdomain(username)
+        // Operator sub-path'ni qo'lda yozgan bo'lsa — o'shani, aks holda pastda,
+        // tranzaksiya ichida, DO'KON NOMIDAN yasaladi.
+        var explicitSubdomain = string.IsNullOrWhiteSpace(dto.Subdomain)
+            ? null
             : ValidateAndNormalizeSubdomain(dto.Subdomain);
 
         var strategy = _context.Database.CreateExecutionStrategy();
@@ -72,7 +149,10 @@ public partial class RegistrationRequestService
                 var request = await LoadRequestForUpdateAsync(requestId, cancellationToken)
                     ?? throw new KeyNotFoundException("So'rov topilmadi.");
 
-                if (request.Status != RegistrationRequestStatus.Pending)
+                // «Создать магазин» ikkala ochiq holatdan ham ishlaydi: operator
+                // avval «Принять» bosgan bo'lishi (Accepted) yoki to'g'ridan-to'g'ri
+                // do'kon yaratayotgan bo'lishi mumkin (Pending).
+                if (request.Status is not (RegistrationRequestStatus.Pending or RegistrationRequestStatus.Accepted))
                     throw new InvalidOperationException($"So'rov allaqachon ko'rib chiqilgan ({request.Status}).");
 
                 // Belt-and-braces unique checks. The case-insensitive lookups
@@ -83,6 +163,9 @@ public partial class RegistrationRequestService
                     throw new InvalidOperationException($"'{username}' allaqachon ishlatilgan.");
                 if (await MarketNameTakenAsync(marketName, excludeMarketId: null, cancellationToken))
                     throw new InvalidOperationException($"'{marketName}' nomli do'kon allaqachon mavjud.");
+
+                var subdomain = explicitSubdomain
+                    ?? await GenerateSubdomainAsync(marketName, username, cancellationToken);
                 if (await _context.Markets.AnyAsync(m => m.Subdomain == subdomain, cancellationToken))
                     throw new InvalidOperationException($"'{subdomain}' subdomeni allaqachon band.");
 
@@ -106,8 +189,9 @@ public partial class RegistrationRequestService
                 {
                     Name = marketName,
                     Subdomain = subdomain,
+                    City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim(),
                     IsActive = true,
-                    ExpiresAt = dto.ExpiresAt,
+                    ExpiresAt = NormalizeExpiry(dto.ExpiresAt),
                     OwnerId = userId
                 };
                 await _context.Markets.AddAsync(market, cancellationToken);
@@ -149,7 +233,8 @@ public partial class RegistrationRequestService
                     user.Id,
                     user.Username,
                     market.Id,
-                    market.Name
+                    market.Name,
+                    market.Subdomain
                 );
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
@@ -187,7 +272,9 @@ public partial class RegistrationRequestService
                 if (request == null) return false;
 
                 if (request.Status == RegistrationRequestStatus.Rejected) return true; // idempotent
-                if (request.Status != RegistrationRequestStatus.Pending)
+                // Qabul qilingandan keyin ham rad etish mumkin: qo'ng'iroqdan
+                // keyin mijoz fikridan qaytishi odatiy hol.
+                if (request.Status is not (RegistrationRequestStatus.Pending or RegistrationRequestStatus.Accepted))
                     throw new InvalidOperationException($"So'rov allaqachon {request.Status} holatida.");
 
                 request.Status = RegistrationRequestStatus.Rejected;

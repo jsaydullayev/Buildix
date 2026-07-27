@@ -9,10 +9,15 @@ namespace Buildix.Application.DTOs;
 /// </summary>
 public record SubmitRegistrationRequestDto(
     [property: JsonPropertyName("fullName")] string FullName,
-    [property: JsonPropertyName("phone")] string Phone
+    [property: JsonPropertyName("phone")] string Phone,
+    // Ixtiyoriy izoh — nima sotadi, nechta nuqta, qaysi shahar. Operator
+    // qo'ng'iroqdan oldin ko'radi.
+    [property: JsonPropertyName("note")]
+    [param: StringLength(300)]
+    string? Note = null
 )
 {
-    public SubmitRegistrationRequestDto() : this(string.Empty, string.Empty) { }
+    public SubmitRegistrationRequestDto() : this(string.Empty, string.Empty, null) { }
 }
 
 /// <summary>
@@ -29,7 +34,12 @@ public record RegistrationRequestDto(
     [property: JsonPropertyName("processedByUserName")] string? ProcessedByUserName,
     [property: JsonPropertyName("createdUserId")] Guid? CreatedUserId,
     [property: JsonPropertyName("createdMarketId")] int? CreatedMarketId,
-    [property: JsonPropertyName("rejectReason")] string? RejectReason
+    [property: JsonPropertyName("rejectReason")] string? RejectReason,
+    [property: JsonPropertyName("note")] string? Note = null,
+    // «Подключена» — do'kon haqiqatan yaratilganmi. Alohida status emas,
+    // Approved + CreatedMarketId dan hisoblanadi (statuslar DB kontrakti,
+    // bir ma'noni ikki joyda saqlamaymiz).
+    [property: JsonPropertyName("isConnected")] bool IsConnected = false
 );
 
 /// <summary>
@@ -45,7 +55,12 @@ public record ApproveRegistrationRequestDto(
     // Subscription end date. When set, the market's sub-path login opens until
     // this instant, then auto-blocks (402 SUBSCRIPTION_EXPIRED). Null = no
     // expiry set yet (admin extends it later via UpdateOwner).
-    [property: JsonPropertyName("expiresAt")] DateTime? ExpiresAt = null
+    [property: JsonPropertyName("expiresAt")] DateTime? ExpiresAt = null,
+    // Shahar — konsol ro'yxatida nom ostida ko'rinadi va qidiruvga kiradi.
+    // Ixtiyoriy: arizada ko'rsatilmagan bo'lishi mumkin.
+    [property: JsonPropertyName("city")]
+    [param: StringLength(100)]
+    string? City = null
 )
 {
     public ApproveRegistrationRequestDto() : this(string.Empty, string.Empty, string.Empty) { }
@@ -61,7 +76,12 @@ public record ApproveRegistrationResultDto(
     [property: JsonPropertyName("userId")] Guid UserId,
     [property: JsonPropertyName("username")] string Username,
     [property: JsonPropertyName("marketId")] int MarketId,
-    [property: JsonPropertyName("marketName")] string MarketName
+    [property: JsonPropertyName("marketName")] string MarketName,
+    // Do'kon manzili (sub-path). Operator uni yaratilgandan keyin egasiga
+    // aytadi — egasi va butun xodimi AYNAN shu manzil orqali kiradi
+    // (/{subdomain}/login). Bu yerda qaytarilmasa, operator manzilni bilish
+    // uchun do'konlar ro'yxatini qidirib yurishga majbur bo'lardi.
+    [property: JsonPropertyName("subdomain")] string? Subdomain = null
 );
 
 public record RejectRegistrationRequestDto(

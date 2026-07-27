@@ -204,6 +204,7 @@ public class SalesController : ApiControllerBase
 
     [HttpPost]
     [RequirePermission(PermissionKeys.SalesCreate)]
+    [RequiresActiveSubscription]
     public async Task<ActionResult<SaleDto>> CreateSale([FromBody] CreateSaleDto request, CancellationToken ct = default)
     {
         var sellerIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -277,6 +278,7 @@ public class SalesController : ApiControllerBase
     /// </summary>
     [HttpPost("{saleId}/checkout")]
     [RequirePermission(PermissionKeys.SalesCreate)]
+    [RequiresActiveSubscription]
     [Idempotent("sale-checkout")]
     public async Task<ActionResult<PaymentDto>> Checkout(Guid saleId, [FromBody] CheckoutSaleDto request, CancellationToken ct = default)
     {
@@ -581,6 +583,35 @@ public class SalesController : ApiControllerBase
             return NotFound();
         _logger.LogError("Error applying customer credit: {Message}", result.Error);
         return BadRequest(new { message = result.Error });
+    }
+
+    /// <summary>
+    /// Kassa cheki — TERMAL printer uchun (XPrinter, 58/80 mm rulon).
+    ///
+    /// <para>A4 «faktura»dan alohida endpoint: rulon eni qat'iy, balandligi
+    /// tarkibga qarab o'sadi. Drayver hech narsani qayta masshtablamaydi,
+    /// ya'ni chek qog'ozga aynan sig'adi.</para>
+    /// </summary>
+    [HttpGet("{id}/receipt")]
+    [RequirePermission(PermissionKeys.SalesInvoice)]
+    public async Task<IActionResult> GetReceipt(Guid id, [FromQuery] string lang = "uz", [FromQuery] int width = 80, CancellationToken ct = default)
+    {
+        try
+        {
+            var pdfBytes = await _reportPdfExportService.GenerateThermalReceiptPdfAsync(id, lang, width, ct);
+            var fileName = $"Chek_{id}_{_clock.NowLocal:yyyyMMdd_HHmmss}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Sale not found for receipt: {SaleId}", id);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating receipt for sale {SaleId}", id);
+            return StatusCode(500, "Chek yaratishda xatolik yuz berdi");
+        }
     }
 
     /// <summary>

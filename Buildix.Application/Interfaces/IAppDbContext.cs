@@ -47,6 +47,10 @@ public interface IAppDbContext
     DbSet<MarketSettings> MarketSettings { get; }
     DbSet<LoginHistory> LoginHistories { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
+    DbSet<TelegramLinkCode> TelegramLinkCodes { get; }
+    DbSet<PlatformPlan> PlatformPlans { get; }
+    DbSet<PlatformSettings> PlatformSettings { get; }
+    DbSet<SubscriptionPayment> SubscriptionPayments { get; }
 
     DatabaseFacade Database { get; }
 

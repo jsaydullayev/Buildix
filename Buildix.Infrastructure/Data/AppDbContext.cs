@@ -61,6 +61,10 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<MarketSettings> MarketSettings => Set<MarketSettings>();
     public DbSet<LoginHistory> LoginHistories => Set<LoginHistory>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<TelegramLinkCode> TelegramLinkCodes => Set<TelegramLinkCode>();
+    public DbSet<PlatformPlan> PlatformPlans => Set<PlatformPlan>();
+    public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
+    public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +105,7 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Subdomain).HasMaxLength(100);
             b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.City).HasMaxLength(100);
             b.HasIndex(x => x.Subdomain).IsUnique();
             b.HasIndex(x => x.Name).IsUnique();  // Market nomi unikal bo'lishi kerak
 
@@ -163,6 +168,79 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasIndex(x => new { x.MarketId, x.Scope, x.Key }).IsUnique();
             // Retention pruning helper.
             b.HasIndex(x => x.CreatedAt);
+        });
+
+        // Platforma sozlamalari — bitta qator (Id = 1), tenant filtri yo'q.
+        // Boshlang'ich qiymatlar dizayndagi «Правила блокировки» dan.
+        modelBuilder.Entity<PlatformSettings>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.SupportPhone).HasMaxLength(30);
+            b.Property(x => x.SupportTelegram).HasMaxLength(100);
+            b.Property(x => x.SupportEmail).HasMaxLength(150);
+            b.HasData(new PlatformSettings
+            {
+                Id = 1,
+                GraceDays = 5,
+                WarnOnOverdue = true,
+                RestrictAfterGrace = true,
+                FullBlockAfterDays = 30,
+                SoonThresholdDays = 7,
+                NotifyExpiring = true,
+                NotifyBlocked = true,
+                ExpiryReminderDays = 3,
+                SupportPhone = "+998 71 200 70 07",
+                SupportTelegram = "@buildix_support",
+                UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc),
+            });
+        });
+
+        // Tarif narxlari — platforma bo'yicha uch qator, tenant filtri yo'q.
+        // Boshlang'ich qiymatlar dizayndan (docs/Web design superadmin →
+        // «Настройки → Тарифы»); operator ularni keyin o'zgartiradi.
+        modelBuilder.Entity<PlatformPlan>(b =>
+        {
+            b.HasKey(x => x.Code);
+            b.Property(x => x.Code).ValueGeneratedNever();
+            b.Property(x => x.PriceUzs).HasPrecision(18, 2);
+            b.HasData(
+                new PlatformPlan { Code = PlanCode.Start, PriceUzs = 600_000m, MaxUsers = 3, MaxPoints = 1, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
+                new PlatformPlan { Code = PlanCode.Standard, PriceUzs = 1_200_000m, MaxUsers = 8, MaxPoints = 1, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
+                // MaxUsers = 0 → limitsiz.
+                new PlatformPlan { Code = PlanCode.Pro, PriceUzs = 2_400_000m, MaxUsers = 0, MaxPoints = 3, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) });
+        });
+
+        // Obuna to'lovlari. Tenant filtri YO'Q — bu platforma buxgalteriyasi,
+        // do'kon xodimi uni hech qachon o'qimaydi (faqat konsol).
+        modelBuilder.Entity<SubscriptionPayment>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.AmountUzs).HasPrecision(18, 2);
+            b.Property(x => x.Note).HasMaxLength(300);
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+            // Do'kon kartochkasidagi «История оплат» va umumiy «Последние платежи».
+            b.HasIndex(x => new { x.MarketId, x.PaidAtUtc });
+            b.HasIndex(x => x.PaidAtUtc);
+        });
+
+        // Telegram bog'lanish kodlari. Tenant filtri YO'Q — kod berilganda chat
+        // qaysi do'konga tegishli ekani hali noma'lum, qator esa hech qachon
+        // market bo'yicha o'qilmaydi (faqat kod matni bo'yicha).
+        modelBuilder.Entity<TelegramLinkCode>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(6).IsRequired();
+            // Kod ISHLATILMAGANLAR orasida unikal bo'lishi SHART: ikkita amaldagi
+            // qator bir xil kodga ega bo'lsa, qidiruv «qaysi chat?» degan savolga
+            // tavakkal javob berib, hisobni BEGONA chatga bog'lab qo'yardi.
+            // Qisman indeks (ishlatilganlar tarix uchun qoladi va kodni band
+            // qilmaydi); muddati o'tgan-ishlatilmaganlarni servis o'zi tozalaydi,
+            // chunki `now()` immutable emas va indeks predikatiga kira olmaydi.
+            b.HasIndex(x => x.Code).IsUnique().HasFilter("\"UsedAtUtc\" IS NULL");
+            b.HasIndex(x => x.ChatId);
+            // Tozalash o'tishi shu bo'yicha yuradi.
+            b.HasIndex(x => x.ExpiresAtUtc);
         });
 
         // Configure Customer
@@ -779,6 +857,7 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.FullName).IsRequired().HasMaxLength(200);
             b.Property(x => x.Phone).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Note).HasMaxLength(300);
             b.Property(x => x.Status).IsRequired();
             b.Property(x => x.CreatedAt).IsRequired();
             b.Property(x => x.RejectReason).HasMaxLength(500);

@@ -20,10 +20,27 @@ namespace Buildix.API.Controllers;
 public class PublicMarketController : ControllerBase
 {
     private readonly IMarketService _marketService;
+    private readonly IPlatformSettingsProvider _platformSettings;
 
-    public PublicMarketController(IMarketService marketService)
+    public PublicMarketController(IMarketService marketService, IPlatformSettingsProvider platformSettings)
     {
         _marketService = marketService;
+        _platformSettings = platformSettings;
+    }
+
+    /// <summary>
+    /// GET /api/public/market/support — kirish sahifasidagi «Свяжитесь с
+    /// администратором» bloki. Sozlamalarning FAQAT uch kontakt maydoni
+    /// chiqadi va keshdan o'qiladi (DB'ga tegmaydi), shuning uchun anonim
+    /// so'rov platformaga yuk bermaydi.
+    /// </summary>
+    [HttpGet("~/api/public/support")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public-market")]
+    public ActionResult<PublicSupportContactsDto> Support()
+    {
+        var s = _platformSettings.Current;
+        return Ok(new PublicSupportContactsDto(s.SupportPhone, s.SupportTelegram, s.SupportEmail));
     }
 
     /// <summary>

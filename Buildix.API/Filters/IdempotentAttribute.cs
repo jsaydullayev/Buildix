@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Buildix.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Options;
 
 namespace Buildix.API.Filters;
 
@@ -19,9 +20,24 @@ namespace Buildix.API.Filters;
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class IdempotentAttribute : TypeFilterAttribute
 {
-    public IdempotentAttribute(string scope) : base(typeof(IdempotencyFilter))
+    /// <param name="scope">Operation scope, e.g. "sale-payment".</param>
+    /// <param name="marketRouteKey">
+    /// Route parameter holding the target market id. Needed by the SuperAdmin
+    /// console: its caller has NO MarketId claim, so the usual
+    /// <c>ICurrentMarketService</c> lookup throws and the guard would silently
+    /// skip de-duplication — exactly on the endpoints that move money. Naming
+    /// the route value keeps the key scoped to the market being paid for.
+    /// </param>
+    public IdempotentAttribute(string scope, string? marketRouteKey = null)
+        : base(typeof(IdempotencyFilter))
     {
-        Arguments = new object[] { scope };
+        // MAJBURIY: bo'sh satr, `null` EMAS. TypeFilterAttribute filtr nusxasini
+        // yaratishda `Arguments.Select(a => a.GetType())` qiladi — massivdagi
+        // `null` o'sha yerda NullReferenceException beradi va endpoint HAR
+        // chaqiruvda 500 qaytaradi (kalit yuborilgan-yuborilmaganidan qat'i
+        // nazar, chunki filtr hatto qurilmaydi). Filtr bo'sh satrni "yo'q" deb
+        // o'qiydi.
+        Arguments = new object[] { scope, marketRouteKey ?? string.Empty };
     }
 }
 
@@ -31,27 +47,40 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
     public const string HeaderName = "Idempotency-Key";
     private const int MaxKeyLength = 200;
 
-    // Match the API's global JSON shape (camelCase, string enums) so a replayed
-    // body is byte-identical to what the action originally returned.
-    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    // Replay must be byte-identical to what MVC originally wrote, so the body
+    // is serialised with the APPLICATION's configured options — not a private
+    // copy. A private copy silently drifted: it lacked TashkentTimeJsonConverter,
+    // so the first response carried local time and its replay carried raw UTC.
+    // Same instant, different text — exactly what "idempotent" promises not to do.
+    private readonly JsonSerializerOptions _jsonOpts;
+
+    // Payload hashing is a DIFFERENT job: it only has to be stable for the
+    // lifetime of a key, and it must not shift when the app's response
+    // formatting changes. Hence its own fixed options.
+    private static readonly JsonSerializerOptions HashOpts = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };
 
     private readonly string _scope;
+    private readonly string? _marketRouteKey;
     private readonly IIdempotencyService _idempotency;
     private readonly ICurrentMarketService _market;
     private readonly ILogger<IdempotencyFilter> _logger;
 
     public IdempotencyFilter(
         string scope,
+        string? marketRouteKey,
         IIdempotencyService idempotency,
         ICurrentMarketService market,
+        IOptions<JsonOptions> jsonOptions,
         ILogger<IdempotencyFilter> logger)
     {
         _scope = scope;
+        _marketRouteKey = string.IsNullOrEmpty(marketRouteKey) ? null : marketRouteKey;
         _idempotency = idempotency;
         _market = market;
+        _jsonOpts = jsonOptions.Value.JsonSerializerOptions;
         _logger = logger;
     }
 
@@ -73,11 +102,22 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
             return;
         }
 
-        // A market scope is required to store the key. If there's none (missing
-        // claim), let the normal auth/tenant pipeline reject the request.
+        // A market scope is required to store the key. The console names its
+        // route parameter (the caller has no MarketId claim); everything else
+        // reads the tenant claim. If neither yields a market, let the normal
+        // auth/tenant pipeline reject the request.
         int marketId;
-        try { marketId = _market.GetCurrentMarketId(); }
-        catch (UnauthorizedAccessException) { await next(); return; }
+        if (_marketRouteKey is not null
+            && context.RouteData.Values.TryGetValue(_marketRouteKey, out var raw)
+            && int.TryParse(raw?.ToString(), out var fromRoute))
+        {
+            marketId = fromRoute;
+        }
+        else
+        {
+            try { marketId = _market.GetCurrentMarketId(); }
+            catch (UnauthorizedAccessException) { await next(); return; }
+        }
 
         var requestHash = ComputeHash(context.ActionArguments);
         var ct = context.HttpContext.RequestAborted;
@@ -112,7 +152,7 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
         await _idempotency.CompleteAsync(_scope, key, marketId, status, body, ct);
     }
 
-    private static (int status, string? body) ExtractResponse(ActionExecutedContext executed)
+    private (int status, string? body) ExtractResponse(ActionExecutedContext executed)
     {
         // An unhandled exception (→ 500) or a non-2xx result releases the claim.
         if (executed.Exception is not null && !executed.ExceptionHandled)
@@ -128,8 +168,8 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
         };
     }
 
-    private static string? Serialize(object? value) =>
-        value is null ? null : JsonSerializer.Serialize(value, JsonOpts);
+    private string? Serialize(object? value) =>
+        value is null ? null : JsonSerializer.Serialize(value, _jsonOpts);
 
     /// <summary>
     /// SHA-256 over the bound action arguments (minus the CancellationToken) so a
@@ -145,7 +185,7 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
                 .Where(kv => kv.Value is not CancellationToken)
                 .OrderBy(kv => kv.Key, StringComparer.Ordinal)
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
-            var json = JsonSerializer.Serialize(relevant, JsonOpts);
+            var json = JsonSerializer.Serialize(relevant, HashOpts);
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
         }
         catch

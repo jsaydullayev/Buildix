@@ -181,7 +181,7 @@ public class ProductsController : ApiControllerBase
     /// <summary>
     /// Товары/Склад ekranidagi inline tahrir — sotuv narxi / min. qoldiq /
     /// ko'rinish (Скрыть). Faqat berilgan maydon(lar)ni o'zgartiradi va
-    /// auditlaydi. Qoldiq/tannarx bu yerdan o'zgармaydi (ular alohida yo'llar).
+    /// auditlaydi. Qoldiq/tannarx bu yerdan o'zgarmaydi (ular alohida yo'llar).
     /// </summary>
     [HttpPatch("{id}")]
     [RequirePermission(PermissionKeys.ProductsEdit)]

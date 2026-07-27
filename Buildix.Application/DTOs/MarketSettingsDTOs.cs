@@ -38,8 +38,8 @@ public record MarketSettingsDto(
     [property: JsonPropertyName("notifyDaySummary")] bool NotifyDaySummary,
     [property: JsonPropertyName("notifyOverdueDebts")] bool NotifyOverdueDebts,
     [property: JsonPropertyName("notifyWithdrawalRequests")] bool NotifyWithdrawalRequests,
-    // Telegram bog'lash bu yerda emas — har bir xodim o'z ID sini Account'да
-    // saqlaydi (User.TelegramChatId).
+    // Telegram bog'lash bu yerda emas — har bir xodim Account'da botning bir
+    // martalik kodi bilan bog'lanadi (User.TelegramChatId, TelegramLinkCode).
     // Безопасность
     [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes,
     [property: JsonPropertyName("auditEnabled")] bool AuditEnabled

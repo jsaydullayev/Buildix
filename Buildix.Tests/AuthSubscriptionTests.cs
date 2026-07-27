@@ -52,7 +52,11 @@ public class AuthSubscriptionTests
             Substitute.For<IRevokedTokenStore>(),
             h.Audit,
             new InMemoryLoginAttemptTracker(),
-            Substitute.For<IHttpContextAccessor>());
+            Substitute.For<IHttpContextAccessor>(),
+            // Obuna bosqichlari platforma sozlamalaridan o'qiladi (S5).
+            // Testlar default qoidada ishlaydi: 5 kun otsrochka, 30 kunda
+            // to'liq blok.
+            FixedPlatformSettings.Default);
     }
 
     private static MarketService NewMarketService(TestHarness h) =>
@@ -209,10 +213,11 @@ public class AuthSubscriptionTests
     }
 
     [Fact]
-    public async Task Login_with_expired_slug_throws_subscription_expired()
+    public async Task Login_with_long_expired_slug_throws_subscription_expired()
     {
         using var h = new TestHarness(marketId: null);
-        var expiry = DateTime.UtcNow.AddSeconds(-1);
+        // To'liq blok kunidan (default 30) keyin — eshik yopiq.
+        var expiry = DateTime.UtcNow.AddDays(-40);
         var market = await AddMarketAsync(h, "alpha", expiresAt: expiry);
         await AddOwnerAsync(h, market.Id, "sardor");
         h.Db.ChangeTracker.Clear();
@@ -221,6 +226,29 @@ public class AuthSubscriptionTests
             NewAuthService(h).LoginAsync(new LoginRequest("sardor", Password, "alpha")));
         Assert.Equal(market.Id, ex.MarketId);
         Assert.Equal(402, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_still_works_inside_the_grace_window_and_in_read_only_mode()
+    {
+        // S5 (B+D): muddat o'tgani KIRISHNI yopmaydi. Foydalanuvchi kirishi
+        // SHART — u to'lov ogohlantirishini ko'rishi va ma'lumotini o'qishi
+        // kerak; cheklov faqat sotuv/zakup yozuviga tegadi.
+        using var h = new TestHarness(marketId: null);
+        var market = await AddMarketAsync(h, "alpha", expiresAt: DateTime.UtcNow.AddDays(-2));
+        await AddOwnerAsync(h, market.Id, "sardor");
+        h.Db.ChangeTracker.Clear();
+
+        var inGrace = await NewAuthService(h).LoginAsync(new LoginRequest("sardor", Password, "alpha"));
+        Assert.NotNull(inGrace);
+
+        // Otsrochkadan keyin ham (faqat ko'rish rejimi) login ochiq.
+        var m = h.Db.Markets.Single(x => x.Id == market.Id);
+        m.ExpiresAt = DateTime.UtcNow.AddDays(-10);
+        h.Db.SaveChanges();
+        h.Db.ChangeTracker.Clear();
+
+        Assert.NotNull(await NewAuthService(h).LoginAsync(new LoginRequest("sardor", Password, "alpha")));
     }
 
     [Fact]
@@ -253,7 +281,9 @@ public class AuthSubscriptionTests
     public async Task Login_without_slug_still_enforces_expiry_on_matched_market()
     {
         using var h = new TestHarness(marketId: null);
-        var market = await AddMarketAsync(h, "alpha", expiresAt: DateTime.UtcNow.AddSeconds(-1));
+        // Slug'siz yo'l ham AYNAN shu qoidani qo'llaydi — eshik to'liq blok
+        // kunidan keyin yopiladi, undan oldin emas.
+        var market = await AddMarketAsync(h, "alpha", expiresAt: DateTime.UtcNow.AddDays(-40));
         await AddOwnerAsync(h, market.Id, "sardor");
         h.Db.ChangeTracker.Clear();
 

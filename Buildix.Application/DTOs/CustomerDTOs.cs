@@ -13,13 +13,13 @@ public record CustomerDto(
     [property: JsonPropertyName("isRegular")] bool IsRegular = false,
     [property: JsonPropertyName("debtLimit")] decimal? DebtLimit = null,
     // Seller Клиенты ekrani — «Покупок за месяц» (joriy oy: soni+summa) va
-    // «Последняя» (oxirgi xarid sanasi). Ro'yxatда sahifadagi mijozlar uchun
+    // «Последняя» (oxirgi xarid sanasi). Ro'yxatda sahifadagi mijozlar uchun
     // hisoblanadi (TotalDebt kabi), null = xarid yo'q.
     [property: JsonPropertyName("monthPurchaseCount")] int MonthPurchaseCount = 0,
     [property: JsonPropertyName("monthPurchaseSum")] decimal MonthPurchaseSum = 0,
     [property: JsonPropertyName("lastPurchaseAt")] DateTime? LastPurchaseAt = null,
     // Admin Клиенты — «Покупок» (butun tarix bo'yicha chek soni) va «Купил всего»
-    // (butun tarix bo'yicha sotuvlar summasi). Ro'yxatда hisoblanadi, xarid
+    // (butun tarix bo'yicha sotuvlar summasi). Ro'yxatda hisoblanadi, xarid
     // yo'q bo'lsa 0.
     [property: JsonPropertyName("purchaseCount")] int PurchaseCount = 0,
     [property: JsonPropertyName("totalPurchased")] decimal TotalPurchased = 0

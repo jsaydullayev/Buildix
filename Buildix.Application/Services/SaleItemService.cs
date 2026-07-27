@@ -443,6 +443,161 @@ public class SaleItemService : ISaleItemService
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Set a line to an EXACT quantity. See <see cref="ISaleItemService.SetSaleItemQuantityAsync"/>.
+    ///
+    /// Deliberately NOT expressed as "Add(delta) or Remove(-delta)" on the client:
+    /// the delta would be computed from a possibly stale client-side quantity, so
+    /// two quick edits could double-apply. Here the difference is taken from the
+    /// row the transaction just read under the product's FOR UPDATE lock, which
+    /// makes the outcome independent of what the client believed.
+    /// </summary>
+    public async Task<Result<SaleItemDto>> SetSaleItemQuantityAsync(Guid saleId, SetSaleItemQuantityDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Quantity < 0)
+            return Result.Failure<SaleItemDto>("Miqdor manfiy bo'lmasin");
+
+        if (!Guid.TryParse(request.SaleItemId, out var saleItemGuid))
+            return Result.Failure<SaleItemDto>("Noto'g'ri saleItemId formati.");
+
+        // Column is decimal(18,3). A 4-decimal input is rounded HERE, before the
+        // stock math runs — not rejected. Rounding first is what keeps the line,
+        // the stock movement and the stored row talking about the same number:
+        // let the un-rounded value drive the math and the DB would silently
+        // truncate it afterwards, leaving stock off by the discarded digits.
+        var newQuantity = Math.Round(request.Quantity, 3, MidpointRounding.AwayFromZero);
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var sales = await _unitOfWork.Sales.FindAsync(
+                s => s.Id == saleId && s.MarketId == marketId,
+                cancellationToken);
+            var sale = sales.FirstOrDefault();
+
+            if (sale is null || sale.Status != SaleStatus.Draft)
+                return Result.Failure<SaleItemDto>("Sale not found or not in Draft status");
+
+            var saleItems = await _unitOfWork.SaleItems.FindAsync(
+                si => si.Id == saleItemGuid && si.SaleId == saleId,
+                cancellationToken);
+            var saleItem = saleItems.FirstOrDefault();
+
+            if (saleItem is null)
+                return Result.Failure<SaleItemDto>("Sale item not found");
+
+            // How far the stock has to move. Ordinary lines recompute this from a
+            // post-lock read below; external lines move no stock at all.
+            var delta = newQuantity - saleItem.Quantity;
+
+            string productName;
+            string unitName = "";
+            int unitValue = 0;
+
+            if (!saleItem.IsExternal)
+            {
+                if (saleItem.ProductId is null)
+                    return Result.Failure<SaleItemDto>("ProductId null (oddiy mahsulot uchun)");
+
+                var productId = saleItem.ProductId.Value;
+                // Same FOR UPDATE lock as AddSaleItemAsync — see the note there on
+                // why xmin has to be listed explicitly.
+                Product? product;
+                if (_context.Database.ProviderName?.Contains("InMemory") == false)
+                {
+                    product = await _context.Products
+                        .FromSqlInterpolated($"SELECT *, xmin FROM \"Products\" WHERE \"Id\" = {productId} FOR UPDATE")
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+                else
+                {
+                    product = await _unitOfWork.Products.GetByIdAsync(productId, cancellationToken);
+                }
+
+                if (product is null)
+                    return Result.Failure<SaleItemDto>("Product not found");
+
+                if (product.MarketId != sale.MarketId)
+                    return Result.Failure<SaleItemDto>("Product does not belong to this market");
+
+                // Re-read the line's quantity AFTER the lock, not before.
+                //
+                // SaleItem carries no concurrency token, so a quantity read
+                // before the lock is just a snapshot: two concurrent set-calls
+                // would each compute their difference from the same stale value
+                // and the second would move the wrong amount of stock (set 5 and
+                // set 10 from 2 ⇒ 11 units taken for a line of 10). Waiting on
+                // the product lock first serialises the pair, and this scalar
+                // projection goes to the database rather than the change
+                // tracker, so it sees whatever the other transaction committed.
+                var currentQuantity = await _context.SaleItems
+                    .Where(si => si.Id == saleItemGuid)
+                    .Select(si => (decimal?)si.Quantity)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                // Gone while we waited on the lock — the other transaction
+                // removed the line, and it took its stock back with it.
+                if (currentQuantity is null)
+                    return Result.Failure<SaleItemDto>("Sale item not found");
+
+                delta = newQuantity - currentQuantity.Value;
+
+                // Only an INCREASE can run out of stock; shrinking a line always
+                // gives stock back.
+                if (delta > 0 && product.Quantity < delta)
+                    return Result.Failure<SaleItemDto>(
+                        $"Omborda yetarli mahsulot yo'q. Mavjud: {product.Quantity}, So'ralgan: {delta}");
+
+                // One expression covers both directions: positive delta takes
+                // stock, negative delta returns it.
+                product.Quantity -= delta;
+                _unitOfWork.Products.Update(product);
+
+                productName = product.Name;
+                unitName = product.GetUnitName();
+                unitValue = (int)product.Unit;
+            }
+            else
+            {
+                // External lines never touch stock — nothing to move.
+                productName = saleItem.ExternalProductName ?? "Unknown";
+            }
+
+            if (newQuantity == 0)
+            {
+                // Zero it before deleting so the returned DTO reads 0 rather than
+                // the pre-delete quantity — a client that trusts the response
+                // would otherwise re-render a line that no longer exists. EF ends
+                // on Deleted, so the assignment never reaches the DB.
+                saleItem.Quantity = 0;
+                _unitOfWork.SaleItems.Delete(saleItem);
+            }
+            else
+            {
+                saleItem.Quantity = newQuantity;
+                _unitOfWork.SaleItems.Update(saleItem);
+            }
+
+            // Same persist → SUM-from-DB → persist pattern as AddSaleItemAsync;
+            // see the long note there on why the total is not computed in memory.
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await RecalculateSaleTotalAsync(sale, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // The bill moved, so any outstanding customer credit has to be
+            // re-applied against the new total.
+            if (sale.CustomerId.HasValue)
+            {
+                await _creditApplier.ApplyAsync(sale.Id, sale.CustomerId.Value, cancellationToken);
+            }
+
+            return Result.Success(saleItem.IsExternal
+                ? SaleMapper.MapItem(saleItem, productName, "")
+                : SaleMapper.MapItem(saleItem, productName, unitName, unitValue));
+        }, cancellationToken);
+    }
+
     public async Task<bool> ValidateSalePriceAsync(Guid saleItemId, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();

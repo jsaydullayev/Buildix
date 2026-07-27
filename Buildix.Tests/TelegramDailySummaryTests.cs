@@ -142,7 +142,7 @@ public class TelegramDailySummaryTests
         Assert.Contains("Просрочено", text);
         Assert.Contains("80 000", text);
 
-        // Ombor signali: tugagan 1, kam qolgan 2 (yetarlisi ro'yxatда yo'q).
+        // Ombor signali: tugagan 1, kam qolgan 2 (yetarlisi ro'yxatda yo'q).
         Assert.Contains("Закончилось: 1", text);
         Assert.Contains("Заканчивается: 2", text);
         Assert.Contains("Bo'yoq", text);

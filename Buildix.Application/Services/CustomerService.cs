@@ -392,7 +392,10 @@ public class CustomerService : ICustomerService
             customer.IsRegular = request.IsRegular.Value;
             changed = true;
         }
-        if (request.DebtLimit != customer.DebtLimit)
+        // null = «tegilmagan» — CustomerType/IsRegular bilan bir xil semantika.
+        // Ilgari null mavjud limitni O'CHIRIB yuborardi: limit maydoni formadan
+        // olib tashlangach (2026-07-26) har bir tahrir limitni yo'qotib qo'yardi.
+        if (request.DebtLimit.HasValue && request.DebtLimit != customer.DebtLimit)
         {
             customer.DebtLimit = request.DebtLimit;
             changed = true;

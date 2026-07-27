@@ -14,6 +14,13 @@ public class RegistrationRequest : BaseEntity
     public string FullName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Arizachi qoldirgan ixtiyoriy izoh («стройматериалы, Ташкент»,
+    /// «2 точки, Самарканд»). Operator qo'ng'iroqdan oldin kim bilan
+    /// gaplashishini bilib turadi — dizaynda ism ostida kulrang qator.
+    /// </summary>
+    public string? Note { get; set; }
+
     public RegistrationRequestStatus Status { get; set; } = RegistrationRequestStatus.Pending;
     // CreatedAt inherited from BaseEntity.
     public DateTime? ProcessedAt { get; set; }

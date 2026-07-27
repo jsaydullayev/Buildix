@@ -33,6 +33,7 @@ public partial class AuthService : IAuthService
     private readonly IAuditLogService _auditLogService;
     private readonly ILoginAttemptTracker _loginAttempts;
     private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContext;
+    private readonly IPlatformSettingsProvider _platformSettings;
 
     // S6 — a real BCrypt hash we verify against when the username is unknown
     // so the response time is indistinguishable from a real-user-wrong-password
@@ -52,7 +53,8 @@ public partial class AuthService : IAuthService
         IRevokedTokenStore revokedTokens,
         IAuditLogService auditLogService,
         ILoginAttemptTracker loginAttempts,
-        Microsoft.AspNetCore.Http.IHttpContextAccessor httpContext)
+        Microsoft.AspNetCore.Http.IHttpContextAccessor httpContext,
+        IPlatformSettingsProvider platformSettings)
     {
         _unitOfWork = unitOfWork;
         _jwtService = jwtService;
@@ -64,6 +66,7 @@ public partial class AuthService : IAuthService
         _auditLogService = auditLogService;
         _loginAttempts = loginAttempts;
         _httpContext = httpContext;
+        _platformSettings = platformSettings;
     }
 
     /// <summary>Simplify a User-Agent into "OS · Browser" for the sessions list.</summary>

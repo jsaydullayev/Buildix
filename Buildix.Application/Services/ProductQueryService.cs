@@ -71,7 +71,7 @@ public class ProductQueryService : IProductQueryService
         if (!exists) return null;
 
         // «Поставщик» + «Последний приход» — bu tovarni o'z ichiga olgan oxirgi
-        // qabul qilingan postavka. Narх ko'rsatilmaydi (kassir cheklovi).
+        // qabul qilingan postavka. Narx ko'rsatilmaydi (kassir cheklovi).
         var lastReceipt = await _context.Zakups.AsNoTracking()
             .Where(z => z.ProductId == id && z.ReceiptId != null
                 && z.Receipt!.MarketId == marketId && z.Receipt.DeliveryStatus == Domain.Enums.DeliveryStatus.Accepted)
@@ -151,7 +151,7 @@ public class ProductQueryService : IProductQueryService
             .ToListAsync(cancellationToken);
 
         // «ПОСЛ. ПРИХОД» — sahifadagi tovarlar bo'yicha oxirgi qabul qilingan
-        // postavka (sana + chek raqami). Bir tovarда bir nechta qabul bo'lishi
+        // postavka (sana + chek raqami). Bir tovarda bir nechta qabul bo'lishi
         // mumkin, shuning uchun eng so'nggisini xotirada tanlaymiz.
         var productIds = items.Select(p => p.Id).ToList();
         var receiptRows = await _context.Zakups.AsNoTracking()

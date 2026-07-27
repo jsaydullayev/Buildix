@@ -28,7 +28,7 @@ public class Product : BaseEntity, ISoftDelete
     public string? Description { get; set; }
 
     /// <summary>
-    /// Omborда saqlash joyi ("Место на складе" — masalan «Навес А · ряд 2»).
+    /// Omborda saqlash joyi ("Место на складе" — masalan «Навес А · ряд 2»).
     /// Sotuvchi tovar kartochkasida ko'radi; qidirib topishga yordam beradi. Ixtiyoriy.
     /// </summary>
     public string? WarehouseLocation { get; set; }
@@ -67,7 +67,7 @@ public class Product : BaseEntity, ISoftDelete
     /// Telegram'ga "kam qoldi" ogohlantirishi yuborilgan vaqt. Har bir tovar
     /// haqida BIR MARTA yuborish uchun: qoldiq chegaradan pastga tushganda
     /// belgilanadi, qoldiq tiklangach (chegaradan yuqori) tozalanadi — shunda
-    /// keyingi tushishда yana bir marta ogohlantiriladi. Null = hali yuborilmagan.
+    /// keyingi tushishda yana bir marta ogohlantiriladi. Null = hali yuborilmagan.
     /// </summary>
     public DateTime? LowStockAlertSentAt { get; set; }
 

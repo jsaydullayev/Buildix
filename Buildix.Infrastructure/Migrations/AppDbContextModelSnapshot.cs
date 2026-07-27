@@ -495,6 +495,10 @@ namespace Buildix.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -520,6 +524,12 @@ namespace Buildix.Infrastructure.Migrations
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Plan")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RenewalReminderSentFor")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Subdomain")
                         .HasMaxLength(100)
@@ -729,6 +739,121 @@ namespace Buildix.Infrastructure.Migrations
                         .HasDatabaseName("IX_Payment_SaleId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.PlatformPlan", b =>
+                {
+                    b.Property<int>("Code")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxPoints")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxUsers")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PriceUzs")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("PlatformPlans");
+
+                    b.HasData(
+                        new
+                        {
+                            Code = 0,
+                            MaxPoints = 1,
+                            MaxUsers = 3,
+                            PriceUzs = 600000m,
+                            UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Code = 1,
+                            MaxPoints = 1,
+                            MaxUsers = 8,
+                            PriceUzs = 1200000m,
+                            UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Code = 2,
+                            MaxPoints = 3,
+                            MaxUsers = 0,
+                            PriceUzs = 2400000m,
+                            UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.PlatformSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ExpiryReminderDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FullBlockAfterDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GraceDays")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("NotifyBlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyExpiring")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RestrictAfterGrace")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SoonThresholdDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SupportEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("SupportPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("SupportTelegram")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WarnOnOverdue")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlatformSettings");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ExpiryReminderDays = 3,
+                            FullBlockAfterDays = 30,
+                            GraceDays = 5,
+                            NotifyBlocked = true,
+                            NotifyExpiring = true,
+                            RestrictAfterGrace = true,
+                            SoonThresholdDays = 7,
+                            SupportPhone = "+998 71 200 70 07",
+                            SupportTelegram = "@buildix_support",
+                            UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, 0, DateTimeKind.Utc),
+                            WarnOnOverdue = true
+                        });
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.Product", b =>
@@ -959,6 +1084,10 @@ namespace Buildix.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("Phone")
                         .IsRequired()
@@ -1340,6 +1469,53 @@ namespace Buildix.Infrastructure.Migrations
                     b.ToTable("StockMovements");
                 });
 
+            modelBuilder.Entity("Buildix.Domain.Entities.SubscriptionPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AcceptedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountUzs")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MarketId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Months")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("PaidAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PeriodEndUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Plan")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaidAtUtc");
+
+                    b.HasIndex("MarketId", "PaidAtUtc");
+
+                    b.ToTable("SubscriptionPayments");
+                });
+
             modelBuilder.Entity("Buildix.Domain.Entities.Supplier", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1388,6 +1564,45 @@ namespace Buildix.Infrastructure.Migrations
                     b.HasIndex("MarketId", "Name");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.TelegramLinkCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("ChatId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UsedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("\"UsedAtUtc\" IS NULL");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.ToTable("TelegramLinkCodes");
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.User", b =>
@@ -1477,6 +1692,12 @@ namespace Buildix.Infrastructure.Migrations
 
                     b.Property<long?>("TelegramChatId")
                         .HasColumnType("bigint");
+
+                    b.Property<int>("TelegramLinkAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TelegramLinkAttemptsResetUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("TokensInvalidBeforeUtc")
                         .HasColumnType("timestamp with time zone");
@@ -2022,6 +2243,17 @@ namespace Buildix.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Buildix.Domain.Entities.SubscriptionPayment", b =>
+                {
+                    b.HasOne("Buildix.Domain.Entities.Market", "Market")
+                        .WithMany()
+                        .HasForeignKey("MarketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Market");
                 });
 
             modelBuilder.Entity("Buildix.Domain.Entities.Supplier", b =>

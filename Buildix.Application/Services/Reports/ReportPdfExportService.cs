@@ -199,7 +199,40 @@ public sealed class ReportPdfExportService(
         return ReportPdfRenderer.RenderComprehensiveReportPdf(report, date.ToString("dd.MM.yyyy"), _clock.NowLocal, lang);
     }
 
+    /// <summary>
+    /// Chek — termal rulon uchun. Ma'lumot yig'ish A4 faktura bilan bir xil
+    /// (<see cref="BuildInvoiceDataAsync"/>), farqi faqat chizishda.
+    /// </summary>
+    public async Task<byte[]> GenerateThermalReceiptPdfAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default)
+    {
+        var data = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);
+        try
+        {
+            return ReportPdfRenderer.RenderThermalReceiptPdf(data, lang, widthMm);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Receipt generation failed for sale {saleId}: {ex.Message}", ex);
+        }
+    }
+
     public async Task<byte[]> GenerateInvoicePdfAsync(Guid saleId, string lang = "uz", bool compact = false, CancellationToken cancellationToken = default)
+    {
+        var invoiceData = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);
+        try
+        {
+            return compact
+                ? ReportPdfRenderer.RenderInvoiceCompactPdf(invoiceData, lang)
+                : ReportPdfRenderer.RenderInvoicePdf(invoiceData, lang);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"PDF generation failed for sale {saleId}: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Sotuvni o'qib, chek/faktura uchun umumiy ma'lumot to'plamini yig'adi.</summary>
+    private async Task<ReportPdfRenderer.InvoiceData> BuildInvoiceDataAsync(Guid saleId, string lang, CancellationToken cancellationToken)
     {
         bool isRu = lang.Equals("ru", StringComparison.OrdinalIgnoreCase);
         string L(string uz, string ru) => isRu ? ru : uz;
@@ -337,15 +370,6 @@ public sealed class ReportPdfExportService(
             sale.DiscountAmount
         );
 
-        try
-        {
-            return compact
-                ? ReportPdfRenderer.RenderInvoiceCompactPdf(invoiceData, lang)
-                : ReportPdfRenderer.RenderInvoicePdf(invoiceData, lang);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"PDF generation failed for sale {saleId}: {ex.Message}", ex);
-        }
+        return invoiceData;
     }
 }

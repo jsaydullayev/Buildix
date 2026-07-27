@@ -227,7 +227,14 @@ public partial class AuthService
                 market.Id, market.BlockedReason, market.BlockedAt);
         }
 
-        if (market.IsSubscriptionExpired(DateTime.UtcNow))
+        // Muddat o'tgani KIRISHNI darhol yopmaydi: otsrochka (Overdue) va
+        // «faqat ko'rish» (Restricted) bosqichlarida foydalanuvchi kirishi
+        // SHART — u to'lov haqidagi ogohlantirishni ko'rishi va ma'lumotini
+        // o'qishi kerak. Eshik faqat to'liq blok bosqichida yopiladi.
+        var settings = _platformSettings.Current;
+        var state = market.EvaluateSubscription(
+            DateTime.UtcNow, settings.GraceDays, settings.FullBlockAfterDays);
+        if (state == SubscriptionState.Blocked)
         {
             _logger.LogWarning(
                 "Login blocked — market {MarketId} subscription expired at {ExpiresAt:O}.",

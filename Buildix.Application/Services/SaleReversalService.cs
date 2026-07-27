@@ -64,7 +64,7 @@ public class SaleReversalService : ISaleReversalService
             if (sale.Status == SaleStatus.Cancelled)
                 return Result.Failure<SaleDto>("Sale is already cancelled");
 
-            // Ombor jurnali: SaleReversal faqat YAKUNLANGAN sotuv bekor qilinganда
+            // Ombor jurnali: SaleReversal faqat YAKUNLANGAN sotuv bekor qilinganda
             // yoziladi. Draft'da Продажа harakati umuman yozilmagan edi, shuning
             // uchun uni "qaytarish" ham yozilmaydi (net-nol, jurnal toza qoladi).
             var wasFinalized = sale.Status != SaleStatus.Draft;

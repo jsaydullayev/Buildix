@@ -131,6 +131,21 @@ public record RemoveSaleItemDto(
     decimal Quantity
 );
 
+/// <summary>
+/// Chek qatoriga ANIQ miqdor qo'yish (o'sish emas, o'rnatish). Kassa uchun:
+/// kassir "12 qop" yoki "3.5 m" ni bir marta yozadi, 12 marta «+» bosmaydi.
+/// 0 — qatorni butunlay o'chiradi (tovar omborga qaytadi).
+/// </summary>
+public record SetSaleItemQuantityDto(
+    [property: JsonPropertyName("saleItemId")]
+    [param: Required]
+    string SaleItemId,
+
+    [property: JsonPropertyName("quantity")]
+    [param: Range(0, 9_999_999, ErrorMessage = "Miqdor 0 dan kichik bo'lmasin")]
+    decimal Quantity
+);
+
 public record AddPaymentDto(
     [property: JsonPropertyName("paymentType")]
     [param: Required(ErrorMessage = "To'lov turi majburiy")]

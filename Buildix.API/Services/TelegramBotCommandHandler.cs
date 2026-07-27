@@ -20,8 +20,10 @@ public interface ITelegramBotCommandHandler
 /// <para><b>Identification.</b> The sender's Telegram id comes from the incoming
 /// message itself — nobody types it. It is matched against
 /// <see cref="User.TelegramChatId"/>, and that user's market and permissions
-/// decide what comes back. A chat with no match is shown its own id once so the
-/// person can paste it into Account; it learns nothing about any shop.</para>
+/// decide what comes back. A chat with no match is handed a one-time link code
+/// (<see cref="TelegramLinkCode"/>) to type into Account; it learns nothing about
+/// any shop, and because the code only ever reaches THIS chat, redeeming it is
+/// what proves the account and the Telegram profile belong to one person.</para>
 ///
 /// <para><b>Buttons, not commands.</b> The reply keyboard carries only the
 /// actions this user may run. Telegram sends a tapped button back as ordinary
@@ -50,12 +52,14 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
     private readonly IDebtsExcelExportService _debtsExcel;
     private readonly IProductsExcelExportService _productsExcel;
     private readonly IReportPdfExportService _pdf;
+    private readonly ITelegramLinkService _link;
     private readonly ILogger<TelegramBotCommandHandler> _logger;
 
     public TelegramBotCommandHandler(
         AppDbContext db,
         ITelegramNotifier notifier,
         ITashkentClock clock,
+        ITelegramLinkService link,
         ITelegramDailySummaryService summary,
         ISalesExcelExportService salesExcel,
         IDebtsExcelExportService debtsExcel,
@@ -66,6 +70,7 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
         _db = db;
         _notifier = notifier;
         _clock = clock;
+        _link = link;
         _summary = summary;
         _salesExcel = salesExcel;
         _debtsExcel = debtsExcel;
@@ -83,13 +88,16 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
                 && u.MarketId != null, ct);
         if (user is null)
         {
-            // Whatever they sent, answer with the one thing they need: their id.
-            await _notifier.SendWithKeyboardAsync(chatId,
-                "<b>Buildix</b>\nBu Telegram hisobi hech qanday do'konga bog'lanmagan.\n\n" +
-                $"Sizning Telegram ID: <code>{chatId}</code>\n\n" +
-                "Buildix panelida <b>Аккаунт → Telegram ID</b> maydoniga shu raqamni saqlang — " +
-                "keyin bu yerдan ma'lumot olishingiz mumkin bo'ladi.",
-                [], ct);
+            // Whatever they sent, answer with the one thing they need: a code.
+            //
+            // NOT the raw chat id, which is what this used to send. An id typed
+            // into Account proves nothing — anyone could type a stranger's — and
+            // since this handler resolves a user BY chat id, that stranger would
+            // then be served that shop's receipts, invoices and stock. The code
+            // travels the other way: only the owner of this chat ever sees it,
+            // so a redeemed code is proof the account and the chat are the same
+            // person.
+            await IssueLinkCodeAsync(chatId, ct);
             return;
         }
 
@@ -169,6 +177,33 @@ public class TelegramBotCommandHandler : ITelegramBotCommandHandler
     }
 
     // ── Actions ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Hands an unlinked chat its one-time code. Re-asking inside the validity
+    /// window returns the SAME code, so a person who wrote twice doesn't end up
+    /// typing the older of two live codes and being told it is wrong.
+    /// </summary>
+    private async Task IssueLinkCodeAsync(long chatId, CancellationToken ct)
+    {
+        try
+        {
+            var (code, expiresUtc) = await _link.IssueCodeAsync(chatId, ct);
+            var minutes = Math.Max(1, (int)Math.Ceiling((expiresUtc - _clock.UtcNow).TotalMinutes));
+            await _notifier.SendWithKeyboardAsync(chatId,
+                "<b>Buildix</b>\nBu Telegram hisobi hech qanday do'konga bog'lanmagan.\n\n" +
+                $"Bog'lanish kodi: <code>{code}</code>\n" +
+                $"Kod <b>{minutes} daqiqa</b> amal qiladi.\n\n" +
+                "Buildix panelida <b>Аккаунт → Telegram</b> bo'limiga shu kodni kiriting — " +
+                "shundan keyin bu yerdan ma'lumot olishingiz mumkin bo'ladi.",
+                [], ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Telegram link code issue failed for chat {ChatId}", chatId);
+            await _notifier.SendToChatAsync(chatId,
+                "Kod berishda xatolik. Birozdan keyin qayta yozing.", ct);
+        }
+    }
 
     private async Task ShowMenuAsync(long chatId, User user, CancellationToken ct)
     {

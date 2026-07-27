@@ -81,7 +81,7 @@ public class MarketSettings
     public DateTime? LastDaySummarySentOn { get; set; }
 
     // ── Безопасность (security) ──────────────────────────────────────────
-    /// <summary>Harakatsizlikда avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>
+    /// <summary>Harakatsizlikda avto-chiqish (daqiqa). 0 = o'chirilgan.</summary>
     public int InactivityLogoutMinutes { get; set; } = 0;
     public bool AuditEnabled { get; set; } = true;
 

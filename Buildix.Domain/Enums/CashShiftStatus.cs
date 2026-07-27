@@ -3,7 +3,7 @@ namespace Buildix.Domain.Enums;
 /// <summary>
 /// Kassa-smenasi rekonsiliatsiya holati (dizayn Смены ekrani: Открыта / Сошлась /
 /// Расхождение). <see cref="ShiftStatus"/> dan farqli — u kassirning ish-ruxsati,
-/// bu esa smena yopilгандаги naqd hisob-kitob natijasi.
+/// bu esa smena yopilgandagi naqd hisob-kitob natijasi.
 /// </summary>
 public enum CashShiftStatus
 {

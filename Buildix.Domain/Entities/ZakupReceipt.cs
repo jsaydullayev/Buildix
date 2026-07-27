@@ -13,7 +13,7 @@ namespace Buildix.Domain.Entities;
 public class ZakupReceipt : BaseEntity
 {
     /// <summary>
-    /// Per-market ketma-ket priyomka raqami (dizaynda «№214»). Yaratilганда
+    /// Per-market ketma-ket priyomka raqami (dizaynda «№214»). Yaratilganda
     /// market bo'yicha max+1 beriladi. 0 = eski yozuvlar. InvoiceNumber esa
     /// yetkazuvchining raqami — bu ichki, tartibli raqam.
     /// </summary>
