@@ -17,7 +17,7 @@ import {
 import { apiClient } from '@/shared/api/client';
 import { formatSum } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
-import { BrandLogo, Button, Input, LanguageSwitch } from '@/shared/ui';
+import { BrandLogo, BrandMark, Button, Input, LanguageSwitch } from '@/shared/ui';
 
 /** Subtle blueprint-grid + radial-fade backdrop used behind the hero and CTA. */
 function GridBackdrop({ fade }: { fade: string }) {
@@ -97,8 +97,12 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-surface font-body text-text">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-hairline px-6 py-5 md:px-16">
-        <BrandLogo />
+      <header className="flex items-center justify-between border-b border-hairline px-4 py-5 sm:px-6 md:px-16">
+        {/* Telefonda faqat belgi. To'liq logotip + til almashtirgich + «Kirish»
+            375px ga sig'masdi (ichki eni 397px), natijada «Kirish» tugmasi
+            ekrandan chiqib ketardi. Belgining o'zi ham brendni tanitadi. */}
+        <BrandMark className="h-8 w-8 sm:hidden" />
+        <BrandLogo className="hidden sm:inline-flex" />
         <div className="flex items-center gap-3">
           <LanguageSwitch />
           {/* Kirish — ildizdagi `/login`. Do'kon xodimi o'z do'koniga, SuperAdmin
@@ -169,7 +173,12 @@ export default function LandingPage() {
 
       {/* In action — POS preview band */}
       <section className="px-6 py-16 md:px-16 md:py-20">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
+        {/* min-w-0: grid elementining standart `min-width: auto` qiymati uni
+            ichidagi eng keng bolaga qarab cho'zadi — pastdagi chek maketi
+            336px, natijada telefonda butun sahifa 410px bo'lib, har bir
+            bo'limning o'ng tomonida bo'sh chiziq qolardi. Dizaynga ta'sir
+            qilmaydi, faqat cho'zilishni to'xtatadi. */}
+        <div className="mx-auto grid max-w-6xl items-center gap-12 [&>*]:min-w-0 lg:grid-cols-2 lg:gap-16">
           <div>
             <Eyebrow>{t('landing.modules.sales.title')}</Eyebrow>
             <h2 className="mt-3 font-brand text-[24px] font-semibold tracking-[-0.2px] md:text-[26px]">

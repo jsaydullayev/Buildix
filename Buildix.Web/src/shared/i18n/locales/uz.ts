@@ -1226,11 +1226,14 @@ export const uz: TranslationSchema = {
       eyebrow: 'Qurilish biznesi uchun ERP',
       title: 'Qurilish do‘koningizda tartib o‘rnating',
       subtitle:
-        'Buildix sotuv, ombor, mijoz qarzlari va hisobotni birlashtiradi — egasi, administrator va sotuvchilar uchun.',
+        'Sotuv, ombor, mijoz qarzlari va hisobot — bitta tizimda. 6 ta modul, 3 ta rol: egasi, administrator va sotuvchi.',
+      // Raqamlar mahsulotdagi haqiqiy qiymatlar: 15 soniya — «Sotuv va kassa»
+      // bo'limidagi da'vo bilan bir xil; 21:00 — Telegram kunlik xulosasining
+      // standart vaqti (TELEGRAM_DAILY_SUMMARY_HOUR).
       bullets: {
-        b1: 'Sotuv — soniyalarda',
-        b2: 'Qoldiqlar real vaqtda',
-        b3: 'Mijoz qarzlari nazoratda',
+        b1: 'Sotuv — 15 soniyada',
+        b2: 'Qoldiq — har chekdan keyin darhol',
+        b3: 'Kunlik hisobot — 21:00 da Telegram’ga',
       },
     },
     modules: {

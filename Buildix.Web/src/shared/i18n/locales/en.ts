@@ -1226,11 +1226,11 @@ export const en: TranslationSchema = {
       eyebrow: 'ERP for the construction business',
       title: 'Bring order to your construction store',
       subtitle:
-        'Buildix brings together sales, inventory, customer debts and reporting — for the owner, admin and salespeople.',
+        'Sales, inventory, customer debts and reporting — in one system. 6 modules, 3 roles: owner, admin and cashier.',
       bullets: {
-        b1: 'A sale in seconds',
-        b2: 'Stock levels in real time',
-        b3: 'Customer debts under control',
+        b1: 'A sale in 15 seconds',
+        b2: 'Stock updated after every receipt',
+        b3: 'Daily report to Telegram at 21:00',
       },
     },
     modules: {
