@@ -1,0 +1,12 @@
+# https://buildix.uz
+#
+# Marketing sahifasi (/) indekslanadi. Ilovaning qolgan qismi kirish talab
+# qiladi — robot u yerda faqat login ekranini ko'radi, shuning uchun uni
+# indeksga qo'shishdan ma'no yo'q.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /hubs/
+
+Sitemap: https://buildix.uz/sitemap.xml
