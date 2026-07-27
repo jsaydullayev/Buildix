@@ -5,7 +5,12 @@
 #
 # The API applies EF migrations at startup (Program.cs), so the schema is created
 # on first boot. Only the web container publishes ports; db + api are reachable
-# only on the internal network. TLS: see deploy/README.md.
+# only on the internal network.
+#
+# TLS is ON by default: `web` serves HTTPS on :443 and redirects :80 → :443. If no
+# certificate is mounted the container generates a temporary self-signed one at
+# start-up, so the stack still comes up (the browser warns until certbot issues a
+# real certificate — deploy/README.md → «TLS»).
 name: buildix
 
 services:
@@ -41,30 +46,77 @@ services:
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       # REQUIRED: the API fails fast if Jwt__Key is missing or < 32 chars.
       Jwt__Key: ${JWT_KEY}
+      # ── SuperAdmin (platform console) ────────────────────────────────────
+      # The console lives under a hidden URL segment: anything that does not
+      # match returns 404 *before* authentication. Without it the console is
+      # unreachable, so the login page reports "console not configured".
+      SuperAdmin__ConsoleSegment: ${SUPERADMIN_CONSOLE_SEGMENT}
+      SuperAdmin__Username: ${SUPERADMIN_USERNAME}
+      SuperAdmin__Password: ${SUPERADMIN_PASSWORD}
+      # ── Log retention ────────────────────────────────────────────────────
+      # app_logs would grow without bound; 0 disables the cleanup.
+      Logging__RetentionDays: ${LOG_RETENTION_DAYS:-30}
       # Optional Telegram integration (empty = disabled).
       Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+      Telegram__BotUsername: ${TELEGRAM_BOT_USERNAME:-}
       Telegram__WebhookSecret: ${TELEGRAM_WEBHOOK_SECRET:-}
       Telegram__DailySummaryHour: ${TELEGRAM_DAILY_SUMMARY_HOUR:-21}
     volumes:
       # Product images persist across deploys in a named volume.
       - uploads:/app/wwwroot/uploads
     # No ports published — reached only via the web/nginx reverse proxy.
+    # The HEALTHCHECK is baked into the image (curl → /health, which pings the DB).
 
   web:
     build:
-      context: ./Buildix.Web
-      dockerfile: Dockerfile
+      # Repo root: the runtime stage also copies deploy/nginx/ensure-cert.sh.
+      context: .
+      dockerfile: Buildix.Web/Dockerfile
     restart: unless-stopped
     depends_on:
-      - api
+      # Wait until the API actually answers /health — otherwise the first
+      # requests after a deploy hit a proxy whose upstream is still migrating.
+      api:
+        condition: service_healthy
     ports:
-      - "80:80"
-      # - "443:443"   # enable together with the TLS nginx config (deploy/README.md)
+      # Standart: mashinaning 80/443 portlarini egallaydi (Buildix yolg'iz turgan
+      # server uchun). Agar serverda BOSHQA loyihalar va umumiy reverse proxy
+      # bo'lsa, bu portlar band — o'shanda `.env` da ichki portga ko'chiriladi:
+      #   WEB_HTTP_PORT=127.0.0.1:8090
+      #   WEB_HTTPS_PORT=127.0.0.1:8453   # NGINX_CONF=default.conf bo'lsa ishlatilmaydi
+      # 127.0.0.1 prefiksi muhim: usiz port butun internetga ochiladi va tashqi
+      # proxy'ni chetlab o'tib to'g'ridan-to'g'ri kirish mumkin bo'lib qoladi.
+      - "${WEB_HTTP_PORT:-80}:80"
+      - "${WEB_HTTPS_PORT:-443}:443"
     volumes:
-      # Authoritative, swappable server config (HTTP by default; TLS variant in
-      # deploy/nginx/default.ssl.conf.example).
-      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # - ./deploy/nginx/certs:/etc/nginx/certs:ro   # mount certs for TLS
+      # Authoritative, swappable server config. NGINX_CONF selects the variant:
+      # default.ssl.conf (TLS — the default) or default.conf (plain HTTP, local only).
+      - ./deploy/nginx/${NGINX_CONF:-default.ssl.conf}:/etc/nginx/conf.d/default.conf:ro
+      # Certificates. Copy the certbot-issued pair here; if the directory is
+      # empty the entrypoint drops in a temporary self-signed one so nginx starts.
+      - ./deploy/nginx/certs:/etc/nginx/certs
+      # ACME webroot — shared with the certbot service below.
+      - ./deploy/nginx/certbot-www:/var/www/certbot
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── certbot (on demand) ───────────────────────────────────────────────────
+  # Behind a profile, so `docker compose up` never starts it:
+  #   docker compose --profile tls run --rm certbot certonly --webroot \
+  #     -w /var/www/certbot -d buildix.uz -d www.buildix.uz \
+  #     --email you@example.com --agree-tos --no-eff-email
+  #   docker compose --profile tls run --rm certbot renew        # cron/timer
+  # Full walkthrough (including copying into deploy/nginx/certs): deploy/README.md.
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["tls"]
+    volumes:
+      - ./deploy/nginx/certbot-www:/var/www/certbot
+      - ./deploy/nginx/letsencrypt:/etc/letsencrypt
 
 volumes:
   pgdata:

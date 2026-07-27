@@ -34,3 +34,8 @@ Buildix.API/wwwroot/uploads/
 docs/
 **/*.md
 deploy/
+# ...bittasidan tashqari: web image runtime bosqichi shu skriptni ichiga oladi
+# (sertifikat bo'lmasa vaqtinchalik o'zi imzolaganini yaratadi). Sertifikatlar
+# va ACME holati esa YUQORIDAGI `deploy/` bilan tashqarida qoladi — ular hech
+# qachon image ichiga tushmasligi kerak.
+!deploy/nginx/ensure-cert.sh

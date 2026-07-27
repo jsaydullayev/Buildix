@@ -67,3 +67,12 @@ $RECYCLE.BIN/
 
 # TypeScript incremental build artifact (regenerated on every build)
 *.tsbuildinfo
+
+# ============================================================
+# TLS — certificates and ACME state are runtime data, never source
+# ============================================================
+deploy/nginx/certs/*
+!deploy/nginx/certs/.gitkeep
+deploy/nginx/certbot-www/*
+!deploy/nginx/certbot-www/.gitkeep
+deploy/nginx/letsencrypt/
