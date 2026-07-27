@@ -58,7 +58,7 @@ internal static class ReportPdfRenderer
                 page.Header().PaddingHorizontal(28).PaddingTop(22).PaddingBottom(14)
                     .BorderBottom(2).BorderColor(PdfTheme.Ink).Row(row =>
                 {
-                    row.AutoItem().Element(c => BrandMark(c, "S"));
+                    row.AutoItem().AlignMiddle().Element(c => BuildixMark(c));
                     row.RelativeItem().PaddingLeft(13).Column(col =>
                     {
                         col.Item().Text(L("Sotuvlar hisoboti", "Отчёт о продажах"))
@@ -163,20 +163,7 @@ internal static class ReportPdfRenderer
                 page.Footer().BorderTop(1).BorderColor(PdfTheme.Line)
                     .PaddingHorizontal(28).PaddingVertical(9).Row(row =>
                 {
-                    row.RelativeItem().AlignMiddle().Text(t =>
-                    {
-                        if (isRu)
-                        {
-                            t.Span("Создано в ").FontSize(8).FontColor(PdfTheme.Muted);
-                            t.Span("Strotech").FontSize(8).Bold().FontColor(PdfTheme.BrandDark);
-                            t.Span("  ·  strotech.uz").FontSize(8).FontColor(PdfTheme.Muted);
-                        }
-                        else
-                        {
-                            t.Span("Strotech").FontSize(8).Bold().FontColor(PdfTheme.BrandDark);
-                            t.Span(" tomonidan yaratildi  ·  strotech.uz").FontSize(8).FontColor(PdfTheme.Muted);
-                        }
-                    });
+                    row.RelativeItem().AlignMiddle().Text(t => BrandCredit(t, isRu, 8));
                     row.RelativeItem().AlignRight().AlignMiddle().Text(t =>
                     {
                         t.Span(L("Jami savdo:  ", "Общая сумма:  ")).FontSize(9).SemiBold().FontColor(PdfTheme.Muted);
@@ -193,13 +180,25 @@ internal static class ReportPdfRenderer
         }).GeneratePdf();
     }
 
+    /// <summary>
+    /// "Buildix tomonidan yaratildi · buildix.uz" — the product credit carried by
+    /// every document footer. The wordmark is navy, the rest muted.
+    /// </summary>
+    private static void BrandCredit(QuestPDF.Fluent.TextDescriptor t, bool isRu, float size)
+    {
+        if (isRu) t.Span("Создано в ").FontSize(size).FontColor(PdfTheme.Muted);
+        t.Span("Buildix").FontSize(size).Bold().FontColor(PdfTheme.Navy);
+        t.Span(isRu ? "  ·  buildix.uz" : " tomonidan yaratildi  ·  buildix.uz")
+            .FontSize(size).FontColor(PdfTheme.Muted);
+    }
+
     // ── Sales-list rendering helpers ──
-    // Legacy orange/zebra cells — still used by the comprehensive seller table
+    // Filled navy / zebra cells — still used by the comprehensive seller table
     // and the payment-breakdown table (the summary/daily/period reports keep
     // their bold brand band, so their inner tables stay on-brand). Do NOT fold
     // these into the minimalist SalesList* helpers below.
     private static IContainer SalesHeadCell(IContainer c)
-        => c.Background(PdfTheme.Brand).PaddingVertical(6).PaddingHorizontal(6)
+        => c.Background(PdfTheme.Navy).PaddingVertical(6).PaddingHorizontal(6)
             .DefaultTextStyle(x => x.FontSize(8).Bold().FontColor(PdfTheme.White));
 
     private static IContainer SalesBodyCell(IContainer c, string background)
@@ -256,7 +255,7 @@ internal static class ReportPdfRenderer
                         column.Item().Column(sec =>
                         {
                             sec.Item().PaddingBottom(6).Text(L("TO'LOV TURLARI", "ТИПЫ ОПЛАТЫ"))
-                                .FontSize(11).Bold().FontColor(PdfTheme.BrandDark);
+                                .FontSize(11).Bold().FontColor(PdfTheme.Navy);
                             sec.Item().Element(e => PaymentBreakdownTable(e, payments, isRu));
                         });
                 });
@@ -307,7 +306,7 @@ internal static class ReportPdfRenderer
                     column.Item().Column(sec =>
                     {
                         sec.Item().PaddingBottom(6).Text(L("SOTUVCHILAR", "ПРОДАВЦЫ"))
-                            .FontSize(11).Bold().FontColor(PdfTheme.BrandDark);
+                            .FontSize(11).Bold().FontColor(PdfTheme.Navy);
                         sec.Item().Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
@@ -341,13 +340,13 @@ internal static class ReportPdfRenderer
                     column.Item().Column(sec =>
                     {
                         sec.Item().PaddingBottom(6).Text(L("SKLAD HOLATI", "СОСТОЯНИЕ СКЛАДА"))
-                            .FontSize(11).Bold().FontColor(PdfTheme.BrandDark);
+                            .FontSize(11).Bold().FontColor(PdfTheme.Navy);
                         sec.Item().Row(row =>
                         {
                             row.Spacing(12);
                             KpiCard(row, L("Mahsulotlar", "Товары"), $"{report.ProductCount:N0}", PdfTheme.Ink);
                             KpiCard(row, L("Jami qiymat", "Общая стоимость"), $"{report.TotalInventoryValue:N0}{L(" so'm", " сум")}", PdfTheme.Ink);
-                            KpiCard(row, L("Kam qolgan", "Заканчивается"), $"{report.LowStockCount:N0}", PdfTheme.BrandDark);
+                            KpiCard(row, L("Kam qolgan", "Заканчивается"), $"{report.LowStockCount:N0}", PdfTheme.AmberInk);
                             KpiCard(row, L("Tugagan", "Закончились"), $"{report.OutOfStockCount:N0}", PdfTheme.Danger);
                         });
                     });
@@ -361,16 +360,18 @@ internal static class ReportPdfRenderer
     // ── Report rendering helpers ──
     private static void ReportHeaderBand(IContainer header, string title, string subtitle, bool isRu, DateTime generatedAtLocal)
     {
-        header.Background(PdfTheme.Brand).PaddingVertical(16).PaddingHorizontal(32).Row(row =>
+        header.Background(PdfTheme.Navy).PaddingVertical(16).PaddingHorizontal(32).Row(row =>
         {
+            // The mark goes white-on-navy here — same rule as the app sidebar.
+            row.AutoItem().AlignMiddle().PaddingRight(13).Element(c => BuildixMark(c, 34, onDark: true));
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(title).FontSize(18).Bold().FontColor(PdfTheme.White);
-                col.Item().PaddingTop(2).Text(subtitle).FontSize(10).FontColor(PdfTheme.BrandTint);
+                col.Item().PaddingTop(2).Text(subtitle).FontSize(10).FontColor(PdfTheme.NavyTint);
             });
             row.ConstantItem(170).AlignRight().AlignBottom()
                 .Text($"{(isRu ? "Создан: " : "Yaratilgan: ")}{generatedAtLocal:dd.MM.yyyy HH:mm}")
-                .FontSize(8).FontColor(PdfTheme.BrandTint);
+                .FontSize(8).FontColor(PdfTheme.NavyTint);
         });
     }
 
@@ -379,11 +380,7 @@ internal static class ReportPdfRenderer
         footer.BorderTop(1).BorderColor(PdfTheme.Line)
             .PaddingHorizontal(32).PaddingVertical(8).Row(row =>
         {
-            row.RelativeItem().AlignMiddle()
-                .Text(isRu
-                    ? "Создано в Strotech  ·  strotech.uz"
-                    : "Strotech tomonidan yaratildi  ·  strotech.uz")
-                .FontSize(8).FontColor(PdfTheme.Muted);
+            row.RelativeItem().AlignMiddle().Text(t => BrandCredit(t, isRu, 8));
             row.RelativeItem().AlignRight().AlignMiddle().Text(x =>
             {
                 x.DefaultTextStyle(s => s.FontSize(8).FontColor(PdfTheme.Muted));
@@ -461,11 +458,11 @@ internal static class ReportPdfRenderer
                 page.Margin(0);
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(PdfTheme.Ink));
 
-                // ── Header: white, brand mark, orange "FAKTURA" ──
+                // ── Header: white, market mark, blue "FAKTURA" ──
                 page.Header().PaddingHorizontal(32).PaddingTop(26).PaddingBottom(16)
                     .BorderBottom(2).BorderColor(PdfTheme.Ink).Row(row =>
                 {
-                    row.AutoItem().Element(c => BrandMark(c, initial));
+                    row.AutoItem().Element(c => MarketMark(c, initial));
                     row.RelativeItem().PaddingLeft(14).Column(col =>
                     {
                         col.Item().Text(data.MarketName).FontSize(21).Bold().FontColor(PdfTheme.Ink);
@@ -476,7 +473,7 @@ internal static class ReportPdfRenderer
                     row.ConstantItem(160).Column(col =>
                     {
                         col.Item().AlignRight().Text(L("FAKTURA", "СЧЁТ-ФАКТУРА"))
-                            .FontSize(24).Bold().FontColor(PdfTheme.Brand).LetterSpacing(0.04f);
+                            .FontSize(24).Bold().FontColor(PdfTheme.Blue).LetterSpacing(0.04f);
                         col.Item().AlignRight().PaddingTop(3).Text(displayNumber)
                             .FontSize(10).SemiBold().FontColor(PdfTheme.Muted);
                     });
@@ -528,7 +525,7 @@ internal static class ReportPdfRenderer
                             {
                                 t.Span(item.ProductName).SemiBold();
                                 if (item.IsExternal)
-                                    t.Span(L("  TASHQI", "  ВНЕШНИЙ")).FontSize(8).Bold().FontColor(PdfTheme.BrandDark).LetterSpacing(0.05f);
+                                    t.Span(L("  TASHQI", "  ВНЕШНИЙ")).FontSize(8).Bold().FontColor(PdfTheme.AmberInk).LetterSpacing(0.05f);
                             });
                             table.Cell().Element(InvoiceBodyCell).AlignRight().Text($"{item.Quantity:N2}").FontColor(PdfTheme.Muted);
                             table.Cell().Element(InvoiceBodyCell).AlignRight().Text($"{item.Price:N0}").FontColor(PdfTheme.Muted);
@@ -574,27 +571,14 @@ internal static class ReportPdfRenderer
                     // Thank-you note
                     column.Item().PaddingTop(24).AlignCenter()
                         .Text(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"))
-                        .FontSize(12).Bold().FontColor(PdfTheme.BrandDark);
+                        .FontSize(12).Bold().FontColor(PdfTheme.Navy);
                 });
 
                 // ── Footer ──
                 page.Footer().BorderTop(1).BorderColor(PdfTheme.Line)
                     .PaddingHorizontal(32).PaddingVertical(9).Row(row =>
                 {
-                    row.RelativeItem().AlignMiddle().Text(t =>
-                    {
-                        if (isRu)
-                        {
-                            t.Span("Создано в ").FontSize(8).FontColor(PdfTheme.Muted);
-                            t.Span("Strotech").FontSize(8).Bold().FontColor(PdfTheme.BrandDark);
-                            t.Span("  ·  strotech.uz").FontSize(8).FontColor(PdfTheme.Muted);
-                        }
-                        else
-                        {
-                            t.Span("Strotech").FontSize(8).Bold().FontColor(PdfTheme.BrandDark);
-                            t.Span(" tomonidan yaratildi  ·  strotech.uz").FontSize(8).FontColor(PdfTheme.Muted);
-                        }
-                    });
+                    row.RelativeItem().AlignMiddle().Text(t => BrandCredit(t, isRu, 8));
                     row.RelativeItem().AlignRight().AlignMiddle().Text(x =>
                     {
                         x.DefaultTextStyle(s => s.FontSize(8).FontColor(PdfTheme.Muted));
@@ -613,7 +597,7 @@ internal static class ReportPdfRenderer
     /// Windows print dialog never rescales), but all content is packed into a
     /// single top-aligned column — the lower part of the page stays blank so the
     /// cashier can tear the receipt off. Reuses the same <see cref="InvoiceData"/>
-    /// and shared chrome (BrandMark / InvoiceHeadCell / InvoiceBodyCell)
+    /// and shared chrome (MarketMark / InvoiceHeadCell / InvoiceBodyCell)
     /// as <see cref="RenderInvoicePdf"/>; only sizes and spacing are tightened.
     /// For a typical receipt (~20 or fewer line items) the block stays in the
     /// upper part of the sheet; an unusually large sale naturally flows onto a
@@ -647,7 +631,7 @@ internal static class ReportPdfRenderer
                     // ── Compact header: brand mark + market | FAKTURA + number ──
                     column.Item().PaddingBottom(8).BorderBottom(1.5f).BorderColor(PdfTheme.Ink).Row(row =>
                     {
-                        row.AutoItem().Element(c => BrandMark(c, initial));
+                        row.AutoItem().Element(c => MarketMark(c, initial));
                         row.RelativeItem().PaddingLeft(10).AlignMiddle().Column(col =>
                         {
                             col.Item().Text(data.MarketName).FontSize(14).Bold().FontColor(PdfTheme.Ink);
@@ -657,7 +641,7 @@ internal static class ReportPdfRenderer
                         row.AutoItem().AlignMiddle().Column(col =>
                         {
                             col.Item().AlignRight().Text(L("FAKTURA", "СЧЁТ-ФАКТУРА"))
-                                .FontSize(15).Bold().FontColor(PdfTheme.Brand).LetterSpacing(0.03f);
+                                .FontSize(15).Bold().FontColor(PdfTheme.Blue).LetterSpacing(0.03f);
                             col.Item().AlignRight().Text(displayNumber)
                                 .FontSize(8).SemiBold().FontColor(PdfTheme.Muted);
                         });
@@ -717,7 +701,7 @@ internal static class ReportPdfRenderer
                             {
                                 t.Span(item.ProductName).SemiBold();
                                 if (item.IsExternal)
-                                    t.Span(L("  TASHQI", "  ВНЕШНИЙ")).FontSize(7).Bold().FontColor(PdfTheme.BrandDark).LetterSpacing(0.05f);
+                                    t.Span(L("  TASHQI", "  ВНЕШНИЙ")).FontSize(7).Bold().FontColor(PdfTheme.AmberInk).LetterSpacing(0.05f);
                             });
                             table.Cell().Element(InvoiceBodyCell).AlignRight().Text($"{item.Quantity:N2}").FontColor(PdfTheme.Muted);
                             table.Cell().Element(InvoiceBodyCell).AlignRight().Text($"{item.Price:N0}").FontColor(PdfTheme.Muted);
@@ -745,9 +729,9 @@ internal static class ReportPdfRenderer
                         if (data.DiscountAmount > 0)
                             col.Item().PaddingBottom(3).Row(r =>
                             {
-                                r.RelativeItem().Text(L("Chegirma", "Скидка")).FontSize(9).FontColor(PdfTheme.BrandDark);
+                                r.RelativeItem().Text(L("Chegirma", "Скидка")).FontSize(9).FontColor(PdfTheme.AmberInk);
                                 r.AutoItem().Text($"−{data.DiscountAmount:N0}{L(" so'm", " сум")}")
-                                    .FontSize(9).SemiBold().FontColor(PdfTheme.BrandDark);
+                                    .FontSize(9).SemiBold().FontColor(PdfTheme.AmberInk);
                             });
                         col.Item().BorderTop(1.5f).BorderColor(PdfTheme.Ink).PaddingTop(6).Row(r =>
                         {
@@ -776,12 +760,8 @@ internal static class ReportPdfRenderer
                     // ── Thank-you + tiny brand line ──
                     column.Item().PaddingTop(12).AlignCenter()
                         .Text(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"))
-                        .FontSize(10).Bold().FontColor(PdfTheme.BrandDark);
-                    column.Item().PaddingTop(2).AlignCenter().Text(t =>
-                    {
-                        t.Span("Strotech").FontSize(7).Bold().FontColor(PdfTheme.BrandDark);
-                        t.Span("  ·  strotech.uz").FontSize(7).FontColor(PdfTheme.Muted);
-                    });
+                        .FontSize(10).Bold().FontColor(PdfTheme.Navy);
+                    column.Item().PaddingTop(2).AlignCenter().Text(t => BrandCredit(t, isRu, 7));
 
                     // ── Tear-off hint (em-dash rule — glyph is already used elsewhere) ──
                     column.Item().PaddingTop(14).AlignCenter()
@@ -794,7 +774,7 @@ internal static class ReportPdfRenderer
 
     // ── Invoice rendering helpers (minimalist redesign) ──
     // Meta field divided from its neighbour by a hairline rather than a filled
-    // BrandLight card.
+    // tinted card.
     private static void InvoiceMetaField(QuestPDF.Fluent.RowDescriptor row,
         string label, string value, bool first)
     {
@@ -812,7 +792,7 @@ internal static class ReportPdfRenderer
         });
     }
 
-    // White header, muted uppercase, hairline underline (was orange fill).
+    // White header, muted uppercase, hairline underline (no filled band).
     private static IContainer InvoiceHeadCell(IContainer c)
         => c.PaddingBottom(10).PaddingHorizontal(8)
             .BorderBottom(1.5f).BorderColor(PdfTheme.Line)
@@ -840,6 +820,148 @@ internal static class ReportPdfRenderer
 
     // Invoice data classes — `internal` so the PDF renderers (and their tests)
     // can construct them; see InternalsVisibleTo in the .csproj.
+    /// <summary>
+    /// Kassa cheki — TERMAL printer (XPrinter va shunga o'xshash) uchun.
+    ///
+    /// <para><b>Nega alohida renderer.</b> A4 «FAKTURA» ofis hujjati: keng
+    /// jadval, ranglar, ustunlar. Rulonli printerda uni chop etish ikki yo'lga
+    /// olib boradi — yo drayver A4 ni 80 mm ga siqadi (matn o'qib bo'lmas
+    /// darajada kichrayadi), yo qog'oz kesilib chiqadi. Chek esa boshqa
+    /// hujjat: eni qat'iy (58/80 mm), balandligi tarkibga qarab cheksiz,
+    /// hamma narsa bitta ustunda va faqat qora rangda (termal bosh faqat
+    /// qora/oq — kulrang ranglar nuqtalanib, xira chiqadi).</para>
+    ///
+    /// <para><see cref="Unit.Millimetre"/> dagi <c>ContinuousSize</c> — aynan
+    /// rulon semantikasi: sahifa balandligi tugamaydi, ya'ni uzun chek ikkinchi
+    /// «varaqqa» sakramaydi va jadval sarlavhasi takrorlanmaydi.</para>
+    ///
+    /// <param name="widthMm">Rulon eni: 58 yoki 80 (boshqa qiymatlar 80 ga
+    /// keltiriladi). Standart 80 mm — XPrinter POS modellarining ko'pchiligi.</param>
+    /// </summary>
+    internal static byte[] RenderThermalReceiptPdf(InvoiceData data, string lang = "uz", int widthMm = 80)
+    {
+        bool isRu = lang.Equals("ru", StringComparison.OrdinalIgnoreCase);
+        string L(string uz, string ru) => isRu ? ru : uz;
+
+        // Faqat ikki standart rulon eni qo'llab-quvvatlanadi.
+        int w = widthMm <= 58 ? 58 : 80;
+        bool narrow = w == 58;
+
+        // Termal bosh — sof qora. PdfTheme.Ink (#0F172A) ekranda chiroyli,
+        // lekin qog'ozda kulrang nuqtalar bo'lib chiqadi.
+        const string Black = "#000000";
+
+        float bodySize = narrow ? 7f : 8f;
+        float titleSize = narrow ? 11f : 13f;
+        float totalSize = narrow ? 11f : 13f;
+
+        var shortId = data.InvoiceNumber.ToString("N")[..6].ToUpperInvariant();
+        string Money(decimal v) => $"{v:N0}";
+        string Qty(decimal v) => v == decimal.Truncate(v) ? $"{v:N0}" : $"{v:N3}".TrimEnd('0').TrimEnd(',', '.');
+
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.ContinuousSize(w, Unit.Millimetre);
+                page.Margin(narrow ? 2 : 3, Unit.Millimetre);
+                page.DefaultTextStyle(x => x.FontSize(bodySize).FontColor(Black));
+
+                page.Content().Column(col =>
+                {
+                    // ── Sarlavha: do'kon ──────────────────────────────────
+                    col.Item().AlignCenter().Text(data.MarketName)
+                        .FontSize(titleSize).Bold().FontColor(Black);
+                    if (!string.IsNullOrWhiteSpace(data.MarketDescription))
+                        col.Item().AlignCenter().Text(data.MarketDescription)
+                            .FontSize(bodySize - 0.5f).FontColor(Black);
+
+                    col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
+
+                    // ── Chek rekvizitlari ────────────────────────────────
+                    void Meta(string label, string value)
+                    {
+                        col.Item().Row(row =>
+                        {
+                            row.RelativeItem().Text(label).FontColor(Black);
+                            row.AutoItem().Text(value).SemiBold().FontColor(Black);
+                        });
+                    }
+
+                    Meta(L("Chek", "Чек"), $"№{shortId}");
+                    Meta(L("Sana", "Дата"), data.Date.ToString("dd.MM.yyyy HH:mm"));
+                    Meta(L("Sotuvchi", "Продавец"), data.SellerName);
+                    // Chakana sotuvda mijoz qatori umuman chiqmaydi: A4 fakturada
+                    // «Mijoz ko'rsatilmagan» to'ldiruvchi sifatida mantiqiy, chekda
+                    // esa bu shunchaki qog'oz va o'quvchining e'tiborini yeydi.
+                    var customerName = data.CustomerName?.Trim();
+                    bool namedCustomer = !string.IsNullOrEmpty(customerName)
+                        && customerName != "Mijoz ko'rsatilmagan"
+                        && customerName != "Без клиента";
+                    if (namedCustomer)
+                        Meta(L("Mijoz", "Клиент"), customerName!);
+                    Meta(L("To'lov", "Оплата"), data.PaymentType);
+
+                    col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
+
+                    // ── Tovarlar ─────────────────────────────────────────
+                    // Har bir tovar ikki qatorda: nomi to'liq (uzun nomlar
+                    // kesilmasin), ostida «miqdor × narx ... jami». Bitta
+                    // qatorli jadval 58 mm da nomni tanib bo'lmas holga
+                    // keltirardi.
+                    foreach (var item in data.Items)
+                    {
+                        col.Item().PaddingTop(2).Text(item.ProductName).FontColor(Black);
+                        col.Item().Row(row =>
+                        {
+                            row.RelativeItem().Text($"{Qty(item.Quantity)} x {Money(item.Price)}")
+                                .FontColor(Black);
+                            row.AutoItem().Text(Money(item.Total)).SemiBold().FontColor(Black);
+                        });
+                    }
+
+                    col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
+
+                    // ── Yakuniy summalar ─────────────────────────────────
+                    void Sum(string label, string value, bool bold = false, float? size = null)
+                    {
+                        col.Item().PaddingTop(1).Row(row =>
+                        {
+                            var l = row.RelativeItem().Text(label).FontColor(Black);
+                            if (bold) l.Bold();
+                            if (size.HasValue) l.FontSize(size.Value);
+
+                            var v = row.AutoItem().Text(value).FontColor(Black);
+                            if (bold) v.Bold(); else v.SemiBold();
+                            if (size.HasValue) v.FontSize(size.Value);
+                        });
+                    }
+
+                    // Chegirma bo'lgandagina oraliq summa ko'rsatiladi —
+                    // aks holda u JAMI bilan bir xil bo'lib, chalkashtiradi.
+                    if (data.DiscountAmount > 0)
+                    {
+                        Sum(L("Oraliq summa", "Промежуточный итог"), Money(data.SubtotalAmount));
+                        Sum(L("Chegirma", "Скидка"), $"-{Money(data.DiscountAmount)}");
+                    }
+
+                    Sum(L("JAMI", "ИТОГО"), Money(data.TotalAmount), bold: true, size: totalSize);
+                    Sum(L("To'landi", "Оплачено"), Money(data.PaidAmount));
+                    if (data.RemainingAmount > 0)
+                        Sum(L("Qarz", "Долг"), Money(data.RemainingAmount), bold: true);
+
+                    col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
+
+                    col.Item().AlignCenter().Text(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"))
+                        .SemiBold().FontColor(Black);
+
+                    // Rulon kesilganda oxirgi qator qirqilib qolmasin.
+                    col.Item().PaddingBottom(10);
+                });
+            });
+        }).GeneratePdf();
+    }
+
     internal record InvoiceData(
         string MarketName,
         string MarketDescription,
@@ -885,15 +1007,17 @@ internal static class ReportPdfRenderer
         string Status
     );
 
-    // ── Strotech PDF design system ──────────────────────────────────────
-    // Single source of truth for every PDF's colours. Mirrors the Flutter
-    // app's design tokens (AppTokens) so printed documents match the UI.
+    // ── Buildix PDF design system ───────────────────────────────────────
+    // Single source of truth for every PDF's colours. Mirrors the brand kit
+    // (docs/brand) and the web design tokens (Buildix.Web/tailwind.config.ts)
+    // so printed documents match the app and the logo.
     internal static class PdfTheme
     {
-        public const string Brand = "#FF6B00";       // primary accent (orange)
-        public const string BrandDark = "#E55400";   // headings / emphasis
-        public const string BrandLight = "#FFF4EB";  // tinted section background
-        public const string BrandTint = "#FFE9D6";   // on-brand subtle text
+        public const string Navy = "#0F2557";        // brand surface: bands, table heads, mark
+        public const string NavyTint = "#A8B6D4";    // subtle text on a navy band
+        public const string Blue = "#2563EB";        // primary accent: document titles
+        public const string Amber = "#F5A623";       // the mark's dot — logo use only
+        public const string AmberInk = "#B45309";    // amber family, legible as text on white
         public const string Ink = "#0F172A";         // primary text
         public const string Muted = "#64748B";       // secondary text
         public const string Line = "#E2E8F0";        // dividers / borders
@@ -923,10 +1047,32 @@ internal static class ReportPdfRenderer
     };
 
     // ── Minimalist redesign — shared chrome ──
-    // Orange square + white initial. Swap for .Image(logoBytes) once a real
-    // logo asset ships.
-    private static void BrandMark(IContainer c, string initial)
-        => c.Width(38).Height(38).Background(PdfTheme.Brand)
+    // The Buildix mark: two rounded squares + an amber dot. Kept inline (rather
+    // than read from disk) so the renderer stays a pure, file-system-free
+    // static class; the geometry is 1:1 with docs/brand/buildix-mark-*.svg.
+    // The squares flip to white on a navy band; the dot stays amber either way.
+    private static string MarkSvg(string squares) => $"""
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+          <rect x="0" y="0" width="26" height="26" rx="7" fill="{squares}"/>
+          <rect x="0" y="30" width="26" height="26" rx="7" fill="{squares}"/>
+          <rect x="30" y="30" width="26" height="26" rx="13" fill="{PdfTheme.Amber}"/>
+        </svg>
+        """;
+
+    private static readonly string MarkSvgOnLight = MarkSvg(PdfTheme.Navy);
+    private static readonly string MarkSvgOnDark = MarkSvg(PdfTheme.White);
+
+    /// <summary>The Buildix logo mark, for documents Buildix itself issues (reports).</summary>
+    private static void BuildixMark(IContainer c, float size = 38, bool onDark = false)
+        => c.Width(size).Height(size).Svg(onDark ? MarkSvgOnDark : MarkSvgOnLight);
+
+    /// <summary>
+    /// The *market's* identity tile — a navy square with its initial. An invoice
+    /// is issued by the market to its customer, so the header carries the market,
+    /// not Buildix; Buildix is credited in the footer.
+    /// </summary>
+    private static void MarketMark(IContainer c, string initial)
+        => c.Width(38).Height(38).Background(PdfTheme.Navy)
             .AlignCenter().AlignMiddle()
             .Text(initial).FontSize(18).Bold().FontColor(PdfTheme.White);
 

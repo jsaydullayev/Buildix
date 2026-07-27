@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 64" width="300" height="64" role="img" aria-label="Buildix — система для стройбизнеса">
+  <rect x="0" y="4" width="26" height="26" rx="7" fill="#0F2557"></rect>
+  <rect x="0" y="34" width="26" height="26" rx="7" fill="#0F2557"></rect>
+  <rect x="30" y="34" width="26" height="26" rx="13" fill="#F5A623"></rect>
+  <text x="72" y="34" font-family="Unbounded, &#39;Golos Text&#39;, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="0.3" fill="#0F2557">Buildix</text>
+  <text x="74" y="52" font-family="&#39;Golos Text&#39;, Arial, sans-serif" font-size="9.5" font-weight="500" letter-spacing="2.4" fill="#94A3B8">СИСТЕМА ДЛЯ СТРОЙБИЗНЕСА</text>
+</svg>

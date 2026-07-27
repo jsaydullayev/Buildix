@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 56" width="260" height="56" role="img" aria-label="Buildix">
+  <rect x="0" y="0" width="26" height="26" rx="7" fill="#2563EB"></rect>
+  <rect x="0" y="30" width="26" height="26" rx="7" fill="#2563EB"></rect>
+  <rect x="30" y="30" width="26" height="26" rx="13" fill="#F5A623"></rect>
+  <text x="72" y="38" font-family="Unbounded, &#39;Golos Text&#39;, &#39;Segoe UI&#39;, Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="0.4" fill="#0F172A">Buildix</text>
+</svg>
