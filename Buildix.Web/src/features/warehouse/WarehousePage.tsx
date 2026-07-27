@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -214,25 +214,38 @@ function WarehouseRow({
   const unit = unitLabel(t, p.unit, p.unitName);
   const stockTone = p.quantity <= 0 ? 'text-danger' : p.isLowStock ? 'text-warn-strong' : 'text-text';
 
-  // Inline min-threshold, committed on blur when changed.
-  const [min, setMin] = useState(String(p.minThreshold));
-  useEffect(() => setMin(String(p.minThreshold)), [p.minThreshold]);
+  // Inline min-threshold, committed on blur when changed. 0 bo'sh ko'rinadi —
+  // foydalanuvchi son yozishdan oldin «0» ni o'chirib o'tirmasin.
+  const [min, setMin] = useState(p.minThreshold === 0 ? '' : String(p.minThreshold));
+  useEffect(() => setMin(p.minThreshold === 0 ? '' : String(p.minThreshold)), [p.minThreshold]);
 
   const patch = useMutation({
     mutationFn: (minThreshold: number) => productsApi.patch(p.id, { minThreshold }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['products'] }),
   });
+  // Escape bekor qiladi. `blur()` onBlur'ni SINXRON chaqiradi — commit hali
+  // eski (yozilgan) qiymatni ko'rib turadi va uni saqlab yuborardi; bayroq
+  // shu poygani uzadi.
+  const cancelRef = useRef(false);
   const commitMin = () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setMin(p.minThreshold === 0 ? '' : String(p.minThreshold));
+      return;
+    }
     const next = Math.max(0, Number(min) || 0);
     if (next !== p.minThreshold) patch.mutate(next);
-    else setMin(String(p.minThreshold));
+    else setMin(p.minThreshold === 0 ? '' : String(p.minThreshold));
   };
 
   return (
     <div className="grid grid-cols-[2.2fr_0.9fr_1.1fr_0.9fr_1fr_0.3fr] items-center gap-4 border-b border-hairline px-6 py-2.5 text-[13px] last:border-0 hover:bg-bg/40">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-col items-start text-left">
         <span className="truncate font-medium">{p.name}</span>
-        <span className="truncate text-[11.5px] text-muted-2">{p.categoryName ?? '—'}</span>
+        <span className="truncate text-[11.5px] text-muted-2">
+          {p.sku && <span className="font-medium text-muted">{p.sku} · </span>}
+          {p.categoryName ?? '—'}
+        </span>
       </button>
 
       <span className={cn('text-right font-semibold nums', stockTone)}>
@@ -245,14 +258,16 @@ function WarehouseRow({
             type="number"
             step="any"
             min="0"
+            placeholder="0"
             value={min}
             disabled={patch.isPending}
+            onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => setMin(e.target.value)}
             onBlur={commitMin}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
               if (e.key === 'Escape') {
-                setMin(String(p.minThreshold));
+                cancelRef.current = true;
                 e.currentTarget.blur();
               }
             }}

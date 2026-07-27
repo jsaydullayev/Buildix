@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+body{margin:0;background:#f6f8fb;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#2563eb;text-decoration:none}a:hover{color:#1e40af}
+</style>
+</helmet>
+<div data-screen-label="Super Requests" style="width:100%;min-width:1360px;min-height:100vh;display:flex;background:#f6f8fb;color:#0f172a">
+
+  <div style="width:232px;flex:none;background:#1e1145;color:#ffffff;display:flex;flex-direction:column;padding:22px 14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px;margin-bottom:26px">
+      <img src="assets/logo-mark.svg" alt="Buildix" style="width:30px;height:30px;flex:none">
+      <div style="font-family:'Unbounded',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px">Buildix</div>
+      <span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:rgba(167,139,250,.22);border:1px solid rgba(167,139,250,.5);font-size:10px;font-weight:700;letter-spacing:.5px;color:#c4b5fd">SUPER</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <a href="Super Dashboard.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Панель</a>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.12);font-size:13.5px;font-weight:600;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5V6l-9-3-9 3v5.5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11z"></path></svg>Заявки<span style="margin-left:auto;min-width:18px;height:18px;border-radius:999px;background:#7c3aed;color:#ffffff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box">{{ newCount }}</span></div>
+      <a href="Super Stores.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"></path><path d="M13 21v-6h4v6"></path><path d="M3 21h18"></path></svg>Магазины</a>
+      <a href="Super Billing.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>Подписки и оплаты</a>
+      <a href="Super Users.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"></path><path d="M16 4.5a3.2 3.2 0 0 1 0 7"></path><path d="M17.5 15c1.9.5 3 2 3.5 5"></path></svg>Пользователи</a>
+      <a href="Super Settings.dc.html" style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.62);cursor:pointer" style-hover="background:rgba(255,255,255,.07);color:#ffffff"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Настройки</a>
+    </div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12)">
+      <div style="width:34px;height:34px;border-radius:999px;background:#a78bfa;color:#1e1145;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">SA</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">Superadmin</div><div style="font-size:11px;color:rgba(255,255,255,.5)">Buildix HQ</div></div>
+      <a href="Login.dc.html" style="display:flex;color:rgba(255,255,255,.55)" style-hover="color:#ffffff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></a>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;background:#ffffff;border-bottom:1px solid #e8edf4">
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.2px">Заявки на подключение</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:2px">{{ newCount }} новых · заполняются на welcome-странице (имя + телефон)</div>
+      </div>
+      <div style="display:inline-flex;background:#f1f5f9;border-radius:999px;padding:3px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <div onClick="{{ t.pick }}" style="padding:8px 17px;border-radius:999px;font-size:12.5px;font-weight:{{ t.w }};color:{{ t.color }};background:{{ t.bg }};cursor:pointer">{{ t.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 32px 40px;display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="position:relative;max-width:340px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:14px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+        <input type="text" placeholder="Имя или телефон…" value="{{ q }}" onChange="{{ setQ }}" style="width:100%;height:43px;border:1px solid #e2e8f0;border-radius:10px;padding:0 14px 0 38px;font-size:13.5px;font-family:'Golos Text',sans-serif;color:#0f172a;outline:none;background:#ffffff;box-sizing:border-box" style-focus="border:1px solid #7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12)">
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e8edf4;border-radius:13px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 170px 150px 130px 260px;gap:12px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94a3b8"><div>ЗАЯВИТЕЛЬ</div><div>ТЕЛЕФОН</div><div>ПОСТУПИЛА</div><div>СТАТУС</div><div></div></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 170px 150px 130px 260px;gap:12px;align-items:center;padding:13px 22px;border-bottom:1px solid #f1f5f9;background:{{ r.rowBg }}">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0">
+              <div style="width:38px;height:38px;border-radius:999px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:#6d28d9;flex:none">{{ r.initials }}</div>
+              <div style="min-width:0">
+                <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</div>
+                <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;color:#94a3b8;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.note }}</div></sc-if>
+              </div>
+            </div>
+            <div style="font-size:13px;color:#475569;font-weight:500">{{ r.phone }}</div>
+            <div style="font-size:12.5px;color:#64748b">{{ r.when }}</div>
+            <div><span style="padding:4px 11px;border-radius:999px;background:{{ r.stBg }};font-size:11px;font-weight:600;color:{{ r.stC }}">{{ r.status }}</span></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
+              <sc-if value="{{ r.isNew }}" hint-placeholder-val="{{ true }}">
+                <a href="tel:" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:1px solid #cbd5e1;color:#475569;flex:none" title="Позвонить" style-hover="border:1px solid #2563eb;color:#2563eb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.5 2.9.7a2 2 0 0 1 1.6 2z"></path></svg></a>
+                <button onClick="{{ r.accept }}" type="button" style="height:36px;padding:0 15px;border:none;border-radius:8px;background:#16a34a;color:#ffffff;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#15803d">Принять</button>
+                <button onClick="{{ r.reject }}" type="button" style="height:36px;padding:0 15px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#dc2626;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #dc2626;background:#fef2f2">Отклонить</button>
+              </sc-if>
+              <sc-if value="{{ r.accepted }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ r.createStore }}" type="button" style="height:36px;padding:0 15px;border:none;border-radius:8px;background:#7c3aed;color:#ffffff;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="background:#6d28d9">Создать магазин</button>
+                <button onClick="{{ r.undo }}" type="button" style="height:36px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#64748b;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Вернуть</button>
+              </sc-if>
+              <sc-if value="{{ r.rejected }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ r.undo }}" type="button" style="height:36px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#64748b;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;cursor:pointer" style-hover="border:1px solid #94a3b8">Вернуть</button>
+              </sc-if>
+              <sc-if value="{{ r.stored }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6d28d9"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>магазин создан</span>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px;text-align:center;font-size:13px;color:#94a3b8">Заявок в этой категории нет</div>
+        </sc-if>
+      </div>
+      <div style="display:flex;gap:11px;align-items:flex-start;font-size:12.5px;color:#64748b;padding:0 4px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+        Порядок работы: позвоните заявителю → «Принять» → «Создать магазин» — создаётся магазин и аккаунт владельца, логин и пароль отправляются по SMS.
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    q: '', tab: 'Новые', status: {},
+    reqs: [
+      { id: 1, name: 'Азиз Каримов', phone: '+998 90 123 45 67', when: 'сегодня, 11:24', note: 'стройматериалы, Ташкент' },
+      { id: 2, name: 'Шухрат Норматов', phone: '+998 93 505 18 22', when: 'сегодня, 09:02', note: '' },
+      { id: 3, name: 'ООО «Мега Строй Инвест»', phone: '+998 71 200 44 00', when: 'вчера, 17:48', note: '2 точки, Самарканд' },
+      { id: 4, name: 'Дилноза Юсупова', phone: '+998 94 611 03 55', when: 'вчера, 12:10', note: '' },
+      { id: 5, name: 'Фаррух Азимов', phone: '+998 88 302 71 19', when: '21 июля', note: 'кровельные материалы' },
+      { id: 6, name: '«Нур Баракат Строй»', phone: '+998 90 774 26 84', when: '20 июля', note: '' },
+    ],
+  };
+  stOf(id) { return this.state.status[id] || 'new'; }
+  renderVals() {
+    const q = this.state.q.toLowerCase().trim();
+    const TAB_MATCH = { 'Новые': ['new'], 'Принятые': ['ok', 'store'], 'Отклонённые': ['no'], 'Все': ['new', 'ok', 'no', 'store'] };
+    const inits = (n) => n.replace(/[«»]/g, '').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const list = this.state.reqs.filter(r =>
+      TAB_MATCH[this.state.tab].includes(this.stOf(r.id)) &&
+      (!q || r.name.toLowerCase().includes(q) || r.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))));
+    const counts = { new: 0, ok: 0, no: 0, store: 0 };
+    this.state.reqs.forEach(r => counts[this.stOf(r.id)]++);
+    const ST = {
+      new: { status: 'Новая', stBg: '#eff6ff', stC: '#1e40af', rowBg: '#ffffff' },
+      ok: { status: 'Принята', stBg: '#f0fdf4', stC: '#15803d', rowBg: '#ffffff' },
+      no: { status: 'Отклонена', stBg: '#f1f5f9', stC: '#64748b', rowBg: '#fafbfc' },
+      store: { status: 'Подключена', stBg: '#f5f3ff', stC: '#6d28d9', rowBg: '#ffffff' },
+    };
+    return {
+      newCount: counts.new,
+      q: this.state.q,
+      setQ: (e) => this.setState({ q: e.target.value }),
+      tabs: ['Новые', 'Принятые', 'Отклонённые', 'Все'].map(t => ({
+        label: t,
+        w: this.state.tab === t ? '600' : '500',
+        color: this.state.tab === t ? '#0f172a' : '#64748b',
+        bg: this.state.tab === t ? '#ffffff' : 'transparent',
+        pick: () => this.setState({ tab: t }),
+      })),
+      rows: list.map(r => {
+        const st = this.stOf(r.id);
+        const set = (v) => () => this.setState(s => ({ status: { ...s.status, [r.id]: v } }));
+        return {
+          name: r.name, phone: r.phone, when: r.when, note: r.note, hasNote: r.note.length > 0,
+          initials: inits(r.name),
+          isNew: st === 'new', accepted: st === 'ok', rejected: st === 'no', stored: st === 'store',
+          ...ST[st],
+          accept: set('ok'), reject: set('no'), undo: set('new'), createStore: set('store'),
+        };
+      }),
+      noRows: list.length === 0,
+    };
+  }
+}
+</script>
+</body>
+</html>

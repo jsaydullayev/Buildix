@@ -155,20 +155,20 @@ function AddClientModal({ open, onClose }: { open: boolean; onClose: () => void 
   const qc = useQueryClient();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [type, setType] = useState<'Individual' | 'Legal'>('Individual');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setFullName('');
       setPhone('');
-      setType('Individual');
       setError(null);
     }
   }, [open]);
 
   const mutation = useMutation({
-    mutationFn: () => customersApi.create({ fullName: fullName || null, phone, customerType: type }),
+    // Mijoz turi tanlagichi olib tashlangan — hamma yangi mijoz Individual
+    // (backend standarti); tur biznes oqimida ishlatilmaydi.
+    mutationFn: () => customersApi.create({ fullName: fullName || null, phone }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['seller-clients'] });
       onClose();
@@ -211,24 +211,6 @@ function AddClientModal({ open, onClose }: { open: boolean; onClose: () => void 
             placeholder="+998 __ ___ __ __"
             className={`${inputCls} nums`}
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-medium text-label">{t('seller.clients.form.type')}</label>
-          <div className="inline-flex rounded-input bg-hairline p-1">
-            {(['Individual', 'Legal'] as const).map((tp) => (
-              <button
-                key={tp}
-                type="button"
-                onClick={() => setType(tp)}
-                className={cn(
-                  'rounded-md px-4 py-2 text-[13px] font-medium transition-colors',
-                  type === tp ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
-                )}
-              >
-                {t(`debts.type.${tp === 'Legal' ? 'legal' : 'individual'}`)}
-              </button>
-            ))}
-          </div>
         </div>
         {error && <p className="text-[12.5px] text-danger">{error}</p>}
       </div>

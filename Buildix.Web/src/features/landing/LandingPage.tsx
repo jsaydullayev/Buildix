@@ -1,10 +1,12 @@
 import { type FormEvent, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import {
   BarChart3,
   Boxes,
   CheckCircle2,
+  LogIn,
   type LucideIcon,
   Receipt,
   ShieldCheck,
@@ -97,7 +99,17 @@ export default function LandingPage() {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-hairline px-6 py-5 md:px-16">
         <BrandLogo />
-        <LanguageSwitch />
+        <div className="flex items-center gap-3">
+          <LanguageSwitch />
+          {/* Kirish — ildizdagi `/login`. Do'kon xodimi o'z do'koniga, SuperAdmin
+              esa konsolga avtomatik yo'naltiriladi (LoginPage). */}
+          <Link to="/login">
+            <Button variant="secondary" size="sm">
+              <LogIn size={15} />
+              {t('landing.nav.login')}
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}

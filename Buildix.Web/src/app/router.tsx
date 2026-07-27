@@ -2,12 +2,14 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { SellerLayout } from './layouts/SellerLayout';
+import { SuperAdminLayout } from './layouts/SuperAdminLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
 import {
   RequireAuth,
   RequirePermission,
   RequireRole,
   RequireSubscription,
+  RequireTenant,
   IndexRedirect,
 } from '@/shared/auth/guards';
 import { FullscreenLoader } from '@/shared/ui';
@@ -38,6 +40,18 @@ const CashPage = lazy(() => import('@/features/cash/CashPage'));
 const ProductsPage = lazy(() => import('@/features/products/ProductsPage'));
 const ReturnsPage = lazy(() => import('@/features/returns/ReturnsPage'));
 
+// SuperAdmin konsoli — S0: qobiq, marshrutlar va tema; ekranlar S1..S5 da
+// to'ldiriladi (docs/SUPERADMIN-DESIGN-INTEGRATION-TZ.md).
+const SuperLoginPage = lazy(() =>
+  import('@/features/superadmin/SuperLoginPage').then((m) => ({ default: m.SuperLoginPage })),
+);
+const SuperDashboardPage = lazy(() => import('@/features/superadmin/SuperDashboardPage'));
+const SuperRequestsPage = lazy(() => import('@/features/superadmin/SuperRequestsPage'));
+const SuperStoresPage = lazy(() => import('@/features/superadmin/SuperStoresPage'));
+const SuperBillingPage = lazy(() => import('@/features/superadmin/SuperBillingPage'));
+const SuperUsersPage = lazy(() => import('@/features/superadmin/SuperUsersPage'));
+const SuperSettingsPage = lazy(() => import('@/features/superadmin/SuperSettingsPage'));
+
 // Seller (cashier) shell pages — Bosqich 1.
 const SellerProductsPage = lazy(() => import('@/features/seller/SellerProductsPage'));
 const SellerDebtsPage = lazy(() => import('@/features/seller/SellerDebtsPage'));
@@ -56,17 +70,48 @@ const perm = (permission: string, node: ReactNode) => (
 
 export const router = createBrowserRouter([
   { path: '/', element: publicElement(<LandingPage />) },
+  // Ildizdagi login — SuperAdmin shu yerdan kiradi (u hech qaysi do'konga
+  // tegishli emas, ya'ni `/:subdomain/login` unga yaramaydi). Muvaffaqiyatdan
+  // keyin sahifa uni konsolga yoki o'z do'koniga yo'naltiradi.
+  { path: '/login', element: <LoginPage /> },
   { path: '/:subdomain/login', element: <LoginPage /> },
+  // ── SuperAdmin konsoli ────────────────────────────────────────────────────
+  // `:segment` — backenddagi yashirin segmentning AYNAN o'zi
+  // (SuperAdmin:ConsoleSegment). U bundle ichida emas, URL'da yashaydi:
+  // operator to'liq havolani o'zi biladi. Noto'g'ri segment bilan har bir API
+  // chaqiruvi 404 qaytaradi, ya'ni konsol borligi oshkor bo'lmaydi.
+  { path: '/_sa/:segment/login', element: publicElement(<SuperLoginPage />) },
+  {
+    path: '/_sa/:segment',
+    element: (
+      <RequireAuth>
+        <RequireRole roles={[ROLES.SuperAdmin]}>
+          <SuperAdminLayout />
+        </RequireRole>
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: 'dashboard', element: <SuperDashboardPage /> },
+      { path: 'requests', element: <SuperRequestsPage /> },
+      { path: 'stores', element: <SuperStoresPage /> },
+      { path: 'billing', element: <SuperBillingPage /> },
+      { path: 'users', element: <SuperUsersPage /> },
+      { path: 'settings', element: <SuperSettingsPage /> },
+    ],
+  },
   {
     // Full-screen POS checkout — outside AppLayout (no sidebar).
     path: '/:subdomain/pos',
     element: (
       <RequireAuth>
-        <RequireSubscription>
-          <RequirePermission permission={PERMISSIONS.sales.create}>
-            {publicElement(<PosPage />)}
-          </RequirePermission>
-        </RequireSubscription>
+        <RequireTenant>
+          <RequireSubscription>
+            <RequirePermission permission={PERMISSIONS.sales.create}>
+              {publicElement(<PosPage />)}
+            </RequirePermission>
+          </RequireSubscription>
+        </RequireTenant>
       </RequireAuth>
     ),
   },
@@ -74,7 +119,9 @@ export const router = createBrowserRouter([
     path: '/:subdomain',
     element: (
       <RequireAuth>
-        <AppLayout />
+        <RequireTenant>
+          <AppLayout />
+        </RequireTenant>
       </RequireAuth>
     ),
     children: [
@@ -107,7 +154,9 @@ export const router = createBrowserRouter([
     path: '/:subdomain/seller',
     element: (
       <RequireAuth>
-        <SellerLayout />
+        <RequireTenant>
+          <SellerLayout />
+        </RequireTenant>
       </RequireAuth>
     ),
     children: [

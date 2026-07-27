@@ -40,8 +40,14 @@ export interface UpdateProfileBody {
   newPassword?: string | null;
   phone?: string | null;
   telegram?: string | null;
-  /** Telegram bot ID; "" unlinks, omit (or null) to leave unchanged. */
-  telegramChatId?: string | null;
+  /**
+   * Telegram bot ID. ONLY "" is accepted — it unlinks. A real id is rejected by
+   * the server: typing an id proves nothing about owning that Telegram account,
+   * so linking goes through `telegramLinkCode` instead.
+   */
+  telegramChatId?: '' | null;
+  /** One-time 6-digit code the bot hands out; omit (or null) to leave unchanged. */
+  telegramLinkCode?: string | null;
   /** UI language code; omit (or null) to leave it unchanged. */
   language?: string | null;
   /** Per-user Telegram notification toggles; omit (or null) to leave unchanged. */
@@ -82,5 +88,11 @@ export const accountApi = {
 
   updateProfile: async (body: UpdateProfileBody): Promise<void> => {
     await apiClient.put('/Users/UpdateMyProfile', body);
+  },
+
+  /** Platforma botining @username'i — «Botni ochish» tugmasi uchun. */
+  telegramBot: async (): Promise<string | null> => {
+    const { data } = await apiClient.get<{ botUsername: string | null }>('/Users/TelegramBotInfo');
+    return data.botUsername;
   },
 };

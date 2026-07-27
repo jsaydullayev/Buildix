@@ -118,6 +118,31 @@ export const posApi = {
     return data;
   },
 
+  /**
+   * Set a line to an EXACT quantity — decimals allowed (12, 3.5, 0.25).
+   * The register's primary quantity path: «+» N times cannot express a
+   * fraction, and for "30 qop" it is 30 round-trips. Quantity 0 drops the line.
+   * The server takes the difference from the row it reads under the product
+   * lock, so a stale client-side quantity cannot double-apply.
+   */
+  setItemQuantity: async (saleId: string, saleItemId: string, quantity: number): Promise<PosSaleItem> => {
+    const { data } = await apiClient.patch<PosSaleItem>(`/Sales/${saleId}/items/quantity`, {
+      saleItemId,
+      quantity,
+    });
+    return data;
+  },
+
+  /** Override one line's price (торг). Audited server-side; needs sales.edit. */
+  updateItemPrice: async (saleItemId: string, newPrice: number, comment?: string | null): Promise<PosSaleItem> => {
+    const { data } = await apiClient.patch<PosSaleItem>('/Sales/items/price', {
+      saleItemId,
+      newPrice,
+      comment: comment ?? null,
+    });
+    return data;
+  },
+
   /** Set (or clear, with 0) the sale-level discount. */
   setDiscount: async (saleId: string, discountAmount: number): Promise<PosSale> => {
     const { data } = await apiClient.patch<PosSale>(`/Sales/${saleId}/discount`, { discountAmount });
@@ -179,7 +204,19 @@ export const posApi = {
     await apiClient.delete(`/Sales/my-drafts/${saleId}`);
   },
 
-  /** Printable receipt (PDF). Fetched through apiClient so the JWT is attached —
+  /**
+   * Kassa cheki — TERMAL rulon (58/80 mm) uchun PDF. Kassadagi «Chek chiqarish»
+   * shuni oladi: A4 faktura rulonli printerda siqilib yoki kesilib chiqardi.
+   */
+  receiptPdf: async (saleId: string, lang: string, widthMm = 80): Promise<Blob> => {
+    const { data } = await apiClient.get(`/Sales/${saleId}/receipt`, {
+      params: { lang, width: widthMm },
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
+  /** A4 faktura (ofis hujjati). Fetched through apiClient so the JWT is attached —
    *  a bare window.open would hit the endpoint unauthenticated. */
   invoicePdf: async (saleId: string, lang: string): Promise<Blob> => {
     const { data } = await apiClient.get(`/Sales/${saleId}/invoice`, {

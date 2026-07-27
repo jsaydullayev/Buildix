@@ -6,8 +6,6 @@ import { cn } from '@/shared/lib/cn';
 import type { ApiError } from '@/shared/api/types';
 import { customersApi, type Customer } from './api';
 
-const TYPES = ['Individual', 'Legal'] as const;
-
 /**
  * Create or edit a customer. `editing === null` → create (with optional opening
  * debt); passing a customer switches to update (opening debt is create-only, so
@@ -26,9 +24,7 @@ export function CustomerFormModal({
   const qc = useQueryClient();
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
-  const [type, setType] = useState<string>('Individual');
   const [isRegular, setIsRegular] = useState(false);
-  const [debtLimit, setDebtLimit] = useState('');
   const [initialDebt, setInitialDebt] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +33,7 @@ export function CustomerFormModal({
     if (open) {
       setPhone(editing?.phone ?? '');
       setFullName(editing?.fullName ?? '');
-      setType(editing?.customerType ?? 'Individual');
       setIsRegular(editing?.isRegular ?? false);
-      setDebtLimit(editing?.debtLimit ? String(editing.debtLimit) : '');
       setInitialDebt('');
       setComment(editing?.comment ?? '');
       setError(null);
@@ -48,16 +42,15 @@ export function CustomerFormModal({
 
   const save = useMutation({
     mutationFn: () => {
-      // 0 debt limit = unlimited; empty field also means "no explicit limit".
-      const limit = debtLimit.trim() ? Math.max(0, Number(debtLimit) || 0) : null;
+      // Mijoz turi va qarz limiti formadan olib tashlangan (2026-07-26):
+      // ular yuborilmaydi — backend ikkalasini ham o'zgartirmay qoldiradi.
+      // Limit null bo'lsa do'kon sozlamalaridagi umumiy standart amal qiladi.
       if (editing) {
         return customersApi.update({
           id: editing.id,
           phone: phone.trim(),
           fullName: fullName.trim() || null,
-          customerType: type,
           isRegular,
-          debtLimit: limit,
         });
       }
       return customersApi.create({
@@ -65,9 +58,7 @@ export function CustomerFormModal({
         fullName: fullName.trim() || null,
         comment: comment.trim() || null,
         initialDebt: initialDebt.trim() ? Math.max(0, Number(initialDebt) || 0) : null,
-        customerType: type,
         isRegular,
-        debtLimit: limit,
       });
     },
     onSuccess: () => {
@@ -114,50 +105,18 @@ export function CustomerFormModal({
           </Field>
         </div>
 
-        <Field label={t('customers.form.type')}>
-          <div className="flex gap-2">
-            {TYPES.map((ty) => (
-              <button
-                key={ty}
-                type="button"
-                onClick={() => setType(ty)}
-                className={cn(
-                  'h-11 flex-1 rounded-input border text-[13px] font-medium transition-colors',
-                  type === ty
-                    ? 'border-primary bg-primary-soft text-primary-hover'
-                    : 'border-input-border bg-surface text-muted hover:text-text',
-                )}
-              >
-                {t(`customers.types.${ty.toLowerCase()}` as never)}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('customers.form.debtLimit')}>
+        {!editing && (
+          <Field label={t('customers.form.initialDebt')}>
             <input
               type="number"
               step="any"
-              placeholder={t('customers.form.noLimit')}
-              value={debtLimit}
-              onChange={(e) => setDebtLimit(e.target.value)}
+              placeholder="0"
+              value={initialDebt}
+              onChange={(e) => setInitialDebt(e.target.value)}
               className={cn(inputCls, 'w-full text-right nums')}
             />
           </Field>
-          {!editing && (
-            <Field label={t('customers.form.initialDebt')}>
-              <input
-                type="number"
-                step="any"
-                placeholder="0"
-                value={initialDebt}
-                onChange={(e) => setInitialDebt(e.target.value)}
-                className={cn(inputCls, 'w-full text-right nums')}
-              />
-            </Field>
-          )}
-        </div>
+        )}
 
         <div className="flex items-center justify-between gap-4 rounded-input bg-bg px-4 py-2.5">
           <div className="min-w-0">

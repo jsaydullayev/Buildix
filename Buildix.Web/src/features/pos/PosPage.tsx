@@ -1,32 +1,62 @@
-import { useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Search, Plus, Minus, X, Package, Check, UserPlus, Clock, AlertTriangle } from 'lucide-react';
-import { Button, Card, Spinner, Badge } from '@/shared/ui';
+import {
+  ArrowLeft,
+  Search,
+  Plus,
+  Minus,
+  X,
+  Package,
+  Check,
+  UserPlus,
+  Clock,
+  Pause,
+  AlertTriangle,
+} from 'lucide-react';
+import { Button, Card, Spinner, Badge, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
+import {
+  EMPTY_MIX,
+  MIX_ROWS,
+  formatMixInput,
+  mixPayments,
+  mixSumOf,
+  money,
+  parseMixInput,
+  type MixParts,
+} from './mix';
+import { ReceiptModal } from './ReceiptModal';
+import { shiftsApi } from '@/features/shifts/api';
+import { publicMarketApi } from '@/shared/api/auth';
 
+// Click olib tashlangan (2026-07-26) — do'kon uni qabul qilmaydi; ro'yxatda
+// turgani kassirni chalg'itardi. Backend enum'da qoladi (eski cheklar buzilmaydi).
 const METHODS = [
   { key: 'cash', value: 'Cash' },
   { key: 'card', value: 'Terminal' },
   { key: 'transfer', value: 'Transfer' },
-  { key: 'click', value: 'Click' },
-  // Aralash — naqd + karta bitta chekda. Sotuvchi kassasida bor edi, bu yerda
-  // yo'q edi, ya'ni Owner qisman naqd to'lovni umuman rasmiylashtira olmasdi.
+] as const;
+// Aralash va Qarzga — alohida qatorda, kengroq tugmalar.
+const WIDE_METHODS = [
   { key: 'mixed', value: 'Mixed' },
   { key: 'debt', value: 'Debt' },
 ] as const;
 
+// Miks mantig'i ./mix.ts da — kassir kassasi ham SHU manbadan oladi.
+
 export default function PosPage() {
   const { subdomain } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
+  const confirm = useConfirm();
 
   const [saleId, setSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -37,9 +67,13 @@ export default function PosPage() {
   // Blank, not '0' — the field shows a faint "0" placeholder so the cashier can
   // type straight away instead of deleting a literal zero first.
   const [discountInput, setDiscountInput] = useState('');
-  // Aralash to'lovda kassir naqd ulushini kiritadi, qolganini karta yopadi.
-  const [cashPartInput, setCashPartInput] = useState('');
+  // Aralash to'lov: kassir uch usul bo'yicha summalarni o'zi taqsimlaydi.
+  const [mixParts, setMixParts] = useState<MixParts>(EMPTY_MIX);
   const [success, setSuccess] = useState(false);
+  // Yakunlangan chek — «Rasmiylashtirish»dan keyingi oyna shundan chiziladi.
+  // Sotuv holati serverdan qayta o'qiladi: to'langan summa, qoldiq va status
+  // to'lovlar qo'llanganidan KEYIN aniq bo'ladi.
+  const [done, setDone] = useState<PosSale | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -70,6 +104,15 @@ export default function PosPage() {
     queryFn: () => posApi.getSale(saleId!),
     enabled: !!saleId,
   });
+  // Chek header'i uchun: joriy smena raqami va do'kon nomi. Ikkalasi ham
+  // bo'lmasa chek shusiz chiziladi — sotuvni bloklamaydi.
+  const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  const marketQuery = useQuery({
+    queryKey: ['public-market', subdomain],
+    queryFn: () => publicMarketApi.getState(subdomain!),
+    enabled: !!subdomain,
+    staleTime: 30 * 60_000,
+  });
   const productsQuery = useQuery({
     queryKey: ['pos-products', debouncedSearch],
     queryFn: () => posApi.searchProducts({ page: 1, size: 30, search: debouncedSearch }),
@@ -78,6 +121,80 @@ export default function PosPage() {
 
   const sale = saleQuery.data;
   const refresh = () => qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
+
+  // Parked receipts — server-side Drafts, the same list the cashier shell shows.
+  const draftsQuery = useQuery({ queryKey: ['pos-drafts'], queryFn: posApi.myDrafts });
+  const refreshDrafts = () => qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+  const heldDrafts = (draftsQuery.data ?? []).filter((d) => d.id !== saleId && d.items.length > 0);
+
+  /** Set the current receipt aside: it stays a Draft and returns in the strip. */
+  function park() {
+    draftRef.current = null;
+    setSaleId(null);
+    setCustomer(null);
+    setMethod('Cash');
+    setMixParts(EMPTY_MIX);
+    setActionError(null);
+    void refreshDrafts();
+  }
+
+  function resume(d: PosSale) {
+    draftRef.current = null;
+    setSaleId(d.id);
+    setCustomer(
+      d.customerId
+        ? ({ id: d.customerId, fullName: d.customerName, phone: d.customerPhone ?? '' } as PosCustomer)
+        : null,
+    );
+    setMixParts(EMPTY_MIX);
+    setActionError(null);
+  }
+
+  /**
+   * Leaving mid-sale — same prompt the cashier shell shows. The Draft survives
+   * on the server either way, but a basket disappearing off the screen reads as
+   * data loss, so we ask and park explicitly.
+   */
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      items.length > 0 && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    let cancelled = false;
+    void (async () => {
+      const leave = await confirm({
+        title: t('pos.leaveTitle'),
+        message: t('pos.leaveMessage'),
+        confirmLabel: t('pos.park'),
+        cancelLabel: t('pos.stay'),
+      });
+      if (cancelled) return;
+      if (leave) {
+        park();
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocker.state]);
+
+  const discardDraft = useMutation({
+    mutationFn: (id: string) => posApi.deleteMyDraft(id),
+    onSuccess: (_res, id) => {
+      if (id === saleId) park();
+      // Discarding restocks every line, so the catalogue's own numbers are the
+      // only trustworthy ones now — refetch rather than guess the deltas.
+      void qc.invalidateQueries({ queryKey: ['pos-products'] });
+      void refreshDrafts();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
   // M-5: after any cart mutation, also refresh the product grid so displayed
   // stock (and the out-of-stock disable) reflects the sold quantities.
   const refreshAll = () => {
@@ -115,6 +232,17 @@ export default function PosPage() {
     mutationFn: (itemId: string) => posApi.removeItem(saleId!, itemId, 1),
     onSuccess: refreshAll,
   });
+  // Miqdorni AYNAN qiymatga o'rnatish — «100 dona» uchun 100 marta «+» bosish
+  // shart emas: son ustiga bosib, qo'lda kiritiladi (kasr ham mumkin: 3.5 kg).
+  const setQty = useMutation({
+    mutationFn: (p: { itemId: string; quantity: number }) =>
+      posApi.setItemQuantity(saleId!, p.itemId, p.quantity),
+    onSuccess: () => {
+      setActionError(null);
+      refreshAll();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
   // Chegirma va mijoz chek hali yaratilmagan bo'lsa serverga bormaydi — qiymat
   // lokal state'da turadi. Mijoz keyin createDraft'ga uzatiladi; chegirma esa
   // savat to'lgach, kassir maydondan chiqqanda (blur) yuboriladi — baribir
@@ -130,27 +258,31 @@ export default function PosPage() {
 
   const items = sale?.items ?? [];
   const total = sale?.totalAmount ?? 0;
-  // Aralash: kassir naqd ulushini yozadi, qolgani kartaga tushadi.
-  const cashPart = Math.min(Math.max(0, Number(cashPartInput) || 0), total);
-  const cardPart = Math.max(0, total - cashPart);
+  // Aralash: uch ulush yig'indisi jami bilan teng bo'lishi shart.
+  const mixSum = mixSumOf(mixParts);
+  const mixRemainder = money(total - mixSum);
 
   const checkout = useMutation({
-    mutationFn: async () => {
-      if (!sale) return;
+    mutationFn: async (): Promise<PosSale | null> => {
+      if (!sale) return null;
+      const id = saleId!;
       if (method === 'Debt') {
         await posApi.markDebt(saleId!);
       } else if (method === 'Mixed') {
-        // Ikkala ulush BITTA so'rovda: server ularni atomar qo'llaydi, shuning
+        // Barcha ulushlar BITTA so'rovda: server ularni atomar qo'llaydi, shuning
         // uchun chek "qisman to'langan ⇒ qarz" holatidan o'tib ketmaydi.
-        await posApi.checkout(saleId!, [
-          { paymentType: 'Cash', amount: cashPart },
-          { paymentType: 'Terminal', amount: cardPart },
-        ]);
+        // Nolga teng ulushlar yuborilmaydi (server amount > 0 talab qiladi).
+        await posApi.checkout(saleId!, mixPayments(mixParts));
       } else {
         await posApi.addPayment(saleId!, { paymentType: method, amount: sale.totalAmount });
       }
+      // Chek uchun AVTORITAR holat: to'lovlardan keyingi paidAmount/qoldiq.
+      // Lokal `sale` to'lovgacha bo'lgan nusxa — undan chek chizilsa,
+      // «to'langan 0» ko'rinardi.
+      return posApi.getSale(id);
     },
-    onSuccess: () => {
+    onSuccess: (finished) => {
+      setDone(finished);
       setSuccess(true);
       setActionError(null);
       void qc.invalidateQueries({ queryKey: ['pos-products'] });
@@ -161,19 +293,32 @@ export default function PosPage() {
       setSaleId(null);
       setCustomer(null);
       setDiscountInput('');
-      setCashPartInput('');
+      setMixParts(EMPTY_MIX);
       setMethod('Cash');
       setTimeout(() => setSuccess(false), 2500);
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
 
-  // Aralashda ikkala ulush ham noldan katta bo'lishi shart — aks holda bu
-  // oddiy naqd yoki karta to'lovi, uni to'g'ridan-to'g'ri tanlash kerak.
+  /** Chekni PDF ko'rinishida ochish. Sotuv allaqachon yakunlangan — chop etish
+   *  muvaffaqiyatsiz bo'lsa ham pul harakati o'zgarmaydi, qayta urinsa bo'ladi. */
+  async function printReceipt(id: string) {
+    try {
+      const blob = await posApi.receiptPdf(id, i18n.language);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setActionError((e as unknown as ApiError).message ?? t('common.somethingWrong'));
+    }
+  }
+
+  // Aralashda kiritilgan ulushlar yig'indisi jami bilan AYNAN teng bo'lishi
+  // shart — kam bo'lsa chek yopilmaydi, ko'p bo'lsa ortiqcha pul qayd bo'lardi.
   const canCheckout =
     items.length > 0 &&
     !checkout.isPending &&
-    (method !== 'Mixed' || (cashPart > 0 && cardPart > 0));
+    (method !== 'Mixed' || (total > 0 && mixRemainder === 0));
 
   return (
     <div className="flex h-full min-h-screen flex-col bg-bg">
@@ -261,6 +406,51 @@ export default function PosPage() {
 
         {/* RIGHT — cart */}
         <div className="flex flex-col bg-surface">
+          {/* Parked receipts. The admin register had no way to set a basket
+              aside: a customer who went back for one more bag of cement blocked
+              the till until the sale was finished or thrown away. Same strip and
+              same server-side Drafts as the cashier shell. */}
+          {heldDrafts.length > 0 && (
+            <div className="border-b border-hairline bg-warn-soft/60 px-5 py-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.5px] text-warn-strong">
+                {t('pos.held')} · {heldDrafts.length}
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {heldDrafts.map((d) => (
+                  <div
+                    key={d.id}
+                    className="group relative flex-none rounded-lg border border-warn/30 bg-surface transition-colors hover:border-warn"
+                  >
+                    <button type="button" onClick={() => resume(d)} className="px-3 py-2 pr-7 text-left">
+                      <div className="text-[12.5px] font-semibold nums">№{d.saleNumber}</div>
+                      <div className="text-[11px] text-muted-2 nums">
+                        {d.items.length} · {formatSum(d.totalAmount)}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      title={t('pos.discard')}
+                      disabled={discardDraft.isPending}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: t('pos.discardConfirm'),
+                            tone: 'danger',
+                            confirmLabel: t('pos.discard'),
+                          })
+                        )
+                          discardDraft.mutate(d.id);
+                      }}
+                      className="absolute right-1 top-1 rounded p-0.5 text-muted-2 opacity-0 transition-opacity hover:bg-danger-soft hover:text-danger focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <X size={13} strokeWidth={2.4} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Customer */}
           <div className="border-b border-hairline px-5 py-3">
             {customer ? (
@@ -316,7 +506,10 @@ export default function PosPage() {
                     >
                       <Minus size={14} />
                     </button>
-                    <span className="w-7 text-center text-[13px] font-semibold nums">{formatQty(it.quantity)}</span>
+                    <CartQty
+                      quantity={it.quantity}
+                      onCommit={(q) => setQty.mutate({ itemId: it.id, quantity: q })}
+                    />
                     <button
                       type="button"
                       disabled={!it.productId}
@@ -360,21 +553,38 @@ export default function PosPage() {
               </span>
             </div>
 
-            {/* Olti usul bir qatorga sig'maydi — "O‘tkazma"/"Перевод" kabi uzun
-                yorliqlar kesilib ketardi, shuning uchun 3×2 to'r. */}
-            <div className="mb-3 grid grid-cols-3 gap-1.5">
+            {/* Tanlangani to'liq bo'yalgan, tanlanmagani ham to'q matnli —
+                oldingi kulrang variant «o'chiq» ko'rinardi. */}
+            <div className="mb-1.5 grid grid-cols-3 gap-1.5">
               {METHODS.map((m) => (
                 <button
                   key={m.value}
                   type="button"
                   onClick={() => setMethod(m.value)}
                   className={cn(
-                    'h-10 rounded-input border text-[12px] font-medium transition-colors',
+                    'h-11 rounded-input border-[1.5px] text-[13px] font-semibold transition-colors',
+                    method === m.value
+                      ? 'border-primary bg-primary text-white shadow-btn'
+                      : 'border-input-border bg-surface text-text hover:border-primary hover:text-primary',
+                  )}
+                >
+                  {t(`pos.payment.${m.key}`)}
+                </button>
+              ))}
+            </div>
+            <div className="mb-3 grid grid-cols-2 gap-1.5">
+              {WIDE_METHODS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMethod(m.value)}
+                  className={cn(
+                    'h-11 rounded-input border-[1.5px] text-[13px] font-semibold transition-colors',
                     method === m.value
                       ? m.key === 'debt'
-                        ? 'border-warn bg-warn-soft text-warn-text'
-                        : 'border-primary bg-primary-soft text-primary-hover'
-                      : 'border-input-border bg-surface text-muted hover:text-text',
+                        ? 'border-warn bg-warn text-white'
+                        : 'border-primary bg-primary text-white shadow-btn'
+                      : 'border-input-border bg-surface text-text hover:border-primary hover:text-primary',
                   )}
                 >
                   {t(`pos.payment.${m.key}`)}
@@ -384,37 +594,53 @@ export default function PosPage() {
 
             {method === 'Mixed' && (
               <div className="mb-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-[13px] text-muted">{t('pos.cashPart')}</label>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="0"
-                      value={cashPartInput}
-                      onChange={(e) => setCashPartInput(e.target.value)}
-                      className="h-9 w-[120px] rounded-input border border-input-border bg-surface px-3 text-right text-[14px] outline-none focus:border-primary nums"
-                    />
-                    <span className="text-[12px] text-muted-2">{t('common.currency')}</span>
+                {/* Uch usulning har biriga summa kiritiladi; «qoldiq» tugmasi
+                    yetishmayotgan qismini o'sha qatorga to'ldiradi. */}
+                {MIX_ROWS.map((r) => (
+                  <div key={r.key} className="flex items-center justify-between gap-3">
+                    <label className="text-[13px] text-muted">{t(`pos.payment.${r.key}`)}</label>
+                    <div className="flex items-center gap-1.5">
+                      {mixRemainder > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMixParts((prev) => ({
+                              ...prev,
+                              [r.key]: String(money((Number(prev[r.key]) || 0) + mixRemainder)),
+                            }))
+                          }
+                          className="h-9 rounded-md border border-input-border px-2.5 text-[11.5px] font-medium text-muted hover:border-primary hover:text-primary"
+                        >
+                          {t('pos.mix.rest')}
+                        </button>
+                      )}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={formatMixInput(mixParts[r.key])}
+                        onChange={(e) =>
+                          setMixParts((prev) => ({ ...prev, [r.key]: parseMixInput(e.target.value) }))
+                        }
+                        className="h-9 w-[120px] rounded-input border border-input-border bg-surface px-3 text-right text-[14px] outline-none focus:border-primary nums"
+                      />
+                      <span className="text-[12px] text-muted-2">{t('common.currency')}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-1.5">
-                  {[30, 50, 70].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      disabled={total <= 0}
-                      onClick={() => setCashPartInput(String(Math.round((total * pct) / 100)))}
-                      className="h-7 flex-1 rounded-md border border-input-border text-[12px] font-medium text-muted hover:border-primary hover:text-primary disabled:opacity-40"
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between rounded-input bg-primary-soft px-3 py-2 text-[13px] text-primary-hover">
-                  <span>{t('pos.cardPart')}</span>
+                ))}
+                <div
+                  className={cn(
+                    'flex items-center justify-between rounded-input px-3 py-2 text-[13px]',
+                    mixRemainder === 0 && mixSum > 0
+                      ? 'bg-success-soft text-success-text'
+                      : 'bg-warn-soft text-warn-text',
+                  )}
+                >
+                  <span>{t('pos.mix.remainder')}</span>
                   <span className="font-semibold nums">
-                    {formatSum(cardPart)} {t('common.currency')}
+                    {/* formatQty — kasr qoldiq (0.5) yaxlitlanmay ko'rinadi;
+                        formatSum uni «0»/«1» qilib yashirib yuborardi. */}
+                    {formatQty(mixRemainder)} {t('common.currency')}
                   </span>
                 </div>
               </div>
@@ -430,20 +656,41 @@ export default function PosPage() {
               <div className="mb-2 text-[12px] text-warn-text">{t('pos.customer.label')}: {t('pos.customer.walkIn')}</div>
             )}
 
-            <Button
-              fullWidth
-              size="lg"
-              variant={method === 'Debt' ? 'secondary' : 'primary'}
-              disabled={!canCheckout}
-              loading={checkout.isPending}
-              onClick={() => checkout.mutate()}
-            >
-              {t('pos.checkout')}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-none"
+                disabled={!saleId || items.length === 0}
+                onClick={park}
+              >
+                <Pause size={15} />
+                {t('pos.park')}
+              </Button>
+              <Button
+                fullWidth
+                size="lg"
+                variant={method === 'Debt' ? 'secondary' : 'primary'}
+                disabled={!canCheckout}
+                loading={checkout.isPending}
+                onClick={() => checkout.mutate()}
+              >
+                {t('pos.checkout')}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
       )}
+
+      <ReceiptModal
+        sale={done}
+        shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
+        storeName={marketQuery.data?.marketName ?? null}
+        closeLabel={t('pos.done.finish')}
+        onClose={() => setDone(null)}
+        onPrint={printReceipt}
+      />
 
       {custOpen && (
         <CustomerPicker
@@ -459,15 +706,66 @@ export default function PosPage() {
   );
 }
 
+/** Telefonni tozalash: faqat raqamlar, bosh «+» saqlanadi (seller kassasidagi bilan bir xil). */
+function normalisePhone(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, '');
+  return raw.trim().startsWith('+') ? `+${digits}` : digits;
+}
+
+/**
+ * Mijoz tanlash oynasi.
+ *
+ * Ochilishi bilanoq mijozlar RO'YXATI ko'rinadi (avval qidiruvga 2 belgi
+ * yozilmaguncha bo'm-bo'sh turardi — kassir ro'yxat borligini ham bilmasdi).
+ * Yangi mijoz shu yerning o'zida qo'shiladi: «Mijoz qo'shish» formasi ism +
+ * telefon so'raydi, saqlangach mijoz darhol chekka biriktiriladi. Qidiruvga
+ * yozilgan matn formaga o'tadi: raqam bo'lsa — telefonga, matn bo'lsa — ismga.
+ */
 function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: PosCustomer) => void }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const [q, setQ] = useState('');
   const debounced = useDebounce(q);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Bo'sh qidiruv ham so'raladi — birinchi sahifa darhol ko'rinadi.
   const query = useQuery({
     queryKey: ['pos-customers', debounced],
     queryFn: () => posApi.searchCustomers(debounced),
-    enabled: debounced.length >= 2,
+    placeholderData: keepPreviousData,
   });
+
+  const create = useMutation({
+    mutationFn: () =>
+      posApi.createCustomer({
+        phone: normalisePhone(newPhone),
+        fullName: newName.trim() || null,
+      }),
+    onSuccess: (c) => {
+      // Mijozlar sahifasi va shu oynaning ro'yxatlari yangilansin.
+      void qc.invalidateQueries({ queryKey: ['pos-customers'] });
+      void qc.invalidateQueries({ queryKey: ['customers'] });
+      onPick(c);
+    },
+    onError: (e) => setCreateError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  // Backend telefon uchun 9-15 raqam talab qiladi - tugma shuni aks ettiradi.
+  const phoneValid = /^\+?[0-9]{9,15}$/.test(normalisePhone(newPhone));
+
+  const openCreate = () => {
+    const typed = q.trim();
+    if (/^[+\d\s-]{3,}$/.test(typed)) setNewPhone(typed);
+    else if (typed) setNewName(typed);
+    setCreateError(null);
+    setCreating(true);
+  };
+
+  const pickerInputCls =
+    'h-11 w-full rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring';
 
   return (
     <div
@@ -476,41 +774,154 @@ function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: 
     >
       <Card className="w-full max-w-md animate-fade-in p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[16px] font-semibold">{t('pos.customer.label')}</h2>
+          <h2 className="text-[16px] font-semibold">
+            {creating ? t('customers.form.addTitle') : t('pos.customer.label')}
+          </h2>
           <button type="button" onClick={onClose} className="text-muted-2 hover:text-text">
             <X size={18} />
           </button>
         </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          autoFocus
-          placeholder={t('pos.customer.searchPlaceholder')}
-          className="mb-3 h-11 w-full rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
-        />
-        <div className="max-h-[320px] overflow-y-auto">
-          {query.isLoading ? (
-            <div className="flex justify-center py-8 text-primary">
-              <Spinner size={20} />
+        {creating ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-label">{t('customers.form.name')}</label>
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus className={pickerInputCls} />
             </div>
-          ) : (
-            (query.data?.items ?? []).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onPick(c)}
-                className="flex w-full items-center justify-between border-b border-hairline py-2.5 text-left last:border-0 hover:bg-bg/40"
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-label">{t('customers.form.phone')}</label>
+              <input
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                placeholder="+998 90 123 45 67"
+                className={cn(pickerInputCls, 'nums')}
+              />
+            </div>
+            {createError && (
+              <div className="rounded-input bg-danger-soft px-3 py-2 text-[12.5px] text-danger">{createError}</div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setCreating(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                disabled={!phoneValid || create.isPending}
+                loading={create.isPending}
+                onClick={() => create.mutate()}
               >
-                <div>
-                  <div className="text-[13.5px] font-medium">{c.fullName ?? c.phone}</div>
-                  <div className="text-[12px] text-muted-2 nums">{c.phone}</div>
+                {t('common.save')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              autoFocus
+              placeholder={t('pos.customer.searchPlaceholder')}
+              className={cn(pickerInputCls, 'mb-3')}
+            />
+            <div className="max-h-[320px] overflow-y-auto">
+              {query.isLoading ? (
+                <div className="flex justify-center py-8 text-primary">
+                  <Spinner size={20} />
                 </div>
-                {c.totalDebt > 0 && <Badge tone="warn">{formatSum(c.totalDebt)}</Badge>}
-              </button>
-            ))
-          )}
-        </div>
+              ) : (query.data?.items ?? []).length === 0 ? (
+                <p className="py-8 text-center text-[13px] text-muted-2">{t('customers.empty')}</p>
+              ) : (
+                (query.data?.items ?? []).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onPick(c)}
+                    className="flex w-full items-center justify-between border-b border-hairline py-2.5 text-left last:border-0 hover:bg-bg/40"
+                  >
+                    <div>
+                      <div className="text-[13.5px] font-medium">{c.fullName ?? c.phone}</div>
+                      <div className="text-[12px] text-muted-2 nums">{c.phone}</div>
+                    </div>
+                    {c.totalDebt > 0 && <Badge tone="warn">{formatSum(c.totalDebt)}</Badge>}
+                  </button>
+                ))
+              )}
+            </div>
+            {/* Yangi mijoz — ro'yxat ostidagi doimiy tugma: topilmasa ham,
+                shunchaki yangi mijoz kelsa ham shu yerdan. */}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-input border-[1.5px] border-dashed border-input-border text-[13.5px] font-medium text-primary transition-colors hover:border-primary"
+            >
+              <UserPlus size={15} />
+              {t('pos.customer.add')}
+            </button>
+          </>
+        )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * Savatdagi miqdor — bosilganda tahrirlanadigan maydonga aylanadi.
+ *
+ * «+» tugmasi 1 taga oshiradi, lekin 100 dona uchun 100 marta bosish o'rniga
+ * kassir son ustiga bosib, qiymatni qo'lda yozadi (kasr ham: 3.5). Enter/blur —
+ * saqlaydi, Escape — bekor qiladi. Escape'da `blur()` onBlur'ni sinxron
+ * chaqiradi, shuning uchun bekor qilish bayrog'i commit'dan oldin tekshiriladi.
+ */
+function CartQty({ quantity, onCommit }: { quantity: number; onCommit: (q: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setDraft(null);
+      return;
+    }
+    if (draft === null) return;
+    // Bo'sh qoldirilgan maydon — bekor qilish, o'chirish EMAS: fokusda hammasi
+    // belgilanadi, Backspace + tashqariga bosish qatorni yo'qotib yuborardi.
+    // Qator faqat ataylab «0» yozilganda o'chadi (server shunday hujjatlangan).
+    if (draft.trim() === '') {
+      setDraft(null);
+      return;
+    }
+    const q = Number(draft.replace(',', '.'));
+    setDraft(null);
+    if (!Number.isFinite(q) || q < 0 || q === quantity) return;
+    onCommit(q);
+  };
+
+  if (draft === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => setDraft(String(quantity))}
+        className="h-7 w-14 rounded-md border border-transparent text-center text-[13px] font-semibold transition-colors hover:border-input-border hover:bg-bg nums"
+      >
+        {formatQty(quantity)}
+      </button>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      onFocus={(e) => e.currentTarget.select()}
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value.replace(/[^\d.,]/g, ''))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') {
+          cancelRef.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+      className="h-7 w-14 rounded-md border border-primary bg-surface text-center text-[13px] font-semibold outline-none nums"
+    />
   );
 }

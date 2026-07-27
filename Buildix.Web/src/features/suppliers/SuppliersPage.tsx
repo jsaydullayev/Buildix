@@ -264,7 +264,17 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const DELIVERY_TONE: Record<string, 'success' | 'info'> = { Accepted: 'success', InTransit: 'info' };
+// Xaridlar sahifasidagi bilan bir xil ranglar: To'lanmagan qizil, Qisman sariq.
+const PAY_TONE: Record<string, 'success' | 'warn' | 'danger'> = {
+  Paid: 'success',
+  Partial: 'warn',
+  Unpaid: 'danger',
+};
+const PAY_KEY: Record<string, 'paid' | 'partial' | 'unpaid'> = {
+  Paid: 'paid',
+  Partial: 'partial',
+  Unpaid: 'unpaid',
+};
 
 function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string }) {
   const { t } = useTranslation();
@@ -300,10 +310,24 @@ function RecentReceipts({ supplierId, lang }: { supplierId: string; lang: string
                 <div className="text-muted-2">{t('purchases.itemsCount', { count: r.itemCount })}</div>
               </div>
               <div className="flex-none text-right">
-                <div className="font-semibold nums">{formatSum(r.totalAmount)}</div>
-                <Badge tone={DELIVERY_TONE[r.deliveryStatus] ?? 'neutral'}>
-                  {t(`purchases.delivery.${r.deliveryStatus === 'InTransit' ? 'inTransit' : 'accepted'}`)}
-                </Badge>
+                {/* To'lanmagan xarid — yetkazuvchiga qarzimiz. Summa qizil va
+                    yorliq to'lov holatini ko'rsatadi (avval bu yerda faqat
+                    yetkazish holati turardi, qarz umuman ko'rinmasdi). */}
+                <div
+                  className={cn(
+                    'font-semibold nums',
+                    r.paymentStatus !== 'Paid' && 'text-danger',
+                  )}
+                >
+                  {formatSum(r.totalAmount)}
+                </div>
+                {r.deliveryStatus === 'InTransit' ? (
+                  <Badge tone="info">{t('purchases.delivery.inTransit')}</Badge>
+                ) : (
+                  <Badge tone={PAY_TONE[r.paymentStatus] ?? 'neutral'}>
+                    {t(`purchases.status.${PAY_KEY[r.paymentStatus] ?? 'unpaid'}`)}
+                  </Badge>
+                )}
               </div>
             </button>
           ))}

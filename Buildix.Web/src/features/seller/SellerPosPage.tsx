@@ -1,18 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useBlocker, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Minus, X, Package, Check, UserPlus, Clock, Printer, Pause } from 'lucide-react';
-import { Button, Card, Spinner, Badge, Modal, useConfirm } from '@/shared/ui';
+import {
+  Search,
+  Plus,
+  Minus,
+  X,
+  Package,
+  UserPlus,
+  Clock,
+  Pause,
+  Pencil,
+  PackagePlus,
+  ChevronDown,
+  ArrowLeft,
+} from 'lucide-react';
+import { Button, Spinner, Badge, Modal, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty, formatTime } from '@/shared/lib/format';
+import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
+import type { PagedResult } from '@/shared/api/paged';
 import { publicMarketApi } from '@/shared/api/auth';
-import { categoriesApi } from '@/features/warehouse/api';
+import { categoriesApi, type Product } from '@/features/warehouse/api';
 import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
+import {
+  EMPTY_MIX,
+  MIX_ROWS,
+  formatMixInput,
+  mixPayments,
+  mixSumOf,
+  money,
+  parseMixInput,
+  type MixParts,
+} from '@/features/pos/mix';
+import { ReceiptModal } from '@/features/pos/ReceiptModal';
 
 type Method = 'Cash' | 'Terminal' | 'Mixed' | 'Debt';
 const METHODS: { key: string; value: Method }[] = [
@@ -21,6 +48,10 @@ const METHODS: { key: string; value: Method }[] = [
   { key: 'mixed', value: 'Mixed' },
   { key: 'debt', value: 'Debt' },
 ];
+
+/** Catalogue page size. Grows by this step each «Показать ещё» (server caps at 200). */
+const PAGE_STEP = 40;
+const MAX_PAGE_SIZE = 200;
 
 /** Round-up suggestions above the exact total, for the cash "received" chips. */
 function cashChips(total: number): number[] {
@@ -35,22 +66,72 @@ function cashChips(total: number): number[] {
 }
 
 /**
+ * Parse a cashier-typed quantity. Accepts a comma as the decimal separator
+ * (the RU/UZ keyboard habit) and clamps to the column's 3 decimals, so what the
+ * cashier sees is exactly what the server stores.
+ */
+function parseQty(raw: string): number | null {
+  const text = raw.replace(',', '.').trim();
+  // A blank field is "no answer", not zero. Number('') is 0, and treating that
+  // as a quantity would delete the line of anyone who cleared the box to retype.
+  if (text === '') return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 1000) / 1000;
+}
+
+/**
+ * Recompute the receipt totals the same way the server does (SUM of lines −
+ * discount, clamped at 0). Used for the optimistic cache patch so the receipt
+ * updates on the keystroke rather than after the round-trip.
+ */
+function withTotals(sale: PosSale, items: PosSale['items']): PosSale {
+  const gross = items.reduce((acc, it) => acc + it.totalPrice, 0);
+  return { ...sale, items, totalAmount: Math.max(0, gross - sale.discountAmount) };
+}
+
+/**
+ * Strip a typed phone down to what the server's regex accepts (`^\+?[0-9]{9,15}$`).
+ * The field's own placeholder is "+998 __ ___ __ __", so a cashier following it
+ * literally would have every attempt rejected on formatting — during a credit
+ * sale, with the customer waiting.
+ */
+function normalisePhone(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, '');
+  return raw.trim().startsWith('+') ? `+${digits}` : digits;
+}
+
+/**
  * Seller register (Касса) — lives inside the seller top-nav shell.
  *
  * The Draft receipt is created lazily by the first added product (same rule as
  * the admin POS), so opening the register never burns a ЧЕК № on an empty sale.
+ *
+ * Quantity is the register's hot path, so it is an editable decimal field, not
+ * a click-per-unit stepper: "30 qop" is one call and "3.5 m" is expressible at
+ * all. Every basket mutation patches the react-query cache optimistically and
+ * refetches only the sale — the catalogue's stock badges are adjusted in place
+ * instead of being re-fetched on every click.
  */
 export default function SellerPosPage() {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  // Line-price override is the «торг» lever. It is the same authority as the
+  // admin price edit (audited server-side), so it stays behind sales.edit —
+  // a plain cashier does not get it just by standing at the register.
+  const canEditPrice = hasPermission(PERMISSIONS.sales.edit);
+  const canManageCustomers = hasPermission(PERMISSIONS.customers.manage);
 
   const [saleId, setSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [pageSize, setPageSize] = useState(PAGE_STEP);
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [custOpen, setCustOpen] = useState(false);
+  const [externalOpen, setExternalOpen] = useState(false);
   const [method, setMethod] = useState<Method>('Cash');
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [done, setDone] = useState<PosSale | null>(null);
@@ -89,10 +170,16 @@ export default function SellerPosPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // A new search / category is a new result set — start it at one page again,
+  // otherwise an earlier «Показать ещё» keeps every later query oversized.
+  useEffect(() => {
+    setPageSize(PAGE_STEP);
+  }, [debouncedSearch, categoryId]);
+
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list });
   const productsQuery = useQuery({
-    queryKey: ['pos-products', debouncedSearch, categoryId],
-    queryFn: () => posApi.searchProducts({ page: 1, size: 40, search: debouncedSearch, categoryId }),
+    queryKey: ['pos-products', debouncedSearch, categoryId, pageSize],
+    queryFn: () => posApi.searchProducts({ page: 1, size: pageSize, search: debouncedSearch, categoryId }),
     placeholderData: keepPreviousData,
   });
   const saleQuery = useQuery({
@@ -120,6 +207,10 @@ export default function SellerPosPage() {
   // (total allaqachon chegirma ayirilgan holda keladi).
   const gross = items.reduce((acc, it) => acc + it.totalPrice, 0);
 
+  const shownCount = productsQuery.data?.items.length ?? 0;
+  const totalCount = productsQuery.data?.total ?? 0;
+  const canLoadMore = shownCount < totalCount && pageSize < MAX_PAGE_SIZE;
+
   // Kutayotgan chekda chegirma bo'lishi mumkin — uni davom ettirganda input
   // serverdagi qiymatni ko'rsatsin, aks holda maydon bo'sh turib, jami esa
   // kamaytirilgan bo'lardi. Yozayotganda qayta ishga tushmaydi: saleId ham,
@@ -128,39 +219,139 @@ export default function SellerPosPage() {
     setDiscountInput(sale?.discountAmount ? String(sale.discountAmount) : '');
   }, [saleId, sale?.discountAmount]);
 
-  const refreshAll = () => {
-    void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
-    void qc.invalidateQueries({ queryKey: ['pos-products'] });
-    void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+  /**
+   * Adjust a product's stock badge in the catalogue cache by `delta`.
+   *
+   * The basket used to invalidate ['pos-products'] on every click, which meant
+   * a full catalogue refetch per unit added. The only thing that actually
+   * changed is the one product's remaining quantity, and we know it exactly —
+   * so we patch it. The server still owns the real number and rejects
+   * over-selling; this only keeps the badge honest between refetches.
+   */
+  const bumpStock = (productId: string | null | undefined, delta: number) => {
+    if (!productId || delta === 0) return;
+    qc.setQueriesData<PagedResult<Product>>({ queryKey: ['pos-products'] }, (old) =>
+      old
+        ? {
+            ...old,
+            items: old.items.map((p) => {
+              if (p.id !== productId) return p;
+              const quantity = p.quantity + delta;
+              return { ...p, quantity, isInStock: quantity > 0, isLowStock: quantity <= p.minThreshold };
+            }),
+          }
+        : old,
+    );
+  };
+
+  /** Pull the authoritative receipt back after a basket mutation. */
+  const refreshSale = (id: string | null = saleId) =>
+    qc.invalidateQueries({ queryKey: ['pos-sale', id] });
+
+  /** Drafts only move when a receipt is parked, resumed, discarded or closed. */
+  const refreshDrafts = () => qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+
+  const onMutationError = (e: unknown) => {
+    const err = e as unknown as ApiError;
+    // No open shift blocks the whole register, so it gets the full-screen state.
+    if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
+    else setActionError(err.message ?? '');
   };
 
   const addItem = useMutation({
-    mutationFn: async (p: { productId: string; salePrice: number; minSalePrice: number }) => {
+    mutationFn: async (p: { productId: string; salePrice: number; minSalePrice: number; quantity?: number }) => {
       const id = await ensureSale();
       return posApi.addItem(id, {
         isExternal: false,
         productId: p.productId,
-        quantity: 1,
+        quantity: p.quantity ?? 1,
         salePrice: p.salePrice,
         minSalePrice: p.minSalePrice,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_item, vars) => {
       setActionError(null);
-      refreshAll();
+      bumpStock(vars.productId, -(vars.quantity ?? 1));
+      void refreshSale();
     },
-    onError: (e) => {
-      const err = e as unknown as ApiError;
-      // No open shift blocks the whole register, so it gets the full-screen state.
-      if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
-      else setActionError(err.message ?? '');
-    },
+    onError: onMutationError,
   });
 
-  const removeOne = useMutation({
-    mutationFn: (itemId: string) => posApi.removeItem(saleId!, itemId, 1),
-    onSuccess: refreshAll,
-    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  const addExternal = useMutation({
+    mutationFn: async (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => {
+      const id = await ensureSale();
+      return posApi.addItem(id, {
+        isExternal: true,
+        externalProductName: p.name,
+        externalCostPrice: p.costPrice,
+        quantity: p.quantity,
+        salePrice: p.salePrice,
+        minSalePrice: 0,
+      });
+    },
+    onSuccess: () => {
+      setActionError(null);
+      setExternalOpen(false);
+      void refreshSale();
+    },
+    onError: onMutationError,
+  });
+
+  /**
+   * Set a line to an exact quantity. Optimistic: the receipt re-renders from
+   * the patched cache immediately, and the invalidate that follows replaces it
+   * with the server's numbers (which also re-apply customer credit).
+   */
+  const setQuantity = useMutation({
+    mutationFn: (p: { itemId: string; quantity: number; productId: string | null }) =>
+      posApi.setItemQuantity(saleId!, p.itemId, p.quantity),
+    onMutate: async (p) => {
+      await qc.cancelQueries({ queryKey: ['pos-sale', saleId] });
+      const prev = qc.getQueryData<PosSale>(['pos-sale', saleId]);
+      if (prev) {
+        const line = prev.items.find((i) => i.id === p.itemId);
+        const nextItems =
+          p.quantity <= 0
+            ? prev.items.filter((i) => i.id !== p.itemId)
+            : prev.items.map((i) =>
+                i.id === p.itemId ? { ...i, quantity: p.quantity, totalPrice: p.quantity * i.salePrice } : i,
+              );
+        qc.setQueryData<PosSale>(['pos-sale', saleId], withTotals(prev, nextItems));
+        if (line) bumpStock(p.productId, line.quantity - p.quantity);
+      }
+      return { prev, previousQty: prev?.items.find((i) => i.id === p.itemId)?.quantity };
+    },
+    onError: (e, p, ctx) => {
+      // Roll the receipt AND the stock badge back — a rejected change must not
+      // leave the catalogue claiming units that were never taken.
+      if (ctx?.prev) qc.setQueryData(['pos-sale', saleId], ctx.prev);
+      if (ctx?.previousQty !== undefined) bumpStock(p.productId, p.quantity - ctx.previousQty);
+      onMutationError(e);
+    },
+    onSuccess: () => setActionError(null),
+    onSettled: () => void refreshSale(),
+  });
+
+  /** Override one line's price (торг). Audited server-side. */
+  const setLinePrice = useMutation({
+    mutationFn: (p: { itemId: string; price: number }) => posApi.updateItemPrice(p.itemId, p.price),
+    onMutate: async (p) => {
+      await qc.cancelQueries({ queryKey: ['pos-sale', saleId] });
+      const prev = qc.getQueryData<PosSale>(['pos-sale', saleId]);
+      if (prev) {
+        const nextItems = prev.items.map((i) =>
+          i.id === p.itemId ? { ...i, salePrice: p.price, totalPrice: i.quantity * p.price } : i,
+        );
+        qc.setQueryData<PosSale>(['pos-sale', saleId], withTotals(prev, nextItems));
+      }
+      return { prev };
+    },
+    onError: (e, _p, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['pos-sale', saleId], ctx.prev);
+      onMutationError(e);
+    },
+    onSuccess: () => setActionError(null),
+    onSettled: () => void refreshSale(),
   });
 
   /** Throw a parked receipt away for good. Server-side this is the narrow
@@ -178,7 +369,10 @@ export default function SellerPosPage() {
         setMethod('Cash');
       }
       setActionError(null);
-      void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+      // Discarding restocks every line, so the catalogue's own numbers are the
+      // only trustworthy ones now — refetch rather than guess the deltas.
+      void qc.invalidateQueries({ queryKey: ['pos-products'] });
+      void refreshDrafts();
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
@@ -193,7 +387,7 @@ export default function SellerPosPage() {
     mutationFn: (amount: number) => posApi.setDiscount(saleId!, amount),
     onSuccess: () => {
       setActionError(null);
-      void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
+      void refreshSale();
     },
     onError: (e) => {
       setActionError((e as unknown as ApiError).message ?? '');
@@ -205,8 +399,59 @@ export default function SellerPosPage() {
 
   const attachCustomer = useMutation({
     mutationFn: (c: PosCustomer | null) => posApi.attachCustomer(saleId!, c?.id ?? null),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] }),
+    onSuccess: () => void refreshSale(),
   });
+
+  const openShift = useMutation({
+    mutationFn: shiftsApi.open,
+    onSuccess: () => {
+      setStartError(null);
+      void qc.invalidateQueries({ queryKey: ['shift-current'] });
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+
+  /**
+   * The discount PATCH currently in flight, resolving to whether it succeeded.
+   * Clicking «Оплата» blurs the discount field, so by the time the click lands
+   * the write has already been started by onBlur — the checkout has to wait for
+   * that same request rather than issue its own.
+   */
+  const discountInFlight = useRef<Promise<boolean> | null>(null);
+
+  /** Send the discount once, and remember the request so checkout can await it. */
+  function commitDiscount(next: number) {
+    if (!saleId || next === (sale?.discountAmount ?? 0)) return;
+    const p = applyDiscount
+      .mutateAsync(next)
+      .then(
+        () => true,
+        () => false, // onError already surfaced the reason and reset the field
+      )
+      .finally(() => {
+        if (discountInFlight.current === p) discountInFlight.current = null;
+      });
+    discountInFlight.current = p;
+  }
+
+  /**
+   * Open the checkout on the FINAL amount.
+   *
+   * The modal used to open against the pre-discount total while the PATCH was
+   * still in flight; the server then rejected the over-payment and the cashier
+   * got an error they could not explain. Awaiting the write and its refetch
+   * fixes that — but the wait has to be on the request onBlur already sent.
+   * Re-sending here would write a second, identical discount audit row for
+   * every discounted receipt.
+   */
+  async function openCheckout() {
+    if (discountInFlight.current) {
+      const ok = await discountInFlight.current;
+      if (!ok) return; // refused discount — opening on a total the server
+      await refreshSale(); // rejected would be worse than not opening at all
+    }
+    setCheckoutOpen(true);
+  }
 
   function pickCustomer(c: PosCustomer | null) {
     setCustomer(c);
@@ -223,8 +468,52 @@ export default function SellerPosPage() {
     setCustomer(null);
     setMethod('Cash');
     setActionError(null);
-    void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+    void refreshDrafts();
   }
+
+  /**
+   * Leaving the register mid-sale.
+   *
+   * The Draft is already on the server, so nothing is actually lost — it comes
+   * back in the parked strip. But a cashier who taps «Mijozlar» while a customer
+   * is standing there has no way to know that, and the basket vanishing off the
+   * screen reads as data loss. So we ask, and the "yes" branch parks explicitly
+   * (which also refreshes the strip) rather than letting the state fall on the
+   * floor.
+   *
+   * Only in-app navigation is intercepted; a tab close is the browser's own
+   * business and the Draft survives it anyway.
+   */
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      items.length > 0 && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    let cancelled = false;
+    void (async () => {
+      const leave = await confirm({
+        title: t('seller.pos.leaveTitle'),
+        message: t('seller.pos.leaveMessage'),
+        confirmLabel: t('seller.pos.park'),
+        cancelLabel: t('seller.pos.stay'),
+      });
+      if (cancelled) return;
+      if (leave) {
+        park();
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // `park` and `confirm` are stable enough for this one-shot prompt; re-running
+    // on every render would re-open the dialog under the cashier's finger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocker.state]);
 
   function resume(d: PosSale) {
     draftRef.current = null;
@@ -241,7 +530,7 @@ export default function SellerPosPage() {
 
   async function printReceipt(id: string) {
     try {
-      const blob = await posApi.invoicePdf(id, i18n.language);
+      const blob = await posApi.receiptPdf(id, i18n.language);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -258,7 +547,19 @@ export default function SellerPosPage() {
           <Clock size={28} />
         </div>
         <p className="max-w-md text-[15px] text-muted">{startError}</p>
-        <Button onClick={() => setStartError(null)}>{t('common.retry')}</Button>
+        {actionError && <p className="text-[12.5px] text-danger">{actionError}</p>}
+        <div className="flex gap-2">
+          {/* The blocker is "no open shift", so the fix belongs here. Sending the
+              cashier to the Смены screen and back cost the whole basket's worth
+              of navigation for a one-click action. */}
+          <Button loading={openShift.isPending} onClick={() => openShift.mutate()}>
+            <Clock size={15} />
+            {t('seller.pos.openShift')}
+          </Button>
+          <Button variant="secondary" onClick={() => setStartError(null)}>
+            {t('common.retry')}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -267,19 +568,40 @@ export default function SellerPosPage() {
     <div className="grid flex-1 grid-cols-[1fr_420px] overflow-hidden">
       {/* ── LEFT: catalogue ─────────────────────────────────────── */}
       <div className="flex min-w-0 flex-col overflow-hidden p-6">
-        <div className="relative mb-3">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
-          <input
-            ref={searchRef}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('pos.searchPlaceholder')}
-            autoFocus
-            className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-16 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
-          />
-          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 rounded border border-input-border px-1.5 py-0.5 text-[11px] text-muted-2">
-            F2
-          </kbd>
+        <div className="mb-3 flex gap-2">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('pos.searchPlaceholder')}
+              autoFocus
+              className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-24 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
+            />
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
+              {/* Stale-results tell: without it the grid silently showed the
+                  previous query's cards and the cashier could ring up the
+                  wrong product. */}
+              {productsQuery.isFetching && <Spinner size={15} />}
+              <kbd className="rounded border border-input-border px-1.5 py-0.5 text-[11px] text-muted-2">F2</kbd>
+            </div>
+          </div>
+          {/* Off-catalogue line: goods physically on the shelf but not in the
+              system used to be unsellable at the register. */}
+          <Button
+            variant="secondary"
+            className="flex-none"
+            onClick={() => {
+              // Clear the previous attempt's error, or a reopened dialog greets
+              // the cashier with a failure that no longer applies.
+              addExternal.reset();
+              setExternalOpen(true);
+            }}
+          >
+            <PackagePlus size={15} />
+            {t('seller.pos.external.button')}
+          </Button>
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-1.5">
@@ -294,51 +616,80 @@ export default function SellerPosPage() {
             <div className="flex justify-center py-20 text-primary">
               <Spinner size={26} />
             </div>
-          ) : (productsQuery.data?.items.length ?? 0) === 0 ? (
+          ) : shownCount === 0 ? (
             <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
-              {productsQuery.data!.items.map((p) => {
-                const out = p.quantity <= 0;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    disabled={out || addItem.isPending}
-                    onClick={() =>
-                      addItem.mutate({ productId: p.id, salePrice: p.salePrice, minSalePrice: p.minSalePrice })
-                    }
-                    className={cn(
-                      'flex flex-col gap-2 rounded-card border bg-surface p-3 text-left transition-colors',
-                      out
-                        ? 'cursor-not-allowed border-border opacity-50'
-                        : 'border-border hover:border-primary hover:shadow-card',
-                    )}
+            <>
+              <div className="grid grid-cols-4 gap-3">
+                {productsQuery.data!.items.map((p) => {
+                  const out = p.quantity <= 0;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      // Only an out-of-stock card is unclickable. It used to be
+                      // disabled while ANY add was in flight, which capped the
+                      // cashier at one product per round-trip.
+                      disabled={out}
+                      onClick={() =>
+                        addItem.mutate({ productId: p.id, salePrice: p.salePrice, minSalePrice: p.minSalePrice })
+                      }
+                      className={cn(
+                        'flex flex-col gap-2 rounded-card border bg-surface p-3 text-left transition-colors',
+                        out
+                          ? 'cursor-not-allowed border-border opacity-50'
+                          : 'border-border hover:border-primary hover:shadow-card',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
+                          <Package size={16} />
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[11.5px] nums',
+                            out ? 'text-danger' : p.isLowStock ? 'text-warn' : 'text-muted-2',
+                          )}
+                        >
+                          {out
+                            ? t('seller.pos.outOfStock')
+                            : `${formatQty(p.quantity)} ${unitLabel(t, p.unit, p.unitName)}`}
+                        </span>
+                      </div>
+                      <span className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</span>
+                      <span className="text-[14px] font-semibold text-primary nums">
+                        {formatSum(p.salePrice)}
+                        <span className="ml-1 text-[11px] font-normal text-muted-2">
+                          {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* The grid used to stop at 40 with no way forward — in a large
+                  catalogue the wanted item was simply unreachable. */}
+              <div className="flex flex-col items-center gap-2 py-5">
+                <span className="text-[11.5px] text-muted-2 nums">
+                  {t('seller.pos.shownOf', { shown: shownCount, total: totalCount })}
+                </span>
+                {canLoadMore && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={productsQuery.isFetching}
+                    onClick={() => setPageSize((s) => Math.min(MAX_PAGE_SIZE, s + PAGE_STEP))}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
-                        <Package size={16} />
-                      </span>
-                      <span
-                        className={cn(
-                          'text-[11.5px] nums',
-                          out ? 'text-danger' : p.isLowStock ? 'text-warn' : 'text-muted-2',
-                        )}
-                      >
-                        {out ? t('seller.pos.outOfStock') : `${formatQty(p.quantity)} ${unitLabel(t, p.unit, p.unitName)}`}
-                      </span>
-                    </div>
-                    <span className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</span>
-                    <span className="text-[14px] font-semibold text-primary nums">
-                      {formatSum(p.salePrice)}
-                      <span className="ml-1 text-[11px] font-normal text-muted-2">
-                        {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <ChevronDown size={15} />
+                    {t('seller.pos.loadMore')}
+                  </Button>
+                )}
+                {!canLoadMore && shownCount < totalCount && (
+                  <span className="text-[11.5px] text-warn">{t('seller.pos.refineSearch')}</span>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -436,32 +787,21 @@ export default function SellerPosPage() {
             </div>
           ) : (
             items.map((it) => (
-              <div key={it.id} className="flex items-center gap-2 border-b border-hairline py-3 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-medium">{it.productName}</div>
-                  <div className="text-[11.5px] text-muted-2 nums">
-                    {formatSum(it.salePrice)} {t('common.currency')}/{unitLabel(t, it.unitValue, it.unit)}
-                  </div>
-                </div>
-                <div className="flex flex-none items-center gap-1">
-                  <StepBtn onClick={() => removeOne.mutate(it.id)} disabled={removeOne.isPending}>
-                    <Minus size={14} />
-                  </StepBtn>
-                  <span className="w-10 text-center text-[13px] font-semibold nums">{formatQty(it.quantity)}</span>
-                  <StepBtn
-                    disabled={!it.productId || addItem.isPending}
-                    onClick={() =>
-                      it.productId &&
-                      addItem.mutate({ productId: it.productId, salePrice: it.salePrice, minSalePrice: 0 })
-                    }
-                  >
-                    <Plus size={14} />
-                  </StepBtn>
-                </div>
-                <span className="w-24 flex-none text-right text-[13px] font-semibold nums">
-                  {formatSum(it.totalPrice)}
-                </span>
-              </div>
+              <ReceiptLine
+                key={it.id}
+                item={it}
+                canEditPrice={canEditPrice}
+                // Scoped to THIS line on purpose. Serialising a line's own ±
+                // clicks keeps the last click the winning quantity; a shared
+                // flag would freeze every other line behind one round-trip —
+                // the exact queue-up this rework exists to remove.
+                busy={
+                  (setQuantity.isPending && setQuantity.variables?.itemId === it.id) ||
+                  (setLinePrice.isPending && setLinePrice.variables?.itemId === it.id)
+                }
+                onQuantity={(q) => setQuantity.mutate({ itemId: it.id, quantity: q, productId: it.productId })}
+                onPrice={(p) => setLinePrice.mutate({ itemId: it.id, price: p })}
+              />
             ))
           )}
         </div>
@@ -491,12 +831,9 @@ export default function SellerPosPage() {
                 disabled={!saleId || applyDiscount.isPending}
                 value={discountInput}
                 onChange={(e) => setDiscountInput(e.target.value)}
-                onBlur={() => {
-                  const next = Math.max(0, Number(discountInput) || 0);
-                  // Faqat haqiqatan o'zgargan bo'lsa yuboramiz — har fokus
-                  // yo'qotishda audit qatori yozilishining oldini oladi.
-                  if (saleId && next !== (sale?.discountAmount ?? 0)) applyDiscount.mutate(next);
-                }}
+                // Faqat haqiqatan o'zgargan bo'lsa yuboradi — har fokus
+                // yo'qotishda audit qatori yozilishining oldini oladi.
+                onBlur={() => commitDiscount(Math.max(0, Number(discountInput) || 0))}
                 className="h-9 w-[110px] rounded-input border border-input-border bg-surface px-3 text-right text-[13px] outline-none focus:border-primary disabled:opacity-50 nums"
               />
               <span className="text-[11.5px] text-muted-2">{t('common.currency')}</span>
@@ -543,14 +880,32 @@ export default function SellerPosPage() {
               <Pause size={15} />
               {t('seller.pos.park')}
             </Button>
-            <Button fullWidth disabled={items.length === 0} onClick={() => setCheckoutOpen(true)}>
+            <Button
+              fullWidth
+              disabled={items.length === 0}
+              loading={applyDiscount.isPending}
+              onClick={openCheckout}
+            >
               {t('pos.checkout')}
             </Button>
           </div>
         </div>
       </div>
 
-      <CustomerPicker open={custOpen} onClose={() => setCustOpen(false)} onPick={pickCustomer} />
+      <CustomerPicker
+        open={custOpen}
+        canCreate={canManageCustomers}
+        onClose={() => setCustOpen(false)}
+        onPick={pickCustomer}
+      />
+
+      <ExternalItemModal
+        open={externalOpen}
+        onClose={() => setExternalOpen(false)}
+        pending={addExternal.isPending}
+        error={addExternal.isError ? ((addExternal.error as unknown as ApiError).message ?? '') : null}
+        onSubmit={(p) => addExternal.mutate(p)}
+      />
 
       {sale && (
         <CheckoutModal
@@ -572,7 +927,7 @@ export default function SellerPosPage() {
             setCustomer(null);
             setMethod('Cash');
             void qc.invalidateQueries({ queryKey: ['pos-products'] });
-            void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+            void refreshDrafts();
             void qc.invalidateQueries({ queryKey: ['shift-current'] });
           }}
         />
@@ -582,6 +937,7 @@ export default function SellerPosPage() {
         sale={done}
         shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
         storeName={marketQuery.data?.marketName ?? null}
+        closeLabel={t('seller.pos.newSale')}
         onClose={() => setDone(null)}
         onPrint={printReceipt}
       />
@@ -590,6 +946,139 @@ export default function SellerPosPage() {
 }
 
 // ── small pieces ───────────────────────────────────────────────────
+
+/**
+ * One receipt line. Quantity is a real decimal field — the shop sells qop, m,
+ * kg and tonna, so "3.5" has to be typeable and "30" must not cost 30 clicks.
+ * The steppers stay for the ±1 nudge, but they go through the same set-exact
+ * call, so there is one quantity path rather than an add path and a remove path.
+ */
+function ReceiptLine({
+  item,
+  canEditPrice,
+  busy,
+  onQuantity,
+  onPrice,
+}: {
+  item: PosSale['items'][number];
+  canEditPrice: boolean;
+  busy: boolean;
+  onQuantity: (q: number) => void;
+  onPrice: (p: number) => void;
+}) {
+  const { t } = useTranslation();
+  const [qtyDraft, setQtyDraft] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState<string | null>(null);
+
+  // While the cashier is typing, the field belongs to them; otherwise it mirrors
+  // the server. Without the draft state an in-flight refetch would overwrite a
+  // half-typed "3." back to "3".
+  const qtyValue = qtyDraft ?? String(item.quantity);
+
+  const commitQty = () => {
+    if (qtyDraft === null) return;
+    const parsed = parseQty(qtyDraft);
+    setQtyDraft(null);
+    // parseQty returns null for a blank field on purpose: Number('') is 0, and
+    // committing that would silently delete the line of a cashier who cleared
+    // the box to retype it. Blank reverts; only an explicit 0 removes.
+    if (parsed === null || parsed === item.quantity) return;
+    onQuantity(parsed);
+  };
+
+  const commitPrice = () => {
+    if (priceDraft === null) return;
+    const raw = priceDraft.replace(',', '.').trim();
+    const parsed = Number(raw);
+    setPriceDraft(null);
+    // Same blank guard, and here it matters more: an empty field committing as
+    // Number('') === 0 would hand the goods over for free.
+    if (raw === '' || !Number.isFinite(parsed) || parsed < 0 || parsed === item.salePrice) return;
+    onPrice(parsed);
+  };
+
+  const step = (delta: number) => {
+    const next = Math.max(0, Math.round((item.quantity + delta) * 1000) / 1000);
+    if (next !== item.quantity) onQuantity(next);
+  };
+
+  return (
+    <div className="border-b border-hairline py-3 last:border-0">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium">{item.productName}</div>
+          <div className="flex items-center gap-1 text-[11.5px] text-muted-2">
+            {priceDraft !== null ? (
+              <input
+                autoFocus
+                onFocus={(e) => e.currentTarget.select()}
+                value={priceDraft}
+                onChange={(e) => setPriceDraft(e.target.value)}
+                onBlur={commitPrice}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                  if (e.key === 'Escape') setPriceDraft(null);
+                }}
+                inputMode="decimal"
+                className="h-6 w-24 rounded border border-primary bg-surface px-1.5 text-right text-[11.5px] outline-none nums"
+              />
+            ) : (
+              <span className="nums">{formatSum(item.salePrice)}</span>
+            )}
+            <span>
+              {t('common.currency')}/{unitLabel(t, item.unitValue, item.unit)}
+            </span>
+            {canEditPrice && priceDraft === null && (
+              <button
+                type="button"
+                title={t('seller.pos.editPrice')}
+                onClick={() => setPriceDraft(String(item.salePrice))}
+                className="ml-0.5 text-muted-2 transition-colors hover:text-primary"
+              >
+                <Pencil size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-none items-center gap-1">
+          <StepBtn onClick={() => step(-1)} disabled={busy}>
+            <Minus size={14} />
+          </StepBtn>
+          {/* The heart of the fix: type "12" or "3.5" once instead of clicking. */}
+          <input
+            value={qtyValue}
+            onChange={(e) => setQtyDraft(e.target.value)}
+            onFocus={(e) => {
+              setQtyDraft(String(item.quantity));
+              e.currentTarget.select();
+            }}
+            onBlur={commitQty}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              // Escape must NOT blur: the blur handler would still be holding
+              // this render's qtyDraft — the very value being cancelled — and
+              // would commit it. Dropping the draft alone snaps the field back
+              // to the server's number and makes the later blur a no-op.
+              if (e.key === 'Escape') setQtyDraft(null);
+            }}
+            inputMode="decimal"
+            aria-label={t('seller.pos.qty')}
+            title={t('seller.pos.qtyHint')}
+            className="h-7 w-16 rounded-md border border-input-border bg-surface px-1 text-center text-[13px] font-semibold outline-none focus:border-primary nums"
+          />
+          <StepBtn onClick={() => step(1)} disabled={busy}>
+            <Plus size={14} />
+          </StepBtn>
+        </div>
+
+        <span className="w-24 flex-none text-right text-[13px] font-semibold nums">
+          {formatSum(item.totalPrice)}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function StepBtn({
   children,
@@ -627,27 +1116,225 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
+/**
+ * Off-catalogue line: something on the shelf (or a delivery charge) that is not
+ * a Product row. It moves no stock. The cost field is optional but asked for,
+ * because a line booked at cost 0 reports as pure profit and quietly inflates
+ * the owner's margin report.
+ */
+function ExternalItemModal({
+  open,
+  onClose,
+  pending,
+  error,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  pending: boolean;
+  error: string | null;
+  onSubmit: (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [cost, setCost] = useState('');
+  const [qty, setQty] = useState('1');
+
+  useEffect(() => {
+    if (open) {
+      setName('');
+      setPrice('');
+      setCost('');
+      setQty('1');
+    }
+  }, [open]);
+
+  const priceNum = Number(price.replace(',', '.')) || 0;
+  const costNum = Number(cost.replace(',', '.')) || 0;
+  const qtyNum = parseQty(qty) ?? 0;
+  // The server refuses cost >= price on an external line (it would book a loss
+  // or a zero-margin sale as if it were normal), so say so before the round-trip.
+  const costTooHigh = costNum > 0 && costNum >= priceNum;
+  const valid = name.trim().length > 0 && priceNum > 0 && qtyNum > 0 && !costTooHigh;
+
+  const inputCls =
+    'h-11 w-full rounded-input border border-input-border bg-surface px-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring';
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('seller.pos.external.title')}
+      subtitle={t('seller.pos.external.subtitle')}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={!valid}
+            loading={pending}
+            onClick={() => onSubmit({ name: name.trim(), salePrice: priceNum, costPrice: costNum, quantity: qtyNum })}
+          >
+            <PackagePlus size={15} />
+            {t('seller.pos.external.add')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[13px] font-medium text-label">{t('seller.pos.external.name')}</label>
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-label">{t('seller.pos.external.price')}</label>
+            <input
+              inputMode="decimal"
+              placeholder="0"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className={`${inputCls} nums`}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-label">{t('seller.pos.qty')}</label>
+            {/* Fokusda «1» belgilanadi — yozish uni almashtiradi. */}
+            <input
+              inputMode="decimal"
+              value={qty}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setQty(e.target.value)}
+              className={`${inputCls} nums`}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[13px] font-medium text-label">{t('seller.pos.external.cost')}</label>
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            className={`${inputCls} nums`}
+          />
+          <p className="text-[11.5px] text-muted-2">{t('seller.pos.external.costHint')}</p>
+        </div>
+        {costTooHigh && <p className="text-[12.5px] text-danger">{t('seller.pos.external.costTooHigh')}</p>}
+        {error && <p className="text-[12.5px] text-danger">{error}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Customer lookup, with the create form folded in. Selling on credit needs a
+ * customer, and a first-time buyer had none — so the cashier had to leave the
+ * register, create the client on another screen, and come back to a parked
+ * receipt. The form is gated on customers.manage, the same key the Клиенты
+ * screen uses.
+ */
 function CustomerPicker({
   open,
+  canCreate,
   onClose,
   onPick,
 }: {
   open: boolean;
+  canCreate: boolean;
   onClose: () => void;
   onPick: (c: PosCustomer) => void;
 }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const [q, setQ] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const debounced = useDebounce(q);
+
   const query = useQuery({
     queryKey: ['pos-customers', debounced],
     queryFn: () => posApi.searchCustomers(debounced),
-    enabled: open,
+    enabled: open && !creating,
   });
 
   useEffect(() => {
-    if (open) setQ('');
+    if (open) {
+      setQ('');
+      setCreating(false);
+      setFullName('');
+      setPhone('');
+      setError(null);
+    }
   }, [open]);
+
+  const create = useMutation({
+    mutationFn: () => posApi.createCustomer({ phone: normalisePhone(phone), fullName: fullName.trim() || null }),
+    onSuccess: (c) => {
+      // The client directory now has one more row; the register screen is not
+      // the only place that reads it.
+      void qc.invalidateQueries({ queryKey: ['seller-clients'] });
+      void qc.invalidateQueries({ queryKey: ['pos-customers'] });
+      onPick(c); // straight onto the receipt — that is why they opened this
+    },
+    onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
+  });
+
+  const inputCls =
+    'h-11 w-full rounded-input border border-input-border bg-surface px-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring';
+
+  const phoneAccepted = /^\+?[0-9]{9,15}$/.test(normalisePhone(phone));
+
+  if (creating) {
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={t('seller.clients.add')}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCreating(false)}>
+              <ArrowLeft size={15} />
+              {t('seller.pos.backToSearch')}
+            </Button>
+            <Button
+              // Mirror of the server's rule (9–15 digits) rather than a looser
+              // guess — a client check that lets through what the API rejects
+              // just moves the failure to after the round-trip.
+              disabled={!phoneAccepted}
+              loading={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <UserPlus size={15} />
+              {t('common.save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-[13px] text-muted">{t('seller.clients.addHint')}</p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-label">{t('seller.clients.form.name')}</label>
+            <input autoFocus value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputCls} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-label">{t('seller.clients.form.phone')}</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+998 __ ___ __ __"
+              className={`${inputCls} nums`}
+            />
+          </div>
+          {error && <p className="text-[12.5px] text-danger">{error}</p>}
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={t('pos.customer.label')}>
@@ -662,6 +1349,27 @@ function CustomerPicker({
             className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
           />
         </div>
+
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => {
+              // Carry the typed text over: a phone number goes in the phone
+              // field, anything else is a name. Re-typing it would be the whole
+              // reason this shortcut exists.
+              const typed = q.trim();
+              if (/^[+\d][\d\s()-]*$/.test(typed)) setPhone(normalisePhone(typed));
+              else setFullName(typed);
+              setError(null);
+              setCreating(true);
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-input border border-dashed border-input-border py-2.5 text-[13px] text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <UserPlus size={15} />
+            {t('seller.clients.add')}
+          </button>
+        )}
+
         <div className="max-h-[320px] overflow-y-auto">
           {query.isLoading ? (
             <div className="flex justify-center py-10 text-primary">
@@ -716,7 +1424,7 @@ function CheckoutModal({
 }) {
   const { t } = useTranslation();
   const [received, setReceived] = useState('');
-  const [cashPart, setCashPart] = useState('');
+  const [mixParts, setMixParts] = useState<MixParts>(EMPTY_MIX);
   const [paidNow, setPaidNow] = useState('');
   const [due, setDue] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -725,7 +1433,7 @@ function CheckoutModal({
   useEffect(() => {
     if (open) {
       setReceived('');
-      setCashPart('');
+      setMixParts(EMPTY_MIX);
       setPaidNow('');
       setDue('');
       setError(null);
@@ -736,17 +1444,17 @@ function CheckoutModal({
   const change = got - total;
   const paid = Number(paidNow) || 0;
   const debtRest = Math.max(0, total - paid);
-  // Микс: the cashier types the cash half, the card covers the remainder.
-  const cashHalf = Number(cashPart) || 0;
-  const cardHalf = Math.max(0, total - cashHalf);
+  const mixSum = mixSumOf(mixParts);
+  const mixRemainder = money(total - mixSum);
 
   const canConfirm = useMemo(() => {
     if (total <= 0) return false;
     if (method === 'Debt') return !!customer && debtRest > 0;
     if (method === 'Cash') return got >= total;
-    if (method === 'Mixed') return cashHalf > 0 && cardHalf > 0;
+    // Chek to'liq yopilishi shart: qoldiq nolga tushmaguncha tasdiqlab bo'lmaydi.
+    if (method === 'Mixed') return mixRemainder === 0 && mixSum > 0;
     return true;
-  }, [method, total, got, customer, debtRest, cashHalf, cardHalf]);
+  }, [method, total, got, customer, debtRest, mixRemainder, mixSum]);
 
   const confirm = useMutation({
     mutationFn: async () => {
@@ -759,12 +1467,9 @@ function CheckoutModal({
           await posApi.markDebt(sale.id, due || null);
         }
       } else if (method === 'Mixed') {
-        // Both halves in ONE request: the server applies them atomically, so the
+        // Every share in ONE request: the server applies them atomically, so the
         // sale never passes through a "partially paid ⇒ debt" state.
-        await posApi.checkout(sale.id, [
-          { paymentType: 'Cash', amount: cashHalf },
-          { paymentType: 'Terminal', amount: cardHalf },
-        ]);
+        await posApi.checkout(sale.id, mixPayments(mixParts));
       } else {
         // Never send more than the total — the server rejects over-payment, so
         // the change stays a counter-side calculation.
@@ -855,31 +1560,58 @@ function CheckoutModal({
           </div>
         )}
 
+        {/* Uch usulning har biriga alohida summa — admin POS bilan bir xil.
+            Ilgari bu yerda faqat naqd maydoni turardi va qolgani AVTOMAT kartaga
+            yozilardi, ya'ni kassir o'tkazma aralashgan chekni umuman yopa
+            olmasdi. «Qoldiq» tugmasi yetishmayotgan qismni o'sha qatorga
+            to'ldiradi. */}
         {method === 'Mixed' && (
           <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-label">{t('seller.pos.cashPart')}</label>
-            <input
-              type="number"
-              step="any"
-              autoFocus
-              placeholder="0"
-              value={cashPart}
-              onChange={(e) => setCashPart(e.target.value)}
-              className={inputCls}
-            />
-            <div className="flex flex-wrap gap-2">
-              {[30, 50, 70].map((pct) => (
-                <ChipSm
-                  key={pct}
-                  label={`${pct}%`}
-                  onClick={() => setCashPart(String(Math.round((total * pct) / 100)))}
-                />
-              ))}
-            </div>
-            <div className="flex items-center justify-between rounded-input bg-primary-soft px-4 py-2.5 text-[14px] text-primary-hover">
-              <span>{t('seller.pos.cardPart')}</span>
+            {MIX_ROWS.map((r, i) => (
+              <div key={r.key} className="flex items-center justify-between gap-3">
+                <label className="text-[13px] text-muted">{t(`pos.payment.${r.key}` as never)}</label>
+                <div className="flex items-center gap-1.5">
+                  {mixRemainder > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMixParts((prev) => ({
+                          ...prev,
+                          [r.key]: String(money((Number(prev[r.key]) || 0) + mixRemainder)),
+                        }))
+                      }
+                      className="h-10 rounded-md border border-input-border px-2.5 text-[11.5px] font-medium text-muted hover:border-primary hover:text-primary"
+                    >
+                      {t('pos.mix.rest')}
+                    </button>
+                  )}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoFocus={i === 0}
+                    placeholder="0"
+                    value={formatMixInput(mixParts[r.key])}
+                    onChange={(e) =>
+                      setMixParts((prev) => ({ ...prev, [r.key]: parseMixInput(e.target.value) }))
+                    }
+                    className="h-10 w-[140px] rounded-input border border-input-border bg-surface px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring nums"
+                  />
+                  <span className="text-[12px] text-muted-2">{t('common.currency')}</span>
+                </div>
+              </div>
+            ))}
+            <div
+              className={cn(
+                'flex items-center justify-between rounded-input px-4 py-2.5 text-[13px]',
+                mixRemainder === 0 && mixSum > 0
+                  ? 'bg-success-soft text-success-text'
+                  : 'bg-warn-soft text-warn-text',
+              )}
+            >
+              <span>{t('pos.mix.remainder')}</span>
+              {/* formatQty — kasr qoldiq (0.5) yaxlitlanmay ko'rinadi. */}
               <span className="font-semibold nums">
-                {formatSum(cardHalf)} {t('common.currency')}
+                {formatQty(mixRemainder)} {t('common.currency')}
               </span>
             </div>
           </div>
@@ -955,87 +1687,3 @@ function ChipSm({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function ReceiptModal({
-  sale,
-  shiftNumber,
-  storeName,
-  onClose,
-  onPrint,
-}: {
-  sale: PosSale | null;
-  shiftNumber: number;
-  storeName: string | null;
-  onClose: () => void;
-  onPrint: (id: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Modal
-      open={!!sale}
-      onClose={onClose}
-      title={t('seller.pos.doneTitle')}
-      footer={
-        <>
-          <Button variant="secondary" onClick={() => sale && onPrint(sale.id)}>
-            <Printer size={15} />
-            {t('seller.pos.print')}
-          </Button>
-          <Button onClick={onClose}>{t('seller.pos.newSale')}</Button>
-        </>
-      }
-    >
-      {sale && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-center gap-2 text-success">
-            <Check size={20} />
-            <span className="text-[15px] font-semibold">
-              {t('seller.pos.receipt')} №{sale.saleNumber}
-            </span>
-          </div>
-          <Card className="p-4 font-mono text-[12.5px]">
-            {storeName && (
-              <div className="mb-2 border-b border-hairline pb-2 text-center text-[13px] font-semibold">{storeName}</div>
-            )}
-            <div className="mb-2 flex justify-between text-muted-2">
-              <span>{formatTime(sale.createdAt)}</span>
-              {shiftNumber > 0 && (
-                <span className="nums">
-                  {t('seller.pos.shift')} №{shiftNumber}
-                </span>
-              )}
-              <span>{sale.sellerName}</span>
-            </div>
-            {sale.items.map((it) => (
-              <div key={it.id} className="flex justify-between gap-2 py-0.5">
-                <span className="min-w-0 truncate">
-                  {it.productName} × {formatQty(it.quantity)}
-                </span>
-                <span className="flex-none nums">{formatSum(it.totalPrice)}</span>
-              </div>
-            ))}
-            <div className="mt-2 flex justify-between border-t border-hairline pt-2 text-[14px] font-bold">
-              <span>{t('pos.total')}</span>
-              <span className="nums">{formatSum(sale.totalAmount)}</span>
-            </div>
-            <div className="flex justify-between pt-1 text-muted">
-              <span>{t('pos.amount')}</span>
-              <span className="nums">{formatSum(sale.paidAmount)}</span>
-            </div>
-            {sale.remainingAmount > 0 && (
-              <div className="flex justify-between text-warn-text">
-                <span>{t('pos.payment.debt')}</span>
-                <span className="nums">{formatSum(sale.remainingAmount)}</span>
-              </div>
-            )}
-            {sale.customerName && (
-              <div className="mt-1 border-t border-hairline pt-1 text-muted">{sale.customerName}</div>
-            )}
-            <div className="mt-2 border-t border-hairline pt-2 text-center text-[11.5px] text-muted-2">
-              {t('seller.pos.thanks')}
-            </div>
-          </Card>
-        </div>
-      )}
-    </Modal>
-  );
-}

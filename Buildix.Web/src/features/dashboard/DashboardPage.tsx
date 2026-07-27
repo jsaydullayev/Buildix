@@ -586,6 +586,10 @@ function RecentSaleRow({ sale, onOpen }: { sale: DailySale; onOpen?: () => void 
 }
 
 const ATTN_CAT_ICON: Record<string, LucideIcon> = { Warehouse: Boxes, Debt: CreditCard, Shift: Clock, Supply: Truck };
+/** Qator qaysi ekranga olib borishi — chaqiruv matni uchun. */
+const ATTN_CTA: Record<string, string> = {
+  Shift: 'shift', Warehouse: 'warehouse', Debt: 'debt', Supply: 'supply',
+};
 const ATTN_TONE: Record<string, { row: string; icon: string; title: string; text: string }> = {
   Danger: { row: 'bg-danger-soft border-danger/25', icon: 'text-danger', title: 'text-danger', text: 'text-danger/80' },
   Warning: { row: 'bg-warn-soft border-warn-amber/30', icon: 'text-warn-strong', title: 'text-warn-strong', text: 'text-warn-strong/85' },
@@ -619,7 +623,21 @@ function AttentionCard({ items, onOpen }: { items: NotificationItem[]; onOpen: (
               <Icon size={16} className={cn('mt-0.5 flex-none', tone.icon)} />
               <span className="min-w-0 flex-1">
                 <span className={cn('block truncate text-[13px] font-semibold', tone.title)}>{n.title}</span>
-                <span className={cn('mt-0.5 block truncate text-[12px]', tone.text)}>{n.text}</span>
+                <span className={cn('mt-0.5 block truncate text-[12px]', tone.text)}>
+                  {n.text}
+                  {/* Ochiq chaqiruv: qator bosiladigani va QAYERGA olib borishi
+                      yozib qo'yiladi. Ilgari faqat o'ng tomondagi «›» belgisi
+                      bor edi — u nima ochilishini aytmasdi (dizayn: «открыть
+                      сверку смены →»). */}
+                  {n.actionTarget && (
+                    <>
+                      {n.text ? ' · ' : ''}
+                      <span className="font-semibold underline underline-offset-2">
+                        {t(`dashboard.attention.open.${ATTN_CTA[n.category] ?? 'default'}` as never)} →
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
               {n.actionTarget && <ChevronRight size={15} className={cn('mt-0.5 flex-none', tone.icon)} />}
             </button>
@@ -628,6 +646,18 @@ function AttentionCard({ items, onOpen }: { items: NotificationItem[]; onOpen: (
       </div>
     </Card>
   );
+}
+
+/**
+ * Postavka tarkibi — birinchi ikkita tovar nomi, qolgani «+N».
+ * Nomlar kelmagan bo'lsa (ro'yxat proyeksiyasi ularni bermasa) chaqiruvchi
+ * pozitsiyalar soniga tushadi.
+ */
+function composition(r: ZakupReceipt): string {
+  const names = (r.items ?? []).map((i) => i.productName).filter(Boolean);
+  if (names.length === 0) return '';
+  const head = names.slice(0, 2).join(', ');
+  return names.length > 2 ? `${head} +${names.length - 2}` : head;
 }
 
 /** «Закупы» — so'nggi xaridlar, status bilan; «в пути» qatorini qabul qilish. */
@@ -667,6 +697,12 @@ function PurchasesCard({ receipts, loading, to }: { receipts: ZakupReceipt[]; lo
             >
               <span className="w-[64px] flex-none font-semibold nums">З-{r.receiptNumber}</span>
               <span className="min-w-0 flex-1 truncate">{r.supplierName ?? '—'}</span>
+              {/* «СОСТАВ» — nima kelayotgani. Faqat pozitsiyalar soni emas,
+                  tovar nomlari: operator ro'yxatni ochmasdan turib qaysi
+                  postavka ekanini taniydi (dizayn: «Цемент, песок»). */}
+              <span className="min-w-0 flex-1 truncate text-muted" title={composition(r)}>
+                {composition(r) || t('dashboard.purchases.positions', { count: r.itemCount })}
+              </span>
               <Badge tone={inTransit ? 'warn' : 'success'}>
                 {t(inTransit ? 'dashboard.purchases.inTransit' : 'dashboard.purchases.accepted')}
               </Badge>

@@ -134,7 +134,9 @@ export const purchasesApi = {
 
   /** Delete a purchase receipt (reverses stock if it was accepted). zakup.delete. */
   deleteReceipt: async (id: string): Promise<void> => {
-    await apiClient.delete(`/Zakups/${id}`);
+    // DIQQAT: marshrut [controller]/[action] — `/Zakups/{id}` emas
+    // (u hech qaysi action'ga tushmay 404 qaytarardi).
+    await apiClient.delete(`/Zakups/DeleteReceipt/${id}`);
   },
 
   /** «Погасить долг» — FIFO pay across the supplier's unpaid receipts. */

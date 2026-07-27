@@ -35,6 +35,24 @@ export function formatSum(value: number | string | null | undefined): string {
   return groupNumber(Object.is(n, -0) ? 0 : n, 0);
 }
 
+/**
+ * Pul KIRITISH maydonlari uchun juftlik: xom matn ↔ «100 000» ko'rinishi.
+ *
+ * `parseMoneyInput` — foydalanuvchi yozganidan faqat raqamlarni oladi
+ * («100 000», «100,000», «0500» → «100000»/«500»). Bo'sh natija = qiymat yo'q.
+ * `formatMoneyInput` — raqamlar satrini 3 xonadan guruhlab qaytaradi.
+ * Ikkalasi ham satr ustida ishlaydi: input state raqam emas, satr bo'lib
+ * qoladi (kursordagi «0500» muammosi va Number('') = 0 tuzoqlaridan xoli).
+ */
+export function parseMoneyInput(raw: string): string {
+  return raw.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+}
+
+export function formatMoneyInput(digits: string): string {
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
 /** A decimal quantity (e.g. 3.2 т) — up to 3 fraction digits, trimmed. */
 export function formatQty(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';

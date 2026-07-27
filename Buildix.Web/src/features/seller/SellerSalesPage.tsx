@@ -63,7 +63,7 @@ export default function SellerSalesPage() {
 
   const showReturns = pay === 'returns';
   // Возвраты davri sotuvlar bilan bir xil (за смену → smena ochilishi). openedAt
-  // xom holatда mikrosoniya + Z'siz kelib server bind'ini buzadi — ISO'ga keltiramiz.
+  // xom holatda mikrosoniya + Z'siz kelib server bind'ini buzadi — ISO'ga keltiramiz.
   const returnsFrom =
     period === 'shift'
       ? shiftQuery.data?.openedAt
