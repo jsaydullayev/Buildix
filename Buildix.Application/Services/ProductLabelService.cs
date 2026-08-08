@@ -59,6 +59,20 @@ public class ProductLabelService : IProductLabelService
         return Result.Success(code);
     }
 
+    public async Task<Result<string>> SuggestBarcodeAsync(CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        for (var attempt = 0; attempt < GenerateAttempts; attempt++)
+        {
+            var code = Ean13.NewInternal();
+            var taken = await _context.Products
+                .AnyAsync(p => p.MarketId == marketId && p.Barcode == code, cancellationToken);
+            if (!taken) return Result.Success(code);
+        }
+        return Result.Failure<string>("Bo'sh shtrix-kod topilmadi. Qayta urinib ko'ring.");
+    }
+
     public async Task<Result<byte[]>> RenderLabelsAsync(
         PrintLabelsDto request, CancellationToken cancellationToken = default)
     {

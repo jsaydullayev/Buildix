@@ -72,6 +72,19 @@ public class ProductsController : ApiControllerBase
     /// Almashtirish ataylab qiyinlashtirilgan: kod o'zgarsa, allaqachon chop
     /// etilib tovarlarga yopishtirilgan yorliqlar ishlamay qoladi.
     /// </remarks>
+    /// <summary>
+    /// Bo'sh ichki EAN-13 kod taklif qiladi — hech narsa saqlamaydi. Tovar
+    /// formasidagi «Yaratish» tugmasi shuni chaqiradi; kod bazaga forma
+    /// saqlanganda yoziladi.
+    /// </summary>
+    [HttpGet("~/api/Products/barcode/suggest")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<object>> SuggestBarcode(CancellationToken ct = default)
+    {
+        var result = await _labelService.SuggestBarcodeAsync(ct);
+        return result.IsSuccess ? Ok(new { barcode = result.Value }) : ToActionResult(result);
+    }
+
     [HttpPost("~/api/Products/{id:guid}/barcode")]
     [RequirePermission(PermissionKeys.ProductsEdit)]
     public async Task<ActionResult<object>> GenerateBarcode(

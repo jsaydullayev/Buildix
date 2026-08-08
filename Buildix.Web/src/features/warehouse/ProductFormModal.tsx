@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Sparkles, Printer } from 'lucide-react';
 import { Modal, Button, Input, useConfirm } from '@/shared/ui';
+import { PrintLabelsModal } from './PrintLabelsModal';
 import { cn } from '@/shared/lib/cn';
 import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -70,11 +72,21 @@ export function ProductFormModal({
 
   const unitsQuery = useQuery({ queryKey: ['units'], queryFn: productsApi.units, staleTime: Infinity });
 
+  // Kod maydonga tushadi, bazaga esa forma saqlanganda yoziladi — «Bekor»
+  // bosilsa hech nima o'zgarmaydi va yangi tovarda ham ishlaydi.
+  const suggest = useMutation({
+    mutationFn: productsApi.suggestBarcode,
+    onSuccess: (code) => setValue('barcode', code, { shouldDirty: true }),
+  });
+
+  const [printing, setPrinting] = useState(false);
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -171,6 +183,19 @@ export function ProductFormModal({
 
   const belowCost = canViewCost && watch('salePrice') > 0 && watch('salePrice') < watch('costPrice');
 
+  // Kodning kelib chiqishini ko'rsatamiz: ikkalasi bitta maydonda yashaydi va
+  // omborchi qaysi biri ekanini bilishi kerak. 20-29 — do'kon ichki diapazoni,
+  // ya'ni bu kodni tizimning o'zi chiqargan va yorliqni ham o'zi bosadi.
+  const barcodeValue = watch('barcode');
+  const barcodeHint = (() => {
+    const code = barcodeValue?.trim() ?? '';
+    if (code.length !== 13 || !/^\d+$/.test(code)) return t('warehouse.form.barcodeHint');
+    const prefix = Number(code.slice(0, 2));
+    return prefix >= 20 && prefix <= 29
+      ? t('warehouse.form.barcodeInternal')
+      : t('warehouse.form.barcodeFactory');
+  })();
+
   const inputCls =
     'h-11 rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring';
 
@@ -193,6 +218,14 @@ export function ProductFormModal({
               }}
             >
               {t('warehouse.form.delete')}
+            </Button>
+          )}
+          {/* Faqat saqlangan tovarda: chop etish uchun serverdagi id kerak.
+              Yangi tovarda avval saqlanadi, keyin qaytib kelib bosiladi. */}
+          {isEdit && (
+            <Button variant="secondary" onClick={() => setPrinting(true)}>
+              <Printer size={15} />
+              {t('labels.fromProduct')}
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>
@@ -222,8 +255,35 @@ export function ProductFormModal({
         {/* Skaner klaviatura kabi ishlaydi — maydonga fokus berib kodni
             o'qitsa, u shu yerga tushadi. inputMode="numeric" telefonda raqamli
             klaviaturani ochadi. */}
-        <Field label={t('warehouse.form.barcode')} hint={t('warehouse.form.barcodeHint')}>
-          <input className={inputCls} inputMode="numeric" autoComplete="off" {...register('barcode')} />
+        <Field label={t('warehouse.form.barcode')} hint={barcodeHint}>
+          <div className="flex gap-2">
+            <input
+              className={cn(inputCls, 'flex-1')}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={t('warehouse.form.barcodePlaceholder')}
+              {...register('barcode')}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex-none"
+              loading={suggest.isPending}
+              onClick={async () => {
+                // Kod bor bo'lsa tasdiq so'raymiz: eski kod bilan chop etilgan
+                // va tovarlarga yopishtirilgan yorliqlar ishlamay qoladi.
+                if (barcodeValue?.trim() && !(await confirm({
+                  title: t('warehouse.form.barcodeReplaceConfirm'),
+                  confirmLabel: t('warehouse.form.barcodeGenerate'),
+                }))) return;
+                suggest.mutate();
+              }}
+            >
+              <Sparkles size={14} />
+              {barcodeValue?.trim() ? t('warehouse.form.barcodeRegenerate') : t('warehouse.form.barcodeGenerate')}
+            </Button>
+          </div>
         </Field>
         <Field label={t('warehouse.form.category')}>
           <select className={inputCls} {...register('categoryId')}>
@@ -291,6 +351,17 @@ export function ProductFormModal({
           {t('warehouse.form.hidePrice')}
         </label>
       </form>
+
+      {/* Chop etish oynasi SAQLANGAN holatdan chiziladi (product), formadagi
+          tahrirlanayotgan qiymatdan emas: hali saqlanmagan kod bilan yorliq
+          bosilsa, u bazadagi tovarga mos kelmasdi. */}
+      {product && (
+        <PrintLabelsModal
+          open={printing}
+          onClose={() => setPrinting(false)}
+          targets={[{ id: product.id, name: product.name, sku: product.sku, barcode: product.barcode }]}
+        />
+      )}
     </Modal>
   );
 }

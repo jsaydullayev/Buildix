@@ -14,6 +14,16 @@ public interface IProductLabelService
     Task<Result<string>> GenerateBarcodeAsync(Guid productId, bool replaceExisting = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Bo'sh ichki kod TAKLIF qiladi — hech narsa saqlamaydi.
+    ///
+    /// <para>Tovar formasi uchun: foydalanuvchi «Yaratish» bosganda kod
+    /// maydonga tushadi, lekin bazaga faqat forma saqlanganda yoziladi.
+    /// Darhol saqlansa, «Bekor» bosgan foydalanuvchi ham kodni o'zgartirib
+    /// yuborardi — yangi tovarda esa hali saqlanadigan tovarning o'zi yo'q.</para>
+    /// </summary>
+    Task<Result<string>> SuggestBarcodeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Tanlangan tovarlar uchun yorliq PDF i. Kodsiz tovarlarga kod avtomatik
     /// yaratiladi — aks holda kassir «chop etish» bosib, sababsiz xato olardi.
     /// </summary>

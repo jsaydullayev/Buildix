@@ -128,6 +128,33 @@ export const productsApi = {
     return data;
   },
 
+  /**
+   * Bo'sh ichki EAN-13 kod so'raydi. Server hech narsa saqlamaydi — kod
+   * bazaga forma saqlanganda yoziladi, ya'ni «Bekor» bosilsa hech nima
+   * o'zgarmaydi va yangi (hali saqlanmagan) tovar uchun ham ishlaydi.
+   */
+  suggestBarcode: async (): Promise<string> => {
+    const { data } = await apiClient.get<{ barcode: string }>('/Products/barcode/suggest');
+    return data.barcode;
+  },
+
+  /**
+   * Yorliq PDF i. Har nusxa — alohida sahifa (yorliq printeri sahifadan keyin
+   * qog'ozni uzadi). Kodsiz tovarlarga server kod o'zi biriktiradi.
+   */
+  labelsPdf: async (
+    items: { productId: string; copies: number }[],
+    widthMm: number,
+    heightMm: number,
+  ): Promise<Blob> => {
+    const { data } = await apiClient.post<Blob>(
+      '/Products/labels',
+      { items, widthMm, heightMm },
+      { responseType: 'blob' },
+    );
+    return data;
+  },
+
   /** Inline edit of a single field (sale price / min stock / visibility). Only
    *  the given fields change; the server audits price & visibility changes. */
   patch: async (

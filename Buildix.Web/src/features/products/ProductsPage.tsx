@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, Eye, EyeOff, Printer } from 'lucide-react';
 import { PageHeader, Button, Card, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
@@ -11,6 +11,7 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import { productsApi, categoriesApi, type Product } from '@/features/warehouse/api';
 import { ProductFormModal } from '@/features/warehouse/ProductFormModal';
+import { PrintLabelsModal } from '@/features/warehouse/PrintLabelsModal';
 
 const PAGE_SIZE = 30;
 
@@ -32,6 +33,8 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [printing, setPrinting] = useState(false);
   const debouncedSearch = useDebounce(search);
   const resetPage = () => setPage(1);
 
@@ -70,9 +73,36 @@ export default function ProductsPage() {
     setFormOpen(true);
   };
 
-  const cols = canViewCost
-    ? 'grid-cols-[2.2fr_0.9fr_1fr_1.1fr_0.7fr_0.9fr]'
-    : 'grid-cols-[2.6fr_1fr_1.2fr_0.9fr]';
+  // Yorliq chop etish huquqi bo'lgandagina tanlash ustuni chiqadi — aks holda
+  // u hech narsa qilmaydigan ortiqcha element bo'lardi.
+  const canPrintLabels = canEdit;
+  const cols = cn(
+    canPrintLabels && 'grid-cols-[34px_2.2fr_0.9fr_1fr_1.1fr_0.7fr_0.9fr]',
+    canPrintLabels && !canViewCost && 'grid-cols-[34px_2.6fr_1fr_1.2fr_0.9fr]',
+    !canPrintLabels && canViewCost && 'grid-cols-[2.2fr_0.9fr_1fr_1.1fr_0.7fr_0.9fr]',
+    !canPrintLabels && !canViewCost && 'grid-cols-[2.6fr_1fr_1.2fr_0.9fr]',
+  );
+
+  const rows = listQuery.data?.items ?? [];
+  const allSelected = rows.length > 0 && rows.every((p) => selected.has(p.id));
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  // Faqat joriy sahifa tanlanadi: ko'rinmayotgan tovarlarga yorliq bosib
+  // yuborish kutilmagan natija bo'lardi.
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) rows.forEach((p) => next.delete(p.id));
+      else rows.forEach((p) => next.add(p.id));
+      return next;
+    });
+
+  const selectedProducts = rows.filter((p) => selected.has(p.id));
 
   return (
     <>
@@ -139,6 +169,15 @@ export default function ProductsPage() {
               cols,
             )}
           >
+            {canPrintLabels && (
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={allSelected}
+                onChange={toggleAll}
+                aria-label={t('labels.selectAll')}
+              />
+            )}
             <span>{t('warehouse.cols.product')}</span>
             <span className="text-right">{t('warehouse.cols.stock')}</span>
             {canViewCost && <span className="text-right">{t('warehouse.cols.cost')}</span>}
@@ -151,8 +190,8 @@ export default function ProductsPage() {
             <div className="flex items-center justify-center py-20 text-primary">
               <Spinner size={24} />
             </div>
-          ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((p) => (
+          ) : rows.length > 0 ? (
+            rows.map((p) => (
               <ProductRow
                 key={p.id}
                 product={p}
@@ -160,6 +199,9 @@ export default function ProductsPage() {
                 canViewCost={canViewCost}
                 canEdit={canEdit}
                 onOpen={canEdit ? () => openEdit(p) : undefined}
+                selectable={canPrintLabels}
+                selected={selected.has(p.id)}
+                onToggle={() => toggle(p.id)}
               />
             ))
           ) : (
@@ -195,11 +237,46 @@ export default function ProductsPage() {
         )}
       </div>
 
+      {/* Tanlov paneli — ekran pastida suzadi, ro'yxatni siljitmaydi.
+          Sahifa almashsa tanlov saqlanadi (Set id lar bo'yicha), lekin
+          «hammasini tanlash» faqat ko'rinayotgan sahifaga tegishli. */}
+      {selectedProducts.length > 0 && (
+        <div className="pointer-events-none sticky bottom-0 z-20 flex justify-center p-6">
+          <div className="pointer-events-auto flex items-center gap-4 rounded-pill border border-border bg-surface px-5 py-3 shadow-pop">
+            <span className="text-[13.5px] font-medium">
+              {t('labels.selected', { count: selectedProducts.length })}
+            </span>
+            <Button size="sm" onClick={() => setPrinting(true)}>
+              <Printer size={14} />
+              {t('labels.fromProduct')}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-[13px] text-muted-2 transition-colors hover:text-text"
+            >
+              {t('labels.clearSelection')}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ProductFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
         product={editing}
         categories={categoriesQuery.data ?? []}
+      />
+
+      <PrintLabelsModal
+        open={printing}
+        onClose={() => setPrinting(false)}
+        targets={selectedProducts.map((p) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          barcode: p.barcode,
+        }))}
       />
     </>
   );
@@ -232,12 +309,18 @@ function ProductRow({
   canViewCost,
   canEdit,
   onOpen,
+  selectable,
+  selected,
+  onToggle,
 }: {
   product: Product;
   gridCols: string;
   canViewCost: boolean;
   canEdit: boolean;
   onOpen?: () => void;
+  selectable: boolean;
+  selected: boolean;
+  onToggle: () => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -279,8 +362,18 @@ function ProductRow({
         'grid items-center gap-4 border-b border-hairline px-6 py-2.5 text-[13px] last:border-0 hover:bg-bg/40',
         gridCols,
         p.isHidden && 'opacity-60',
+        selected && 'bg-primary-soft/40',
       )}
     >
+      {selectable && (
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-primary"
+          checked={selected}
+          onChange={onToggle}
+          aria-label={p.name}
+        />
+      )}
       {/* Name + category·unit (clickable to edit) */}
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-col items-start text-left" disabled={!onOpen}>
         <span className="flex items-center gap-2 truncate font-medium">
