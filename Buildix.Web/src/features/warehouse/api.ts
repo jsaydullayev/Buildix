@@ -139,6 +139,24 @@ export const productsApi = {
   },
 
   /**
+   * Bitta yorliqning ko'rinishi (PNG). Bazaga tegmaydi — barcha ma'lumot
+   * so'rovda ketadi, shuning uchun ko'rinishni ochish yoki o'lchamni
+   * almashtirish hech narsani o'zgartirmaydi.
+   */
+  labelPreview: async (body: {
+    name: string;
+    sku?: string | null;
+    barcode?: string | null;
+    widthMm: number;
+    heightMm: number;
+  }): Promise<Blob> => {
+    const { data } = await apiClient.post<Blob>('/Products/labels/preview', body, {
+      responseType: 'blob',
+    });
+    return data;
+  },
+
+  /**
    * Yorliq PDF i. Har nusxa — alohida sahifa (yorliq printeri sahifadan keyin
    * qog'ozni uzadi). Kodsiz tovarlarga server kod o'zi biriktiradi.
    */

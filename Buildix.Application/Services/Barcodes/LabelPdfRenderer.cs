@@ -25,14 +25,41 @@ public static class LabelPdfRenderer
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public static byte[] Render(IReadOnlyList<LabelData> labels, double widthMm = 58, double heightMm = 40)
+    public static byte[] Render(IReadOnlyList<LabelData> labels, double widthMm = 58, double heightMm = 40) =>
+        Build(labels, widthMm, heightMm).GeneratePdf();
+
+    /// <summary>
+    /// Bitta yorliqning ko'rinishi (PNG) — chop etishdan oldin ko'rsatish uchun.
+    ///
+    /// <para>AYNAN shu <see cref="Build"/> hujjatidan chiqadi, ya'ni ko'rinish
+    /// bilan bosiladigan narsa bir-biriga mos tushmay qolishi mumkin emas.
+    /// Ko'rinishni alohida HTML/SVG bilan chizganda ikkita maket paydo bo'lardi
+    /// va ular vaqt o'tib bir-biridan uzoqlashardi.</para>
+    ///
+    /// <para>Bu metod bazaga umuman tegmaydi: kod va nom chaqiruvchidan keladi,
+    /// shuning uchun ko'rinishni ochish hech narsani o'zgartirmaydi.</para>
+    /// </summary>
+    public static byte[] RenderPreviewPng(LabelData label, double widthMm = 58, double heightMm = 40)
+    {
+        var images = Build([label with { Copies = 1 }], widthMm, heightMm)
+            .GenerateImages(new ImageGenerationSettings
+            {
+                ImageFormat = ImageFormat.Png,
+                // 8x — kichik yorliq ekranda tiniq ko'rinsin; 58mm da bu ~1300px.
+                RasterDpi = 8 * 72,
+            });
+        return images.First();
+    }
+
+    private static IDocument Build(IReadOnlyList<LabelData> labels, double widthMm, double heightMm)
     {
         if (labels.Count == 0)
             throw new ArgumentException("Yorliq ro'yxati bo'sh.", nameof(labels));
 
-        // Chiziqlar balandligi yorliqning ~30% i: pastroq bo'lsa qo'l skaneri
-        // burchak ostida o'qiy olmaydi, balandroq bo'lsa nomga joy qolmaydi.
-        var barsHeightMm = Math.Max(8, heightMm * 0.3);
+        // Chiziqlar balandligi yorliqning ~42% i. Past chiziqni qo'l skaneri
+        // burchak ostida o'qiy olmaydi — 30% da yorliqning pastki yarmi bo'sh
+        // qolar va chiziqlar keraksiz past edi.
+        var barsHeightMm = Math.Max(10, heightMm * 0.42);
         var barsWidthMm = widthMm - 6; // ikki chetda 3 mm — printer chekkasi ishonchsiz
 
         return Document.Create(container =>
@@ -48,19 +75,27 @@ public static class LabelPdfRenderer
                         page.Margin(2, Unit.Millimetre);
                         page.DefaultTextStyle(x => x.FontFamily(Fonts.Arial).FontColor("#000000"));
 
-                        page.Content().Column(col =>
+                        // AlignMiddle — yorliq balandligi turlicha bo'lishi mumkin
+                        // (58x40, 40x30, 30x20), va matn baland yorliqda tepaga
+                        // yopishib, pastini bo'sh qoldirmasin.
+                        page.Content().AlignMiddle().Column(col =>
                         {
-                            // Nom — ikki qatorgacha. Uzun nomlar qirqiladi: yorliqda
-                            // nom ma'lumot uchun, tovarni esa kod aniqlaydi.
-                            col.Item().Text(label.ProductName)
-                                .FontSize((float)(heightMm * 0.16))
+                            // Nom — ikki qatorgacha, markazda. Uzun nomlar
+                            // qirqiladi: yorliqda nom ma'lumot uchun, tovarni esa
+                            // kod aniqlaydi.
+                            col.Item().AlignCenter().Text(label.ProductName)
+                                .FontSize((float)(heightMm * 0.15))
                                 .SemiBold()
                                 .ClampLines(2);
 
+                            // AlignCenter TASHQARIDA: ichkarida qo'llansa u
+                            // chiziqlarni o'z qutisi ichida markazlaydi, quti esa
+                            // chapda qolib ketadi va kod raqamlarga nisbatan
+                            // surilib ko'rinadi.
                             col.Item().PaddingTop(1, Unit.Millimetre)
-                                .Height((float)barsHeightMm, Unit.Millimetre)
-                                .Width((float)barsWidthMm, Unit.Millimetre)
                                 .AlignCenter()
+                                .Width((float)barsWidthMm, Unit.Millimetre)
+                                .Height((float)barsHeightMm, Unit.Millimetre)
                                 .Svg(BarcodeSvg.Ean13(label.Barcode, barsWidthMm, barsHeightMm));
 
                             // Raqamlar chiziqlar ostida — skaner ishlamay qolsa
@@ -78,7 +113,7 @@ public static class LabelPdfRenderer
                     });
                 }
             }
-        }).GeneratePdf();
+        });
     }
 
     /// <summary>«2012345678903» → «201 234 567 890 3» — qo'lda kiritish oson bo'lsin.</summary>

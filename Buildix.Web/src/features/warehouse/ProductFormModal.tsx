@@ -222,7 +222,7 @@ export function ProductFormModal({
           )}
           {/* Faqat saqlangan tovarda: chop etish uchun serverdagi id kerak.
               Yangi tovarda avval saqlanadi, keyin qaytib kelib bosiladi. */}
-          {isEdit && (
+          {isEdit && hasPermission(PERMISSIONS.products.edit) && (
             <Button variant="secondary" onClick={() => setPrinting(true)}>
               <Printer size={15} />
               {t('labels.fromProduct')}

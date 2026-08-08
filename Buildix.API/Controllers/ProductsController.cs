@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Buildix.Application.DTOs;
 using Buildix.Application.Constants;
 using Buildix.Application.Interfaces;
+using Buildix.Application.Services.Barcodes;
 using Buildix.API.Authorization;
 using Buildix.API.Services;
 using Buildix.Domain.Constants;
@@ -98,6 +99,32 @@ public class ProductsController : ApiControllerBase
     /// Tanlangan tovarlar uchun yorliq PDF i (har nusxa — alohida sahifa).
     /// Kodsiz tovarlarga kod shu yerda avtomatik beriladi.
     /// </summary>
+    /// <summary>
+    /// Bitta yorliqning ko'rinishi (PNG) — chop etishdan oldin ko'rsatish uchun.
+    /// </summary>
+    /// <remarks>
+    /// Bazaga tegmaydi: nom, artikul va kod so'rovdan keladi. Shuning uchun
+    /// ko'rinishni ochish yoki o'lchamni almashtirish hech narsani
+    /// o'zgartirmaydi — kodsiz tovarga kod yozib qo'ymaydi.
+    /// Rasm chop etiladigan hujjatning AYNAN o'zidan chiqadi.
+    /// </remarks>
+    [HttpPost("~/api/Products/labels/preview")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public IActionResult PreviewLabel([FromBody] LabelPreviewDto request)
+    {
+        var code = request.Barcode?.Trim();
+        if (string.IsNullOrEmpty(code) || !Ean13.IsValid(code))
+            // Kod hali yo'q (yoki yaroqsiz) — ko'rinish uchun namuna kod.
+            // Chop etishda haqiqiysi chiqadi.
+            code = Ean13.NewInternal();
+
+        var png = LabelPdfRenderer.RenderPreviewPng(
+            new LabelData(request.Name, code, request.Sku), request.WidthMm, request.HeightMm);
+
+        // Ko'rinish har o'lcham almashganda qayta so'raladi — keshlanmasin.
+        return File(png, "image/png");
+    }
+
     [HttpPost("~/api/Products/labels")]
     [RequirePermission(PermissionKeys.ProductsEdit)]
     public async Task<IActionResult> PrintLabels([FromBody] PrintLabelsDto request, CancellationToken ct = default)

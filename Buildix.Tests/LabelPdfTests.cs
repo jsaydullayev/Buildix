@@ -83,6 +83,38 @@ public class LabelPdfTests
     }
 
     [Fact]
+    public void Preview_renders_a_png_of_the_same_layout()
+    {
+        // Ko'rinish chop etiladigan hujjatning o'zidan chiqadi — alohida maket
+        // yo'q, demak ko'rgani bilan bosilgani farq qila olmaydi.
+        var png = LabelPdfRenderer.RenderPreviewPng(
+            new LabelData("Sement M400 (50 kg)", "4006381333931", "CEM-400"));
+
+        Assert.True(png.Length > 2000, $"juda kichik PNG ({png.Length} bayt)");
+        // PNG imzosi.
+        Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, png[..4]);
+
+        var dir = Environment.GetEnvironmentVariable("BUILDIX_PDF_DUMP");
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+            File.WriteAllBytes(Path.Combine(dir, "preview-58x40.png"), png);
+            File.WriteAllBytes(Path.Combine(dir, "preview-30x20.png"),
+                LabelPdfRenderer.RenderPreviewPng(
+                    new LabelData("Sement M400 (50 kg)", "4006381333931", "CEM-400"), 30, 20));
+        }
+    }
+
+    [Fact]
+    public void Preview_ignores_the_copies_field()
+    {
+        // Ko'rinish doim bitta yorliq: nusxa soni chop etishga tegishli.
+        var one = LabelPdfRenderer.RenderPreviewPng(new LabelData("Sement", "4006381333931", "CEM", Copies: 1));
+        var many = LabelPdfRenderer.RenderPreviewPng(new LabelData("Sement", "4006381333931", "CEM", Copies: 50));
+        Assert.Equal(one.Length, many.Length);
+    }
+
+    [Fact]
     public void An_invalid_code_is_refused_rather_than_printed_blank()
     {
         // Yaroqsiz kod bilan yorliq bosilsa, u skanerlanmaydi va buni faqat

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Printer, Info } from 'lucide-react';
-import { Modal, Button } from '@/shared/ui';
+import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import type { ApiError } from '@/shared/api/types';
 import { productsApi } from './api';
@@ -62,6 +62,34 @@ export function PrintLabelsModal({
   }, [open, targets]);
 
   const total = targets.reduce((sum, p) => sum + (copies[p.id] ?? 1), 0);
+
+  // Ko'rinish birinchi tovar bo'yicha: bir nechta tovar tanlanganda ham maket
+  // bir xil, farq faqat matnda. Server rasmni chop etiladigan hujjatning
+  // O'ZIDAN chiqaradi, ya'ni ko'rgan narsa bosiladi.
+  const sample = targets[0];
+  const preview = useQuery({
+    queryKey: ['label-preview', sample?.id, sample?.barcode, size.key],
+    queryFn: () =>
+      productsApi.labelPreview({
+        name: sample!.name,
+        sku: sample!.sku,
+        barcode: sample!.barcode,
+        widthMm: size.w,
+        heightMm: size.h,
+      }),
+    enabled: open && !!sample,
+    staleTime: 5 * 60_000,
+  });
+
+  // Blob → URL, va almashganda eskisini bo'shatamiz (aks holda oyna har
+  // o'lcham almashganda xotirada rasm qoldirib ketardi).
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!preview.data) return;
+    const url = URL.createObjectURL(preview.data);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [preview.data]);
   // Faqat ANIQ kodsizlar sanaladi — noma'lum (undefined) holat hisobga olinmaydi.
   const missingCode = targets.filter((p) => p.barcode === null).length;
 
@@ -103,6 +131,26 @@ export function PrintLabelsModal({
       }
     >
       <div className="flex flex-col gap-5">
+        {/* Ko'rinish — chop etiladigan hujjatning aynan o'zidan. Kulrang fon
+            ustidagi oq to'rtburchak yorliqning haqiqiy nisbatlarini beradi. */}
+        <div className="flex flex-col items-center gap-2 rounded-card bg-bg py-5">
+          <div
+            className="flex items-center justify-center overflow-hidden rounded-[3px] bg-white shadow-card"
+            style={{ width: `${size.w * 4.2}px`, height: `${size.h * 4.2}px` }}
+          >
+            {preview.isPending ? (
+              <Spinner size={18} className="text-primary" />
+            ) : previewUrl ? (
+              <img src={previewUrl} alt="" className="h-full w-full object-contain" />
+            ) : (
+              <span className="px-3 text-center text-[11px] text-muted-2">{t('labels.previewFailed')}</span>
+            )}
+          </div>
+          <span className="text-[11.5px] text-muted-2">
+            {t('labels.previewCaption', { w: size.w, h: size.h })}
+          </span>
+        </div>
+
         {/* Tovarlar va nusxa soni */}
         <div className="overflow-hidden rounded-card border border-border">
           {targets.map((p, i) => (

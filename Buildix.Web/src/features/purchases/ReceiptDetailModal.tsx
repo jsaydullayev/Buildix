@@ -35,6 +35,10 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
   const canPay = hasPermission(PERMISSIONS.zakup.create);
+  // Yorliq chop etish tovarni o'zgartiradi (kodsizga kod yoziladi), shuning
+  // uchun server products.edit talab qiladi. Ruxsatsiz foydalanuvchiga taklif
+  // ko'rsatilsa, u bosib 403 olardi — boshi berk yo'l.
+  const canPrintLabels = hasPermission(PERMISSIONS.products.edit);
   const [payInput, setPayInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [offerLabels, setOfferLabels] = useState(false);
@@ -70,7 +74,7 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
       void qc.invalidateQueries({ queryKey: ['products'] });
       // Yangi kelgan tovarga yorliq kerak bo'ladi — aynan shu paytda taklif
       // qilamiz, keyin omborchi buni alohida eslab yurmasin.
-      setOfferLabels(true);
+      if (canPrintLabels) setOfferLabels(true);
     },
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });

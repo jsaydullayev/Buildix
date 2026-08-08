@@ -1177,6 +1177,8 @@ export const uz: TranslationSchema = {
     pcs: 'dona',
     size: 'O‘lcham',
     mm: 'mm',
+    previewCaption: 'Ko‘rinish — chop etilganda shunday chiqadi ({{w}}×{{h}} mm)',
+    previewFailed: 'Ko‘rinishni chizib bo‘lmadi',
     willGenerate: 'kod yaratiladi',
     generateNote: '{{count}} ta tovarda shtrix-kod yo‘q — chop etishdan oldin avtomatik yaratiladi.',
     printerHint:

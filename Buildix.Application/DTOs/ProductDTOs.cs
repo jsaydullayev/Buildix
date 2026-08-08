@@ -262,3 +262,32 @@ public record PrintLabelsDto(
     [param: Range(15, 297)]
     double HeightMm = 40
 );
+
+/// <summary>
+/// Bitta yorliqning ko'rinishi. Bazaga tegmaydi — barcha ma'lumot mijozdan
+/// keladi, shuning uchun ko'rinishni ochish hech narsani o'zgartirmaydi
+/// (kodsiz tovarga kod yozib qo'ymaydi).
+/// </summary>
+public record LabelPreviewDto(
+    [property: JsonPropertyName("name")]
+    [param: Required, StringLength(200)]
+    string Name,
+
+    [property: JsonPropertyName("sku")]
+    [param: StringLength(50)]
+    string? Sku = null,
+
+    // Kodsiz tovar uchun mijoz namuna kod yuboradi — ko'rinishda chiziqlar
+    // qanday joylashishini ko'rsatish uchun; chop etishda haqiqiysi chiqadi.
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
+
+    [property: JsonPropertyName("widthMm")]
+    [param: Range(20, 210)]
+    double WidthMm = 58,
+
+    [property: JsonPropertyName("heightMm")]
+    [param: Range(15, 297)]
+    double HeightMm = 40
+);

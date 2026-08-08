@@ -1177,6 +1177,8 @@ export const en: TranslationSchema = {
     pcs: 'pcs',
     size: 'Size',
     mm: 'mm',
+    previewCaption: 'Preview — this is what prints ({{w}}×{{h}} mm)',
+    previewFailed: 'Preview unavailable',
     willGenerate: 'code will be created',
     generateNote: '{{count}} products have no barcode — one is created automatically before printing.',
     printerHint:
