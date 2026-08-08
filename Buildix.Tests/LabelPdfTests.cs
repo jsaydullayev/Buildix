@@ -106,6 +106,21 @@ public class LabelPdfTests
     }
 
     [Fact]
+    public void A_one_character_sku_does_not_read_as_part_of_the_code()
+    {
+        // Haqiqiy ma'lumotdan kelgan holat: artikul «1». Ilgari kod raqamlari
+        // 3 tadan guruhlanib oxirida yolg'iz raqam qolardi («… 843 1») va
+        // artikul o'shaning davomidek o'qilardi. Endi 1-6-6 guruhlash va
+        // «Art.» prefiksi ularni ajratadi.
+        var png = LabelPdfRenderer.RenderPreviewPng(new LabelData("sement", "2530305808431", "1"));
+        Assert.True(png.Length > 2000);
+
+        var dir = Environment.GetEnvironmentVariable("BUILDIX_PDF_DUMP");
+        if (!string.IsNullOrWhiteSpace(dir))
+            File.WriteAllBytes(Path.Combine(dir, "preview-short-sku.png"), png);
+    }
+
+    [Fact]
     public void Preview_ignores_the_copies_field()
     {
         // Ko'rinish doim bitta yorliq: nusxa soni chop etishga tegishli.

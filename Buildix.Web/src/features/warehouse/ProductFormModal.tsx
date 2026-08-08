@@ -262,6 +262,14 @@ export function ProductFormModal({
               inputMode="numeric"
               autoComplete="off"
               placeholder={t('warehouse.form.barcodePlaceholder')}
+              // Apparat skaner klaviatura kabi ishlaydi: raqamlarni terib,
+              // oxirida Enter yuboradi. Enter esa formani YUBORADI — ya'ni kod
+              // tushishi bilan tovar saqlanib ketardi, yangi tovarda esa hali
+              // to'ldirilmagan maydonlar bilan validatsiya xatosi chiqardi.
+              // Bu yerda Enter kodning tugagani, saqlash buyrug'i emas.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
               {...register('barcode')}
             />
             <Button

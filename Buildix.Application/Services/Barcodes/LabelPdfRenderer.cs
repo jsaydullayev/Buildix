@@ -104,10 +104,16 @@ public static class LabelPdfRenderer
                                 .FontSize((float)(heightMm * 0.13))
                                 .LetterSpacing(0.08f);
 
+                            // Artikul kod raqamlaridan aniq ajralib tursin:
+                            // ular bir-birining ostida turadi va qisqa artikul
+                            // («1») kodning davomidek o'qilib ketishi mumkin.
+                            // Bo'shliq + «Art.» prefiksi + kulrang rang buni
+                            // uch tomonlama hal qiladi.
                             if (!string.IsNullOrWhiteSpace(label.Sku))
-                                col.Item().AlignCenter().Text(label.Sku)
-                                    .FontSize((float)(heightMm * 0.11))
-                                    .FontColor("#333333")
+                                col.Item().PaddingTop((float)(heightMm * 0.04), Unit.Millimetre)
+                                    .AlignCenter().Text($"Art. {label.Sku}")
+                                    .FontSize((float)(heightMm * 0.1))
+                                    .FontColor("#666666")
                                     .ClampLines(1);
                         });
                     });
@@ -116,8 +122,17 @@ public static class LabelPdfRenderer
         });
     }
 
-    /// <summary>«2012345678903» → «201 234 567 890 3» — qo'lda kiritish oson bo'lsin.</summary>
+    /// <summary>
+    /// «2530305808431» → «2 530305 808431» — EAN-13 ning standart 1-6-6
+    /// guruhlanishi.
+    ///
+    /// <para>Ilgari 3 tadan guruhlanardi va oxirida yolg'iz raqam qolardi
+    /// («253 030 580 843 1»). Artikuli qisqa tovarlarda («1») bu ikkisi bir
+    /// narsadek o'qilardi. 1-6-6 esa shtrix-kodning o'z bo'linishiga mos
+    /// keladi — chiziqlar ham aynan shunday guruhlangan.</para>
+    /// </summary>
     private static string Spaced(string code) =>
-        string.Join(' ', Enumerable.Range(0, (code.Length + 2) / 3)
-            .Select(i => code.Substring(i * 3, Math.Min(3, code.Length - i * 3))));
+        code.Length == 13
+            ? $"{code[0]} {code[1..7]} {code[7..]}"
+            : code;
 }
