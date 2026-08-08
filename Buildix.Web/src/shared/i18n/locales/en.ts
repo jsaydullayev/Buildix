@@ -167,6 +167,7 @@ export const en: TranslationSchema = {
     pos: {
       allProducts: 'All products',
       outOfStock: 'out',
+      priceOnRequest: 'Ask for price',
       receipt: 'Receipt',
       clear: 'Clear',
       discard: 'Delete receipt',

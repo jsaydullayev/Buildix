@@ -165,6 +165,7 @@ export const ru = {
     pos: {
       allProducts: 'Все товары',
       outOfStock: 'нет',
+      priceOnRequest: 'Цену уточните',
       receipt: 'Чек',
       clear: 'Очистить',
       discard: 'Удалить чек',

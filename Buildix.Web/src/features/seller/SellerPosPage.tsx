@@ -22,7 +22,7 @@ import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
+import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
 import type { PagedResult } from '@/shared/api/paged';
 import { publicMarketApi } from '@/shared/api/auth';
@@ -117,7 +117,7 @@ export default function SellerPosPage() {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
   const qc = useQueryClient();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   // Line-price override is the «торг» lever. It is the same authority as the
   // admin price edit (audited server-side), so it stays behind sales.edit —
   // a plain cashier does not get it just by standing at the register.
@@ -247,6 +247,20 @@ export default function SellerPosPage() {
   /** Pull the authoritative receipt back after a basket mutation. */
   const refreshSale = (id: string | null = saleId) =>
     qc.invalidateQueries({ queryKey: ['pos-sale', id] });
+
+  /**
+   * «Narxni sotuvchidan yashirish» — faqat SOTUV oqimida va faqat Seller
+   * rolida. Egasi yoki administrator kassaga kirsa narxni ko'radi: belgi
+   * aynan sotuvchiga qaratilgan.
+   *
+   * <p>Bu maxfiylik chorasi emas, ish tartibi: narx «Tovarlar» bo'limida
+   * sotuvchiga ochiq turadi (foydalanuvchi shunday xohladi). Maqsad — kassir
+   * ekrandan narx o'qib mijozga aytmasin, egasidan so'rasin. Shuning uchun
+   * serverda maskalash qilinmadi: bir xil endpoint ikkala ekranga xizmat
+   * qiladi va maskalash «Tovarlar» ni ham buzardi.</p>
+   */
+  const isSeller = hasRole(ROLES.Seller);
+  const hidePriceOf = (p: Product) => isSeller && p.hidePriceFromSellers;
 
   /** Drafts only move when a receipt is parked, resumed, discarded or closed. */
   const refreshDrafts = () => qc.invalidateQueries({ queryKey: ['pos-drafts'] });
@@ -718,12 +732,22 @@ export default function SellerPosPage() {
                         </span>
                       </div>
                       <span className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</span>
-                      <span className="text-[14px] font-semibold text-primary nums">
-                        {formatSum(p.salePrice)}
-                        <span className="ml-1 text-[11px] font-normal text-muted-2">
-                          {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
+                      {/* «Narxni sotuvchidan yashirish» belgilangan tovarlarda
+                          kassir narxni katalogda ko'rmaydi — narxni egasi
+                          aytadi. Tovarning o'zi haqidagi ma'lumot «Tovarlar»
+                          bo'limida ochiq qoladi. */}
+                      {hidePriceOf(p) ? (
+                        <span className="text-[13px] font-medium text-muted-2">
+                          {t('seller.pos.priceOnRequest')}
                         </span>
-                      </span>
+                      ) : (
+                        <span className="text-[14px] font-semibold text-primary nums">
+                          {formatSum(p.salePrice)}
+                          <span className="ml-1 text-[11px] font-normal text-muted-2">
+                            {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
+                          </span>
+                        </span>
+                      )}
                     </button>
                   );
                 })}

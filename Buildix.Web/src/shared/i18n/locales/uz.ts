@@ -167,6 +167,7 @@ export const uz: TranslationSchema = {
     pos: {
       allProducts: 'Barcha tovarlar',
       outOfStock: 'yo‘q',
+      priceOnRequest: 'Narxni so‘rang',
       receipt: 'Chek',
       clear: 'Tozalash',
       discard: 'Chekni o‘chirish',
