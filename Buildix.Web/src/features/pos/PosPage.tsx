@@ -13,6 +13,7 @@ import {
   UserPlus,
   Clock,
   Pause,
+  PackagePlus,
   AlertTriangle,
 } from 'lucide-react';
 import { Button, Card, Spinner, Badge, useConfirm } from '@/shared/ui';
@@ -33,6 +34,7 @@ import {
   type MixParts,
 } from './mix';
 import { ReceiptModal } from './ReceiptModal';
+import { ExternalItemModal } from './ExternalItemModal';
 import { shiftsApi } from '@/features/shifts/api';
 import { publicMarketApi } from '@/shared/api/auth';
 
@@ -69,6 +71,7 @@ export default function PosPage() {
   const [discountInput, setDiscountInput] = useState('');
   // Aralash to'lov: kassir uch usul bo'yicha summalarni o'zi taqsimlaydi.
   const [mixParts, setMixParts] = useState<MixParts>(EMPTY_MIX);
+  const [externalOpen, setExternalOpen] = useState(false);
   const [success, setSuccess] = useState(false);
   // Yakunlangan chek — «Rasmiylashtirish»dan keyingi oyna shundan chiziladi.
   // Sotuv holati serverdan qayta o'qiladi: to'langan summa, qoldiq va status
@@ -246,6 +249,31 @@ export default function PosPage() {
     }
   }
 
+  /**
+   * Katalogda yo'q tovar. Ombor qoldig'iga TEGMAYDI — tovar bizniki emas,
+   * qo'shni do'kondan olinadi; server ham uni shunday qabul qiladi
+   * (SaleItem.IsExternal, ProductId null).
+   */
+  const addExternal = useMutation({
+    mutationFn: async (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => {
+      const id = await ensureSale();
+      return posApi.addItem(id, {
+        isExternal: true,
+        externalProductName: p.name,
+        externalCostPrice: p.costPrice,
+        quantity: p.quantity,
+        salePrice: p.salePrice,
+        minSalePrice: 0,
+      });
+    },
+    onSuccess: () => {
+      setActionError(null);
+      setExternalOpen(false);
+      void refresh();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+
   // M-4: add a line by productId + price only — works from the product grid AND
   // from the cart "+" (which no longer depends on the current search results).
   const addItem = useMutation({
@@ -406,7 +434,8 @@ export default function PosPage() {
       <div className="grid flex-1 grid-cols-[1.5fr_1fr] gap-0 overflow-hidden">
         {/* LEFT — product search */}
         <div className="flex flex-col border-r border-border p-6">
-          <div className="relative mb-4">
+          <div className="mb-4 flex gap-2">
+          <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
             <input
               value={search}
@@ -423,6 +452,14 @@ export default function PosPage() {
               autoFocus
               className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
+          </div>
+          {/* Katalogda yo'q tovar — mijoz so'ragan narsa bizda bo'lmasa, uni
+              qo'shni do'kondan olib berish odatiy hol. Ilgari bu imkoniyat
+              faqat kassir qobig'ida bor edi. */}
+          <Button variant="secondary" className="h-12 flex-none" onClick={() => setExternalOpen(true)}>
+            <PackagePlus size={16} />
+            {t('seller.pos.external.button')}
+          </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {productsQuery.isLoading ? (
@@ -734,6 +771,14 @@ export default function PosPage() {
         </div>
       </div>
       )}
+
+      <ExternalItemModal
+        open={externalOpen}
+        onClose={() => setExternalOpen(false)}
+        pending={addExternal.isPending}
+        error={addExternal.isError ? ((addExternal.error as unknown as ApiError).message ?? '') : null}
+        onSubmit={(p) => addExternal.mutate(p)}
+      />
 
       <ReceiptModal
         sale={done}
