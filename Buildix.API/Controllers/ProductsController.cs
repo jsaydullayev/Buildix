@@ -26,6 +26,7 @@ public class ProductsController : ApiControllerBase
     private readonly IProductsExcelExportService _productsExcelExportService;
     private readonly IProductImportService _importService;
     private readonly IImageIngestService _imageIngest;
+    private readonly IProductLabelService _labelService;
 
     public ProductsController(
         IProductService productService,
@@ -33,7 +34,8 @@ public class ProductsController : ApiControllerBase
         IProductImageService productImageService,
         IProductsExcelExportService productsExcelExportService,
         IProductImportService importService,
-        IImageIngestService imageIngest)
+        IImageIngestService imageIngest,
+        IProductLabelService labelService)
     {
         _productService = productService;
         _productQueryService = productQueryService;
@@ -41,6 +43,7 @@ public class ProductsController : ApiControllerBase
         _productsExcelExportService = productsExcelExportService;
         _importService = importService;
         _imageIngest = imageIngest;
+        _labelService = labelService;
     }
 
     /// <summary>Cost-price visibility is gated by the <c>data.costPrice</c>
@@ -59,6 +62,39 @@ public class ProductsController : ApiControllerBase
             return NotFound();
 
         return Ok(product);
+    }
+
+    /// <summary>
+    /// Tovarga ichki EAN-13 kod biriktiradi (kodi yo'q bo'lsa). Kod allaqachon
+    /// bo'lsa o'sha qaytariladi — <c>?replace=true</c> bilangina almashtiriladi.
+    /// </summary>
+    /// <remarks>
+    /// Almashtirish ataylab qiyinlashtirilgan: kod o'zgarsa, allaqachon chop
+    /// etilib tovarlarga yopishtirilgan yorliqlar ishlamay qoladi.
+    /// </remarks>
+    [HttpPost("~/api/Products/{id:guid}/barcode")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<object>> GenerateBarcode(
+        Guid id, [FromQuery] bool replace = false, CancellationToken ct = default)
+    {
+        var result = await _labelService.GenerateBarcodeAsync(id, replace, ct);
+        return result.IsSuccess ? Ok(new { barcode = result.Value }) : ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Tanlangan tovarlar uchun yorliq PDF i (har nusxa — alohida sahifa).
+    /// Kodsiz tovarlarga kod shu yerda avtomatik beriladi.
+    /// </summary>
+    [HttpPost("~/api/Products/labels")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<IActionResult> PrintLabels([FromBody] PrintLabelsDto request, CancellationToken ct = default)
+    {
+        var result = await _labelService.RenderLabelsAsync(request, ct);
+        if (!result.IsSuccess) return ToActionResult(result).Result!;
+
+        // inline — brauzer PDF ni yangi oynada ochadi va foydalanuvchi bevosita
+        // chop etadi; yuklab olingan fayl ortiqcha qadam bo'lardi.
+        return File(result.Value, "application/pdf", $"labels_{DateTime.UtcNow:yyyy-MM-dd_HHmm}.pdf");
     }
 
     /// <summary>

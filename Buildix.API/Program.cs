@@ -558,6 +558,7 @@ try
     builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
+    builder.Services.AddScoped<IProductLabelService, ProductLabelService>();
     builder.Services.AddScoped<IProductImageService, ProductImageService>();
     builder.Services.AddScoped<IProductImageStorage, Buildix.API.Storage.LocalProductImageStorage>();
     builder.Services.AddScoped<IProductCategoryService, ProductCategoryService>();

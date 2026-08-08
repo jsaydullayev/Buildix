@@ -38,7 +38,8 @@ public record ProductDto(
     [property: JsonPropertyName("hidePriceFromSellers")] bool HidePriceFromSellers = false,
     // Artikul / SKU (ixtiyoriy) — Склад ekranida "АРТИКУЛ" ustuni + qidiruv.
     [property: JsonPropertyName("sku")] string? Sku = null,
-    // Zavod shtrix-kodi (ixtiyoriy) — skaner shu bo'yicha tovarni topadi.
+    // Shtrix-kod (ixtiyoriy) — skaner shu bo'yicha tovarni topadi. Zavod kodi
+    // bo'lishi ham, tizim yaratgan ichki kod (EAN-13, 20-29) bo'lishi ham mumkin.
     [property: JsonPropertyName("barcode")] string? Barcode = null,
     // Sotuvchiga ko'rinadigan tavsif (Товары ekrani "Описание").
     [property: JsonPropertyName("description")] string? Description = null,
@@ -231,4 +232,33 @@ public record ProductPatchDto(
     [property: JsonPropertyName("warehouseLocation")]
     [param: StringLength(120)]
     string? WarehouseLocation = null
+);
+
+/// <summary>Bitta tovar uchun nechta yorliq chop etilsin.</summary>
+public record LabelItemDto(
+    [property: JsonPropertyName("productId")] Guid ProductId,
+    // Priyomkadan keyin kelgan miqdor shu yerga tushadi (10 dona kelsa — 10 yorliq).
+    [property: JsonPropertyName("copies")]
+    [param: Range(1, 500)]
+    int Copies = 1
+);
+
+/// <summary>
+/// Yorliq chop etish so'rovi. Bitta tovar ham, ro'yxatdan belgilangan o'nlab
+/// tovar ham shu yo'l bilan boradi — chop etish oqimi bitta bo'lgani ma'qul.
+/// </summary>
+public record PrintLabelsDto(
+    [property: JsonPropertyName("items")]
+    [param: MinLength(1, ErrorMessage = "Kamida bitta tovar tanlang")]
+    IReadOnlyList<LabelItemDto> Items,
+
+    // Yorliq o'lchami mm da. Standart 58×40 — arzon termal printerlarda eng
+    // keng tarqalgani. Boshqa rulon olinsa mijoz o'lchamni yuboradi.
+    [property: JsonPropertyName("widthMm")]
+    [param: Range(20, 210)]
+    double WidthMm = 58,
+
+    [property: JsonPropertyName("heightMm")]
+    [param: Range(15, 297)]
+    double HeightMm = 40
 );
