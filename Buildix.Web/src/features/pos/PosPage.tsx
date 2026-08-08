@@ -202,6 +202,50 @@ export default function PosPage() {
     void qc.invalidateQueries({ queryKey: ['pos-products'] });
   };
 
+  /**
+   * Enter qidiruv maydonida — skanerning tugatish signali. Kassir qobig'idagi
+   * bilan bir xil uch bosqich: aniq shtrix-kod → ro'yxatda yagona natija →
+   * aks holda xabar. Skaner klaviatura kabi ishlagani va maydon doim fokusda
+   * turgani uchun global tugma tutuvchi kerak emas.
+   */
+  async function handleScan() {
+    const code = search.trim();
+    if (!code || addItem.isPending) return;
+
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      addItem.mutate({
+        productId: product.id,
+        salePrice: product.salePrice,
+        minSalePrice: product.minSalePrice,
+      });
+      setSearch('');
+      return;
+    }
+
+    // Raqamli uzun satr — shtrix-kod urinishi. Zaxira yo'l ATAYLAB ishlatilmaydi:
+    // noma'lum kodga ro'yxatdagi tasodifiy tovarni qo'shish kassaning eng yomon
+    // xatosi bo'lardi.
+    if (/^\d{6,}$/.test(code)) {
+      setActionError(t('pos.scan.notFound', { code }));
+      return;
+    }
+
+    // Nom bo'yicha qidiruv: ro'yxat aynan shu so'rovga tegishli bo'lsagina.
+    // debouncedSearch tekshiruvisiz bu yerda eski natijalar turadi.
+    if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
+    const items = productsQuery.data?.items ?? [];
+    const only = items.length === 1 ? items[0] : undefined;
+    if (only) {
+      addItem.mutate({
+        productId: only.id,
+        salePrice: only.salePrice,
+        minSalePrice: only.minSalePrice,
+      });
+      setSearch('');
+    }
+  }
+
   // M-4: add a line by productId + price only — works from the product grid AND
   // from the cart "+" (which no longer depends on the current search results).
   const addItem = useMutation({
@@ -366,7 +410,15 @@ export default function PosPage() {
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (actionError) setActionError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                void handleScan();
+              }}
               placeholder={t('pos.searchPlaceholder')}
               autoFocus
               className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"

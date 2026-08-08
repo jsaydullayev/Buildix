@@ -38,6 +38,8 @@ public record ProductDto(
     [property: JsonPropertyName("hidePriceFromSellers")] bool HidePriceFromSellers = false,
     // Artikul / SKU (ixtiyoriy) — Склад ekranida "АРТИКУЛ" ustuni + qidiruv.
     [property: JsonPropertyName("sku")] string? Sku = null,
+    // Zavod shtrix-kodi (ixtiyoriy) — skaner shu bo'yicha tovarni topadi.
+    [property: JsonPropertyName("barcode")] string? Barcode = null,
     // Sotuvchiga ko'rinadigan tavsif (Товары ekrani "Описание").
     [property: JsonPropertyName("description")] string? Description = null,
     // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
@@ -120,6 +122,12 @@ public record CreateProductDto(
     [param: StringLength(50)]
     string? Sku = null,
 
+    // Shtrix-kod (ixtiyoriy). Market ichida yagona — takrorlansa servis
+    // tushunarli xato qaytaradi.
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
+
     [property: JsonPropertyName("description")]
     [param: StringLength(1000)]
     string? Description = null,
@@ -172,6 +180,12 @@ public record UpdateProductDto(
     [property: JsonPropertyName("sku")]
     [param: StringLength(50)]
     string? Sku = null,
+
+    // Shtrix-kod. Null — tegilmaydi; bo'sh satr — tozalash (kod boshqa
+    // tovarga berilishi mumkin bo'lib qoladi).
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
 
     // Tavsif (Товары "Описание"). Edit-forma boshqaradi; null/bo'sh — tozalash.
     // POS-visibility (IsHidden) esa alohida PATCH /Products/{id} orqali.

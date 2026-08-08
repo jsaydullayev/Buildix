@@ -309,6 +309,9 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Sku).HasMaxLength(50);
+            // 64: EAN-13/UPC-A 12-13 raqam, ITF-14 esa 14; Code128 alfanumerik
+            // va uzunroq bo'lishi mumkin. Zaxira bilan olingan.
+            b.Property(x => x.Barcode).HasMaxLength(64);
             b.Property(x => x.CostPrice).HasPrecision(18, 2).IsRequired();
             b.Property(x => x.SalePrice).HasPrecision(18, 2).IsRequired();
             b.Property(x => x.MinSalePrice).HasPrecision(18, 2).IsRequired();
@@ -337,6 +340,18 @@ public class AppDbContext : DbContext, IAppDbContext
                 .IsUnique()
                 .HasFilter("\"IsDeleted\" = false")
                 .HasDatabaseName("IX_Products_MarketId_Name_Active");
+            // Shtrix-kod market ichida yagona — skaner aniq bitta tovarga
+            // tushishi uchun. Qisman indeks ikki narsani chetlab o'tadi:
+            // NULL (kodsiz tovarlar ko'pchilikni tashkil qiladi va ular
+            // cheklanmasligi kerak) va o'chirilgan qatorlar (tovar o'chirilsa
+            // kodi bo'shab, boshqasiga berilishi mumkin bo'lsin).
+            // Bu indeks ayni paytda skanerlashning tezligini ham ta'minlaydi:
+            // aniq moslik (Barcode = @kod) undan foydalanadi, nomdagi
+            // `LIKE %matn%` qidiruvi esa hech qanday indeksdan foydalana olmaydi.
+            b.HasIndex(x => new { x.MarketId, x.Barcode })
+                .IsUnique()
+                .HasFilter("\"Barcode\" IS NOT NULL AND \"IsDeleted\" = false")
+                .HasDatabaseName("IX_Products_MarketId_Barcode_Active");
 
             // P5 — low-stock scan: faqat Quantity <= MinThreshold bo'lgan qatorlar.
             // GetLowStockProductsAsync uchun — butun market scan o'rniga kichik

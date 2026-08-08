@@ -13,6 +13,9 @@ public interface IProductQueryService
     Task<ProductDto?> GetProductByIdAsync(Guid id, bool canViewCost = true, CancellationToken cancellationToken = default);
 
     /// <summary>Seller tovar kartochkasi statistikasi (supplier/oxirgi приход/oyiga sotilgan).</summary>
+    /// <summary>Shtrix-kod bo'yicha aniq moslik (skaner uchun). Topilmasa null.</summary>
+    Task<ProductDto?> GetProductByBarcodeAsync(string barcode, bool canViewCost = true, CancellationToken cancellationToken = default);
+
     Task<ProductStatsDto?> GetProductStatsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<ProductDto>> GetAllProductsAsync(bool canViewCost = true, CancellationToken cancellationToken = default);
     Task<PagedResult<ProductDto>> GetAllProductsPagedAsync(int page, int size, bool canViewCost = true, string? search = null, int? categoryId = null, bool lowStockOnly = false, bool includeHidden = false, CancellationToken cancellationToken = default);

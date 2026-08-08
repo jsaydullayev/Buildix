@@ -50,6 +50,16 @@ public class ProductService : IProductService
         if (nameTaken)
             return Result.Failure<ProductDto>($"'{request.Name}' nomli mahsulot allaqachon mavjud.");
 
+        var barcode = NormalizeBarcode(request.Barcode);
+        if (barcode is not null)
+        {
+            var barcodeTaken = await _unitOfWork.Products.AnyAsync(
+                p => p.MarketId == marketId.Value && p.Barcode == barcode && !p.IsDeleted,
+                cancellationToken);
+            if (barcodeTaken)
+                return Result.Failure<ProductDto>($"'{barcode}' shtrix-kodi boshqa mahsulotga biriktirilgan.");
+        }
+
         var product = new Product
         {
             Id = Guid.NewGuid(),
@@ -69,6 +79,7 @@ public class ProductService : IProductService
             CategoryId = request.CategoryId,  // Category
             HidePriceFromSellers = request.HidePriceFromSellers,
             Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim(),
+            Barcode = barcode,
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             IsHidden = request.IsHidden
         };
@@ -118,6 +129,24 @@ public class ProductService : IProductService
         // Sku: null — tegilmaydi; bo'sh satr — tozalash; aks holda trim qilib yoziladi.
         if (request.Sku is not null)
             product.Sku = string.IsNullOrWhiteSpace(request.Sku) ? null : request.Sku.Trim();
+        // Shtrix-kod: xuddi shu qoida, lekin yozishdan oldin band emasligi
+        // tekshiriladi — aks holda Postgres unikal indeksi xom 23505 bilan
+        // rad etadi va kassir "nimadir xato" degan xabardan boshqa hech narsa
+        // ko'rmaydi. O'zini hisobga olmaymiz: kodni o'zgartirmasdan saqlash
+        // ishlashi kerak.
+        if (request.Barcode is not null)
+        {
+            var newBarcode = NormalizeBarcode(request.Barcode);
+            if (newBarcode is not null && newBarcode != product.Barcode)
+            {
+                var taken = await _unitOfWork.Products.AnyAsync(
+                    p => p.MarketId == marketId && p.Barcode == newBarcode && p.Id != product.Id && !p.IsDeleted,
+                    cancellationToken);
+                if (taken)
+                    return Result.Failure<ProductDto>($"'{newBarcode}' shtrix-kodi boshqa mahsulotga biriktirilgan.");
+            }
+            product.Barcode = newBarcode;
+        }
         // Tavsif: edit-forma egasi; null/bo'sh — tozalash.
         product.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
 
@@ -298,4 +327,20 @@ public class ProductService : IProductService
         return true;
     }
 
+    /// <summary>
+    /// Shtrix-kodni saqlashdan oldin tozalaydi: bo'sh — null, aks holda ichki
+    /// bo'shliqlar ham olib tashlanadi.
+    ///
+    /// <para>Ichki bo'shliqlar ataylab: skanerlar ba'zan kodni bo'lib yuboradi
+    /// yoki oxiriga bo'shliq qo'shadi, qo'lda kiritishda esa "4 780 123" kabi
+    /// guruhlab yozib yuborishadi. Tozalanmasa, bazadagi "4780123456789" bilan
+    /// skanerdan kelgan qiymat aynan mos tushmaydi va tovar "topilmadi" bo'lib
+    /// qoladi — buni kassir hech qachon tushunmaydi.</para>
+    /// </summary>
+    private static string? NormalizeBarcode(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var cleaned = new string([.. raw.Where(c => !char.IsWhiteSpace(c))]);
+        return cleaned.Length == 0 ? null : cleaned;
+    }
 }

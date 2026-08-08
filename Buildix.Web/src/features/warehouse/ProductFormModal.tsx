@@ -27,6 +27,7 @@ const numField = () =>
 const schema = z.object({
   name: z.string().min(1),
   sku: z.string().max(50).optional(),
+  barcode: z.string().max(64).optional(),
   description: z.string().max(1000).optional(),
   categoryId: z.preprocess(
     (v) => (v === '' || v === undefined || v === null ? null : Number(v)),
@@ -80,6 +81,7 @@ export function ProductFormModal({
     defaultValues: {
       name: '',
       sku: '',
+      barcode: '',
       description: '',
       categoryId: null,
       unit: 1,
@@ -99,6 +101,7 @@ export function ProductFormModal({
         ? {
             name: product.name,
             sku: product.sku ?? '',
+            barcode: product.barcode ?? '',
             description: product.description ?? '',
             categoryId: product.categoryId,
             unit: product.unit,
@@ -112,6 +115,7 @@ export function ProductFormModal({
         : {
             name: '',
             sku: '',
+            barcode: '',
             description: '',
             categoryId: null,
             unit: 1,
@@ -130,6 +134,10 @@ export function ProductFormModal({
       const body: CreateProductBody = {
         name: values.name,
         sku: values.sku?.trim() ? values.sku.trim() : null,
+        // Bo'sh satr emas, null yuboriladi: server null ni «tozalash» deb
+        // tushunadi va kod boshqa tovarga bo'shaydi. Bo'sh satr esa unikal
+        // indeksga tushib, ikkinchi kodsiz tovarni saqlashga to'sqinlik qilardi.
+        barcode: values.barcode?.trim() ? values.barcode.trim() : null,
         description: values.description?.trim() ? values.description.trim() : null,
         categoryId: values.categoryId,
         unit: values.unit,
@@ -211,6 +219,12 @@ export function ProductFormModal({
         <Field label={t('warehouse.form.sku')}>
           <input className={inputCls} {...register('sku')} />
         </Field>
+        {/* Skaner klaviatura kabi ishlaydi — maydonga fokus berib kodni
+            o'qitsa, u shu yerga tushadi. inputMode="numeric" telefonda raqamli
+            klaviaturani ochadi. */}
+        <Field label={t('warehouse.form.barcode')} hint={t('warehouse.form.barcodeHint')}>
+          <input className={inputCls} inputMode="numeric" autoComplete="off" {...register('barcode')} />
+        </Field>
         <Field label={t('warehouse.form.category')}>
           <select className={inputCls} {...register('categoryId')}>
             <option value="">{t('warehouse.form.noCategory')}</option>
@@ -281,11 +295,21 @@ export function ProductFormModal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  /** Maydon ostidagi kichik izoh — nima uchun kerakligi aniq bo'lmagan joylarda. */
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-label">{label}</label>
       {children}
+      {hint && <span className="text-[11.5px] leading-snug text-muted-2">{hint}</span>}
     </div>
   );
 }

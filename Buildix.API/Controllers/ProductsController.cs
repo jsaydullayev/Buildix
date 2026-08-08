@@ -61,6 +61,29 @@ public class ProductsController : ApiControllerBase
         return Ok(product);
     }
 
+    /// <summary>
+    /// Skaner uchun: shtrix-kod bo'yicha aniq moslik. Topilmasa 404.
+    /// </summary>
+    /// <remarks>
+    /// Ruxsat — <c>products.access</c>, katalogni ko'rish bilan bir xil: skaner
+    /// kassirga allaqachon ochiq bo'lgan ma'lumotni tezroq topib beradi, xolos.
+    /// Narx cheklovlari ham o'zgarmaydi — CanViewCost() odatdagidek qo'llanadi,
+    /// ya'ni kassir tannarxni bu yo'l bilan ham ko'ra olmaydi.
+    /// </remarks>
+    // Absolute route ("~/") — controller'dagi [action] konvensiyasini chetlab
+    // o'tadi, aks holda yo'l /api/Products/GetProductByBarcode/by-barcode/{kod}
+    // bo'lib ketardi. Xuddi /summary dagi kabi.
+    [HttpGet("~/api/Products/by-barcode/{barcode}")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<ActionResult<ProductDto>> GetProductByBarcode(string barcode, CancellationToken ct = default)
+    {
+        var product = await _productQueryService.GetProductByBarcodeAsync(barcode, CanViewCost(), ct);
+        if (product is null)
+            return NotFound();
+
+        return Ok(product);
+    }
+
     [HttpGet]
     [RequirePermission(PermissionKeys.ProductsAccess)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAllProducts(CancellationToken ct = default)

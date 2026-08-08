@@ -63,6 +63,39 @@ public class ProductQueryService : IProductQueryService
         return ProductMapper.MapToDto(product, canViewCost);
     }
 
+    /// <summary>
+    /// Shtrix-kod bo'yicha ANIQ moslik — skanerning yagona so'rovi.
+    ///
+    /// <para>Nega alohida metod, oddiy qidiruv emas: katalog qidiruvi
+    /// <c>LIKE %matn%</c> bilan ishlaydi va qismiy mosliklarni qaytaradi, ya'ni
+    /// kassir yana ro'yxatdan tanlashi kerak bo'ladi — skanerdan ko'zlangan
+    /// maqsad esa aynan shu tanlashni yo'q qilish. Bu yerdagi tenglik solishtiruvi
+    /// qisman unikal indeksdan foydalanadi, `LIKE %…%` esa hech qanday indeksdan
+    /// foydalana olmaydi.</para>
+    ///
+    /// <para>Yashirilgan tovarlar (<c>IsHidden</c>) qaytarilmaydi: ular kassa
+    /// katalogida ko'rinmaydi, demak skaner orqali ham chekka tushmasligi kerak —
+    /// aks holda yashirish qoidasini chetlab o'tish yo'li ochilardi.</para>
+    /// </summary>
+    public async Task<ProductDto?> GetProductByBarcodeAsync(string barcode, bool canViewCost = true, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(barcode)) return null;
+        // Skaner ba'zan kodni bo'shliq bilan yuboradi — saqlashdagi bilan bir xil
+        // tozalash (ProductService.NormalizeBarcode), aks holda mos tushmaydi.
+        var code = new string([.. barcode.Where(c => !char.IsWhiteSpace(c))]);
+        if (code.Length == 0) return null;
+
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        var product = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                p => p.MarketId == marketId && p.Barcode == code && !p.IsHidden,
+                cancellationToken);
+
+        return product is null ? null : ProductMapper.MapToDto(product, canViewCost);
+    }
+
     public async Task<ProductStatsDto?> GetProductStatsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();

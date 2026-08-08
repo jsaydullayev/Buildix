@@ -305,6 +305,8 @@ export const uz: TranslationSchema = {
       editTitle: 'Tovarni tahrirlash',
       name: 'Nomi',
       sku: 'Artikul',
+      barcode: 'Shtrix-kod',
+      barcodeHint: 'Skanerni shu maydonga qaratib o‘qiting. Kassada shu kod bo‘yicha tovar topiladi.',
       category: 'Kategoriya',
       unit: 'O‘lchov',
       salePrice: 'Sotuv narxi',
@@ -1172,7 +1174,10 @@ export const uz: TranslationSchema = {
     stay: 'Kassada qolish',
     discard: 'Chekni o‘chirish',
     discardConfirm: 'Yakunlanmagan chek o‘chirilsinmi? Tovarlar omborga qaytadi.',
-    searchPlaceholder: 'Tovarni nomi yoki artikuli bo‘yicha qidiring…',
+    searchPlaceholder: 'Shtrix-kodni skanerlang yoki nomi bo‘yicha qidiring…',
+    scan: {
+      notFound: '{{code}} — bu shtrix-kod bo‘yicha tovar topilmadi',
+    },
     emptyCart: 'Savat bo‘sh — sotuvni boshlash uchun tovar toping',
     cols: {
       product: 'TOVAR',

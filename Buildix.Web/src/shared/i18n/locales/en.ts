@@ -305,6 +305,8 @@ export const en: TranslationSchema = {
       editTitle: 'Edit product',
       name: 'Name',
       sku: 'SKU',
+      barcode: 'Barcode',
+      barcodeHint: 'Focus this field and scan the code. The register finds the product by it.',
       category: 'Category',
       unit: 'Unit',
       salePrice: 'Sale price',
@@ -1172,7 +1174,10 @@ export const en: TranslationSchema = {
     stay: 'Stay at the register',
     discard: 'Delete receipt',
     discardConfirm: 'Delete this unfinished receipt? The goods go back to stock.',
-    searchPlaceholder: 'Search product by name or SKU…',
+    searchPlaceholder: 'Scan a barcode or search by name…',
+    scan: {
+      notFound: '{{code}} — no product with this barcode',
+    },
     emptyCart: 'Cart is empty — find a product to start a sale',
     cols: {
       product: 'PRODUCT',

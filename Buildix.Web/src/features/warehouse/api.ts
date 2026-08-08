@@ -19,6 +19,8 @@ export interface Product {
   imageUrl: string | null;
   hidePriceFromSellers: boolean;
   sku: string | null;
+  /** Zavod shtrix-kodi — skaner shu bo'yicha topadi. Market ichida yagona. */
+  barcode: string | null;
   /** Seller-visible short description (Товары "Описание"). */
   description: string | null;
   /** Hidden from POS / seller catalog (still in reports). Distinct from hidePriceFromSellers. */
@@ -82,6 +84,7 @@ export interface ProductQuery {
 export interface CreateProductBody {
   name: string;
   sku?: string | null;
+  barcode?: string | null;
   salePrice: number;
   minSalePrice: number;
   costPrice: number;

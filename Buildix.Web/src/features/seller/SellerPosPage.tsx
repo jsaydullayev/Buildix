@@ -461,6 +461,59 @@ export default function SellerPosPage() {
     if (saleId) attachCustomer.mutate(c);
   }
 
+  /**
+   * Enter — skanerning tugatish signali.
+   *
+   * <p>Apparat skaner klaviatura kabi ishlaydi: kodni juda tez teradi va Enter
+   * bosadi. Qidiruv maydoni kassada doim fokusda turadi (autoFocus + F2),
+   * shuning uchun kod shu yerga tushadi va global tugma tutuvchi kerak emas —
+   * u boshqa maydonlarga (miqdor, chegirma, mijoz ismi) aralashib ketardi.</p>
+   *
+   * <p>Uch bosqich: aniq shtrix-kod → ro'yxatda bitta natija qolgan bo'lsa
+   * o'sha → aks holda xabar. Ikkinchi bosqich skanersiz ham foydali: kassir
+   * nomni terib Enter bossa, tovar qo'shiladi.</p>
+   */
+  async function handleScan() {
+    const code = search.trim();
+    if (!code || addItem.isPending) return;
+
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      addItem.mutate({
+        productId: product.id,
+        salePrice: product.salePrice,
+        minSalePrice: product.minSalePrice,
+      });
+      setSearch('');
+      return;
+    }
+
+    // Raqamlardan iborat uzun satr — bu shtrix-kod urinishi. Bunday holatda
+    // ZAXIRA YO'L ISHLATILMAYDI: noma'lum kod uchun ro'yxatdagi tasodifiy
+    // tovarni qo'shish kassaning eng yomon xatosi bo'lardi — kassir buni
+    // sezmasdan mijozga boshqa narsani yozib yuboradi.
+    if (/^\d{6,}$/.test(code)) {
+      setActionError(t('pos.scan.notFound', { code }));
+      return;
+    }
+
+    // Nom bo'yicha qidiruv: ro'yxat AYNAN shu so'rovga tegishli bo'lsagina
+    // yagona natijani qo'shamiz. debouncedSearch tekshiruvisiz bu yerda hali
+    // eski natijalar turadi (qidiruv debounce bilan kechikadi) va Enter
+    // butunlay boshqa tovarni chekka tushirardi.
+    if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
+    const items = productsQuery.data?.items ?? [];
+    const only = items.length === 1 ? items[0] : undefined;
+    if (only) {
+      addItem.mutate({
+        productId: only.id,
+        salePrice: only.salePrice,
+        minSalePrice: only.minSalePrice,
+      });
+      setSearch('');
+    }
+  }
+
   /** Park the current receipt: it simply stays a Draft and reappears in the strip. */
   function park() {
     draftRef.current = null;
@@ -574,7 +627,15 @@ export default function SellerPosPage() {
             <input
               ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (actionError) setActionError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault(); // Enter formani yubormasin
+                void handleScan();
+              }}
               placeholder={t('pos.searchPlaceholder')}
               autoFocus
               className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-24 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
