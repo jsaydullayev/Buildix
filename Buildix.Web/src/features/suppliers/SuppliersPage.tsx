@@ -101,7 +101,7 @@ export default function SuppliersPage() {
         }
       />
 
-      <div className="flex flex-1 gap-[18px] p-8">
+      <div className="flex flex-1 gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Master */}
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="relative">

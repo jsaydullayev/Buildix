@@ -70,7 +70,7 @@ export default function SuperSettingsPage() {
 
       <div className="grid grid-cols-2 gap-5 p-8">
         {/* Тарифы */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[15px] font-semibold">{t('sa.settings.plansTitle')}</h2>
           <p className="mb-4 mt-0.5 text-[12.5px] text-muted-2">{t('sa.settings.plansHint')}</p>
           <div className="flex flex-col gap-3">
@@ -103,7 +103,7 @@ export default function SuperSettingsPage() {
         </Card>
 
         {/* Telegram bildirishnomalari (SMS o'rniga) */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[15px] font-semibold">{t('sa.settings.notifyTitle')}</h2>
           <p className="mb-4 mt-0.5 text-[12.5px] text-muted-2">{t('sa.settings.notifyHint')}</p>
           <div className="flex flex-col gap-3.5">
@@ -134,7 +134,7 @@ export default function SuperSettingsPage() {
         </Card>
 
         {/* Правила блокировки */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[15px] font-semibold">{t('sa.settings.blockTitle')}</h2>
           <p className="mb-4 mt-0.5 text-[12.5px] text-muted-2">{t('sa.settings.blockHint')}</p>
 
@@ -181,7 +181,7 @@ export default function SuperSettingsPage() {
         </Card>
 
         {/* Контакты поддержки */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[15px] font-semibold">{t('sa.settings.supportTitle')}</h2>
           <p className="mb-4 mt-0.5 text-[12.5px] text-muted-2">{t('sa.settings.supportHint')}</p>
           <div className="flex flex-col gap-4">

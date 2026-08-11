@@ -94,7 +94,7 @@ export default function NotificationsPage() {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-[18px] p-8">
+      <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Category tabs */}
         <div className="flex flex-wrap items-center gap-1.5">
           {CATEGORIES.map((c) => (
@@ -103,7 +103,7 @@ export default function NotificationsPage() {
               type="button"
               onClick={() => setCat(c)}
               className={cn(
-                'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                 cat === c
                   ? 'bg-primary text-white'
                   : 'border border-input-border bg-surface text-muted hover:text-text',

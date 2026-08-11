@@ -15,7 +15,7 @@ import { CustomerFormModal } from './CustomerFormModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
 
 const PAGE_SIZE = 20;
-const GRID = 'grid-cols-[minmax(0,1.7fr)_140px_100px_140px_140px_72px]';
+const GRID = 'min-w-[820px] grid-cols-[minmax(0,1.7fr)_140px_100px_140px_140px_72px]';
 
 export default function CustomersPage() {
   const { t, i18n } = useTranslation();
@@ -105,7 +105,7 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative max-w-md flex-1">
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
@@ -141,7 +141,7 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('customers.cols.name')}</span>
             <span>{t('customers.cols.phone')}</span>

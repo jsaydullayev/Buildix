@@ -633,9 +633,13 @@ export default function SellerPosPage() {
   }
 
   return (
-    <div className="grid flex-1 grid-cols-[1fr_420px] overflow-hidden">
+    // Katta ekranda ikki ustun: katalog va chek yonma-yon, ikkalasi ham o'z
+    // ichida suriladi (sahifa qimirlamaydi — kassada shu qulay). Telefon va
+    // planshetda 420px lik chek ustuni sig'maydi, shuning uchun ular ustma-ust
+    // joylashadi va sahifaning o'zi suriladi: avval katalog, ostida chek.
+    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1fr_420px] lg:overflow-hidden">
       {/* ── LEFT: catalogue ─────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-col overflow-hidden p-6">
+      <div className="flex min-w-0 flex-col p-4 sm:p-6 lg:overflow-hidden">
         <div className="mb-3 flex gap-2">
           <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
@@ -687,7 +691,7 @@ export default function SellerPosPage() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 lg:overflow-y-auto">
           {productsQuery.isLoading ? (
             <div className="flex justify-center py-20 text-primary">
               <Spinner size={26} />
@@ -696,7 +700,7 @@ export default function SellerPosPage() {
             <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
           ) : (
             <>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {productsQuery.data!.items.map((p) => {
                   const out = p.quantity <= 0;
                   return (
@@ -781,7 +785,8 @@ export default function SellerPosPage() {
       </div>
 
       {/* ── RIGHT: the receipt ──────────────────────────────────── */}
-      <div className="flex flex-col overflow-hidden border-l border-border bg-surface">
+      {/* Ustma-ust turganda chap chegara emas, ustki chegara ajratadi. */}
+      <div className="flex flex-col border-t border-border bg-surface lg:overflow-hidden lg:border-l lg:border-t-0">
         <div className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
           <h2 className="text-[15px] font-semibold">
             {t('seller.pos.receipt')} {sale ? <span className="nums">№{sale.saleNumber}</span> : ''}
@@ -866,7 +871,7 @@ export default function SellerPosPage() {
         </div>
 
         {/* Lines */}
-        <div className="flex-1 overflow-y-auto px-5">
+        <div className="flex-1 px-5 lg:overflow-y-auto">
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-[13.5px] text-muted-2">
               {t('pos.emptyCart')}
@@ -1488,7 +1493,7 @@ function CheckoutModal({
           </span>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {METHODS.map((m) => (
             <button
               key={m.value}

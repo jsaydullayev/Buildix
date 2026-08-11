@@ -120,8 +120,8 @@ export default function PurchasesPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
-        <div className="grid grid-cols-4 gap-4">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label={t('purchases.stats.count')} value={stats.count} />
           <StatCard label={t('purchases.stats.sum')} value={formatSum(stats.sum)} suffix={t('common.currency')} />
           <StatCard label={t('purchases.stats.suppliers')} value={stats.suppliers} />
@@ -286,7 +286,7 @@ function ReceiptRow({
 function ReorderCard({ suggestions, loading }: { suggestions: ReorderSuggestion[]; loading: boolean }) {
   const { t } = useTranslation();
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-[15px] font-semibold">{t('purchases.reorder.title')}</h3>
         {suggestions.length > 0 && (
@@ -335,7 +335,7 @@ function TopSuppliersCard({ suppliers }: { suppliers: Supplier[] }) {
   // kira olsa — "boshqarish" havolasi bu yagona kirish nuqtasi (sidebar'da yo'q).
   if (suppliers.length === 0 && !canSeeSuppliers) return null;
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-[15px] font-semibold">{t('purchases.topSuppliers')}</h3>
         {canSeeSuppliers && (

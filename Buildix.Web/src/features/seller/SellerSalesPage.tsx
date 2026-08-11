@@ -17,7 +17,7 @@ import { NewReturnModal } from '@/features/returns/NewReturnModal';
 import { shiftsApi } from '@/features/shifts/api';
 
 const PAGE_SIZE = 20;
-const GRID = 'grid-cols-[0.7fr_0.7fr_1.5fr_1.1fr_0.9fr_1fr]';
+const GRID = 'min-w-[760px] grid-cols-[0.7fr_0.7fr_1.5fr_1.1fr_0.9fr_1fr]';
 // 'shift' scopes to the CURRENT open shift via Sale.ShiftId — the cashier's own
 // question is "what have I rung up since I opened the till", which a calendar
 // day cannot answer for a shift that started yesterday evening.
@@ -120,8 +120,8 @@ export default function SellerSalesPage() {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-8">
-        <div className="grid grid-cols-4 gap-4">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label={t('sales.stats.sum')} value={formatSum(sh?.revenue ?? 0)} suffix={t('common.currency')} hint={t('shifts.currentShift')} />
           <StatCard label={t('sales.stats.checks')} value={sh?.checkCount ?? 0} hint={t('shifts.currentShift')} />
           <StatCard label={t('sales.stats.avg')} value={formatSum(avg)} suffix={t('common.currency')} />
@@ -146,7 +146,7 @@ export default function SellerSalesPage() {
               className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
             {PAYMENT_FILTERS.map((p) => (
               <button
                 key={p}
@@ -156,7 +156,7 @@ export default function SellerSalesPage() {
                   resetPage();
                 }}
                 className={cn(
-                  'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                  'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                   pay === p ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
                 )}
               >
@@ -184,7 +184,7 @@ export default function SellerSalesPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('sales.cols.number')}</span>
             <span>{t('sales.cols.time')}</span>

@@ -25,7 +25,7 @@ function initials(s: string): string {
     .join('') || '#';
 }
 
-const GRID = 'grid-cols-[minmax(0,1.7fr)_100px_minmax(0,1fr)_120px_180px_140px]';
+const GRID = 'min-w-[860px] grid-cols-[minmax(0,1.7fr)_100px_minmax(0,1fr)_120px_180px_140px]';
 
 export default function DebtsPage() {
   const { t, i18n } = useTranslation();
@@ -87,8 +87,8 @@ export default function DebtsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
-        <div className="grid grid-cols-4 gap-4">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label={t('debts.stats.total')} value={formatSum(s?.totalDebt ?? 0)} suffix={t('common.currency')} />
           <StatCard
             label={t('debts.stats.overdue')}
@@ -111,14 +111,14 @@ export default function DebtsPage() {
               className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
             {DUE_FILTERS.map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setDue(f)}
                 className={cn(
-                  'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                  'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                   due === f ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
                 )}
               >
@@ -128,7 +128,7 @@ export default function DebtsPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('debts.cols.customer')}</span>
             <span>{t('debts.cols.check')}</span>

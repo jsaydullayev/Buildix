@@ -166,7 +166,7 @@ export function PayDebtModal({
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[13px] font-medium text-label">{t('debts.payMethod')}</label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {METHODS.map((m) => (
               <button
                 key={m.value}

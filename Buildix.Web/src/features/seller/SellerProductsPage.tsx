@@ -11,7 +11,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { productsApi, categoriesApi, type Product } from '@/features/warehouse/api';
 
 const PAGE_SIZE = 50;
-const GRID = 'grid-cols-[1.7fr_120px_100px_1fr_1.1fr_96px]';
+const GRID = 'min-w-[760px] grid-cols-[1.7fr_120px_100px_1fr_1.1fr_96px]';
 
 /** Seller read-only catalog: browse products + stock, no cost/margin, no editing. */
 export default function SellerProductsPage() {
@@ -38,7 +38,7 @@ export default function SellerProductsPage() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-[18px] p-8">
+          <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative min-w-[280px] flex-1">
@@ -59,7 +59,7 @@ export default function SellerProductsPage() {
               </div>
             </div>
 
-            <Card className="overflow-hidden">
+            <Card className="min-w-0 overflow-x-auto">
               <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
                 <span>{t('warehouse.cols.product')}</span>
                 <span>{t('warehouse.cols.sku')}</span>
@@ -214,7 +214,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+        'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
         active ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
       )}
     >

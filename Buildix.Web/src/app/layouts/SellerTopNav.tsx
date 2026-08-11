@@ -60,16 +60,20 @@ export function SellerTopNav() {
 
   const pillClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13.5px] transition-colors',
+      // flex-none + whitespace-nowrap: tasma surilganda bo'limlar siqilib
+      // o'qib bo'lmas holga kelmasin.
+      'flex flex-none items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[13.5px] transition-colors',
       isActive
         ? 'bg-primary font-semibold text-white'
         : 'font-medium text-white/60 hover:bg-white/[0.08] hover:text-white',
     );
 
   return (
-    <header className="flex h-[62px] flex-none items-center justify-between bg-sidebar px-6 text-white">
-      {/* Left — primary nav tabs */}
-      <nav className="flex items-center gap-1 rounded-xl bg-white/[0.07] p-1">
+    <header className="flex h-[62px] flex-none items-center justify-between gap-2 bg-sidebar px-3 text-white sm:gap-4 sm:px-6">
+      {/* Chap — asosiy bo'limlar. Telefon va planshetda yettita bo'lim bir
+          qatorga sig'maydi: siqish o'rniga tasmani suriladigan qilamiz
+          (min-w-0 bo'lmasa flex bola qisqarmaydi va sahifa toshadi). */}
+      <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl bg-white/[0.07] p-1 no-scrollbar">
         {items.map((item) => (
           <NavLink key={item.path} to={`${base}/${item.path}`} className={pillClass}>
             <item.icon size={16} />
@@ -79,7 +83,7 @@ export function SellerTopNav() {
       </nav>
 
       {/* Right — shift, notifications, user, logout */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-none items-center gap-1.5 sm:gap-2.5">
         <NavLink
           to={`${base}/shifts`}
           title={shiftOpen ? `${t('seller.nav.shiftOpen')} · ${shiftFor}` : t('seller.nav.shiftClosed')}
@@ -103,12 +107,14 @@ export function SellerTopNav() {
           {shiftOpen ? (
             <>
               <span className="font-semibold text-white nums">№{shift!.shiftNumber}</span>
-              <span className="text-white/55 nums">{shiftFor}</span>
+              {/* Davomiylik — foydali, lekin smena raqamidan kam muhim:
+                  tor ekranda birinchi bo'lib yashiriladi. */}
+              <span className="hidden text-white/55 nums sm:inline">{shiftFor}</span>
             </>
           ) : (
             <>
               <Clock size={14} />
-              {t('seller.nav.shiftClosed')}
+              <span className="hidden sm:inline">{t('seller.nav.shiftClosed')}</span>
             </>
           )}
         </NavLink>

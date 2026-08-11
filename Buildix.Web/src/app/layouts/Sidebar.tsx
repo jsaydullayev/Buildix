@@ -12,7 +12,16 @@ function initials(fullName: string): string {
   return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
 }
 
-export function Sidebar() {
+/**
+ * Yon menyu.
+ *
+ * <p>Katta ekranda (lg dan yuqori) — odatdagi ustun. Undan pastda ekranga
+ * ustun ham, kontent ham sig'maydi, shuning uchun menyu chapdan suriladigan
+ * panelga aylanadi: `open` uni ochadi, fon bosilganda yoki bo'lim tanlanganda
+ * yopiladi. Ilgari qobiqda `min-w-[1360px]` turardi va butun admin paneli
+ * telefonda gorizontal surilib ketardi.</p>
+ */
+export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void } = {}) {
   const { subdomain } = useParams();
   const { t } = useTranslation();
   const { session, hasPermission, hasRole } = useAuth();
@@ -38,7 +47,23 @@ export function Sidebar() {
     );
 
   return (
-    <aside className="flex w-sidebar flex-none flex-col bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white">
+    <>
+      {/* Fon — panel ochiq bo'lganda. Bosilsa yopiladi. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={cn(
+          'flex w-sidebar flex-none flex-col overflow-y-auto bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white',
+          // Kichik ekranda — suriladigan panel; lg dan boshlab odatdagi ustun.
+          'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
       <div className="mb-[26px] flex items-center gap-2 px-2.5">
         <BrandLogo size="sm" onDark />
         {/* ADMIN badge — marks the owner/admin panel apart from the cashier shell. */}
@@ -69,7 +94,7 @@ export function Sidebar() {
               {t(section.titleKey as never)}
             </div>
             {section.items.map((item) => (
-              <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass}>
+              <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass} onClick={onClose}>
                 <item.icon size={17} />
                 {t(item.labelKey as never)}
               </NavLink>
@@ -81,7 +106,7 @@ export function Sidebar() {
       {/* Footer: settings (owner) + user */}
       <div className="mt-auto flex flex-col gap-0.5">
         {hasRole(ROLES.Owner, ROLES.SuperAdmin) && (
-          <NavLink to={`${base}/settings`} className={linkClass}>
+          <NavLink to={`${base}/settings`} className={linkClass} onClick={onClose}>
             <Settings size={17} />
             {t('nav.settings')}
           </NavLink>
@@ -107,6 +132,7 @@ export function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

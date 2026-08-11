@@ -240,7 +240,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Stat cards — auto-fit so a role that lacks a permission (e.g. Admin
             without data.profit) gets an evenly filled row instead of a hole
             where the hidden card used to sit. */}
@@ -463,7 +463,7 @@ function WeeklyChartCard({ points, total, loading }: { points: WeeklyPoint[]; to
   const lastIdx = data.length - 1;
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <div className="mb-[18px] flex items-baseline justify-between">
         <h3 className="text-[15px] font-semibold">{t('dashboard.chart.title')}</h3>
         <div className="text-[12.5px] text-muted-2">
