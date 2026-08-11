@@ -309,7 +309,10 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-[2fr_1fr] items-start gap-[18px]">
+        {/* Telefonda ikki ustun sig'maydi — kartalar ustma-ust joylashadi.
+            minmax(0,...): ustun kontentdan kichik bo'la olsin, aks holda
+            ichkaridagi jadval butun sahifani cho'zadi. */}
+        <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           {/* Left column */}
           <div className="flex min-w-0 flex-col gap-[18px]">
             {canReports && <WeeklyChartCard points={weekly?.points ?? []} total={weekly?.currentTotal ?? 0} loading={weeklyQuery.isLoading} />}
@@ -465,7 +468,7 @@ function WeeklyChartCard({ points, total, loading }: { points: WeeklyPoint[]; to
   return (
     <Card className="p-4 sm:p-6">
       <div className="mb-[18px] flex items-baseline justify-between">
-        <h3 className="text-[15px] font-semibold">{t('dashboard.chart.title')}</h3>
+        <h3 className="min-w-0 text-[15px] font-semibold">{t('dashboard.chart.title')}</h3>
         <div className="text-[12.5px] text-muted-2">
           {t('dashboard.chart.total')}:{' '}
           <span className="font-semibold text-text nums">
@@ -516,9 +519,9 @@ function RecentSalesCard({
   const { t } = useTranslation();
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between px-6 pb-3.5 pt-[18px]">
-        <h3 className="text-[15px] font-semibold">{t('dashboard.recent.title')}</h3>
-        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+      <div className="flex items-center justify-between gap-3 px-6 pb-3.5 pt-[18px]">
+        <h3 className="min-w-0 text-[15px] font-semibold">{t('dashboard.recent.title')}</h3>
+        <Link to={to} className="flex-none whitespace-nowrap text-[12.5px] font-semibold text-primary hover:text-primary-hover">
           {t('dashboard.recent.all')} →
         </Link>
       </div>
@@ -675,9 +678,9 @@ function PurchasesCard({ receipts, loading, to }: { receipts: ZakupReceipt[]; lo
   const canAccept = hasPermission(PERMISSIONS.zakup.create);
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between px-6 pb-3.5 pt-[18px]">
-        <h3 className="text-[15px] font-semibold">{t('dashboard.purchases.title')}</h3>
-        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+      <div className="flex items-center justify-between gap-3 px-6 pb-3.5 pt-[18px]">
+        <h3 className="min-w-0 text-[15px] font-semibold">{t('dashboard.purchases.title')}</h3>
+        <Link to={to} className="flex-none whitespace-nowrap text-[12.5px] font-semibold text-primary hover:text-primary-hover">
           {t('dashboard.purchases.all')} →
         </Link>
       </div>
@@ -730,9 +733,9 @@ function SellerAccessCard({ sellers, loading, to }: { sellers: Employee[]; loadi
   const { t } = useTranslation();
   return (
     <Card className="p-[22px]">
-      <div className="mb-3.5 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold">{t('dashboard.sellerAccess.title')}</h3>
-        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <h3 className="min-w-0 text-[15px] font-semibold">{t('dashboard.sellerAccess.title')}</h3>
+        <Link to={to} className="flex-none whitespace-nowrap text-[12.5px] font-semibold text-primary hover:text-primary-hover">
           {t('dashboard.sellerAccess.configure')} →
         </Link>
       </div>
@@ -824,9 +827,9 @@ function UpcomingPaymentsCard({ debtors, loading, to }: { debtors: DebtorSummary
   const { t, i18n } = useTranslation();
   return (
     <Card className="p-[22px]">
-      <div className="mb-3.5 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold">{t('dashboard.payments.title')}</h3>
-        <Link to={to} className="text-[12.5px] font-semibold text-primary hover:text-primary-hover">
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <h3 className="min-w-0 text-[15px] font-semibold">{t('dashboard.payments.title')}</h3>
+        <Link to={to} className="flex-none whitespace-nowrap text-[12.5px] font-semibold text-primary hover:text-primary-hover">
           {t('dashboard.payments.all')} →
         </Link>
       </div>

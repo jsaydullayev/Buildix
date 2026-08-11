@@ -27,7 +27,9 @@ export function PageHeader({
         <h1 className="text-[20px] font-semibold tracking-[-0.2px]">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[12.5px] text-muted-2">{subtitle}</p>}
       </div>
-      <div className="flex min-w-0 items-center gap-3.5">
+      {/* flex-wrap: amallar tugmalari bir qatorga sig'masa pastga tushsin —
+          aks holda eng o'ngdagi tugma ekrandan chiqib kesilib qolardi. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <NotificationBell />
         {actions}
       </div>

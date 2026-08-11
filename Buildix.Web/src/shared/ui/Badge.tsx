@@ -19,7 +19,9 @@ export function Badge({ tone = 'neutral', className, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-pill px-2.5 py-[3px] text-[11.5px] font-semibold',
+        // whitespace-nowrap: nishon ikki qatorga bo'linmasin. Tor kartada
+        // «Qabul qilingan» pill ichida o'ralib, tugma balandligini buzardi.
+        'inline-flex items-center whitespace-nowrap rounded-pill px-2.5 py-[3px] text-[11.5px] font-semibold',
         TONES[tone],
         className,
       )}
