@@ -211,4 +211,101 @@ public class SaleItemTests
         Assert.Equal(0, await SaleTotalAsync(h, saleId));
         Assert.False(await h.Db.SaleItems.IgnoreQueryFilters().AnyAsync(si => si.SaleId == saleId));
     }
+
+    // ── Skaner bilan qayta-qayta qo'shish ────────────────────────────────────
+    // Kassada bir xil tovar ketma-ket skanerlanadi (5 qop sement — beshta
+    // "bip"). Har "bip" YANGI qator ochsa, chek o'qib bo'lmas holga keladi va
+    // kassir miqdorni tuzata olmaydi. Shuning uchun qator BIRLASHISHI shart.
+
+    [Fact]
+    public async Task Scanning_the_same_product_again_bumps_the_same_line_to_two()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+
+        var first = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+        Assert.True(first.IsSuccess, first.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var second = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+        Assert.True(second.IsSuccess, second.Error);
+
+        var lines = await h.Db.SaleItems.IgnoreQueryFilters()
+            .Where(si => si.SaleId == saleId).ToListAsync();
+
+        var line = Assert.Single(lines);              // ikkita emas — bitta qator
+        Assert.Equal(first.Value.Id, line.Id.ToString());  // aynan o'sha qator
+        Assert.Equal(2, line.Quantity);
+        Assert.Equal(98, await StockAsync(h, productId));       // har skaner 1 tadan yechadi
+        Assert.Equal(100_000, await SaleTotalAsync(h, saleId)); // 2 × 50 000
+    }
+
+    [Fact]
+    public async Task Five_scans_land_on_one_line_of_five()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var svc = h.NewSaleItemService();
+
+        for (var i = 0; i < 5; i++)
+        {
+            var r = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+            Assert.True(r.IsSuccess, r.Error);
+            h.Db.ChangeTracker.Clear();
+        }
+
+        var line = Assert.Single(await h.Db.SaleItems.IgnoreQueryFilters()
+            .Where(si => si.SaleId == saleId).ToListAsync());
+        Assert.Equal(5, line.Quantity);
+        Assert.Equal(95, await StockAsync(h, productId));
+        Assert.Equal(250_000, await SaleTotalAsync(h, saleId));
+    }
+
+    [Fact]
+    public async Task Scanning_past_the_remaining_stock_is_refused_and_the_line_keeps_its_quantity()
+    {
+        using var h = new TestHarness();
+        var (saleId, productId) = await SeedDraftAndProductAsync(h, stock: 2);
+        var svc = h.NewSaleItemService();
+
+        await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+        h.Db.ChangeTracker.Clear();
+        await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));  // qoldiq tugadi
+        h.Db.ChangeTracker.Clear();
+
+        var third = await svc.AddSaleItemAsync(saleId, OrdinaryItem(productId, qty: 1));
+
+        Assert.False(third.IsSuccess);
+        var line = Assert.Single(await h.Db.SaleItems.IgnoreQueryFilters()
+            .Where(si => si.SaleId == saleId).ToListAsync());
+        Assert.Equal(2, line.Quantity);                   // uchinchi "bip" hisobga olinmadi
+        Assert.Equal(0, await StockAsync(h, productId));
+    }
+
+    [Fact]
+    public async Task Scanning_two_different_products_keeps_them_on_separate_lines()
+    {
+        using var h = new TestHarness();
+        var (saleId, cementId) = await SeedDraftAndProductAsync(h, stock: 100);
+        var brick = new Product
+        {
+            Id = Guid.NewGuid(), Name = "G'isht", MarketId = 1,
+            CostPrice = 500, SalePrice = 1_000, MinSalePrice = 800,
+            Quantity = 50, MinThreshold = 1, Unit = UnitType.Piece,
+        };
+        h.Db.Products.Add(brick);
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+        var svc = h.NewSaleItemService();
+
+        await svc.AddSaleItemAsync(saleId, OrdinaryItem(cementId, qty: 1));
+        h.Db.ChangeTracker.Clear();
+        await svc.AddSaleItemAsync(saleId, new AddSaleItemDto(false, brick.Id, null, null, 1, 1_000, 800, null));
+
+        var lines = await h.Db.SaleItems.IgnoreQueryFilters()
+            .Where(si => si.SaleId == saleId).ToListAsync();
+        Assert.Equal(2, lines.Count);
+        Assert.Equal(51_000, await SaleTotalAsync(h, saleId));
+    }
 }
