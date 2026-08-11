@@ -96,7 +96,7 @@ export default function SuperUsersPage() {
           sellers: counts.sellers,
         })}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {ROLES.map((r) => (
               <button
                 key={r}
@@ -116,9 +116,9 @@ export default function SuperUsersPage() {
         }
       />
 
-      <div className="flex flex-col gap-4 p-8">
+      <div className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
         <div className="flex items-center gap-3">
-          <div className="relative w-[320px]">
+          <div className="relative w-full sm:w-[320px]">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
             <input
               value={search}

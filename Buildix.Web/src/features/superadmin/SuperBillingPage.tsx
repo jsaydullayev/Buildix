@@ -109,7 +109,7 @@ export default function SuperBillingPage() {
         }
       />
 
-      <div className="flex flex-col gap-5 p-8">
+      <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
         {/* Tarif kartochkalari */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(plans.data ?? []).map((p) => (
@@ -137,14 +137,14 @@ export default function SuperBillingPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-pill bg-hairline p-1">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto no-scrollbar rounded-pill bg-hairline p-1">
             {(['all', 'soon', 'overdue'] as Tab[]).map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
                 className={cn(
-                  'rounded-pill px-4 py-1.5 text-[13px] transition-colors',
+                  'flex-none whitespace-nowrap rounded-pill px-4 py-1.5 text-[13px] transition-colors',
                   tab === key
                     ? 'bg-surface font-semibold text-text shadow-card'
                     : 'font-medium text-muted hover:text-text',
@@ -154,7 +154,7 @@ export default function SuperBillingPage() {
               </button>
             ))}
           </div>
-          <div className="relative w-[280px]">
+          <div className="relative w-full sm:w-[280px]">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
             <input
               value={search}

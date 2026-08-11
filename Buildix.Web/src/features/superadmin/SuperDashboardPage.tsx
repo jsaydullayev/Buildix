@@ -104,7 +104,7 @@ export default function SuperDashboardPage() {
           <Spinner size={26} />
         </div>
       ) : (
-        <div className="flex flex-col gap-5 p-8">
+        <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label={t('sa.dashboard.kpi.activeStores')}
