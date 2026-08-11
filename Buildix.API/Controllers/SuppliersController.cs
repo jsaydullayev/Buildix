@@ -113,7 +113,8 @@ public class SuppliersController : ApiControllerBase
         return Ok(info);
     }
 
-    [HttpGet("export")]
+    // Mutlaq («~/») shakl — [action] konvensiyasi yo'lni ikkilantirib yubormasin.
+    [HttpGet("~/api/Suppliers/export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.SuppliersAccess)]
     public async Task<IActionResult> ExportSuppliersToExcel(

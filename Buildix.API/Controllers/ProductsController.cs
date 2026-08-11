@@ -327,7 +327,8 @@ public class ProductsController : ApiControllerBase
     /// fetch used by the in-app list. No filtering server-side; the user
     /// can sort / filter in Excel if needed.
     /// </summary>
-    [HttpGet("export")]
+    // Mutlaq («~/») shakl — [action] konvensiyasi yo'lni ikkilantirib yubormasin.
+    [HttpGet("~/api/Products/export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.ProductsExport)]
     public async Task<IActionResult> ExportProductsToExcel(

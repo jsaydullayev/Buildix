@@ -271,7 +271,7 @@ public class ReportsController(
             var result = await _reportExcelExportService.ExportComprehensiveReportAsync(date, lang, userRole, userId, CanViewProfit(), cancellationToken);
             return File(result.Content, XlsxContentType, result.FileName);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error exporting comprehensive report to Excel");
             return StatusCode(500, new { message = "Xatolik yuz berdi", error = ex.Message });
@@ -294,7 +294,7 @@ public class ReportsController(
             var result = await _reportExcelExportService.ExportInventoryReportAsync(date, lang, userRole, CanViewCost(), CanViewProfit(), cancellationToken);
             return File(result.Content, XlsxContentType, result.FileName);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error exporting warehouse report to Excel");
             return StatusCode(500, new { message = "Xatolik yuz berdi", error = ex.Message });
@@ -316,7 +316,7 @@ public class ReportsController(
             var result = await _reportExcelExportService.ExportDailyReportAsync(date, userRole, userId, CanViewProfit());
             return File(result.Content, XlsxContentType, result.FileName);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error exporting daily report to Excel");
             return StatusCode(500, new { message = "Xatolik yuz berdi", error = ex.Message });

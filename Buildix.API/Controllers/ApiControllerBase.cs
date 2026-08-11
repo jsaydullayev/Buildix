@@ -21,6 +21,23 @@ public abstract class ApiControllerBase : ControllerBase
     protected const string NotFoundCode = "NOT_FOUND";
 
     /// <summary>
+    /// Keng <c>catch (Exception)</c> bloklari uchun filtr: global ishlov
+    /// beruvchi ATAYIN ajratadigan istisnolarni o'tkazib yuboradi.
+    ///
+    /// <para>Muammo: <c>catch (Exception ex) { return StatusCode(500, ...); }</c>
+    /// hamma narsani 500 ga tekislaydi. Natijada market konteksti yo'qligi
+    /// (401), obuna tugagani (402), do'kon bloklangani (423), smena ochilmagani
+    /// (409) va «topilmadi» (404) — barchasi mijozga «server buzildi» bo'lib
+    /// yetib boradi. Bu filtr bilan ular yuqoriga o'tadi va
+    /// GlobalExceptionHandlerMiddleware o'z statusini qo'yadi; kutilmagan
+    /// istisnolar esa avvalgidek mahalliy 500 xabarini oladi.</para>
+    /// </summary>
+    protected static bool NotHandledGlobally(Exception ex) =>
+        ex is not (UnauthorizedAccessException
+                or Buildix.Domain.Exceptions.DomainException
+                or KeyNotFoundException);
+
+    /// <summary>
     /// Runtime check that the current caller effectively holds
     /// <paramref name="permissionKey"/>. Owner/SuperAdmin bypass (their JWT
     /// deliberately carries NO "perm" claims — see JwtService); Admin/Seller must
