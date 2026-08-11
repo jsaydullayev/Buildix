@@ -22,7 +22,7 @@ const REASON_TONE: Record<string, 'danger' | 'warn' | 'info' | 'neutral'> = {
   Other: 'neutral',
 };
 const REFUND_KEY: Record<string, string> = { Cash: 'cash', Terminal: 'card', Transfer: 'transfer' };
-const GRID = 'grid-cols-[0.9fr_0.7fr_1.8fr_1fr_0.9fr_0.9fr]';
+const GRID = 'min-w-[760px] grid-cols-[0.9fr_0.7fr_1.8fr_1fr_0.9fr_0.9fr]';
 
 /**
  * Возвраты — first-class return documents (В-##). Each row is one return: which
@@ -85,7 +85,7 @@ export default function ReturnsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[280px] flex-1">
@@ -100,7 +100,7 @@ export default function ReturnsPage() {
               className="h-11 w-full rounded-input border border-input-border bg-surface pl-11 pr-4 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
             {REASONS.map((r) => (
               <button
                 key={r}
@@ -110,7 +110,7 @@ export default function ReturnsPage() {
                   setPage(1);
                 }}
                 className={cn(
-                  'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                  'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                   reason === r ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
                 )}
               >
@@ -121,7 +121,7 @@ export default function ReturnsPage() {
         </div>
 
         {/* Table */}
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('returns.cols.return')}</span>
             <span>{t('returns.cols.receipt')}</span>

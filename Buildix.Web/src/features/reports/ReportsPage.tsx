@@ -214,7 +214,7 @@ export default function ReportsPage() {
 
       <div className="flex flex-1 flex-col gap-4 p-8">
         {/* 4 stat cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label={t('reports.stats.revenue')}
             value={formatSum(report?.totalSales ?? 0)}
@@ -322,7 +322,7 @@ function RevenueProfitChart({
   const best = bestIdx >= 0 ? data[bestIdx]! : null;
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-[15px] font-semibold">{t('reports.chart.title')}</h3>
         {best && (
@@ -421,7 +421,7 @@ function CategoriesCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <h3 className="mb-4 text-[15px] font-semibold">{t('reports.categories.title')}</h3>
       {loading ? (
         <div className="flex justify-center py-8 text-primary">
@@ -470,7 +470,7 @@ function PaymentsCard({
   // Qarz ulushi — 20% dan oshsa, kassa oqimi uchun ogohlantirish (dizayn).
   const debtShare = total > 0 ? sorted.filter((r) => r.paymentType === 'Debt').reduce((s, r) => s + r.amount, 0) / total : 0;
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <h3 className="mb-4 text-[15px] font-semibold">{t('reports.payments.title')}</h3>
       {loading ? (
         <div className="flex justify-center py-8 text-primary">
@@ -553,7 +553,7 @@ function StaffCard({ staff, loading }: { staff: StaffRow[]; loading: boolean }) 
   // Bars are scaled to the top performer so the leader fills the track.
   const maxRevenue = staff.reduce((m, x) => Math.max(m, x.revenue), 0);
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <h3 className="mb-2 text-[15px] font-semibold">{t('reports.staff.title')}</h3>
       {loading ? (
         <div className="flex justify-center py-14 text-primary">

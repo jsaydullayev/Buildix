@@ -77,14 +77,14 @@ export default function SellerShiftsPage() {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-8">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Current shift */}
         {currentQuery.isLoading ? (
           <Card className="flex items-center justify-center py-16 text-primary">
             <Spinner size={24} />
           </Card>
         ) : current ? (
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <h2 className="text-[16px] font-semibold">
@@ -106,7 +106,7 @@ export default function SellerShiftsPage() {
             {/* Per-tender breakdown. Терминал and Click are shown apart: they
                 settle to different accounts, so a cashier reconciling the shift
                 needs each figure on its own, not one merged "Картой". */}
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <Metric label={t('sales.stats.sum')} value={current.revenue} hint={`${current.checkCount}`} />
               <Metric label={t('pos.payment.cash')} value={current.cashIn} hint={`${current.cashCount}`} positive />
               <Metric label={t('shifts.metrics.terminal')} value={current.terminalIn} hint={`${current.terminalCount}`} />

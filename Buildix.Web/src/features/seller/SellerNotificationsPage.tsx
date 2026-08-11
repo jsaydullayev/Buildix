@@ -90,9 +90,9 @@ export default function SellerNotificationsPage() {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-[18px] p-8">
+      <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Все / Непрочитанные */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
           {[
             { k: false, label: t('common.all') },
             { k: true, label: t('seller.notifications.unread') },
@@ -102,7 +102,7 @@ export default function SellerNotificationsPage() {
               type="button"
               onClick={() => setOnlyUnread(o.k)}
               className={cn(
-                'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+                'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                 onlyUnread === o.k
                   ? 'bg-primary text-white'
                   : 'border border-input-border bg-surface text-muted hover:text-text',

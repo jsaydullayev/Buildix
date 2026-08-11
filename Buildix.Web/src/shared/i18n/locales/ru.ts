@@ -65,6 +65,7 @@ export const ru = {
     settings: 'Настройки',
     account: 'Мой аккаунт',
     logout: 'Выйти',
+    menu: 'Меню',
   },
   notifications: {
     subtitle: 'Непрочитанных: {{count}}',

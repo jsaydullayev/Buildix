@@ -62,4 +62,16 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
   }
+
+  /* Yon tomonga suriladigan tasmalar (navigatsiya, filtr chiplari) uchun:
+     surish saqlanadi, lekin surish paneli ko'rinmaydi. Telefon va planshetda
+     bo'limlar qatori sig'maydi — uni siqib tashlash o'rniga suriladigan
+     qilamiz, shunda hech bir bo'lim yo'qolmaydi. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

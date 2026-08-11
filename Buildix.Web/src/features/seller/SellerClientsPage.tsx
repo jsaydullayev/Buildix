@@ -12,7 +12,7 @@ import type { ApiError } from '@/shared/api/types';
 import { customersApi, type Customer } from '@/features/customers/api';
 
 const PAGE_SIZE = 50;
-const GRID = 'grid-cols-[2fr_1.2fr_1.3fr_1fr_0.9fr]';
+const GRID = 'min-w-[700px] grid-cols-[2fr_1.2fr_1.3fr_1fr_0.9fr]';
 const FILTERS = ['all', 'withDebt', 'regular'] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -61,7 +61,7 @@ export default function SellerClientsPage() {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-8">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative max-w-[420px] flex-1">
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
@@ -91,7 +91,7 @@ export default function SellerClientsPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('seller.clients.cols.client')}</span>
             <span>{t('seller.clients.cols.phone')}</span>

@@ -70,7 +70,7 @@ export default function SettingsPage() {
         }
       />
 
-      <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-8">
+      <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Язык интерфейса */}
         <Section title={t('settings.language.title')} subtitle={t('settings.language.subtitle')}>
           <div className="flex items-center justify-between gap-4">
@@ -157,7 +157,7 @@ export default function SettingsPage() {
           <div className="border-t border-hairline pt-4">
             <div className="text-[14px] font-medium">{t('settings.attendance.title')}</div>
             <p className="mb-3 mt-0.5 text-[12px] text-muted-2">{t('settings.attendance.hint')}</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <TimeField label={t('settings.attendance.start')} value={form.workDayStart} onChange={(v) => set('workDayStart', v)} />
               <TimeField label={t('settings.attendance.end')} value={form.workDayEnd} onChange={(v) => set('workDayEnd', v)} />
               <TimeField label={t('settings.attendance.late')} value={form.lateThreshold} onChange={(v) => set('lateThreshold', v)} />
@@ -221,7 +221,7 @@ export default function SettingsPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <div className="mb-5">
         <h2 className="text-[16px] font-semibold">{title}</h2>
         {subtitle && <p className="mt-0.5 text-[12.5px] text-muted-2">{subtitle}</p>}

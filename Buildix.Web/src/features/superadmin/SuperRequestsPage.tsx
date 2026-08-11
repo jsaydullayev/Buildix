@@ -25,7 +25,7 @@ const TAB_MATCH: Record<Tab, SaRequestStatus[]> = {
   all: ['Pending', 'Accepted', 'Approved', 'Rejected'],
 };
 
-const GRID = 'grid-cols-[minmax(0,1.6fr)_170px_150px_130px_minmax(0,300px)]';
+const GRID = 'min-w-[880px] grid-cols-[minmax(0,1.6fr)_170px_150px_130px_minmax(0,300px)]';
 
 function initials(name: string) {
   return name
@@ -152,7 +152,7 @@ export default function SuperRequestsPage() {
           </div>
         )}
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div
             className={cn(
               'grid items-center gap-3 border-b border-hairline px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.5px] text-muted-2',

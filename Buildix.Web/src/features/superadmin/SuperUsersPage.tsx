@@ -12,7 +12,7 @@ import { superAdminApi, type SaRole, type SaUserRow } from './api';
 import { ResetPasswordModal } from './ResetPasswordModal';
 
 const ROLES: (SaRole | 'all')[] = ['all', 'Owner', 'Admin', 'Seller'];
-const GRID = 'grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1.2fr)_150px_120px_200px]';
+const GRID = 'min-w-[900px] grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1.2fr)_150px_120px_200px]';
 const PAGE_SIZE = 20;
 
 const ROLE_TONE: Record<SaRole, 'info' | 'warn' | 'neutral'> = {
@@ -147,7 +147,7 @@ export default function SuperUsersPage() {
           <div className="rounded-card bg-danger-soft px-4 py-2.5 text-[13px] text-danger">{err}</div>
         )}
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div
             className={cn(
               'grid items-center gap-3 border-b border-hairline px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.5px] text-muted-2',

@@ -10,7 +10,7 @@ import { PERMISSIONS } from '@/shared/config/permissions';
 import { purchasesApi, type ZakupReceipt } from '@/features/purchases/api';
 
 const PAGE_SIZE = 30;
-const GRID = 'grid-cols-[80px_1.4fr_1.7fr_90px_130px_130px]';
+const GRID = 'min-w-[780px] grid-cols-[80px_1.4fr_1.7fr_90px_130px_130px]';
 const FILTERS = ['all', 'awaiting', 'accepted'] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -84,7 +84,7 @@ export default function SellerSuppliesPage() {
     <>
       <PageHeader title={t('seller.supplies.title')} subtitle={t('seller.supplies.subtitle')} />
 
-      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-8">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Pipeline featured cards */}
         {(arrived || enRoute) && (
           <div className="grid grid-cols-2 gap-4">
@@ -103,14 +103,14 @@ export default function SellerSuppliesPage() {
         {/* Все поставки + filter */}
         <div className="flex items-center justify-between">
           <span className="text-[16px] font-semibold">{t('seller.supplies.allTitle')}</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
             {FILTERS.map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setFilter(f)}
                 className={cn(
-                  'rounded-input px-3.5 py-2 text-[12.5px] font-medium transition-colors',
+                  'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[12.5px] font-medium transition-colors',
                   filter === f ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
                 )}
               >
@@ -120,7 +120,7 @@ export default function SellerSuppliesPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('purchases.cols.number')}</span>
             <span>{t('purchases.cols.supplier')}</span>

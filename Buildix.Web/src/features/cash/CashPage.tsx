@@ -71,9 +71,9 @@ export default function CashPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* KPI */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-card bg-sidebar p-5 text-white">
             <div className="text-[12.5px] text-white/60">{t('cash.balance')}</div>
             <div className="mt-1.5 text-[26px] font-bold tracking-[-0.4px] nums">
@@ -159,7 +159,7 @@ function KpiCard({
   const { t } = useTranslation();
   const positive = tone === 'income';
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="text-[12.5px] text-muted-2">{label}</div>
       <div className={cn('mt-1.5 text-[24px] font-bold tracking-[-0.3px] nums', positive ? 'text-success' : 'text-danger')}>
         {positive ? '+ ' : '− '}

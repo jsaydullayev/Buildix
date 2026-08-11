@@ -130,14 +130,14 @@ export default function ShiftsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Current shift */}
         {currentQuery.isLoading ? (
           <Card className="flex items-center justify-center py-16 text-primary">
             <Spinner size={24} />
           </Card>
         ) : current ? (
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <h2 className="text-[16px] font-semibold">
@@ -155,7 +155,7 @@ export default function ShiftsPage() {
             {/* Терминал and Click are split apart — they settle to different
                 accounts, so a merged "Картой" figure could not be reconciled
                 against either statement. cardIn is still their sum. */}
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <Metric label={t('shifts.metrics.opening')} value={current.openingCash} />
               <Metric label={t('shifts.metrics.cashIn')} value={current.cashIn} positive />
               <Metric label={t('shifts.metrics.terminal')} value={current.terminalIn} />
@@ -310,7 +310,7 @@ export default function ShiftsPage() {
                   )}
                 </Card>
 
-                <Card className="p-5">
+                <Card className="p-4 sm:p-5">
                   <h3 className="mb-4 text-[15px] font-semibold">{t('shifts.rules.title')}</h3>
                   <div className="flex flex-col gap-3">
                     {(['r1', 'r2', 'r3', 'r4'] as const).map((r) => (

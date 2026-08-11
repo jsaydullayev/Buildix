@@ -123,7 +123,7 @@ export default function ProductsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[280px] flex-1">
@@ -288,7 +288,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+        'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
         active ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
       )}
     >

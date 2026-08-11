@@ -67,6 +67,7 @@ export const en: TranslationSchema = {
     settings: 'Settings',
     account: 'My account',
     logout: 'Log out',
+    menu: 'Menu',
   },
   notifications: {
     subtitle: 'Unread: {{count}}',

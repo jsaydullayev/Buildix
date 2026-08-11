@@ -18,7 +18,7 @@ const MATCH: Record<Tab, SaBillingRow['status'][]> = {
   overdue: ['Overdue'],
 };
 
-const GRID = 'grid-cols-[minmax(0,1.6fr)_130px_150px_140px_130px_170px]';
+const GRID = 'min-w-[900px] grid-cols-[minmax(0,1.6fr)_130px_150px_140px_130px_170px]';
 
 export default function SuperBillingPage() {
   const { segment = '' } = useParams();
@@ -111,7 +111,7 @@ export default function SuperBillingPage() {
 
       <div className="flex flex-col gap-5 p-8">
         {/* Tarif kartochkalari */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(plans.data ?? []).map((p) => (
             <Card key={p.code} className="p-5">
               <div className="mb-3 flex items-center justify-between">
@@ -165,7 +165,7 @@ export default function SuperBillingPage() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div
             className={cn(
               'grid items-center gap-3 border-b border-hairline px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.5px] text-muted-2',
@@ -243,7 +243,7 @@ export default function SuperBillingPage() {
         </Card>
 
         {/* Последние платежи */}
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <div className="border-b border-hairline px-6 py-4">
             <h2 className="text-[15px] font-semibold">{t('sa.billing.recentTitle')}</h2>
           </div>

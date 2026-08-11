@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { BrandLogo, Spinner } from '@/shared/ui';
@@ -42,6 +43,7 @@ export function SuperAdminLayout() {
   const { session } = useAuth();
   const logout = useLogout();
   const base = `/_sa/${segment}`;
+  const [navOpen, setNavOpen] = useState(false);
 
   // «Заявки» yonidagi son — yangi arizalar. Operator konsolning istalgan
   // ekranida turib, ish paydo bo'lganini ko'rib turadi (dizayndagi badge).
@@ -61,8 +63,22 @@ export function SuperAdminLayout() {
     );
 
   return (
-    <div data-theme="super" className="flex min-h-screen min-w-[1360px] bg-bg text-text">
-      <aside className="flex w-sidebar flex-none flex-col bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white">
+    <div data-theme="super" className="flex min-h-screen bg-bg text-text">
+      {/* Fon — panel ochiq bo'lganda (kichik ekran). */}
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={cn(
+          'flex w-sidebar flex-none flex-col overflow-y-auto bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white',
+          'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
+          navOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
         <div className="mb-[26px] flex items-center gap-2 px-2.5">
           <BrandLogo size="sm" onDark />
           <span className="ml-auto rounded-pill border border-white/25 bg-white/10 px-2.5 py-[3px] text-[10px] font-bold tracking-[0.5px] text-white/90">
@@ -72,7 +88,7 @@ export function SuperAdminLayout() {
 
         <nav className="flex flex-col gap-0.5">
           {NAV.map((item) => (
-            <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass}>
+            <NavLink key={item.path} to={`${base}/${item.path}`} className={linkClass} onClick={() => setNavOpen(false)}>
               <item.icon size={17} />
               {t(item.labelKey as never)}
               {item.path === 'requests' && (pending.data ?? 0) > 0 && (
@@ -106,6 +122,19 @@ export function SuperAdminLayout() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
+        {/* Mobil sarlavha — yon menyu yashiringanda. */}
+        <div className="flex h-[52px] flex-none items-center gap-3 border-b border-hairline bg-sidebar px-3 text-white lg:hidden">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label={t('nav.menu')}
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/[0.1] hover:text-white"
+          >
+            <Menu size={20} />
+          </button>
+          <BrandLogo size="sm" onDark />
+        </div>
+
         <Suspense
           fallback={
             <div className="flex flex-1 items-center justify-center text-primary">

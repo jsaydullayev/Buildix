@@ -98,7 +98,7 @@ export function CustomerDetailModal({ customer, onClose }: { customer: Customer 
       {!customer ? null : (
         <div className="flex flex-col gap-5">
           {/* Summary — покупок / купил всего / текущий долг */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Stat label={t('customers.cols.purchases')} value={String(customer.purchaseCount)} />
             <Stat label={t('customers.cols.totalBought')} value={formatSum(customer.totalPurchased)} />
             <Stat label={t('customers.detail.totalDebt')} value={formatSum(customer.totalDebt)} warn={customer.totalDebt > 0} />

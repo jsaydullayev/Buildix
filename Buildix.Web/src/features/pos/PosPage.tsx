@@ -450,9 +450,11 @@ export default function PosPage() {
           </div>
         </div>
       ) : (
-      <div className="grid flex-1 grid-cols-[1.5fr_1fr] gap-0 overflow-hidden">
+      // Kassir kassasi bilan bir xil qoida: lg dan boshlab ikki ustun,
+      // undan pastda ustma-ust joylashadi va sahifaning o'zi suriladi.
+      <div className="grid flex-1 grid-cols-1 gap-0 lg:grid-cols-[1.5fr_1fr] lg:overflow-hidden">
         {/* LEFT — product search */}
-        <div className="flex flex-col border-r border-border p-6">
+        <div className="flex min-w-0 flex-col border-b border-border p-4 sm:p-6 lg:border-b-0 lg:border-r">
           <div className="mb-4 flex gap-2">
           <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
@@ -480,7 +482,7 @@ export default function PosPage() {
             {t('seller.pos.external.button')}
           </Button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 lg:overflow-y-auto">
             {productsQuery.isLoading ? (
               <div className="flex justify-center py-16 text-primary">
                 <Spinner size={24} />
@@ -591,7 +593,7 @@ export default function PosPage() {
           </div>
 
           {/* Items */}
-          <div className="flex-1 overflow-y-auto px-5">
+          <div className="flex-1 px-5 lg:overflow-y-auto">
             {items.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center text-muted-2">
                 <Package size={28} />

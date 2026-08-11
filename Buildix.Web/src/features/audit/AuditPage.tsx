@@ -67,7 +67,7 @@ export default function AuditPage() {
     <>
       <PageHeader title={t('audit.title')} subtitle={t('audit.subtitle')} />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Tabs */}
         <div className="flex items-center gap-1.5">
           <Tab label={t('audit.tabs.log')} active={tab === 'log'} onClick={() => setTab('log')} />
@@ -231,7 +231,7 @@ function SuspiciousTab({
   return (
     <div className="flex flex-col gap-[18px]">
       {s.failedLoginBursts.length > 0 && (
-        <Card className="p-5">
+        <Card className="p-4 sm:p-5">
           <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold">
             <AlertTriangle size={16} className="text-danger" />
             {t('audit.suspicious.failedLogins')}
@@ -249,7 +249,7 @@ function SuspiciousTab({
         </Card>
       )}
       {s.bulkDeleteBursts.length > 0 && (
-        <Card className="p-5">
+        <Card className="p-4 sm:p-5">
           <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold">
             <AlertTriangle size={16} className="text-danger" />
             {t('audit.suspicious.bulkDelete')}
@@ -267,7 +267,7 @@ function SuspiciousTab({
         </Card>
       )}
       {s.recentErrors.length > 0 && (
-        <Card className="p-5">
+        <Card className="p-4 sm:p-5">
           <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold">
             <AlertTriangle size={16} className="text-warn-strong" />
             {t('audit.suspicious.errors')}

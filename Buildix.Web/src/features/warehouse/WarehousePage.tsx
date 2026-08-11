@@ -101,8 +101,8 @@ export default function WarehousePage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
-        <div className="grid grid-cols-3 gap-4">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label={t('warehouse.stats.positions')} value={stats.positions} />
           <StatCard label={t('warehouse.stats.low')} value={stats.low} tone="warn" />
           <StatCard label={t('warehouse.stats.out')} value={stats.out} tone="danger" />

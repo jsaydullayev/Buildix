@@ -207,12 +207,15 @@ export default function AccountPage() {
         }
       />
 
-      <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-8">
+      {/* Telefonda ikki ustun sig'maydi — ustunlar ketma-ket joylashadi.
+          minmax(0,1fr): grid ustuni kontentdan kichik bo'la olsin, aks holda
+          ichkaridagi uzun matn butun sahifani cho'zadi. */}
+      <div className="grid flex-1 grid-cols-1 items-start gap-[18px] p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:p-8">
         {/* Left column */}
         <div className="flex flex-col gap-[18px]">
           {/* «Мои результаты · <oy>» — kassir shaxsiy oylik natijasi */}
           {isSeller && (
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h2 className="mb-4 text-[16px] font-semibold">
                 {t('account.myResults.title', {
                   month: new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date()),
@@ -234,7 +237,7 @@ export default function AccountPage() {
           )}
 
           {/* Profile */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="mb-5 flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-pill bg-primary text-[22px] font-semibold uppercase text-white">
                 {session ? initials(session.fullName) : '—'}
@@ -350,7 +353,7 @@ export default function AccountPage() {
           </Card>
 
           {/* Password */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="mb-5">
               <h2 className="text-[16px] font-semibold">{t('account.password.title')}</h2>
               <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.password.hint')}</p>
@@ -379,8 +382,10 @@ export default function AccountPage() {
         {/* Language + notifications + sessions + login history */}
         <div className="flex flex-col gap-[18px]">
         {/* Interface language — persisted on the account. */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between gap-4">
+        <Card className="p-4 sm:p-6">
+          {/* Tor ekranda sarlavha va tanlagich bir qatorga sig'maydi —
+              tanlagich pastga tushadi. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <h2 className="text-[16px] font-semibold">{t('account.language.title')}</h2>
               <p className="mt-0.5 text-[12.5px] text-muted-2">
@@ -391,12 +396,12 @@ export default function AccountPage() {
                 )}
               </p>
             </div>
-            <LanguageSwitch className="flex-none" onChange={(lang) => langMutation.mutate(lang)} />
+            <LanguageSwitch className="flex-none self-start sm:self-auto" onChange={(lang) => langMutation.mutate(lang)} />
           </div>
         </Card>
 
         {/* Telegram notification preferences (BE-9) */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="mb-4">
             <h2 className="text-[16px] font-semibold">{t('account.notify.title')}</h2>
             <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.notify.subtitle')}</p>
@@ -428,7 +433,7 @@ export default function AccountPage() {
           )}
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="mb-5">
             <h2 className="text-[16px] font-semibold">{t('account.sessions.title')}</h2>
             <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.sessions.subtitle')}</p>
@@ -466,7 +471,7 @@ export default function AccountPage() {
         </Card>
 
         {/* Login history */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="mb-4">
             <h2 className="text-[16px] font-semibold">{t('account.history.title')}</h2>
             <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.history.subtitle')}</p>
@@ -480,17 +485,22 @@ export default function AccountPage() {
           ) : (
             <div className="flex flex-col">
               {(historyQuery.data ?? []).map((h) => (
+                // Telefonda uch ustun bir qatorga sig'maydi: sana va qurilma
+                // tepada, holat ostida. sm dan boshlab avvalgi bir qatorli
+                // ko'rinish qaytadi.
                 <div
                   key={h.id}
-                  className="flex items-center justify-between gap-3 border-b border-hairline py-2.5 text-[13px] last:border-0"
+                  className="flex flex-col gap-1 border-b border-hairline py-2.5 text-[13px] last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
-                  <span className="w-[128px] flex-none text-muted-2 nums">
+                  <span className="flex-none text-muted-2 nums sm:w-[128px]">
                     {formatShortDate(h.atUtc, i18n.language)} {formatTime(h.atUtc)}
                   </span>
-                  <span className="flex-1 truncate text-muted">{h.device ?? '—'}</span>
-                  <Badge tone={h.success ? 'success' : 'danger'}>
-                    {h.success ? t('account.history.success') : t('account.history.failed')}
-                  </Badge>
+                  <span className="min-w-0 flex-1 truncate text-muted">{h.device ?? '—'}</span>
+                  <span className="flex-none self-start sm:self-auto">
+                    <Badge tone={h.success ? 'success' : 'danger'}>
+                      {h.success ? t('account.history.success') : t('account.history.failed')}
+                    </Badge>
+                  </span>
                 </div>
               ))}
             </div>
@@ -543,9 +553,15 @@ function SessionRow({
         {isMobile ? <Smartphone size={18} /> : <Monitor size={18} />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13.5px] font-semibold">{s.device ?? '—'}</span>
-          {s.isCurrent && <Badge tone="success">{t('account.sessions.thisDevice')}</Badge>}
+          {/* flex-none: qurilma nomi uzun bo'lsa nishon siqilib emas, nom
+              qisqarib ketsin — aks holda qator kartadan chiqib ketardi. */}
+          {s.isCurrent && (
+            <span className="flex-none">
+              <Badge tone="success">{t('account.sessions.thisDevice')}</Badge>
+            </span>
+          )}
         </div>
         <div className="truncate text-[12px] text-muted-2">
           {s.ipAddress ?? '—'} ·{' '}

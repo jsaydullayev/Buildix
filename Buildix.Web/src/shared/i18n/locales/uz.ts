@@ -67,6 +67,7 @@ export const uz: TranslationSchema = {
     settings: 'Sozlamalar',
     account: 'Mening hisobim',
     logout: 'Chiqish',
+    menu: 'Menyu',
   },
   notifications: {
     subtitle: 'O‘qilmaganlar: {{count}}',

@@ -125,9 +125,9 @@ export default function SalesPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-8">
+      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Stat cards (today) */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label={t('sales.stats.sum')}
             value={formatSum(s?.totalAmount ?? 0)}
@@ -159,7 +159,7 @@ export default function SalesPage() {
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar">
             {PAYMENT_FILTERS.map((p) => (
               <Chip
                 key={p}
@@ -309,7 +309,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
+        'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
         active ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
       )}
     >

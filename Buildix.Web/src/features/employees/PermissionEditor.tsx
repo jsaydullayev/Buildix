@@ -160,7 +160,7 @@ export function PermissionEditor({ employee }: { employee: Employee }) {
       {/* Preset */}
       <div>
         <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.4px] text-muted-2">{t('permissions.profile')}</h3>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {(['trainee', 'seller', 'senior'] as const).map((p) => (
             <button
               key={p}
