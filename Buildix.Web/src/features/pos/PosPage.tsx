@@ -15,8 +15,11 @@ import {
   Pause,
   PackagePlus,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react';
 import { Button, Card, Spinner, Badge, useConfirm } from '@/shared/ui';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -59,6 +62,10 @@ export default function PosPage() {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const { hasPermission } = useAuth();
+  // Narx ustida savdolashish — auditlanadigan huquq, shuning uchun ruxsat
+  // ortida. Owner/Admin uni sukut bo'yicha oladi.
+  const canEditPrice = hasPermission(PERMISSIONS.sales.edit);
 
   const [saleId, setSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -309,6 +316,18 @@ export default function PosPage() {
   const setQty = useMutation({
     mutationFn: (p: { itemId: string; quantity: number }) =>
       posApi.setItemQuantity(saleId!, p.itemId, p.quantity),
+    onSuccess: () => {
+      setActionError(null);
+      refreshAll();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+  // Bitta qatorning narxini o'zgartirish (торг). Kassir ekranida bu allaqachon
+  // bor edi, admin kassasida esa yo'q edi — ya'ni ruxsati bor rol imkoniyatdan
+  // mahrum edi. Serverda auditga yoziladi va tannarxdan past narx (sozlama
+  // yoqilgan bo'lsa) rad etiladi.
+  const setLinePrice = useMutation({
+    mutationFn: (p: { itemId: string; price: number }) => posApi.updateItemPrice(p.itemId, p.price),
     onSuccess: () => {
       setActionError(null);
       refreshAll();
@@ -583,8 +602,14 @@ export default function PosPage() {
                 <div key={it.id} className="flex items-center gap-3 border-b border-hairline py-3">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13.5px] font-medium">{it.productName}</div>
-                    <div className="text-[12px] text-muted-2 nums">
-                      {formatSum(it.salePrice)} · {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}
+                    <div className="flex items-center gap-1 text-[12px] text-muted-2 nums">
+                      <CartPrice
+                        price={it.salePrice}
+                        editable={canEditPrice}
+                        title={t('seller.pos.editPrice')}
+                        onCommit={(price) => setLinePrice.mutate({ itemId: it.id, price })}
+                      />
+                      <span>· {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -967,6 +992,79 @@ function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: 
  * saqlaydi, Escape — bekor qiladi. Escape'da `blur()` onBlur'ni sinxron
  * chaqiradi, shuning uchun bekor qilish bayrog'i commit'dan oldin tekshiriladi.
  */
+/**
+ * Qator narxi — bosilganda joyida tahrirlanadi (торг).
+ *
+ * <p>Miqdor maydoni bilan bir xil xulq: fokusda hammasi belgilanadi, Enter
+ * tasdiqlaydi, Escape bekor qiladi, bo'sh qoldirilsa hech narsa yubormaydi.
+ * Ruxsat bo'lmasa oddiy matn bo'lib qoladi — tugma umuman chiqmaydi.</p>
+ */
+function CartPrice({
+  price,
+  editable,
+  title,
+  onCommit,
+}: {
+  price: number;
+  editable: boolean;
+  title: string;
+  onCommit: (p: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setDraft(null);
+      return;
+    }
+    if (draft === null) return;
+    const raw = draft.trim();
+    setDraft(null);
+    if (raw === '') return;
+    const p = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(p) || p < 0 || p === price) return;
+    onCommit(p);
+  };
+
+  if (draft !== null) {
+    return (
+      <input
+        autoFocus
+        onFocus={(e) => e.currentTarget.select()}
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/[^\d.,]/g, ''))}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            cancelRef.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+        className="h-6 w-24 rounded border border-primary bg-surface px-1.5 text-right text-[12px] outline-none nums"
+      />
+    );
+  }
+
+  if (!editable) return <span className="nums">{formatSum(price)}</span>;
+
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={() => setDraft(String(price))}
+      className="flex items-center gap-1 rounded px-0.5 text-muted-2 transition-colors hover:text-primary"
+    >
+      <span className="nums">{formatSum(price)}</span>
+      <Pencil size={11} />
+    </button>
+  );
+}
+
 function CartQty({ quantity, onCommit }: { quantity: number; onCommit: (q: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelRef = useRef(false);

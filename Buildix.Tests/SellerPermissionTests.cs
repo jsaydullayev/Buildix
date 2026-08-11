@@ -44,4 +44,30 @@ public class SellerPermissionTests
         Assert.Contains(PermissionKeys.SalesReturn, admin);
         Assert.Contains(PermissionKeys.ZakupAccept, admin);
     }
+
+    /// <summary>
+    /// Kassir chekdagi narxni tuzata olishi kerak (торг — bozorda kundalik ish),
+    /// lekin PUL QAYTARA olmasligi kerak. Bu ikkisi ilgari bitta kalitda
+    /// (sales.edit) turardi: narx huquqini bergan egasi bilmasdan qaytarish
+    /// huquqini ham berib qo'yardi. Endi qaytarish sales.return ostida.
+    /// </summary>
+    [Fact]
+    public void Seller_may_change_a_line_price_but_never_refund()
+    {
+        var seller = PermissionDefaults.ForRole(Role.Seller);
+        Assert.Contains(PermissionKeys.SalesEdit, seller);       // narx — ha
+        Assert.DoesNotContain(PermissionKeys.SalesReturn, seller); // pul qaytarish — yo'q
+    }
+
+    /// <summary>
+    /// Kassirga hech qachon berilmaydigan kalitlar ro'yxati narx huquqidan
+    /// keyin ham o'zgarmagan — tannarx va foyda yopiq qoladi.
+    /// </summary>
+    [Fact]
+    public void Price_permission_does_not_open_cost_or_profit()
+    {
+        var seller = PermissionDefaults.ForRole(Role.Seller);
+        Assert.DoesNotContain(PermissionKeys.DataCostPrice, seller);
+        Assert.DoesNotContain(PermissionKeys.DataProfit, seller);
+    }
 }

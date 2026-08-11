@@ -49,6 +49,15 @@ public static class PermissionDefaults
         PermissionKeys.ProductsAccess, PermissionKeys.ProductsExport,
         PermissionKeys.CategoriesAccess,
         PermissionKeys.SalesAccess, PermissionKeys.SalesCreate, PermissionKeys.SalesExport, PermissionKeys.SalesInvoice,
+        // Narx ustida savdolashish (торг) — qurilish mollari bozorida kundalik
+        // ish: mijoz narxni tushirishni so'raydi va kassir chekdagi qatorni
+        // to'g'irlaydi. Har o'zgarish serverda auditga yoziladi va tannarxdan
+        // pastga tushirish (sozlama yoqilgan bo'lsa) bloklanadi. Egasi buni
+        // ruxsatlar matritsasidan olib qo'yishi mumkin.
+        //
+        // Diqqat: bu kalit faqat NARXNI o'zgartirishni ochadi. Pul qaytarish
+        // sales.return ostida qoladi — kassirda u yo'q.
+        PermissionKeys.SalesEdit,
         PermissionKeys.CustomersAccess, PermissionKeys.CustomersManage, PermissionKeys.CustomersExport,
         PermissionKeys.ZakupAccess,
         PermissionKeys.ReportsExport,

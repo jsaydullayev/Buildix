@@ -111,7 +111,7 @@ export const salesApi = {
     return data;
   },
 
-  /** Return part (or all) of one line — refunds money, restocks (sales.edit). */
+  /** Return part (or all) of one line — refunds money, restocks (sales.return). */
   returnItem: async (saleId: string, saleItemId: string, quantity: number): Promise<void> => {
     await apiClient.post(`/Sales/${saleId}/return-item`, { saleItemId, quantity });
   },
