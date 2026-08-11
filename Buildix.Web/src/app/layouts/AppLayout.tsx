@@ -24,8 +24,12 @@ export function AppLayout() {
         <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
         <main className="flex min-w-0 flex-1 flex-col">
           {/* Mobil sarlavha — faqat yon menyu yashiringanda. Sahifaning o'z
-              sarlavhasi (PageHeader) ostida qoladi, shuning uchun ingichka. */}
-          <div className="flex h-[52px] flex-none items-center gap-3 border-b border-hairline bg-sidebar px-3 text-white lg:hidden">
+              sarlavhasi (PageHeader) ostida qoladi, shuning uchun ingichka.
+              sticky: sahifa pastga surilganda ham tepada qoladi — aks holda
+              boshqa bo'limga o'tish uchun har safar butun sahifani tepaga
+              surish kerak bo'lardi. z-30: kontentdan yuqori, lekin ochilgan
+              yon menyu (z-50) va uning foni (z-40) ostida. */}
+          <div className="sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 border-b border-hairline bg-sidebar px-3 text-white lg:hidden">
             <button
               type="button"
               onClick={() => setNavOpen(true)}

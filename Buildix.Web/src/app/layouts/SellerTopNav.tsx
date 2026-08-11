@@ -69,7 +69,10 @@ export function SellerTopNav() {
     );
 
   return (
-    <header className="flex h-[62px] flex-none items-center justify-between gap-2 bg-sidebar px-3 text-white sm:gap-4 sm:px-6">
+    // sticky: kassir sahifani pastga surganda ham bo'limlar tasmasi tepada
+    // qoladi — savdo o'rtasida boshqa bo'limga o'tish uchun butun sahifani
+    // tepaga surish shart emas.
+    <header className="sticky top-0 z-30 flex h-[62px] flex-none items-center justify-between gap-2 bg-sidebar px-3 text-white sm:gap-4 sm:px-6">
       {/* Chap — asosiy bo'limlar. Telefon va planshetda yettita bo'lim bir
           qatorga sig'maydi: siqish o'rniga tasmani suriladigan qilamiz
           (min-w-0 bo'lmasa flex bola qisqarmaydi va sahifa toshadi). */}

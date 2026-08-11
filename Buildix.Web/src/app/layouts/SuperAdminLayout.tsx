@@ -123,7 +123,8 @@ export function SuperAdminLayout() {
 
       <main className="flex min-w-0 flex-1 flex-col">
         {/* Mobil sarlavha — yon menyu yashiringanda. */}
-        <div className="flex h-[52px] flex-none items-center gap-3 border-b border-hairline bg-sidebar px-3 text-white lg:hidden">
+        {/* sticky: surilganda ham tepada qoladi (admin qobig'i bilan bir xil). */}
+        <div className="sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 border-b border-hairline bg-sidebar px-3 text-white lg:hidden">
           <button
             type="button"
             onClick={() => setNavOpen(true)}
