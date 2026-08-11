@@ -114,14 +114,14 @@ export default function SuperRequestsPage() {
         title={t('sa.requests.title')}
         subtitle={t('sa.requests.subtitle')}
         actions={
-          <div className="flex items-center gap-1 rounded-pill bg-hairline p-1">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto no-scrollbar rounded-pill bg-hairline p-1">
             {(['new', 'accepted', 'rejected', 'all'] as Tab[]).map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
                 className={cn(
-                  'rounded-pill px-4 py-1.5 text-[13px] transition-colors',
+                  'flex-none whitespace-nowrap rounded-pill px-4 py-1.5 text-[13px] transition-colors',
                   tab === key
                     ? 'bg-surface font-semibold text-text shadow-card'
                     : 'font-medium text-muted hover:text-text',
@@ -135,8 +135,8 @@ export default function SuperRequestsPage() {
         }
       />
 
-      <div className="flex flex-col gap-4 p-8">
-        <div className="relative w-[320px]">
+      <div className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
+        <div className="relative w-full sm:w-[320px]">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
           <input
             value={search}

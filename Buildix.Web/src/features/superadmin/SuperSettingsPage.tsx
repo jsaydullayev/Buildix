@@ -68,23 +68,27 @@ export default function SuperSettingsPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-5 p-8">
+      <div className="grid grid-cols-1 gap-5 p-4 sm:p-6 lg:grid-cols-2 lg:p-8">
         {/* Тарифы */}
         <Card className="p-4 sm:p-6">
           <h2 className="text-[15px] font-semibold">{t('sa.settings.plansTitle')}</h2>
           <p className="mb-4 mt-0.5 text-[12.5px] text-muted-2">{t('sa.settings.plansHint')}</p>
           <div className="flex flex-col gap-3">
             {form.plans.map((p) => (
-              <div key={p.code} className="flex items-center gap-3">
-                <Badge tone="info">{t(`sa.billing.plans.${p.code}` as never)}</Badge>
-                <span className="flex-1 text-[12.5px] text-muted">
-                  {t('sa.billing.planLimits', {
-                    points: p.maxPoints,
-                    users: p.maxUsers === 0 ? t('sa.billing.unlimited') : p.maxUsers,
-                  })}
-                </span>
+              // Telefonda nishon + tavsif + narx maydoni bir qatorga sig'maydi:
+              // narx maydoni pastga tushib, to'liq enni egallaydi.
+              <div key={p.code} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Badge tone="info">{t(`sa.billing.plans.${p.code}` as never)}</Badge>
+                  <span className="min-w-0 flex-1 text-[12.5px] text-muted">
+                    {t('sa.billing.planLimits', {
+                      points: p.maxPoints,
+                      users: p.maxUsers === 0 ? t('sa.billing.unlimited') : p.maxUsers,
+                    })}
+                  </span>
+                </div>
                 <input
-                  className="nums h-11 w-[150px] rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
+                  className="nums h-11 w-full flex-none rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring sm:w-[150px]"
                   inputMode="numeric"
                   value={p.priceUzs === 0 ? '' : p.priceUzs}
                   onChange={(e) =>
@@ -116,7 +120,7 @@ export default function SuperSettingsPage() {
             <div className="flex items-center justify-between gap-4">
               <span className="text-[13.5px]">{t('sa.settings.expiryReminderDays')}</span>
               <input
-                className="nums h-11 w-[110px] rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
+                className="nums h-11 w-[110px] flex-none rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
                 inputMode="numeric"
                 value={form.expiryReminderDays === 0 ? '' : form.expiryReminderDays}
                 onChange={(e) =>
@@ -141,7 +145,7 @@ export default function SuperSettingsPage() {
           <div className="mb-4 flex items-center justify-between gap-4">
             <span className="text-[13.5px]">{t('sa.settings.graceDays')}</span>
             <input
-              className="nums h-11 w-[110px] rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
+              className="nums h-11 w-[110px] flex-none rounded-input border-[1.5px] border-input-border px-3 text-right text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
               inputMode="numeric"
               value={form.graceDays === 0 ? '' : form.graceDays}
               onChange={(e) => patch({ graceDays: Number(e.target.value.replace(/\D/g, '')) || 0 })}
