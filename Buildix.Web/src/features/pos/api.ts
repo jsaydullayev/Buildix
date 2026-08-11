@@ -103,6 +103,21 @@ export const posApi = {
   /** Search products for the POS grid (reuses the paged Products endpoint). */
   searchProducts: (q: ProductQuery): Promise<PagedResult<Product>> => productsApi.listPaged(q),
 
+  /**
+   * Shtrix-kod bo'yicha ANIQ moslik — skaner uchun. Topilmasa null.
+   *
+   * Katalog qidiruvidan farqi: u `LIKE %matn%` bilan ishlaydi va bir nechta
+   * natija qaytarishi mumkin, ya'ni kassir yana tanlashi kerak bo'ladi.
+   * Skanerdan ko'zlangan maqsad esa aynan shu tanlashni yo'q qilish.
+   */
+  findByBarcode: async (code: string): Promise<Product | null> => {
+    const { data, status } = await apiClient.get<Product>(
+      `/Products/by-barcode/${encodeURIComponent(code)}`,
+      { validateStatus: (s) => s === 200 || s === 404 },
+    );
+    return status === 404 ? null : data;
+  },
+
   /** Add a product (or free-form item) to the sale. Returns the affected line. */
   addItem: async (saleId: string, body: AddSaleItemBody): Promise<PosSaleItem> => {
     const { data } = await apiClient.post<PosSaleItem>(`/Sales/${saleId}/items`, body);

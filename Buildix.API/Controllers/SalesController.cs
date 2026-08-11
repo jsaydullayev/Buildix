@@ -328,7 +328,7 @@ public class SalesController : ApiControllerBase
             _logger.LogWarning("Failed to delete sale {SaleId}: {Message}", saleId, result.Error);
             return BadRequest(new { message = result.Error });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error deleting sale {SaleId}", saleId);
             return StatusCode(500, "Savdoni o'chirishda xatolik yuz berdi");
@@ -444,15 +444,20 @@ public class SalesController : ApiControllerBase
             _logger.LogWarning(ex, "Unauthorized access to UpdateSaleItemPrice");
             return StatusCode(403, new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error in UpdateSaleItemPrice");
             return StatusCode(500, "Xatolik yuz berdi");
         }
     }
 
+    // Bu — qaytarish amali (pul qaytariladi, tovar omborga tushadi), shuning
+    // uchun qaytarish kaliti bilan qo'riqlanadi. Ilgari sales.edit'da turardi;
+    // sales.edit esa ruxsatlar matritsasida «tovar narxini o'zgartirish» deb
+    // ataladi — ya'ni narx huquqini bergan egasi bilmasdan pul qaytarish
+    // huquqini ham berib qo'yardi.
     [HttpPost("{saleId}/return-item")]
-    [RequirePermission(PermissionKeys.SalesEdit)]
+    [RequirePermission(PermissionKeys.SalesReturn)]
     public async Task<ActionResult<SaleItemDto?>> ReturnSaleItem(Guid saleId, [FromBody] ReturnSaleItemRequest? request, CancellationToken ct = default)
     {
         try
@@ -476,7 +481,7 @@ public class SalesController : ApiControllerBase
             // result null bo'lishi mumkin (full return bo'lganda), lekin bu muvaffaqiyatli amal
             return Ok(result);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error in ReturnSaleItem");
             return StatusCode(500, "Tovarni qaytarishda xatolik");
@@ -492,7 +497,7 @@ public class SalesController : ApiControllerBase
             var debtors = await _saleQueryService.GetDebtorsAsync();
             return Ok(debtors);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error getting debtors");
             return StatusCode(500, "Qarzdorlarni olishda xatolik");
@@ -524,7 +529,7 @@ public class SalesController : ApiControllerBase
                 lang, CanViewCost(), CanViewProfit(), sellerId: scope, cancellationToken: ct);
             return File(result.Content, XlsxContentType, result.FileName);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error exporting sales");
             return StatusCode(500, "Sotuvlarni eksport qilishda xatolik");
@@ -559,7 +564,7 @@ public class SalesController : ApiControllerBase
             _logger.LogWarning(ex, "Invalid operation during PDF export");
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error exporting sales to PDF");
             return StatusCode(500, "Sotuvlarni PDF formatda eksport qilishda xatolik");
@@ -607,7 +612,7 @@ public class SalesController : ApiControllerBase
             _logger.LogWarning(ex, "Sale not found for receipt: {SaleId}", id);
             return NotFound(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error generating receipt for sale {SaleId}", id);
             return StatusCode(500, "Chek yaratishda xatolik yuz berdi");
@@ -643,7 +648,7 @@ public class SalesController : ApiControllerBase
             _logger.LogWarning(ex, "Sale not found: {SaleId}", id);
             return NotFound(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error generating invoice for sale {SaleId}", id);
             return StatusCode(500, "Faktura yaratishda xatolik yuz berdi");

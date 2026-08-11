@@ -33,7 +33,8 @@ public class SalePaymentService : ISalePaymentService
         ILogger<SalePaymentService> logger,
         IMarketSettingsService settings,
         IStockLedger stockLedger,
-        ICashLedger cashLedger)
+        ICashLedger cashLedger,
+        IExternalPayoutLedger externalPayouts)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -43,7 +44,10 @@ public class SalePaymentService : ISalePaymentService
         _settings = settings;
         _stockLedger = stockLedger;
         _cashLedger = cashLedger;
+        _externalPayouts = externalPayouts;
     }
+
+    private readonly IExternalPayoutLedger _externalPayouts;
 
     /// <summary>
     /// Enforces MarketSettings.DebtOnlyForRegulars + the per-customer/market debt
@@ -364,7 +368,16 @@ public class SalePaymentService : ISalePaymentService
             // har liniya uchun Продажа harakati yoziladi — quyidagi SaveChanges
             // bilan bir tranzaksiyada (atomik).
             if (startedAsDraft && sale.Status != SaleStatus.Draft && sale.Status != SaleStatus.Cancelled)
+            {
                 await _stockLedger.RecordSaleFinalizationAsync(sale, cancellationToken);
+
+                // Katalogda yo'q tovar uchun qo'shni do'konga berilgan naqd.
+                // Aynan shu shartda: sotuv Draft'dan bir marta chiqadi, ya'ni
+                // keyingi qisman to'lovlarda takror yozilmaydi. Qarzga sotilganda
+                // ham yoziladi — mijoz keyin to'laydi, qo'shniga esa pul
+                // allaqachon berilgan.
+                await _externalPayouts.RecordAsync(sale, cancellationToken);
+            }
 
             _unitOfWork.Sales.Update(sale);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

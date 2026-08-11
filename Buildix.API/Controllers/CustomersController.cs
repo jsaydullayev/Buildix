@@ -131,7 +131,10 @@ public class CustomersController : ApiControllerBase
     /// /api/Products/.../export pattern so the same DownloadService
     /// helper handles both files on the Flutter side.
     /// </summary>
-    [HttpGet("export")]
+    // Mutlaq («~/») shakl: sinf darajasidagi [Route("api/[controller]/[action]")]
+    // aks holda metod nomini yo'lga qo'shib, /api/Customers/ExportCustomersToExcel/export
+    // qilib yuboradi — frontend esa toza yo'lni chaqiradi va 404 oladi.
+    [HttpGet("~/api/Customers/export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.CustomersExport)]
     public async Task<IActionResult> ExportCustomersToExcel(

@@ -23,4 +23,16 @@ public enum CashMovementType
 
     /// <summary>Bankka topshirish (chiqim) — "Инкассация".</summary>
     Collection = 5,
+
+    /// <summary>
+    /// Katalogda yo'q tovar uchun qo'shni do'konga to'langan pul (chiqim) —
+    /// "Чужой товар".
+    ///
+    /// <para>Mijoz so'ragan narsa bizda bo'lmasa, u qo'shni do'kondan olinadi
+    /// va puli kassadan beriladi. Bu chiqim ilgari hech qayerda qayd
+    /// etilmasdi: mijozdan olingan pul to'liq kassada ko'rinar, qo'shniga
+    /// berilgani esa yo'q — natijada smena yakunida naqd har doim kamayib
+    /// chiqardi.</para>
+    /// </summary>
+    ExternalPurchase = 6,
 }

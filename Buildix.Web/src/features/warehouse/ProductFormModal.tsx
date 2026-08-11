@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Sparkles, Printer } from 'lucide-react';
 import { Modal, Button, Input, useConfirm } from '@/shared/ui';
+import { PrintLabelsModal } from './PrintLabelsModal';
 import { cn } from '@/shared/lib/cn';
 import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -27,6 +29,7 @@ const numField = () =>
 const schema = z.object({
   name: z.string().min(1),
   sku: z.string().max(50).optional(),
+  barcode: z.string().max(64).optional(),
   description: z.string().max(1000).optional(),
   categoryId: z.preprocess(
     (v) => (v === '' || v === undefined || v === null ? null : Number(v)),
@@ -69,17 +72,28 @@ export function ProductFormModal({
 
   const unitsQuery = useQuery({ queryKey: ['units'], queryFn: productsApi.units, staleTime: Infinity });
 
+  // Kod maydonga tushadi, bazaga esa forma saqlanganda yoziladi — «Bekor»
+  // bosilsa hech nima o'zgarmaydi va yangi tovarda ham ishlaydi.
+  const suggest = useMutation({
+    mutationFn: productsApi.suggestBarcode,
+    onSuccess: (code) => setValue('barcode', code, { shouldDirty: true }),
+  });
+
+  const [printing, setPrinting] = useState(false);
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       sku: '',
+      barcode: '',
       description: '',
       categoryId: null,
       unit: 1,
@@ -99,6 +113,7 @@ export function ProductFormModal({
         ? {
             name: product.name,
             sku: product.sku ?? '',
+            barcode: product.barcode ?? '',
             description: product.description ?? '',
             categoryId: product.categoryId,
             unit: product.unit,
@@ -112,6 +127,7 @@ export function ProductFormModal({
         : {
             name: '',
             sku: '',
+            barcode: '',
             description: '',
             categoryId: null,
             unit: 1,
@@ -130,6 +146,10 @@ export function ProductFormModal({
       const body: CreateProductBody = {
         name: values.name,
         sku: values.sku?.trim() ? values.sku.trim() : null,
+        // Bo'sh satr emas, null yuboriladi: server null ni «tozalash» deb
+        // tushunadi va kod boshqa tovarga bo'shaydi. Bo'sh satr esa unikal
+        // indeksga tushib, ikkinchi kodsiz tovarni saqlashga to'sqinlik qilardi.
+        barcode: values.barcode?.trim() ? values.barcode.trim() : null,
         description: values.description?.trim() ? values.description.trim() : null,
         categoryId: values.categoryId,
         unit: values.unit,
@@ -163,6 +183,19 @@ export function ProductFormModal({
 
   const belowCost = canViewCost && watch('salePrice') > 0 && watch('salePrice') < watch('costPrice');
 
+  // Kodning kelib chiqishini ko'rsatamiz: ikkalasi bitta maydonda yashaydi va
+  // omborchi qaysi biri ekanini bilishi kerak. 20-29 — do'kon ichki diapazoni,
+  // ya'ni bu kodni tizimning o'zi chiqargan va yorliqni ham o'zi bosadi.
+  const barcodeValue = watch('barcode');
+  const barcodeHint = (() => {
+    const code = barcodeValue?.trim() ?? '';
+    if (code.length !== 13 || !/^\d+$/.test(code)) return t('warehouse.form.barcodeHint');
+    const prefix = Number(code.slice(0, 2));
+    return prefix >= 20 && prefix <= 29
+      ? t('warehouse.form.barcodeInternal')
+      : t('warehouse.form.barcodeFactory');
+  })();
+
   const inputCls =
     'h-11 rounded-input border border-input-border bg-surface px-3.5 text-[14px] outline-none focus:border-primary focus:shadow-focus-ring';
 
@@ -185,6 +218,14 @@ export function ProductFormModal({
               }}
             >
               {t('warehouse.form.delete')}
+            </Button>
+          )}
+          {/* Faqat saqlangan tovarda: chop etish uchun serverdagi id kerak.
+              Yangi tovarda avval saqlanadi, keyin qaytib kelib bosiladi. */}
+          {isEdit && hasPermission(PERMISSIONS.products.edit) && (
+            <Button variant="secondary" onClick={() => setPrinting(true)}>
+              <Printer size={15} />
+              {t('labels.fromProduct')}
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>
@@ -210,6 +251,47 @@ export function ProductFormModal({
 
         <Field label={t('warehouse.form.sku')}>
           <input className={inputCls} {...register('sku')} />
+        </Field>
+        {/* Skaner klaviatura kabi ishlaydi — maydonga fokus berib kodni
+            o'qitsa, u shu yerga tushadi. inputMode="numeric" telefonda raqamli
+            klaviaturani ochadi. */}
+        <Field label={t('warehouse.form.barcode')} hint={barcodeHint}>
+          <div className="flex gap-2">
+            <input
+              className={cn(inputCls, 'flex-1')}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={t('warehouse.form.barcodePlaceholder')}
+              // Apparat skaner klaviatura kabi ishlaydi: raqamlarni terib,
+              // oxirida Enter yuboradi. Enter esa formani YUBORADI — ya'ni kod
+              // tushishi bilan tovar saqlanib ketardi, yangi tovarda esa hali
+              // to'ldirilmagan maydonlar bilan validatsiya xatosi chiqardi.
+              // Bu yerda Enter kodning tugagani, saqlash buyrug'i emas.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
+              {...register('barcode')}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex-none"
+              loading={suggest.isPending}
+              onClick={async () => {
+                // Kod bor bo'lsa tasdiq so'raymiz: eski kod bilan chop etilgan
+                // va tovarlarga yopishtirilgan yorliqlar ishlamay qoladi.
+                if (barcodeValue?.trim() && !(await confirm({
+                  title: t('warehouse.form.barcodeReplaceConfirm'),
+                  confirmLabel: t('warehouse.form.barcodeGenerate'),
+                }))) return;
+                suggest.mutate();
+              }}
+            >
+              <Sparkles size={14} />
+              {barcodeValue?.trim() ? t('warehouse.form.barcodeRegenerate') : t('warehouse.form.barcodeGenerate')}
+            </Button>
+          </div>
         </Field>
         <Field label={t('warehouse.form.category')}>
           <select className={inputCls} {...register('categoryId')}>
@@ -277,15 +359,36 @@ export function ProductFormModal({
           {t('warehouse.form.hidePrice')}
         </label>
       </form>
+
+      {/* Chop etish oynasi SAQLANGAN holatdan chiziladi (product), formadagi
+          tahrirlanayotgan qiymatdan emas: hali saqlanmagan kod bilan yorliq
+          bosilsa, u bazadagi tovarga mos kelmasdi. */}
+      {product && (
+        <PrintLabelsModal
+          open={printing}
+          onClose={() => setPrinting(false)}
+          targets={[{ id: product.id, name: product.name, sku: product.sku, barcode: product.barcode }]}
+        />
+      )}
     </Modal>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  /** Maydon ostidagi kichik izoh — nima uchun kerakligi aniq bo'lmagan joylarda. */
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-label">{label}</label>
       {children}
+      {hint && <span className="text-[11.5px] leading-snug text-muted-2">{hint}</span>}
     </div>
   );
 }

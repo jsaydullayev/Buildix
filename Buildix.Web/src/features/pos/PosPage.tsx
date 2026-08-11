@@ -13,9 +13,13 @@ import {
   UserPlus,
   Clock,
   Pause,
+  PackagePlus,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react';
 import { Button, Card, Spinner, Badge, useConfirm } from '@/shared/ui';
+import { useAuth } from '@/shared/auth/useAuth';
+import { PERMISSIONS } from '@/shared/config/permissions';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -33,6 +37,7 @@ import {
   type MixParts,
 } from './mix';
 import { ReceiptModal } from './ReceiptModal';
+import { ExternalItemModal } from './ExternalItemModal';
 import { shiftsApi } from '@/features/shifts/api';
 import { publicMarketApi } from '@/shared/api/auth';
 
@@ -57,6 +62,10 @@ export default function PosPage() {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const { hasPermission } = useAuth();
+  // Narx ustida savdolashish — auditlanadigan huquq, shuning uchun ruxsat
+  // ortida. Owner/Admin uni sukut bo'yicha oladi.
+  const canEditPrice = hasPermission(PERMISSIONS.sales.edit);
 
   const [saleId, setSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -69,6 +78,7 @@ export default function PosPage() {
   const [discountInput, setDiscountInput] = useState('');
   // Aralash to'lov: kassir uch usul bo'yicha summalarni o'zi taqsimlaydi.
   const [mixParts, setMixParts] = useState<MixParts>(EMPTY_MIX);
+  const [externalOpen, setExternalOpen] = useState(false);
   const [success, setSuccess] = useState(false);
   // Yakunlangan chek — «Rasmiylashtirish»dan keyingi oyna shundan chiziladi.
   // Sotuv holati serverdan qayta o'qiladi: to'langan summa, qoldiq va status
@@ -202,6 +212,75 @@ export default function PosPage() {
     void qc.invalidateQueries({ queryKey: ['pos-products'] });
   };
 
+  /**
+   * Enter qidiruv maydonida — skanerning tugatish signali. Kassir qobig'idagi
+   * bilan bir xil uch bosqich: aniq shtrix-kod → ro'yxatda yagona natija →
+   * aks holda xabar. Skaner klaviatura kabi ishlagani va maydon doim fokusda
+   * turgani uchun global tugma tutuvchi kerak emas.
+   */
+  async function handleScan() {
+    const code = search.trim();
+    if (!code || addItem.isPending) return;
+
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      addItem.mutate({
+        productId: product.id,
+        salePrice: product.salePrice,
+        minSalePrice: product.minSalePrice,
+      });
+      setSearch('');
+      return;
+    }
+
+    // Raqamli uzun satr — shtrix-kod urinishi. Zaxira yo'l ATAYLAB ishlatilmaydi:
+    // noma'lum kodga ro'yxatdagi tasodifiy tovarni qo'shish kassaning eng yomon
+    // xatosi bo'lardi.
+    if (/^\d{6,}$/.test(code)) {
+      setActionError(t('pos.scan.notFound', { code }));
+      return;
+    }
+
+    // Nom bo'yicha qidiruv: ro'yxat aynan shu so'rovga tegishli bo'lsagina.
+    // debouncedSearch tekshiruvisiz bu yerda eski natijalar turadi.
+    if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
+    const items = productsQuery.data?.items ?? [];
+    const only = items.length === 1 ? items[0] : undefined;
+    if (only) {
+      addItem.mutate({
+        productId: only.id,
+        salePrice: only.salePrice,
+        minSalePrice: only.minSalePrice,
+      });
+      setSearch('');
+    }
+  }
+
+  /**
+   * Katalogda yo'q tovar. Ombor qoldig'iga TEGMAYDI — tovar bizniki emas,
+   * qo'shni do'kondan olinadi; server ham uni shunday qabul qiladi
+   * (SaleItem.IsExternal, ProductId null).
+   */
+  const addExternal = useMutation({
+    mutationFn: async (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => {
+      const id = await ensureSale();
+      return posApi.addItem(id, {
+        isExternal: true,
+        externalProductName: p.name,
+        externalCostPrice: p.costPrice,
+        quantity: p.quantity,
+        salePrice: p.salePrice,
+        minSalePrice: 0,
+      });
+    },
+    onSuccess: () => {
+      setActionError(null);
+      setExternalOpen(false);
+      void refresh();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+
   // M-4: add a line by productId + price only — works from the product grid AND
   // from the cart "+" (which no longer depends on the current search results).
   const addItem = useMutation({
@@ -237,6 +316,18 @@ export default function PosPage() {
   const setQty = useMutation({
     mutationFn: (p: { itemId: string; quantity: number }) =>
       posApi.setItemQuantity(saleId!, p.itemId, p.quantity),
+    onSuccess: () => {
+      setActionError(null);
+      refreshAll();
+    },
+    onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
+  });
+  // Bitta qatorning narxini o'zgartirish (торг). Kassir ekranida bu allaqachon
+  // bor edi, admin kassasida esa yo'q edi — ya'ni ruxsati bor rol imkoniyatdan
+  // mahrum edi. Serverda auditga yoziladi va tannarxdan past narx (sozlama
+  // yoqilgan bo'lsa) rad etiladi.
+  const setLinePrice = useMutation({
+    mutationFn: (p: { itemId: string; price: number }) => posApi.updateItemPrice(p.itemId, p.price),
     onSuccess: () => {
       setActionError(null);
       refreshAll();
@@ -362,15 +453,32 @@ export default function PosPage() {
       <div className="grid flex-1 grid-cols-[1.5fr_1fr] gap-0 overflow-hidden">
         {/* LEFT — product search */}
         <div className="flex flex-col border-r border-border p-6">
-          <div className="relative mb-4">
+          <div className="mb-4 flex gap-2">
+          <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-2" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (actionError) setActionError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                void handleScan();
+              }}
               placeholder={t('pos.searchPlaceholder')}
               autoFocus
               className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
             />
+          </div>
+          {/* Katalogda yo'q tovar — mijoz so'ragan narsa bizda bo'lmasa, uni
+              qo'shni do'kondan olib berish odatiy hol. Ilgari bu imkoniyat
+              faqat kassir qobig'ida bor edi. */}
+          <Button variant="secondary" className="h-12 flex-none" onClick={() => setExternalOpen(true)}>
+            <PackagePlus size={16} />
+            {t('seller.pos.external.button')}
+          </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {productsQuery.isLoading ? (
@@ -494,8 +602,14 @@ export default function PosPage() {
                 <div key={it.id} className="flex items-center gap-3 border-b border-hairline py-3">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13.5px] font-medium">{it.productName}</div>
-                    <div className="text-[12px] text-muted-2 nums">
-                      {formatSum(it.salePrice)} · {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}
+                    <div className="flex items-center gap-1 text-[12px] text-muted-2 nums">
+                      <CartPrice
+                        price={it.salePrice}
+                        editable={canEditPrice}
+                        title={t('seller.pos.editPrice')}
+                        onCommit={(price) => setLinePrice.mutate({ itemId: it.id, price })}
+                      />
+                      <span>· {formatQty(it.quantity)} {unitLabel(t, it.unitValue, it.unit)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -682,6 +796,14 @@ export default function PosPage() {
         </div>
       </div>
       )}
+
+      <ExternalItemModal
+        open={externalOpen}
+        onClose={() => setExternalOpen(false)}
+        pending={addExternal.isPending}
+        error={addExternal.isError ? ((addExternal.error as unknown as ApiError).message ?? '') : null}
+        onSubmit={(p) => addExternal.mutate(p)}
+      />
 
       <ReceiptModal
         sale={done}
@@ -870,6 +992,79 @@ function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: 
  * saqlaydi, Escape — bekor qiladi. Escape'da `blur()` onBlur'ni sinxron
  * chaqiradi, shuning uchun bekor qilish bayrog'i commit'dan oldin tekshiriladi.
  */
+/**
+ * Qator narxi — bosilganda joyida tahrirlanadi (торг).
+ *
+ * <p>Miqdor maydoni bilan bir xil xulq: fokusda hammasi belgilanadi, Enter
+ * tasdiqlaydi, Escape bekor qiladi, bo'sh qoldirilsa hech narsa yubormaydi.
+ * Ruxsat bo'lmasa oddiy matn bo'lib qoladi — tugma umuman chiqmaydi.</p>
+ */
+function CartPrice({
+  price,
+  editable,
+  title,
+  onCommit,
+}: {
+  price: number;
+  editable: boolean;
+  title: string;
+  onCommit: (p: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setDraft(null);
+      return;
+    }
+    if (draft === null) return;
+    const raw = draft.trim();
+    setDraft(null);
+    if (raw === '') return;
+    const p = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(p) || p < 0 || p === price) return;
+    onCommit(p);
+  };
+
+  if (draft !== null) {
+    return (
+      <input
+        autoFocus
+        onFocus={(e) => e.currentTarget.select()}
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/[^\d.,]/g, ''))}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            cancelRef.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+        className="h-6 w-24 rounded border border-primary bg-surface px-1.5 text-right text-[12px] outline-none nums"
+      />
+    );
+  }
+
+  if (!editable) return <span className="nums">{formatSum(price)}</span>;
+
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={() => setDraft(String(price))}
+      className="flex items-center gap-1 rounded px-0.5 text-muted-2 transition-colors hover:text-primary"
+    >
+      <span className="nums">{formatSum(price)}</span>
+      <Pencil size={11} />
+    </button>
+  );
+}
+
 function CartQty({ quantity, onCommit }: { quantity: number; onCommit: (q: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelRef = useRef(false);

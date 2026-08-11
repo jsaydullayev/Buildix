@@ -31,6 +31,7 @@ internal static class ProductMapper
             product.ImageUrl,
             product.HidePriceFromSellers,
             product.Sku,
+            product.Barcode,
             product.Description,
             product.IsHidden,
             product.WarehouseLocation

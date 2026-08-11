@@ -15,6 +15,22 @@ public class Product : BaseEntity, ISoftDelete
     public string? Sku { get; set; }
 
     /// <summary>
+    /// Zavod shtrix-kodi (EAN-13, UPC, ITF-14…). Skaner o'qiydigan kod.
+    ///
+    /// <para><b>Artikuldan farqi.</b> <see cref="Sku"/> — do'konning ichki kodi
+    /// va u ataylab takrorlanishi mumkin. Shtrix-kod esa market ichida YAGONA:
+    /// skaner kodni o'qiganda tizim aynan bitta tovarni topishi kerak, aks holda
+    /// kassir qaysi birini qo'shishni tanlab o'tirishga majbur bo'ladi — bu esa
+    /// skanerdan ko'zlangan maqsadni yo'qqa chiqaradi.</para>
+    ///
+    /// <para>Null — odatiy holat: qurilish do'konidagi tovarlarning ko'pi
+    /// (sement, g'isht, armatura) og'irlik yoki uzunlik bilan sotiladi va
+    /// ularda zavod kodi umuman yo'q. Unikal indeks NULL larni hisobga olmaydi,
+    /// shuning uchun kodsiz tovarlar soni cheklanmagan.</para>
+    /// </summary>
+    public string? Barcode { get; set; }
+
+    /// <summary>
     /// Mahsulot rasmiga server-nisbiy URL, masalan "/uploads/products/12/abc.webp".
     /// Null = rasmsiz (ko'pchilik tovarlar uchun odatiy holat). Rasm fayli diskda
     /// (persistent volume) saqlanadi; bu yerda faqat qisqa yo'l turadi.

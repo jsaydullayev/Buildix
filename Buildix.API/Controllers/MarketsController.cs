@@ -9,7 +9,7 @@ namespace Buildix.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]/[action]")]
-public class MarketsController : ControllerBase
+public class MarketsController : ApiControllerBase
 {
     private readonly IMarketService _marketService;
     private readonly ILogger<MarketsController> _logger;
@@ -104,7 +104,7 @@ public class MarketsController : ControllerBase
 
             return Ok(market);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error getting market for owner");
             return StatusCode(500, new { message = "Xatolik yuz berdi" });
@@ -128,7 +128,7 @@ public class MarketsController : ControllerBase
 
             return Ok(new { message = "Market ma'lumotlari muvaffaqiyatli yangilandi" });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NotHandledGlobally(ex))
         {
             _logger.LogError(ex, "Error updating market for owner");
             return StatusCode(500, new { message = "Xatolik yuz berdi" });

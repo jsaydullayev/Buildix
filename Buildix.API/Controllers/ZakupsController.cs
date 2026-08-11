@@ -247,7 +247,8 @@ public class ZakupsController : ApiControllerBase
     public async Task<ActionResult<PurchaseSummaryDto>> GetReceiptsSummary([FromQuery] DateTime from, CancellationToken ct = default)
         => Ok(await _zakupService.GetReceiptsSummaryAsync(from, ct));
 
-    [HttpGet("export")]
+    // Mutlaq («~/») shakl — [action] konvensiyasi yo'lni ikkilantirib yubormasin.
+    [HttpGet("~/api/Zakups/export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.ZakupAccess)]
     public async Task<IActionResult> ExportZakupsToExcel()

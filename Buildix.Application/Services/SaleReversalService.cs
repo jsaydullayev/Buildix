@@ -24,8 +24,9 @@ public class SaleReversalService : ISaleReversalService
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<SaleReversalService> _logger;
     private readonly IStockLedger _stockLedger;
+    private readonly IExternalPayoutLedger _externalPayouts;
 
-    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger, IStockLedger stockLedger)
+    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -33,6 +34,7 @@ public class SaleReversalService : ISaleReversalService
         _auditLogService = auditLogService;
         _logger = logger;
         _stockLedger = stockLedger;
+        _externalPayouts = externalPayouts;
     }
 
     public async Task<Result<SaleDto>> CancelSaleAsync(Guid saleId, Guid adminId, CancellationToken cancellationToken = default)
@@ -115,14 +117,51 @@ public class SaleReversalService : ISaleReversalService
             }
             // External items (IsExternal == true) have no stock to restore.
 
-            // Refund cash payments back to the till. Card / Click / Terminal payments
-            // flow through external rails (POS / payment processor) so they don't touch
-            // our CashRegister — only Cash payments must be reversed here. The Payment
-            // records themselves stay in place as an audit trail.
-            var cashPayments = await _unitOfWork.Payments.FindAsync(
-                p => p.SaleId == saleId && p.PaymentType == PaymentType.Cash,
-                cancellationToken);
-            var cashRefund = cashPayments.Sum(p => p.Amount);
+            // Chekni bekor qilish — mijozga pulni to'liq qaytarish. Har to'lov
+            // turi uchun QOPLOVCHI MANFIY to'lov qatori yoziladi, xuddi
+            // «Возврат» oqimidagidek (SaleReturnService) — bu tizimning o'z
+            // modeli va smena hisobi aynan shunga tayanadi.
+            //
+            // Nega shart: `cashIn`/`cardIn` to'lovlar jadvalidan yig'iladi va
+            // sotuv holatiga QARAMAYDI. Ilgari bekor qilishda faqat kassa
+            // balansi kamayardi, to'lov qatori esa o'sha yerda qolardi —
+            // natijada «Kassada bo'lishi kerak» yashikdagi haqiqiy puldan ko'p
+            // chiqar, kassir har bekor qilishdan keyin kam pul bordek his
+            // qilardi. Manfiy qator buni ham naqd, ham kartada tenglashtiradi.
+            //
+            // Vaqt va egalik: CreatedAt = HOZIR, CollectedByUserId = null.
+            // Null «odatiy kassadagi holat» degani — hisob sotuvning o'z
+            // sotuvchisiga tushadi (ComputeFinancialsAsync shunday o'qiydi).
+            // Shu ikkisi birgalikda kecha sotilib bugun bekor qilingan chekni
+            // BUGUNGI smenaga tushiradi — pul aynan bugun yashikdan chiqqan.
+            var paidByType = (await _unitOfWork.Payments.FindAsync(
+                    p => p.SaleId == saleId, cancellationToken))
+                .GroupBy(p => p.PaymentType)
+                .Select(g => new { Type = g.Key, Amount = g.Sum(p => p.Amount) })
+                .Where(x => x.Amount > 0)   // allaqachon qaytarilganlari nol/manfiy
+                .ToList();
+
+            foreach (var paid in paidByType)
+            {
+                // Credit (qarz) — pul emas, qarz yozuvi; u quyida alohida
+                // yopiladi, qoplovchi qator kerak emas.
+                if (paid.Type == PaymentType.Credit) continue;
+
+                _context.Payments.Add(new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    SaleId = sale.Id,
+                    MarketId = sale.MarketId,
+                    PaymentType = paid.Type,
+                    Amount = -paid.Amount,
+                    CollectedByUserId = null,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+
+            // Kassaga faqat NAQD ta'sir qiladi: karta/Click/o'tkazma tashqi
+            // relslarda qaytariladi (bank/platforma), yashikka tegmaydi.
+            var cashRefund = paidByType.FirstOrDefault(x => x.Type == PaymentType.Cash)?.Amount ?? 0m;
             if (cashRefund > 0)
             {
                 var cashRegister = await _context.CashRegisters
@@ -140,6 +179,12 @@ public class SaleReversalService : ISaleReversalService
                             saleId, cashRegister.CurrentBalance);
                 }
             }
+
+            // Qo'shni do'konga berilgan pul kassaga qaytadi. Sharti chiqim
+            // yozilgan sharti bilan bir xil — `wasFinalized`: Draft'da chiqim
+            // umuman yozilmagan, demak qaytarish ham yozilmaydi (net-nol).
+            if (wasFinalized)
+                await _externalPayouts.ReverseAsync(sale, cancellationToken);
 
             // Update sale status
             sale.Status = SaleStatus.Cancelled;

@@ -349,7 +349,8 @@ public class ShiftService : IShiftService
     private record ShiftFinancials(
         decimal CashIn, decimal CardIn, decimal Withdrawals, decimal Revenue, int CheckCount, decimal ExpectedCash,
         decimal DebtIn, int CashCount, int CardCount, int DebtCount, decimal ReturnAmount, int ReturnCount,
-        decimal TerminalIn, decimal ClickIn, int TerminalCount, int ClickCount);
+        decimal TerminalIn, decimal ClickIn, int TerminalCount, int ClickCount,
+        decimal ExternalPayouts);
 
     /// <summary>Aggregates the money that moved through the drawer during a shift window.</summary>
     private async Task<ShiftFinancials> ComputeFinancialsAsync(Shift s, DateTime windowEnd, CancellationToken cancellationToken)
@@ -435,11 +436,22 @@ public class ShiftService : IShiftService
         var debtIn = await debtSales.SumAsync(x => (decimal?)(x.TotalAmount - x.PaidAmount), cancellationToken) ?? 0m;
         var debtCount = await debtSales.CountAsync(cancellationToken);
 
-        var expected = s.OpeningCash + cashIn - withdrawals;
+        // Qo'shni do'kondan olingan tovarlar uchun kassadan chiqqan pul. Sotuvning
+        // O'ZIDAN hisoblanadi, CashMovement'dan emas: jurnal — faqat ro'yxat,
+        // hisob-kitob manbai emas (CashLedger shartnomasi). Bu ayni paytda
+        // bekor qilingan sotuvni ham avtomatik chiqarib tashlaydi — `salesInWindow`
+        // Cancelled/Draft'ni allaqachon filtrlaydi, ya'ni yozuv/qaytarish
+        // simmetriyasini bu yerda takrorlash shart emas.
+        var saleIdsInWindow = salesInWindow.Select(x => x.Id);
+        var externalPayouts = await _db.SaleItems.AsNoTracking()
+            .Where(si => si.IsExternal && saleIdsInWindow.Contains(si.SaleId))
+            .SumAsync(si => (decimal?)(si.ExternalCostPrice * si.Quantity), cancellationToken) ?? 0m;
+
+        var expected = s.OpeningCash + cashIn - withdrawals - externalPayouts;
         return new ShiftFinancials(
             cashIn, cardIn, withdrawals, revenue, checkCount, expected,
             debtIn, cashCount, cardCount, debtCount, returnAmount, returnCount,
-            terminalIn, clickIn, terminalCount, clickCount);
+            terminalIn, clickIn, terminalCount, clickCount, externalPayouts);
     }
 
     private async Task<Shift?> FindOpenShiftAsync(Guid userId, CancellationToken cancellationToken)
@@ -456,5 +468,5 @@ public class ShiftService : IShiftService
         fin.CheckCount, fin.Revenue, fin.CashIn, fin.CardIn, fin.Withdrawals, fin.ExpectedCash,
         fin.DebtIn, fin.CashCount, fin.CardCount, fin.DebtCount, fin.ReturnAmount, fin.ReturnCount,
         s.ShiftNumber,
-        fin.TerminalIn, fin.ClickIn, fin.TerminalCount, fin.ClickCount);
+        fin.TerminalIn, fin.ClickIn, fin.TerminalCount, fin.ClickCount, fin.ExternalPayouts);
 }

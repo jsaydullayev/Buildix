@@ -35,6 +35,12 @@ export interface Shift {
   clickIn: number;
   terminalCount: number;
   clickCount: number;
+  /**
+   * Qo'shni do'kondan olingan tovarlar uchun kassadan berilgan pul. Chiqim,
+   * shuning uchun expectedCash'dan allaqachon AYIRILGAN — alohida ko'rsatiladi,
+   * aks holda kassir kutilayotgan naqd nega kamayganini tushunmaydi.
+   */
+  externalPayouts: number;
 }
 
 /** The caller's own shift history for a period + its totals. */

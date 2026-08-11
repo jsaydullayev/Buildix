@@ -38,6 +38,9 @@ public record ProductDto(
     [property: JsonPropertyName("hidePriceFromSellers")] bool HidePriceFromSellers = false,
     // Artikul / SKU (ixtiyoriy) — Склад ekranida "АРТИКУЛ" ustuni + qidiruv.
     [property: JsonPropertyName("sku")] string? Sku = null,
+    // Shtrix-kod (ixtiyoriy) — skaner shu bo'yicha tovarni topadi. Zavod kodi
+    // bo'lishi ham, tizim yaratgan ichki kod (EAN-13, 20-29) bo'lishi ham mumkin.
+    [property: JsonPropertyName("barcode")] string? Barcode = null,
     // Sotuvchiga ko'rinadigan tavsif (Товары ekrani "Описание").
     [property: JsonPropertyName("description")] string? Description = null,
     // True — POS/sotuvchi katalogidan yashirilgan (hisobotlarda qoladi).
@@ -120,6 +123,12 @@ public record CreateProductDto(
     [param: StringLength(50)]
     string? Sku = null,
 
+    // Shtrix-kod (ixtiyoriy). Market ichida yagona — takrorlansa servis
+    // tushunarli xato qaytaradi.
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
+
     [property: JsonPropertyName("description")]
     [param: StringLength(1000)]
     string? Description = null,
@@ -173,6 +182,12 @@ public record UpdateProductDto(
     [param: StringLength(50)]
     string? Sku = null,
 
+    // Shtrix-kod. Null — tegilmaydi; bo'sh satr — tozalash (kod boshqa
+    // tovarga berilishi mumkin bo'lib qoladi).
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
+
     // Tavsif (Товары "Описание"). Edit-forma boshqaradi; null/bo'sh — tozalash.
     // POS-visibility (IsHidden) esa alohida PATCH /Products/{id} orqali.
     [property: JsonPropertyName("description")]
@@ -217,4 +232,62 @@ public record ProductPatchDto(
     [property: JsonPropertyName("warehouseLocation")]
     [param: StringLength(120)]
     string? WarehouseLocation = null
+);
+
+/// <summary>Bitta tovar uchun nechta yorliq chop etilsin.</summary>
+public record LabelItemDto(
+    [property: JsonPropertyName("productId")] Guid ProductId,
+    // Priyomkadan keyin kelgan miqdor shu yerga tushadi (10 dona kelsa — 10 yorliq).
+    [property: JsonPropertyName("copies")]
+    [param: Range(1, 500)]
+    int Copies = 1
+);
+
+/// <summary>
+/// Yorliq chop etish so'rovi. Bitta tovar ham, ro'yxatdan belgilangan o'nlab
+/// tovar ham shu yo'l bilan boradi — chop etish oqimi bitta bo'lgani ma'qul.
+/// </summary>
+public record PrintLabelsDto(
+    [property: JsonPropertyName("items")]
+    [param: MinLength(1, ErrorMessage = "Kamida bitta tovar tanlang")]
+    IReadOnlyList<LabelItemDto> Items,
+
+    // Yorliq o'lchami mm da. Standart 58×40 — arzon termal printerlarda eng
+    // keng tarqalgani. Boshqa rulon olinsa mijoz o'lchamni yuboradi.
+    [property: JsonPropertyName("widthMm")]
+    [param: Range(20, 210)]
+    double WidthMm = 58,
+
+    [property: JsonPropertyName("heightMm")]
+    [param: Range(15, 297)]
+    double HeightMm = 40
+);
+
+/// <summary>
+/// Bitta yorliqning ko'rinishi. Bazaga tegmaydi — barcha ma'lumot mijozdan
+/// keladi, shuning uchun ko'rinishni ochish hech narsani o'zgartirmaydi
+/// (kodsiz tovarga kod yozib qo'ymaydi).
+/// </summary>
+public record LabelPreviewDto(
+    [property: JsonPropertyName("name")]
+    [param: Required, StringLength(200)]
+    string Name,
+
+    [property: JsonPropertyName("sku")]
+    [param: StringLength(50)]
+    string? Sku = null,
+
+    // Kodsiz tovar uchun mijoz namuna kod yuboradi — ko'rinishda chiziqlar
+    // qanday joylashishini ko'rsatish uchun; chop etishda haqiqiysi chiqadi.
+    [property: JsonPropertyName("barcode")]
+    [param: StringLength(64)]
+    string? Barcode = null,
+
+    [property: JsonPropertyName("widthMm")]
+    [param: Range(20, 210)]
+    double WidthMm = 58,
+
+    [property: JsonPropertyName("heightMm")]
+    [param: Range(15, 297)]
+    double HeightMm = 40
 );

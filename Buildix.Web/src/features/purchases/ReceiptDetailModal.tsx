@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Printer } from 'lucide-react';
 import { Modal, Button, Badge, Spinner } from '@/shared/ui';
+import { PrintLabelsModal } from '@/features/warehouse/PrintLabelsModal';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate, formatTime } from '@/shared/lib/format';
 import type { ApiError } from '@/shared/api/types';
@@ -33,8 +35,14 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
   const canPay = hasPermission(PERMISSIONS.zakup.create);
+  // Yorliq chop etish tovarni o'zgartiradi (kodsizga kod yoziladi), shuning
+  // uchun server products.edit talab qiladi. Ruxsatsiz foydalanuvchiga taklif
+  // ko'rsatilsa, u bosib 403 olardi — boshi berk yo'l.
+  const canPrintLabels = hasPermission(PERMISSIONS.products.edit);
   const [payInput, setPayInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [offerLabels, setOfferLabels] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const query = useQuery({
     queryKey: ['receipt', receiptId],
@@ -64,6 +72,9 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
       // Accepting adds stock → refresh receipts, products and warehouse tiles.
       void qc.invalidateQueries({ queryKey: ['receipts'] });
       void qc.invalidateQueries({ queryKey: ['products'] });
+      // Yangi kelgan tovarga yorliq kerak bo'ladi — aynan shu paytda taklif
+      // qilamiz, keyin omborchi buni alohida eslab yurmasin.
+      if (canPrintLabels) setOfferLabels(true);
     },
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),
   });
@@ -202,8 +213,45 @@ export function ReceiptDetailModal({ receiptId, onClose }: { receiptId: string |
           {receipt.comment && (
             <p className="rounded-input bg-bg px-4 py-2.5 text-[13px] text-muted">{receipt.comment}</p>
           )}
+
+          {/* Qabul qilingandan keyingi taklif — modal ichida, chunki omborchi
+              shu yerda turibdi va yorliq aynan hozir kerak bo'ladi. */}
+          {offerLabels && (
+            <div className="flex flex-wrap items-center gap-3 rounded-input bg-success-soft px-4 py-3">
+              <span className="flex-1 text-[13px] text-success-text">{t('labels.afterAccept')}</span>
+              <button
+                type="button"
+                onClick={() => setOfferLabels(false)}
+                className="text-[13px] text-muted transition-colors hover:text-text"
+              >
+                {t('labels.later')}
+              </button>
+              <Button size="sm" onClick={() => setPrinting(true)}>
+                <Printer size={14} />
+                {t('labels.fromProduct')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Nusxa soni kelgan miqdordan olinadi: 10 dona kelsa — 10 yorliq.
+          Kasr miqdor (2.5 kg sement) yaxlitlanadi — yorliq bo'lakka
+          bo'linmaydi. Shtrix-kod chek qatorida yo'q, shuning uchun
+          `barcode` berilmaydi (noma'lum) va modal bu haqda hech narsa da'vo
+          qilmaydi. */}
+      <PrintLabelsModal
+        open={printing}
+        onClose={() => {
+          setPrinting(false);
+          setOfferLabels(false);
+        }}
+        targets={(receipt?.items ?? []).map((line) => ({
+          id: line.productId,
+          name: line.productName,
+          copies: Math.max(1, Math.round(line.quantity)),
+        }))}
+      />
     </Modal>
   );
 }

@@ -40,7 +40,13 @@ public record ShiftDto(
     [property: JsonPropertyName("terminalIn")] decimal TerminalIn = 0,
     [property: JsonPropertyName("clickIn")] decimal ClickIn = 0,
     [property: JsonPropertyName("terminalCount")] int TerminalCount = 0,
-    [property: JsonPropertyName("clickCount")] int ClickCount = 0
+    [property: JsonPropertyName("clickCount")] int ClickCount = 0,
+    /// <summary>
+    /// Qo'shni do'kondan olingan tovarlar uchun kassadan berilgan pul. Chiqim,
+    /// shuning uchun ExpectedCash'dan AYIRILGAN. Alohida ko'rsatiladi — aks holda
+    /// kassir kutilayotgan naqd nega kamayganini tushunmaydi.
+    /// </summary>
+    [property: JsonPropertyName("externalPayouts")] decimal ExternalPayouts = 0
 );
 
 /// <summary>

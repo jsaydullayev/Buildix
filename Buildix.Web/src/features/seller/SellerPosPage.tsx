@@ -22,7 +22,7 @@ import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
+import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
 import type { PagedResult } from '@/shared/api/paged';
 import { publicMarketApi } from '@/shared/api/auth';
@@ -40,6 +40,7 @@ import {
   type MixParts,
 } from '@/features/pos/mix';
 import { ReceiptModal } from '@/features/pos/ReceiptModal';
+import { ExternalItemModal } from '@/features/pos/ExternalItemModal';
 
 type Method = 'Cash' | 'Terminal' | 'Mixed' | 'Debt';
 const METHODS: { key: string; value: Method }[] = [
@@ -117,7 +118,7 @@ export default function SellerPosPage() {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
   const qc = useQueryClient();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   // Line-price override is the «торг» lever. It is the same authority as the
   // admin price edit (audited server-side), so it stays behind sales.edit —
   // a plain cashier does not get it just by standing at the register.
@@ -247,6 +248,20 @@ export default function SellerPosPage() {
   /** Pull the authoritative receipt back after a basket mutation. */
   const refreshSale = (id: string | null = saleId) =>
     qc.invalidateQueries({ queryKey: ['pos-sale', id] });
+
+  /**
+   * «Narxni sotuvchidan yashirish» — faqat SOTUV oqimida va faqat Seller
+   * rolida. Egasi yoki administrator kassaga kirsa narxni ko'radi: belgi
+   * aynan sotuvchiga qaratilgan.
+   *
+   * <p>Bu maxfiylik chorasi emas, ish tartibi: narx «Tovarlar» bo'limida
+   * sotuvchiga ochiq turadi (foydalanuvchi shunday xohladi). Maqsad — kassir
+   * ekrandan narx o'qib mijozga aytmasin, egasidan so'rasin. Shuning uchun
+   * serverda maskalash qilinmadi: bir xil endpoint ikkala ekranga xizmat
+   * qiladi va maskalash «Tovarlar» ni ham buzardi.</p>
+   */
+  const isSeller = hasRole(ROLES.Seller);
+  const hidePriceOf = (p: Product) => isSeller && p.hidePriceFromSellers;
 
   /** Drafts only move when a receipt is parked, resumed, discarded or closed. */
   const refreshDrafts = () => qc.invalidateQueries({ queryKey: ['pos-drafts'] });
@@ -461,6 +476,59 @@ export default function SellerPosPage() {
     if (saleId) attachCustomer.mutate(c);
   }
 
+  /**
+   * Enter — skanerning tugatish signali.
+   *
+   * <p>Apparat skaner klaviatura kabi ishlaydi: kodni juda tez teradi va Enter
+   * bosadi. Qidiruv maydoni kassada doim fokusda turadi (autoFocus + F2),
+   * shuning uchun kod shu yerga tushadi va global tugma tutuvchi kerak emas —
+   * u boshqa maydonlarga (miqdor, chegirma, mijoz ismi) aralashib ketardi.</p>
+   *
+   * <p>Uch bosqich: aniq shtrix-kod → ro'yxatda bitta natija qolgan bo'lsa
+   * o'sha → aks holda xabar. Ikkinchi bosqich skanersiz ham foydali: kassir
+   * nomni terib Enter bossa, tovar qo'shiladi.</p>
+   */
+  async function handleScan() {
+    const code = search.trim();
+    if (!code || addItem.isPending) return;
+
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      addItem.mutate({
+        productId: product.id,
+        salePrice: product.salePrice,
+        minSalePrice: product.minSalePrice,
+      });
+      setSearch('');
+      return;
+    }
+
+    // Raqamlardan iborat uzun satr — bu shtrix-kod urinishi. Bunday holatda
+    // ZAXIRA YO'L ISHLATILMAYDI: noma'lum kod uchun ro'yxatdagi tasodifiy
+    // tovarni qo'shish kassaning eng yomon xatosi bo'lardi — kassir buni
+    // sezmasdan mijozga boshqa narsani yozib yuboradi.
+    if (/^\d{6,}$/.test(code)) {
+      setActionError(t('pos.scan.notFound', { code }));
+      return;
+    }
+
+    // Nom bo'yicha qidiruv: ro'yxat AYNAN shu so'rovga tegishli bo'lsagina
+    // yagona natijani qo'shamiz. debouncedSearch tekshiruvisiz bu yerda hali
+    // eski natijalar turadi (qidiruv debounce bilan kechikadi) va Enter
+    // butunlay boshqa tovarni chekka tushirardi.
+    if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
+    const items = productsQuery.data?.items ?? [];
+    const only = items.length === 1 ? items[0] : undefined;
+    if (only) {
+      addItem.mutate({
+        productId: only.id,
+        salePrice: only.salePrice,
+        minSalePrice: only.minSalePrice,
+      });
+      setSearch('');
+    }
+  }
+
   /** Park the current receipt: it simply stays a Draft and reappears in the strip. */
   function park() {
     draftRef.current = null;
@@ -574,7 +642,15 @@ export default function SellerPosPage() {
             <input
               ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (actionError) setActionError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault(); // Enter formani yubormasin
+                void handleScan();
+              }}
               placeholder={t('pos.searchPlaceholder')}
               autoFocus
               className="h-12 w-full rounded-input border border-input-border bg-surface pl-12 pr-24 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring"
@@ -657,12 +733,22 @@ export default function SellerPosPage() {
                         </span>
                       </div>
                       <span className="line-clamp-2 text-[13px] font-medium leading-tight">{p.name}</span>
-                      <span className="text-[14px] font-semibold text-primary nums">
-                        {formatSum(p.salePrice)}
-                        <span className="ml-1 text-[11px] font-normal text-muted-2">
-                          {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
+                      {/* «Narxni sotuvchidan yashirish» belgilangan tovarlarda
+                          kassir narxni katalogda ko'rmaydi — narxni egasi
+                          aytadi. Tovarning o'zi haqidagi ma'lumot «Tovarlar»
+                          bo'limida ochiq qoladi. */}
+                      {hidePriceOf(p) ? (
+                        <span className="text-[13px] font-medium text-muted-2">
+                          {t('seller.pos.priceOnRequest')}
                         </span>
-                      </span>
+                      ) : (
+                        <span className="text-[14px] font-semibold text-primary nums">
+                          {formatSum(p.salePrice)}
+                          <span className="ml-1 text-[11px] font-normal text-muted-2">
+                            {t('common.currency')}/{unitLabel(t, p.unit, p.unitName)}
+                          </span>
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -1122,112 +1208,6 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
  * because a line booked at cost 0 reports as pure profit and quietly inflates
  * the owner's margin report.
  */
-function ExternalItemModal({
-  open,
-  onClose,
-  pending,
-  error,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  pending: boolean;
-  error: string | null;
-  onSubmit: (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => void;
-}) {
-  const { t } = useTranslation();
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [cost, setCost] = useState('');
-  const [qty, setQty] = useState('1');
-
-  useEffect(() => {
-    if (open) {
-      setName('');
-      setPrice('');
-      setCost('');
-      setQty('1');
-    }
-  }, [open]);
-
-  const priceNum = Number(price.replace(',', '.')) || 0;
-  const costNum = Number(cost.replace(',', '.')) || 0;
-  const qtyNum = parseQty(qty) ?? 0;
-  // The server refuses cost >= price on an external line (it would book a loss
-  // or a zero-margin sale as if it were normal), so say so before the round-trip.
-  const costTooHigh = costNum > 0 && costNum >= priceNum;
-  const valid = name.trim().length > 0 && priceNum > 0 && qtyNum > 0 && !costTooHigh;
-
-  const inputCls =
-    'h-11 w-full rounded-input border border-input-border bg-surface px-4 text-[15px] outline-none focus:border-primary focus:shadow-focus-ring';
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={t('seller.pos.external.title')}
-      subtitle={t('seller.pos.external.subtitle')}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            disabled={!valid}
-            loading={pending}
-            onClick={() => onSubmit({ name: name.trim(), salePrice: priceNum, costPrice: costNum, quantity: qtyNum })}
-          >
-            <PackagePlus size={15} />
-            {t('seller.pos.external.add')}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-medium text-label">{t('seller.pos.external.name')}</label>
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-label">{t('seller.pos.external.price')}</label>
-            <input
-              inputMode="decimal"
-              placeholder="0"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className={`${inputCls} nums`}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-label">{t('seller.pos.qty')}</label>
-            {/* Fokusda «1» belgilanadi — yozish uni almashtiradi. */}
-            <input
-              inputMode="decimal"
-              value={qty}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => setQty(e.target.value)}
-              className={`${inputCls} nums`}
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-medium text-label">{t('seller.pos.external.cost')}</label>
-          <input
-            inputMode="decimal"
-            placeholder="0"
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            className={`${inputCls} nums`}
-          />
-          <p className="text-[11.5px] text-muted-2">{t('seller.pos.external.costHint')}</p>
-        </div>
-        {costTooHigh && <p className="text-[12.5px] text-danger">{t('seller.pos.external.costTooHigh')}</p>}
-        {error && <p className="text-[12.5px] text-danger">{error}</p>}
-      </div>
-    </Modal>
-  );
-}
 
 /**
  * Customer lookup, with the create form folded in. Selling on credit needs a

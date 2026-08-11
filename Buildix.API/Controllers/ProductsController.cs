@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Buildix.Application.DTOs;
 using Buildix.Application.Constants;
 using Buildix.Application.Interfaces;
+using Buildix.Application.Services.Barcodes;
 using Buildix.API.Authorization;
 using Buildix.API.Services;
 using Buildix.Domain.Constants;
@@ -26,6 +27,7 @@ public class ProductsController : ApiControllerBase
     private readonly IProductsExcelExportService _productsExcelExportService;
     private readonly IProductImportService _importService;
     private readonly IImageIngestService _imageIngest;
+    private readonly IProductLabelService _labelService;
 
     public ProductsController(
         IProductService productService,
@@ -33,7 +35,8 @@ public class ProductsController : ApiControllerBase
         IProductImageService productImageService,
         IProductsExcelExportService productsExcelExportService,
         IProductImportService importService,
-        IImageIngestService imageIngest)
+        IImageIngestService imageIngest,
+        IProductLabelService labelService)
     {
         _productService = productService;
         _productQueryService = productQueryService;
@@ -41,6 +44,7 @@ public class ProductsController : ApiControllerBase
         _productsExcelExportService = productsExcelExportService;
         _importService = importService;
         _imageIngest = imageIngest;
+        _labelService = labelService;
     }
 
     /// <summary>Cost-price visibility is gated by the <c>data.costPrice</c>
@@ -55,6 +59,101 @@ public class ProductsController : ApiControllerBase
     public async Task<ActionResult<ProductDto>> GetProduct(Guid id, CancellationToken ct = default)
     {
         var product = await _productQueryService.GetProductByIdAsync(id, CanViewCost(), ct);
+        if (product is null)
+            return NotFound();
+
+        return Ok(product);
+    }
+
+    /// <summary>
+    /// Tovarga ichki EAN-13 kod biriktiradi (kodi yo'q bo'lsa). Kod allaqachon
+    /// bo'lsa o'sha qaytariladi — <c>?replace=true</c> bilangina almashtiriladi.
+    /// </summary>
+    /// <remarks>
+    /// Almashtirish ataylab qiyinlashtirilgan: kod o'zgarsa, allaqachon chop
+    /// etilib tovarlarga yopishtirilgan yorliqlar ishlamay qoladi.
+    /// </remarks>
+    /// <summary>
+    /// Bo'sh ichki EAN-13 kod taklif qiladi — hech narsa saqlamaydi. Tovar
+    /// formasidagi «Yaratish» tugmasi shuni chaqiradi; kod bazaga forma
+    /// saqlanganda yoziladi.
+    /// </summary>
+    [HttpGet("~/api/Products/barcode/suggest")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<object>> SuggestBarcode(CancellationToken ct = default)
+    {
+        var result = await _labelService.SuggestBarcodeAsync(ct);
+        return result.IsSuccess ? Ok(new { barcode = result.Value }) : ToActionResult(result);
+    }
+
+    [HttpPost("~/api/Products/{id:guid}/barcode")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<object>> GenerateBarcode(
+        Guid id, [FromQuery] bool replace = false, CancellationToken ct = default)
+    {
+        var result = await _labelService.GenerateBarcodeAsync(id, replace, ct);
+        return result.IsSuccess ? Ok(new { barcode = result.Value }) : ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Tanlangan tovarlar uchun yorliq PDF i (har nusxa — alohida sahifa).
+    /// Kodsiz tovarlarga kod shu yerda avtomatik beriladi.
+    /// </summary>
+    /// <summary>
+    /// Bitta yorliqning ko'rinishi (PNG) — chop etishdan oldin ko'rsatish uchun.
+    /// </summary>
+    /// <remarks>
+    /// Bazaga tegmaydi: nom, artikul va kod so'rovdan keladi. Shuning uchun
+    /// ko'rinishni ochish yoki o'lchamni almashtirish hech narsani
+    /// o'zgartirmaydi — kodsiz tovarga kod yozib qo'ymaydi.
+    /// Rasm chop etiladigan hujjatning AYNAN o'zidan chiqadi.
+    /// </remarks>
+    [HttpPost("~/api/Products/labels/preview")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public IActionResult PreviewLabel([FromBody] LabelPreviewDto request)
+    {
+        var code = request.Barcode?.Trim();
+        if (string.IsNullOrEmpty(code) || !Ean13.IsValid(code))
+            // Kod hali yo'q (yoki yaroqsiz) — ko'rinish uchun namuna kod.
+            // Chop etishda haqiqiysi chiqadi.
+            code = Ean13.NewInternal();
+
+        var png = LabelPdfRenderer.RenderPreviewPng(
+            new LabelData(request.Name, code, request.Sku), request.WidthMm, request.HeightMm);
+
+        // Ko'rinish har o'lcham almashganda qayta so'raladi — keshlanmasin.
+        return File(png, "image/png");
+    }
+
+    [HttpPost("~/api/Products/labels")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<IActionResult> PrintLabels([FromBody] PrintLabelsDto request, CancellationToken ct = default)
+    {
+        var result = await _labelService.RenderLabelsAsync(request, ct);
+        if (!result.IsSuccess) return ToActionResult(result).Result!;
+
+        // inline — brauzer PDF ni yangi oynada ochadi va foydalanuvchi bevosita
+        // chop etadi; yuklab olingan fayl ortiqcha qadam bo'lardi.
+        return File(result.Value, "application/pdf", $"labels_{DateTime.UtcNow:yyyy-MM-dd_HHmm}.pdf");
+    }
+
+    /// <summary>
+    /// Skaner uchun: shtrix-kod bo'yicha aniq moslik. Topilmasa 404.
+    /// </summary>
+    /// <remarks>
+    /// Ruxsat — <c>products.access</c>, katalogni ko'rish bilan bir xil: skaner
+    /// kassirga allaqachon ochiq bo'lgan ma'lumotni tezroq topib beradi, xolos.
+    /// Narx cheklovlari ham o'zgarmaydi — CanViewCost() odatdagidek qo'llanadi,
+    /// ya'ni kassir tannarxni bu yo'l bilan ham ko'ra olmaydi.
+    /// </remarks>
+    // Absolute route ("~/") — controller'dagi [action] konvensiyasini chetlab
+    // o'tadi, aks holda yo'l /api/Products/GetProductByBarcode/by-barcode/{kod}
+    // bo'lib ketardi. Xuddi /summary dagi kabi.
+    [HttpGet("~/api/Products/by-barcode/{barcode}")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<ActionResult<ProductDto>> GetProductByBarcode(string barcode, CancellationToken ct = default)
+    {
+        var product = await _productQueryService.GetProductByBarcodeAsync(barcode, CanViewCost(), ct);
         if (product is null)
             return NotFound();
 
@@ -228,7 +327,8 @@ public class ProductsController : ApiControllerBase
     /// fetch used by the in-app list. No filtering server-side; the user
     /// can sort / filter in Excel if needed.
     /// </summary>
-    [HttpGet("export")]
+    // Mutlaq («~/») shakl — [action] konvensiyasi yo'lni ikkilantirib yubormasin.
+    [HttpGet("~/api/Products/export")]
     [EnableRateLimiting("export")]
     [RequirePermission(PermissionKeys.ProductsExport)]
     public async Task<IActionResult> ExportProductsToExcel(
