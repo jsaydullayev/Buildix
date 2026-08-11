@@ -28,7 +28,7 @@ public class SaleService : ISaleService
 
     private readonly IStockLedger _stockLedger;
 
-    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger)
+    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -39,7 +39,10 @@ public class SaleService : ISaleService
         _saleQueryService = saleQueryService;
         _settings = settings;
         _stockLedger = stockLedger;
+        _externalPayouts = externalPayouts;
     }
+
+    private readonly IExternalPayoutLedger _externalPayouts;
 
     public async Task<Result<SaleDto>> CreateSaleAsync(CreateSaleDto request, Guid sellerId, CancellationToken cancellationToken = default)
     {
@@ -276,7 +279,12 @@ public class SaleService : ISaleService
             _unitOfWork.Sales.Update(sale);
 
             if (startedAsDraft)
+            {
                 await _stockLedger.RecordSaleFinalizationAsync(sale, cancellationToken);
+                // Qo'shni do'kondan olingan tovar puli kassadan chiqadi — mijoz
+                // qarzga olgan bo'lsa ham. To'lov yo'lidagi bilan bir xil shart.
+                await _externalPayouts.RecordAsync(sale, cancellationToken);
+            }
 
             // Create or update debt record
             var existingDebt = await _unitOfWork.Debts.FindAsync(

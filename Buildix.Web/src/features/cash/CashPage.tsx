@@ -21,6 +21,8 @@ const TYPE_META: Record<string, { key: string; tone: 'success' | 'info' | 'warn'
   Expense: { key: 'expense', tone: 'danger' },
   Collection: { key: 'collection', tone: 'warn' },
   Opening: { key: 'opening', tone: 'neutral' },
+  // Katalogda yo'q tovar qo'shni do'kondan olinganda, puli kassadan beriladi.
+  ExternalPurchase: { key: 'externalPurchase', tone: 'warn' },
 };
 
 /**

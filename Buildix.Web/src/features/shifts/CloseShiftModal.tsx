@@ -62,6 +62,17 @@ export function CloseShiftModal({
       }
     >
       <div className="flex flex-col gap-4">
+        {/* Kutilgan summadan qo'shni do'konga berilgan pul allaqachon ayirilgan.
+            Buni ko'rsatmasak, kassir yashikda kamayib qolgandek his qiladi va
+            har safar farqni qidiradi. */}
+        {(shift?.externalPayouts ?? 0) > 0 && (
+          <div className="flex items-center justify-between rounded-input border border-hairline px-4 py-3 text-[13px]">
+            <span className="text-muted">{t('shifts.detail.externalPayouts')}</span>
+            <span className="font-semibold nums text-danger">
+              − {formatSum(shift!.externalPayouts)} {t('common.currency')}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between rounded-input bg-bg px-4 py-3 text-[14px]">
           <span className="text-muted">{t('shifts.close.expected')}</span>
           <span className="font-semibold nums">

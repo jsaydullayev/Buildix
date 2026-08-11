@@ -374,6 +374,7 @@ export const en: TranslationSchema = {
       deposit: 'Deposit',
       expense: 'Expense',
       collection: 'Collection',
+      externalPurchase: 'Other shop',
     },
     desc: { receipt: 'Receipt Ч-{{n}}' },
     category: {
@@ -687,6 +688,7 @@ export const en: TranslationSchema = {
       revenueByTender: 'Revenue by payment method',
       totalRevenue: 'Total revenue',
       cashRecon: 'Cash reconciliation at close',
+      externalPayouts: 'Paid to other shop',
       expectedCash: 'Expected in drawer',
       countedCash: 'Counted by seller',
       discrepancy: 'Variance',

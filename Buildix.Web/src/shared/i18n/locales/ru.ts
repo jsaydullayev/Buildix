@@ -372,6 +372,7 @@ export const ru = {
       deposit: 'Внесение',
       expense: 'Расход',
       collection: 'Инкассация',
+      externalPurchase: 'Чужой товар',
     },
     desc: { receipt: 'Чек Ч-{{n}}' },
     category: {
@@ -689,6 +690,7 @@ export const ru = {
       revenueByTender: 'Выручка по способам оплаты',
       totalRevenue: 'Итого выручка',
       cashRecon: 'Сверка наличных при закрытии',
+      externalPayouts: 'Выплачено чужому магазину',
       expectedCash: 'Ожидалось в кассе',
       countedCash: 'Пересчитано продавцом',
       discrepancy: 'Расхождение',

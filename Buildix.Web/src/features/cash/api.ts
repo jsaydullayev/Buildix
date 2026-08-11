@@ -3,7 +3,7 @@ import { apiClient } from '@/shared/api/client';
 /** One row of the cash ledger (see Buildix.Domain CashMovement). */
 export interface CashMovement {
   id: string;
-  /** Opening | Sale | DebtPayment | Deposit | Expense | Collection */
+  /** Opening | Sale | DebtPayment | Deposit | Expense | Collection | ExternalPurchase */
   type: string;
   /** Signed: income positive, outflow negative. */
   amount: number;

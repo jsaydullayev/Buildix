@@ -84,6 +84,15 @@ export function ShiftDetailModal({ shift, lang, onClose }: { shift: Shift | null
         )}
       >
         <div className="mb-2.5 text-[13px] font-semibold">{t('shifts.detail.cashRecon')}</div>
+        {/* Qo'shni do'konga berilgan pul kassadan chiqqan va kutilgan summadan
+            allaqachon ayirilgan. Yopilmagan smenada ham ko'rsatiladi — kassir
+            hisobni smena davomida ham tushunishi kerak. */}
+        {shift.externalPayouts > 0 && (
+          <ReconRow
+            label={t('shifts.detail.externalPayouts')}
+            value={`− ${formatSum(shift.externalPayouts)}`}
+          />
+        )}
         {reconciled ? (
           <>
             <ReconRow label={t('shifts.detail.expectedCash')} value={formatSum(shift.expectedCash)} />

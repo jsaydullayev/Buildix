@@ -374,6 +374,7 @@ export const uz: TranslationSchema = {
       deposit: 'Kiritish',
       expense: 'Chiqim',
       collection: 'Inkassatsiya',
+      externalPurchase: 'Qo‘shni do‘kon',
     },
     desc: { receipt: 'Chek Ч-{{n}}' },
     category: {
@@ -687,6 +688,7 @@ export const uz: TranslationSchema = {
       revenueByTender: 'To‘lov turlari bo‘yicha tushum',
       totalRevenue: 'Jami tushum',
       cashRecon: 'Yopishda naqd sverkasi',
+      externalPayouts: 'Qo‘shni do‘konga berildi',
       expectedCash: 'Kassada kutilgan',
       countedCash: 'Sotuvchi sanagan',
       discrepancy: 'Farq',

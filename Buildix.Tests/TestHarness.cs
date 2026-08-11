@@ -81,19 +81,20 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, NullLogger<SaleQueryService>.Instance);
 
     public SaleService NewSaleService() =>
-        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier, NewSaleQueryService(), Settings, StockLedger);
+        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier, NewSaleQueryService(), Settings, StockLedger, ExternalPayouts);
 
     public SaleItemService NewSaleItemService() =>
         new(UnitOfWork, Db, Market, NullLogger<SaleItemService>.Instance, CreditApplier, Settings, Audit);
 
     public SaleReversalService NewSaleReversalService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance, StockLedger);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance, StockLedger, ExternalPayouts);
 
     public SalePaymentService NewSalePaymentService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings, StockLedger, CashLedger);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings, StockLedger, CashLedger, ExternalPayouts);
 
     public IStockLedger StockLedger => new StockLedger(Db);
     public ICashLedger CashLedger => new CashLedger(Db);
+    public IExternalPayoutLedger ExternalPayouts => new ExternalPayoutLedger(Db, CashLedger);
 
     // Deterministic UTC+5 clock — no OS tz-db dependency, so ToLocal/TodayLocal
     // behave identically on any CI host (Смены attendance/lateness rely on this).
