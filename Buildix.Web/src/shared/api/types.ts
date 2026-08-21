@@ -38,7 +38,13 @@ export interface PublicMarketState {
 /** Normalised error shape surfaced to the UI. */
 export interface ApiError {
   status: number;
-  message: string;
+  /**
+   * Server bergan xabar. Server hech narsa yozmagan bo'lsa (masalan bo'sh
+   * tanali 403) — `undefined`, shunda chaqiruvchi o'z tarjimasini ko'rsatadi.
+   * Ilgari bu yerga «Network error» yozilardi va tarmoq butun bo'lsa ham
+   * foydalanuvchi «internet yo'q» deb o'ylardi.
+   */
+  message?: string;
   /** Domain code when present (e.g. SUBSCRIPTION_EXPIRED, MARKET_BLOCKED). */
   code?: string;
   retryAfterSeconds?: number;

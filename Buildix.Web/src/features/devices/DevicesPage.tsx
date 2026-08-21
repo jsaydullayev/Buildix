@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Printer, ScanLine, Check, X, AlertTriangle, Download } from 'lucide-react';
+import { Printer, ScanLine, Check, X, AlertTriangle, Download, Usb, Tags } from 'lucide-react';
 import { PageHeader, Card, Button, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
+import { formatShortDate, formatTime } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
 import type { ApiError } from '@/shared/api/types';
 import { posApi } from '@/features/pos/api';
 import { devicesApi } from './api';
 import { useScannerProbe } from './useScannerProbe';
+import { knownPrinters, pickPrinter, usbSupported, type UsbPrinter } from './usbPrinter';
+import { readCheck, writeCheck } from './lastCheck';
 
 const SIZES = [
   { key: '58x40', w: 58, h: 40 },
@@ -38,9 +42,41 @@ type PrintState =
  * bo'lmaydi — lekin terish tezligidan aniq ajratsa bo'ladi.</p>
  */
 export default function DevicesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { subdomain } = useParams();
   const [size, setSize] = useState<(typeof SIZES)[number]>(SIZES[0]);
   const [print, setPrint] = useState<PrintState>({ kind: 'idle' });
+
+  // Ulangan USB printerlar va oxirgi tekshiruv holati.
+  const [printers, setPrinters] = useState<UsbPrinter[]>([]);
+  const [usbNote, setUsbNote] = useState<string | null>(null);
+  const last = readCheck();
+
+  useEffect(() => {
+    // Ilgari ruxsat berilgan qurilmalar — hech narsa so'ramasdan.
+    void knownPrinters().then(setPrinters);
+  }, []);
+
+  async function detectUsb() {
+    setUsbNote(null);
+    const r = await pickPrinter();
+    if (r.kind === 'picked') {
+      setPrinters((prev) =>
+        prev.some((p) => p.vendorId === r.printer.vendorId && p.productId === r.printer.productId)
+          ? prev
+          : [...prev, r.printer],
+      );
+      return;
+    }
+    setUsbNote(
+      r.kind === 'unsupported'
+        ? t('devices.printer.usbUnsupported')
+        : r.kind === 'cancelled'
+          ? t('devices.printer.usbNone')
+          : r.message,
+    );
+  }
 
   const scanner = useScannerProbe();
   const [lookup, setLookup] = useState<{ state: 'idle' | 'busy' | 'found' | 'missing'; name?: string }>({
@@ -94,6 +130,47 @@ export default function DevicesPage() {
             </div>
           </div>
 
+          {/* Ulangan USB printerlar + oxirgi tekshiruv holati */}
+          <div className="mt-4 flex flex-col gap-2 rounded-card border border-hairline bg-bg/40 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[13px] font-semibold">{t('devices.printer.connected')}</span>
+              <Button variant="secondary" onClick={() => void detectUsb()}>
+                <Usb size={15} /> {t('devices.printer.detect')}
+              </Button>
+            </div>
+            {printers.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {printers.map((pr) => (
+                  <li key={pr.vendorId + pr.productId} className="flex flex-wrap items-center gap-2 text-[13px]">
+                    <Badge tone="success">{t('devices.printer.usbFound')}</Badge>
+                    <span className="font-medium">{pr.name}</span>
+                    <span className="text-[11.5px] text-muted-2 nums">
+                      {pr.vendorId}:{pr.productId}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[12.5px] text-muted-2">
+                {usbSupported() ? t('devices.printer.usbHint') : t('devices.printer.usbUnsupported')}
+              </p>
+            )}
+            {usbNote && <StatusLine tone="warn" text={usbNote} />}
+
+            {last && (
+              <div className="border-t border-hairline pt-2 text-[12.5px] text-muted">
+                {t('devices.printer.lastCheck', {
+                  date: formatShortDate(last.at, i18n.language),
+                  time: formatTime(last.at),
+                  size: last.size,
+                })}{' '}
+                <span className={last.ok ? 'font-semibold text-success' : 'font-semibold text-danger'}>
+                  {last.ok ? t('devices.printer.lastOk') : t('devices.printer.lastFailed')}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[13px] font-medium text-label">{t('devices.printer.size')}</span>
@@ -122,10 +199,22 @@ export default function DevicesPage() {
               {print.kind === 'sent' && (
                 <>
                   <span className="text-[13px] text-muted">{t('devices.printer.askResult')}</span>
-                  <Button variant="secondary" onClick={() => setPrint({ kind: 'ok' })}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setPrint({ kind: 'ok' });
+                      writeCheck({ at: new Date().toISOString(), ok: true, size: size.key, usbName: printers[0]?.name });
+                    }}
+                  >
                     <Check size={15} /> {t('devices.printer.yes')}
                   </Button>
-                  <Button variant="secondary" onClick={() => setPrint({ kind: 'failed' })}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setPrint({ kind: 'failed' });
+                      writeCheck({ at: new Date().toISOString(), ok: false, size: size.key });
+                    }}
+                  >
                     <X size={15} /> {t('devices.printer.no')}
                   </Button>
                 </>
@@ -133,7 +222,14 @@ export default function DevicesPage() {
             </div>
 
             {print.kind === 'ok' && (
-              <StatusLine tone="ok" text={t('devices.printer.ok')} />
+              <div className="flex flex-col gap-2 rounded-card border border-success/25 bg-success-soft px-4 py-3">
+                <StatusLine tone="ok" text={t('devices.printer.ok')} />
+                {/* Printer ishlagani tasdiqlangach, keyingi qadam — tovar
+                    yorliqlari. Omborchi buni qayerdan chiqarishni qidirmasin. */}
+                <Button className="self-start" onClick={() => navigate(`/${subdomain}/warehouse`)}>
+                  <Tags size={15} /> {t('devices.printer.goToLabels')}
+                </Button>
+              </div>
             )}
             {print.kind === 'error' && (
               <StatusLine tone="bad" text={print.message} />
