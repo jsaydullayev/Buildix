@@ -141,4 +141,55 @@ public class ProductBarcodeTests
         Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("0000000000000"));
         Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("   "));
     }
+
+    // ── Ro'yxatdagi qidiruv ──────────────────────────────────────────────────
+    // Tovarlar ro'yxatida turgan kassir skaner bosganda kod qidiruv maydoniga
+    // tushadi. Ilgari qidiruv faqat nom va artikulni qamrar, skanerlangan kod
+    // esa «topilmadi» berardi — dizaynda ham «по названию, артикулу или
+    // штрих-коду» deyilgan.
+
+    [Fact]
+    public async Task Product_list_search_finds_by_full_barcode()
+    {
+        using var h = new TestHarness();
+        var created = await h.NewProductService()
+            .CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
+        Assert.True(created.IsSuccess, created.Error);
+        h.Db.ChangeTracker.Clear();
+
+        var page = await h.NewProductQueryService()
+            .GetAllProductsPagedAsync(1, 20, search: "4780123456789");
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal(created.Value.Id, item.Id);
+    }
+
+    [Fact]
+    public async Task Product_list_search_finds_by_barcode_fragment()
+    {
+        using var h = new TestHarness();
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Brick", "2011111111116"), sellerId: null);
+        h.Db.ChangeTracker.Clear();
+
+        // Skaner kodni to'liq yuboradi, lekin kassir qo'lda bir qismini ham
+        // terishi mumkin — bo'lak bo'yicha ham topilsin.
+        var page = await h.NewProductQueryService().GetAllProductsPagedAsync(1, 20, search: "478012");
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal("Cement", item.Name);
+    }
+
+    [Fact]
+    public async Task Product_list_search_still_finds_by_name_and_sku()
+    {
+        using var h = new TestHarness();
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
+        h.Db.ChangeTracker.Clear();
+        var svc = h.NewProductQueryService();
+
+        // Shtrix-kod qo'shilgani nom bo'yicha qidiruvni buzmasligi kerak.
+        Assert.Single((await svc.GetAllProductsPagedAsync(1, 20, search: "cem")).Items);
+        Assert.Empty((await svc.GetAllProductsPagedAsync(1, 20, search: "temir")).Items);
+    }
 }

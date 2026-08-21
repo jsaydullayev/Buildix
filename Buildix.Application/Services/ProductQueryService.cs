@@ -163,13 +163,20 @@ public class ProductQueryService : IProductQueryService
         if (!includeHidden)
             query = query.Where(p => !p.IsHidden);
 
-        // Server-side filters (Склад: qidiruv nomi/artikuli, kategoriya, "faqat tugayotgan").
+        // Server-side filters (Склад: qidiruv nomi/artikuli/shtrix-kodi, kategoriya,
+        // "faqat tugayotgan").
+        //
+        // Shtrix-kod ham qidiriladi: kassir Tovarlar ro'yxatida turib skaner
+        // bosganda kod qidiruv maydoniga tushadi va tovar topilishi kerak.
+        // Ilgari faqat nom va artikul qidirilar, skanerlangan kod esa hech narsa
+        // topmasdi — dizaynda ham «по названию, артикулу или штрих-коду» deyilgan.
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
             query = query.Where(p =>
                 p.Name.ToLower().Contains(term) ||
-                (p.Sku != null && p.Sku.ToLower().Contains(term)));
+                (p.Sku != null && p.Sku.ToLower().Contains(term)) ||
+                (p.Barcode != null && p.Barcode.Contains(term)));
         }
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId.Value);

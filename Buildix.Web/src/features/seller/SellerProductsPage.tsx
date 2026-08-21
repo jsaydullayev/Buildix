@@ -178,6 +178,9 @@ function ProductDrawer({ product: p, onClose }: { product: Product; onClose: () 
         <DrawerRow label={t('seller.products.card.stock')} value={`${formatQty(p.quantity)} ${unitLabel(t, p.unit, p.unitName)}`} valueClass={st.key === 'out' ? 'text-danger' : st.key === 'low' ? 'text-warn-strong' : ''} />
         <DrawerRow label={t('seller.products.card.minStock')} value={`${formatQty(p.minThreshold)} ${unitLabel(t, p.unit, p.unitName)}`} />
         <DrawerRow label={t('seller.products.card.sku')} value={p.sku ?? '—'} />
+        {/* Shtrix-kod — maketda ham bor. Kassir uni skanerlash o'rniga ko'z
+            bilan solishtirishi kerak bo'lgan holatlar uchun. */}
+        <DrawerRow label={t('seller.products.card.barcode')} value={p.barcode ?? '—'} />
         <DrawerRow label={t('seller.products.card.location')} value={p.warehouseLocation ?? '—'} />
         <DrawerRow label={t('seller.products.card.supplier')} value={statsQuery.isLoading ? '…' : s?.supplierName ?? '—'} />
         <DrawerRow label={t('seller.products.card.lastIn')} value={statsQuery.isLoading ? '…' : lastIn} />
