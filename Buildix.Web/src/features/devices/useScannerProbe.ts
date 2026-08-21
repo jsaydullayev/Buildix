@@ -62,7 +62,15 @@ export function useScannerProbe() {
     function finish(enter: boolean) {
       const code = buffer.current;
       const t = stamps.current;
-      const gaps = t.slice(1).map((v, i) => v - t[i]);
+      // noUncheckedIndexedAccess yoqilgan: indeks bo'yicha o'qish `undefined`
+      // ham berishi mumkin deb qaraladi, shuning uchun juftlikni ochiq
+      // tekshiramiz — bu yerda hech qachon bo'lmaydi, lekin turlar rost bo'lsin.
+      const gaps: number[] = [];
+      for (let i = 1; i < t.length; i++) {
+        const prev = t[i - 1];
+        const cur = t[i];
+        if (prev !== undefined && cur !== undefined) gaps.push(cur - prev);
+      }
       const avg = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : Number.POSITIVE_INFINITY;
 
       let kind: ScannerVerdict['kind'] = 'unknown';
