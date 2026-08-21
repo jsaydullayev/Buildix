@@ -125,6 +125,27 @@ public class ProductsController : ApiControllerBase
         return File(png, "image/png");
     }
 
+    /// <summary>
+    /// Sinov yorlig'i — printer ulanishini tekshirish uchun.
+    /// </summary>
+    /// <remarks>
+    /// Tovarga bog'liq emas va bazaga tegmaydi: har doim yaroqli namuna kod
+    /// bilan chiqadi. Shu tufayli katalog bo'sh bo'lsa ham yoki tovarlar kodsiz
+    /// bo'lsa ham printerni sinab ko'rish mumkin — nosozlik printerdami yoki
+    /// ma'lumotdami, shu yerda ajraladi.
+    ///
+    /// Ruxsat — <c>products.access</c>: skanerni va printerni kassir ham
+    /// sinashi kerak, tovar tahrirlash huquqi bunga shart emas.
+    /// </remarks>
+    [HttpGet("~/api/Products/labels/test")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public IActionResult TestLabel([FromQuery] double widthMm = 58, [FromQuery] double heightMm = 40)
+    {
+        var label = new LabelData("BUILDIX — sinov yorlig'i", Ean13.NewInternal(), "TEST-001");
+        var pdf = LabelPdfRenderer.Render([label], widthMm, heightMm);
+        return File(pdf, "application/pdf", "buildix-test-label.pdf");
+    }
+
     [HttpPost("~/api/Products/labels")]
     [RequirePermission(PermissionKeys.ProductsEdit)]
     public async Task<IActionResult> PrintLabels([FromBody] PrintLabelsDto request, CancellationToken ct = default)

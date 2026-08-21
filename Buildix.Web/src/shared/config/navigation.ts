@@ -14,6 +14,7 @@ import {
   Users,
   Contact,
   ShieldAlert,
+  Printer,
   ShoppingCart,
 } from 'lucide-react';
 import { PERMISSIONS } from './permissions';
@@ -74,6 +75,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { path: 'shifts', labelKey: 'nav.shifts', icon: Clock, permission: PERMISSIONS.cashregister.access },
       { path: 'employees', labelKey: 'nav.employees', icon: Users, permission: PERMISSIONS.users.access },
       { path: 'audit', labelKey: 'nav.audit', icon: ShieldAlert, permission: PERMISSIONS.data.auditLog },
+      { path: 'devices', labelKey: 'nav.devices', icon: Printer, permission: PERMISSIONS.products.access },
     ],
   },
 ];

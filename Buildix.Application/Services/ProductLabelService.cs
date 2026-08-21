@@ -100,6 +100,17 @@ public class ProductLabelService : IProductLabelService
         if (generated)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Bazada allaqachon yaroqsiz kod turgan bo'lishi mumkin (tekshiruv
+        // kiritilishidan oldin biriktirilgani). Uni bu yerda ushlaymiz: aks holda
+        // SVG chizuvchi istisno tashlaydi va omborchi «noto'g'ri parametr» degan
+        // umumiy 400 ni oladi — qaysi tovar aybdorligi ko'rinmaydi.
+        var broken = products.Where(p => !Barcodes.Ean13.IsValid(p.Barcode)).ToList();
+        if (broken.Count > 0)
+            return Result.Failure<byte[]>(
+                $"Yaroqsiz shtrix-kod: {string.Join(", ", broken.Select(p => $"'{p.Name}' ({p.Barcode})"))}. " +
+                "Tovar kartochkasidan kodni tuzating yoki tizim o'zi yaratsin.",
+                "INVALID_BARCODE");
+
         var byId = products.ToDictionary(p => p.Id);
         // So'rovdagi tartib saqlanadi: omborchi ro'yxatda ko'rgan tartibda
         // yorliq chiqishini kutadi.

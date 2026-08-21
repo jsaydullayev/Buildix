@@ -55,6 +55,51 @@ public static class Ean13
         && code.All(char.IsAsciiDigit)
         && CheckDigit(code[..12]) == code[12] - '0';
 
+    /// <summary>
+    /// Kiritilgan kodni EAN-13 ga keltiradi yoki nima uchun bo'lmasligini aytadi.
+    ///
+    /// <para>Zavod yorlig'idagi kod har doim ham EAN-13 emas: AQSh va Kanada
+    /// tovarlarida ko'pincha UPC-A — 12 xonali. Standart bo'yicha UPC-A oldiga
+    /// bitta «0» qo'yilsa, aynan shu tovarning EAN-13 shakli chiqadi, shuning
+    /// uchun uni rad etmasdan o'giramiz.</para>
+    ///
+    /// <para>Qolgan holatlarda XATO SHU YERDA aytiladi. Ilgari noto'g'ri kod
+    /// bemalol saqlanar, xato esa yorliq chop etishda chiqardi — omborchi kodni
+    /// kiritganidan ancha keyin va butunlay boshqa ekranda. Sababi ham
+    /// ko'rinmasdi: «noto'g'ri parametr» degan umumiy xabar chiqardi.</para>
+    /// </summary>
+    /// <param name="normalized">Probellari olib tashlangan kod.</param>
+    /// <param name="error">Muvaffaqiyatsiz bo'lsa — kassirga ko'rsatiladigan sabab.</param>
+    public static bool TryNormalizeToEan13(string normalized, out string? code, out string? error)
+    {
+        code = null;
+        error = null;
+
+        if (!normalized.All(char.IsAsciiDigit))
+        {
+            error = "Shtrix-kod faqat raqamlardan iborat bo'lishi kerak.";
+            return false;
+        }
+
+        // UPC-A (12 xona) → EAN-13: oldiga «0».
+        var candidate = normalized.Length == 12 ? "0" + normalized : normalized;
+
+        if (candidate.Length != 13)
+        {
+            error = $"Shtrix-kodda 13 ta raqam bo'lishi kerak (UPC-A uchun 12), hozir — {normalized.Length} ta.";
+            return false;
+        }
+
+        if (CheckDigit(candidate[..12]) != candidate[12] - '0')
+        {
+            error = "Shtrix-kodning nazorat raqami mos kelmadi — raqamlarni tekshiring.";
+            return false;
+        }
+
+        code = candidate;
+        return true;
+    }
+
     /// <summary>Kod shu tizim chiqargan ichki koddir (20…29 bilan boshlanadi).</summary>
     public static bool IsInternal(string? code) =>
         IsValid(code)

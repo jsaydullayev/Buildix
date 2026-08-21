@@ -25,14 +25,14 @@ public class ProductBarcodeTests
         using var h = new TestHarness();
 
         // Skanerlar ba'zan kodni bo'lib yuboradi, qo'lda kiritganda esa guruhlab
-        // yozishadi. Tozalanmasa, skanerdan kelgan "4780123456789" bazadagi
-        // "4780 123 456 789" bilan mos tushmay, tovar "topilmadi" bo'lib qolardi.
+        // yozishadi. Tozalanmasa, skanerdan kelgan "4780123456781" bazadagi
+        // "4780 123 456 781" bilan mos tushmay, tovar "topilmadi" bo'lib qolardi.
         var result = await h.NewProductService()
-            .CreateProductAsync(NewProduct(barcode: " 4780 123 456 789 "), sellerId: null);
+            .CreateProductAsync(NewProduct(barcode: " 4780 123 456 781 "), sellerId: null);
 
         Assert.True(result.IsSuccess, result.Error);
         var product = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == result.Value.Id);
-        Assert.Equal("4780123456789", product.Barcode);
+        Assert.Equal("4780123456781", product.Barcode);
     }
 
     [Fact]
@@ -54,14 +54,14 @@ public class ProductBarcodeTests
     public async Task Duplicate_barcode_in_the_same_market_is_refused()
     {
         using var h = new TestHarness();
-        var first = await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000001"), sellerId: null);
+        var first = await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000014"), sellerId: null);
         Assert.True(first.IsSuccess, first.Error);
         h.Db.ChangeTracker.Clear();
 
-        var second = await h.NewProductService().CreateProductAsync(NewProduct("Gisht", "4780000000001"), sellerId: null);
+        var second = await h.NewProductService().CreateProductAsync(NewProduct("Gisht", "4780000000014"), sellerId: null);
 
         Assert.False(second.IsSuccess);
-        Assert.Contains("4780000000001", second.Error);
+        Assert.Contains("4780000000014", second.Error);
     }
 
     [Fact]
@@ -70,11 +70,11 @@ public class ProductBarcodeTests
         // Kod global emas, market ichida yagona: ikki do'kon bir xil zavod
         // tovarini sotishi mutlaqo odatiy hol.
         using var a = new TestHarness(marketId: 1);
-        var first = await a.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000002"), sellerId: null);
+        var first = await a.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000021"), sellerId: null);
         Assert.True(first.IsSuccess, first.Error);
 
         using var b = new TestHarness(marketId: 2);
-        var second = await b.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000002"), sellerId: null);
+        var second = await b.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000021"), sellerId: null);
 
         Assert.True(second.IsSuccess, second.Error);
     }
@@ -83,10 +83,10 @@ public class ProductBarcodeTests
     public async Task Lookup_finds_the_product_by_exact_code()
     {
         using var h = new TestHarness();
-        var created = await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000003"), sellerId: null);
+        var created = await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000038"), sellerId: null);
         h.Db.ChangeTracker.Clear();
 
-        var found = await h.NewProductQueryService().GetProductByBarcodeAsync("4780000000003");
+        var found = await h.NewProductQueryService().GetProductByBarcodeAsync("4780000000038");
 
         Assert.NotNull(found);
         Assert.Equal(created.Value.Id, found!.Id);
@@ -96,10 +96,10 @@ public class ProductBarcodeTests
     public async Task Lookup_tolerates_whitespace_from_the_scanner()
     {
         using var h = new TestHarness();
-        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000004"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000045"), sellerId: null);
         h.Db.ChangeTracker.Clear();
 
-        var found = await h.NewProductQueryService().GetProductByBarcodeAsync(" 4780 000 000 004 ");
+        var found = await h.NewProductQueryService().GetProductByBarcodeAsync(" 4780 000 000 045 ");
 
         Assert.NotNull(found);
     }
@@ -110,11 +110,11 @@ public class ProductBarcodeTests
         // Aniq moslik, `LIKE %…%` emas: aks holda "478" ni skanerlagan kassir
         // o'nlab tovar ichidan tanlashga majbur bo'lardi.
         using var h = new TestHarness();
-        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000005"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780000000052"), sellerId: null);
         h.Db.ChangeTracker.Clear();
 
         Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("478"));
-        Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("47800000000051"));
+        Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("47800000000521"));
     }
 
     [Fact]
@@ -126,11 +126,11 @@ public class ProductBarcodeTests
         using var h = new TestHarness();
         var created = await h.NewProductService()
             .CreateProductAsync(new CreateProductDto("Cement", false, 50_000, 40_000, 5, null, 1, 100, false, 30_000,
-                Barcode: "4780000000006", IsHidden: true), sellerId: null);
+                Barcode: "4780000000069", IsHidden: true), sellerId: null);
         Assert.True(created.IsSuccess, created.Error);
         h.Db.ChangeTracker.Clear();
 
-        Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("4780000000006"));
+        Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("4780000000069"));
     }
 
     [Fact]
@@ -140,6 +140,102 @@ public class ProductBarcodeTests
 
         Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("0000000000000"));
         Assert.Null(await h.NewProductQueryService().GetProductByBarcodeAsync("   "));
+    }
+
+    // ── Kiritilgan kodning yaroqliligi ───────────────────────────────────────
+    // Zavod kodini biriktirish oqimi. Ilgari har qanday satr saqlanar, xato esa
+    // YORLIQ CHOP ETISHDA chiqardi — kiritilganidan ancha keyin, boshqa ekranda
+    // va «noto'g'ri parametr» degan tushunarsiz xabar bilan.
+
+    [Fact]
+    public async Task Barcode_with_wrong_check_digit_is_refused_on_save()
+    {
+        using var h = new TestHarness();
+
+        // 4780123456789 to'g'ri; oxirgi raqamni buzamiz.
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "4780123456788"), sellerId: null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("INVALID_BARCODE", result.Code);
+        Assert.Contains("nazorat raqami", result.Error!);
+    }
+
+    [Fact]
+    public async Task Barcode_of_wrong_length_is_refused_with_the_actual_length()
+    {
+        using var h = new TestHarness();
+
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "12345678"), sellerId: null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("8", result.Error!);
+    }
+
+    [Fact]
+    public async Task Barcode_with_letters_is_refused()
+    {
+        using var h = new TestHarness();
+
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "ABC0123456789"), sellerId: null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("raqam", result.Error!);
+    }
+
+    [Fact]
+    public async Task Upc_a_from_a_factory_label_becomes_ean13()
+    {
+        using var h = new TestHarness();
+
+        // AQSh tovarlaridagi 12 xonali UPC-A. Standart bo'yicha oldiga «0»
+        // qo'yilsa aynan shu tovarning EAN-13 shakli chiqadi — rad etmaymiz.
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "036000291452"), sellerId: null);
+
+        Assert.True(result.IsSuccess, result.Error);
+        var p = await h.Db.Products.IgnoreQueryFilters().FirstAsync(x => x.Id == result.Value.Id);
+        Assert.Equal("0036000291452", p.Barcode);
+    }
+
+    [Fact]
+    public async Task Valid_factory_ean13_is_kept_as_is()
+    {
+        using var h = new TestHarness();
+
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "4780123456781"), sellerId: null);
+
+        Assert.True(result.IsSuccess, result.Error);
+        var p = await h.Db.Products.IgnoreQueryFilters().FirstAsync(x => x.Id == result.Value.Id);
+        Assert.Equal("4780123456781", p.Barcode);
+    }
+
+    [Fact]
+    public async Task Printing_a_product_with_a_broken_barcode_names_the_product()
+    {
+        using var h = new TestHarness();
+
+        // Tekshiruv kiritilishidan OLDIN biriktirilgan yaroqsiz kod. Bunday
+        // yozuv bazada allaqachon bo'lishi mumkin, shuning uchun chop etish uni
+        // portlatmasdan, qaysi tovar aybdorligini aytib to'xtashi kerak.
+        var created = await h.NewProductService()
+            .CreateProductAsync(NewProduct("Cement", "4780123456781"), sellerId: null);
+        Assert.True(created.IsSuccess, created.Error);
+        var product = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == created.Value.Id);
+        product.Barcode = "4780123456789";          // nazorat raqami buzilgan
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await h.NewProductLabelService().RenderLabelsAsync(
+            new PrintLabelsDto([new LabelItemDto(created.Value.Id, 1)], 58, 40));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("INVALID_BARCODE", result.Code);
+        Assert.Contains("Cement", result.Error!);
+        Assert.Contains("4780123456789", result.Error!);
     }
 
     // ── Ro'yxatdagi qidiruv ──────────────────────────────────────────────────
@@ -153,12 +249,12 @@ public class ProductBarcodeTests
     {
         using var h = new TestHarness();
         var created = await h.NewProductService()
-            .CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
+            .CreateProductAsync(NewProduct("Cement", "4780123456781"), sellerId: null);
         Assert.True(created.IsSuccess, created.Error);
         h.Db.ChangeTracker.Clear();
 
         var page = await h.NewProductQueryService()
-            .GetAllProductsPagedAsync(1, 20, search: "4780123456789");
+            .GetAllProductsPagedAsync(1, 20, search: "4780123456781");
 
         var item = Assert.Single(page.Items);
         Assert.Equal(created.Value.Id, item.Id);
@@ -168,8 +264,8 @@ public class ProductBarcodeTests
     public async Task Product_list_search_finds_by_barcode_fragment()
     {
         using var h = new TestHarness();
-        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
-        await h.NewProductService().CreateProductAsync(NewProduct("Brick", "2011111111116"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456781"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Brick", "2011111111118"), sellerId: null);
         h.Db.ChangeTracker.Clear();
 
         // Skaner kodni to'liq yuboradi, lekin kassir qo'lda bir qismini ham
@@ -184,7 +280,7 @@ public class ProductBarcodeTests
     public async Task Product_list_search_still_finds_by_name_and_sku()
     {
         using var h = new TestHarness();
-        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456789"), sellerId: null);
+        await h.NewProductService().CreateProductAsync(NewProduct("Cement", "4780123456781"), sellerId: null);
         h.Db.ChangeTracker.Clear();
         var svc = h.NewProductQueryService();
 

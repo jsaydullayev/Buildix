@@ -26,6 +26,7 @@ const PurchasesPage = lazy(() => import('@/features/purchases/PurchasesPage'));
 const SuppliersPage = lazy(() => import('@/features/suppliers/SuppliersPage'));
 const CustomersPage = lazy(() => import('@/features/customers/CustomersPage'));
 const AuditPage = lazy(() => import('@/features/audit/AuditPage'));
+const DevicesPage = lazy(() => import('@/features/devices/DevicesPage'));
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage'));
 const ShiftsPage = lazy(() => import('@/features/shifts/ShiftsPage'));
 const ReportsPage = lazy(() => import('@/features/reports/ReportsPage'));
@@ -140,6 +141,9 @@ export const router = createBrowserRouter([
       { path: 'reports', element: perm(PERMISSIONS.reports.access, <ReportsPage />) },
       { path: 'employees', element: perm(PERMISSIONS.users.access, <EmployeesPage />) },
       { path: 'audit', element: perm(PERMISSIONS.data.auditLog, <AuditPage />) },
+      // Qurilmalar: printer va skanerni sinash. products.access — kassir ham
+      // o'z skanerini tekshira olsin.
+      { path: 'devices', element: perm(PERMISSIONS.products.access, <DevicesPage />) },
       { path: 'notifications', element: perm(PERMISSIONS.notifications.access, <NotificationsPage />) },
       {
         path: 'settings',
