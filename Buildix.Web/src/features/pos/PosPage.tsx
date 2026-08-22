@@ -27,6 +27,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
 import { mergePending, type PendingLine } from './pending';
+import { useGlobalScanner } from './useGlobalScanner';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -295,6 +296,34 @@ export default function PosPage() {
       setSearch('');
     }
   }
+
+  /**
+   * Skanerdan kelgan kod — fokus qayerda bo'lishidan qat'i nazar. Nom bo'yicha
+   * qidiruv zaxirasi bu yerda YO'Q: skaner har doim shtrix-kod beradi.
+   */
+  async function handleScannedCode(code: string) {
+    const known = barcodeIndex.current.get(code);
+    if (known) {
+      addProduct(known);
+      setSearch('');
+      return;
+    }
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      if (product.barcode) barcodeIndex.current.set(product.barcode, product);
+      addProduct(product);
+      setSearch('');
+      return;
+    }
+    setActionError(t('pos.scan.notFound', { code }));
+  }
+
+  // Qo'shimcha oyna ochilganda o'chiriladi — u yerda skanerlangan kod savatga
+  // tushmasligi kerak.
+  useGlobalScanner(
+    (code) => void handleScannedCode(code),
+    !done && !success && !externalOpen && !custOpen,
+  );
 
   /**
    * Katalogda yo'q tovar. Ombor qoldig'iga TEGMAYDI — tovar bizniki emas,

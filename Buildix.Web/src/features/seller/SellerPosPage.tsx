@@ -30,6 +30,7 @@ import { categoriesApi, type Product } from '@/features/warehouse/api';
 import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
 import { mergePending, type PendingLine } from '@/features/pos/pending';
+import { useGlobalScanner } from '@/features/pos/useGlobalScanner';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -611,6 +612,38 @@ export default function SellerPosPage() {
       setSearch('');
     }
   }
+
+  /**
+   * Skanerdan kelgan kod — fokus qayerda bo'lishidan qat'i nazar.
+   *
+   * <p>Nom bo'yicha qidiruv zaxirasi bu yerda YO'Q: skaner har doim shtrix-kod
+   * beradi, ro'yxatdagi tasodifiy tovarni qo'shish esa kassaning eng yomon
+   * xatosi bo'lardi.</p>
+   */
+  async function handleScannedCode(code: string) {
+    const known = barcodeIndex.current.get(code);
+    if (known) {
+      addProduct(known);
+      setSearch('');
+      return;
+    }
+    const product = await posApi.findByBarcode(code).catch(() => null);
+    if (product) {
+      if (product.barcode) barcodeIndex.current.set(product.barcode, product);
+      addProduct(product);
+      setSearch('');
+      return;
+    }
+    setActionError(t('pos.scan.notFound', { code }));
+  }
+
+  // Kassa ochiq turganda skaner butun sahifa bo'ylab ishlaydi. Chek yakunlangan
+  // yoki qo'shimcha oyna ochilgan paytda o'chiriladi — u yerda skanerlangan kod
+  // savatga tushmasligi kerak.
+  useGlobalScanner(
+    (code) => void handleScannedCode(code),
+    !done && !externalOpen && !custOpen && !checkoutOpen,
+  );
 
   /** Park the current receipt: it simply stays a Draft and reappears in the strip. */
   function park() {
