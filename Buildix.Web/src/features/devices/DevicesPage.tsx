@@ -7,6 +7,7 @@ import { PageHeader, Card, Button, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatShortDate, formatTime } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
+import { printPdfBlob } from '@/shared/lib/printPdf';
 import type { ApiError } from '@/shared/api/types';
 import { posApi } from '@/features/pos/api';
 import { devicesApi } from './api';
@@ -85,19 +86,13 @@ export default function DevicesPage() {
 
   const testPrint = useMutation({
     mutationFn: () => devicesApi.testLabel(size.w, size.h),
-    onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank', 'noopener');
-      // window.open null qaytarsa — bu brauzerning qalqib chiquvchi oynalar
-      // bloki. Foydalanuvchi buni "printer ishlamadi" deb tushunadi, shuning
-      // uchun sababini aytamiz va yuklab olish yo'lini beramiz.
-      if (!win) {
-        setPrint({ kind: 'blocked', blob });
-        URL.revokeObjectURL(url);
-        return;
-      }
-      setPrint({ kind: 'sent' });
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    onSuccess: async (blob) => {
+      // Chop etish oynasi darhol ochiladi. Bloklangan bo'lsa sababini
+      // aytamiz — aks holda ekranda hech narsa bo'lmaydi va foydalanuvchi
+      // buni «printer ishlamadi» deb tushunadi.
+      const outcome = await printPdfBlob(blob, 'test-label.pdf');
+      if (outcome === 'downloaded') setPrint({ kind: 'blocked', blob });
+      else setPrint({ kind: 'sent' });
     },
     onError: (e) =>
       setPrint({ kind: 'error', message: (e as unknown as ApiError).message ?? t('common.somethingWrong') }),

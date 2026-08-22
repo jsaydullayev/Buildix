@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Printer, Info } from 'lucide-react';
 import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { downloadBlob } from '@/shared/lib/download';
+import { printPdfBlob } from '@/shared/lib/printPdf';
 import type { ApiError } from '@/shared/api/types';
 import { productsApi } from './api';
 
@@ -101,22 +101,17 @@ export function PrintLabelsModal({
         size.w,
         size.h,
       ),
-    onSuccess: (blob) => {
-      // Chek chop etish bilan bir xil naqsh: PDF yangi oynada ochiladi va
-      // foydalanuvchi brauzerning chop etish oynasidan bosadi.
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank', 'noopener');
-      // Brauzer qalqib chiquvchi oynani bloklasa, window.open null qaytaradi va
-      // EKRANDA HECH NARSA BO'LMAYDI — omborchi buni "printer ishlamadi" deb
-      // tushunadi. Shuning uchun sababini aytamiz va faylni to'g'ridan-to'g'ri
-      // beramiz; oyna yopilmaydi, aks holda xabar ham ko'rinmay ketardi.
-      if (!win) {
-        URL.revokeObjectURL(url);
-        downloadBlob(blob, 'labels.pdf');
+    onSuccess: async (blob) => {
+      // Chop etish oynasi DARHOL ochiladi — ilgari PDF shunchaki yangi oynada
+      // ochilib to'xtardi va omborchi «printerdan hech narsa chiqmadi» deb
+      // o'ylardi (aslida Ctrl+P bosishi kerak edi).
+      const outcome = await printPdfBlob(blob, 'labels.pdf');
+      if (outcome === 'downloaded') {
+        // Yangi oyna ham bloklangan — sababini aytamiz, aks holda ekranda
+        // hech narsa bo'lmaydi va bu «printer ishlamadi» bo'lib tuyuladi.
         setError(t('labels.popupBlocked'));
         return;
       }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
       onClose();
     },
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),

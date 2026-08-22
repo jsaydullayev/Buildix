@@ -23,6 +23,7 @@ import { PERMISSIONS } from '@/shared/config/permissions';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
+import { printPdfBlob } from '@/shared/lib/printPdf';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
@@ -482,9 +483,8 @@ export default function PosPage() {
   async function printReceipt(id: string) {
     try {
       const blob = await posApi.receiptPdf(id, i18n.language);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // Chek ham darhol chop etishga ketadi — kassir Ctrl+P qidirmasin.
+      await printPdfBlob(blob, `chek-${id}.pdf`);
     } catch (e) {
       setActionError((e as unknown as ApiError).message ?? t('common.somethingWrong'));
     }

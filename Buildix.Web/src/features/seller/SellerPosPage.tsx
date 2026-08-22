@@ -31,6 +31,7 @@ import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
 import { mergePending, type PendingLine } from '@/features/pos/pending';
 import { useGlobalScanner } from '@/features/pos/useGlobalScanner';
+import { printPdfBlob } from '@/shared/lib/printPdf';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -715,9 +716,8 @@ export default function SellerPosPage() {
   async function printReceipt(id: string) {
     try {
       const blob = await posApi.receiptPdf(id, i18n.language);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // Chek ham darhol chop etishga ketadi — kassir Ctrl+P qidirmasin.
+      await printPdfBlob(blob, `chek-${id}.pdf`);
     } catch {
       /* best-effort: the sale is already finalised, printing can be retried */
     }
