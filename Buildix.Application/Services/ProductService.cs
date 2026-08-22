@@ -51,7 +51,7 @@ public class ProductService : IProductService
             return Result.Failure<ProductDto>($"'{request.Name}' nomli mahsulot allaqachon mavjud.");
 
         var barcode = NormalizeBarcode(request.Barcode);
-        if (barcode is not null && !Barcodes.Ean13.TryNormalizeToEan13(barcode, out barcode, out var barcodeError))
+        if (barcode is not null && !Barcodes.Symbology.TryNormalize(barcode, out barcode, out var barcodeError))
             return Result.Failure<ProductDto>(barcodeError!, "INVALID_BARCODE");
         if (barcode is not null)
         {
@@ -139,7 +139,7 @@ public class ProductService : IProductService
         if (request.Barcode is not null)
         {
             var newBarcode = NormalizeBarcode(request.Barcode);
-            if (newBarcode is not null && !Barcodes.Ean13.TryNormalizeToEan13(newBarcode, out newBarcode, out var barcodeError))
+            if (newBarcode is not null && !Barcodes.Symbology.TryNormalize(newBarcode, out newBarcode, out var barcodeError))
                 return Result.Failure<ProductDto>(barcodeError!, "INVALID_BARCODE");
             if (newBarcode is not null && newBarcode != product.Barcode)
             {

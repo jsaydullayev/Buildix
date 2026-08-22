@@ -189,11 +189,18 @@ export function ProductFormModal({
   const barcodeValue = watch('barcode');
   const barcodeHint = (() => {
     const code = barcodeValue?.trim() ?? '';
-    if (code.length !== 13 || !/^\d+$/.test(code)) return t('warehouse.form.barcodeHint');
-    const prefix = Number(code.slice(0, 2));
-    return prefix >= 20 && prefix <= 29
-      ? t('warehouse.form.barcodeInternal')
-      : t('warehouse.form.barcodeFactory');
+    if (code.length === 0) return t('warehouse.form.barcodeHint');
+    // 13 xonali raqam — zavod kodi. Uning 20-29 bilan boshlanadigan qismi
+    // xalqaro miqyosda do'kon ichki ehtiyoji uchun ajratilgan, ya'ni bu kodni
+    // tizimning o'zi chiqargan.
+    if (/^\d{13}$/.test(code)) {
+      const prefix = Number(code.slice(0, 2));
+      return prefix >= 20 && prefix <= 29
+        ? t('warehouse.form.barcodeInternal')
+        : t('warehouse.form.barcodeFactory');
+    }
+    // Qolgani — do'konning o'z kodi («1», «A-3»). U Code 128 bilan bosiladi.
+    return t('warehouse.form.barcodeShop');
   })();
 
   const inputCls =

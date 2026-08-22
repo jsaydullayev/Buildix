@@ -4,7 +4,7 @@ using ZXing.OneD;
 namespace Buildix.Application.Services.Barcodes;
 
 /// <summary>
-/// EAN-13 chiziqlarini SVG ga aylantiradi.
+/// Shtrix-kod chiziqlarini SVG ga aylantiradi (EAN-13 va Code 128).
 ///
 /// <para><b>Nega ZXing.</b> EAN-13 kodlash qoidalari qat'iy belgilangan, lekin
 /// qo'lda yozilgan kodlagichdagi nozik xato faqat printer sotib olinib, yuzlab
@@ -19,17 +19,34 @@ namespace Buildix.Application.Services.Barcodes;
 public static class BarcodeSvg
 {
     /// <summary>
-    /// EAN-13 uchun SVG. <paramref name="widthMm"/>/<paramref name="heightMm"/> —
-    /// chiziqlar maydonining o'lchami; raqamlar alohida, PDF tomonida yoziladi.
+    /// Kod turiga qarab SVG. Zavod kodi (EAN-13) EAN-13 bilan, do'konning o'z
+    /// kodi Code 128 bilan bosiladi — ikkinchisi «1» kabi qisqa kodni ham
+    /// aynan kodlaydi. <paramref name="widthMm"/>/<paramref name="heightMm"/> —
+    /// chiziqlar maydoni; raqamlar alohida, PDF tomonida yoziladi.
     /// </summary>
-    public static string Ean13(string code, double widthMm, double heightMm)
-    {
-        if (!Barcodes.Ean13.IsValid(code))
-            throw new ArgumentException($"'{code}' yaroqli EAN-13 emas.", nameof(code));
+    /// <summary>
+    /// Kod nechta modulga (eng ingichka chiziq enligiga) sig'adi. Yorliqda
+    /// chiziqlar maydonining enini hisoblash uchun kerak: qisqa kod butun
+    /// yorliqqa cho'zilib ketmasin.
+    /// </summary>
+    public static int ModuleCount(string code) =>
+        Encode(code).Width;
 
-        // ZXing 0 kenglik so'ralganda minimal (95 modul) naqshni qaytaradi —
-        // aynan shu kerak: masshtabni SVG viewBox o'zi hal qiladi.
-        var matrix = new EAN13Writer().encode(code, ZXing.BarcodeFormat.EAN_13, 0, 1);
+    private static ZXing.Common.BitMatrix Encode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Shtrix-kod bo'sh.", nameof(code));
+
+        // ZXing 0 kenglik so'ralganda minimal naqshni qaytaradi — aynan shu
+        // kerak: masshtabni SVG viewBox o'zi hal qiladi.
+        return Symbology.KindOf(code) == BarcodeKind.Ean13
+            ? new EAN13Writer().encode(code, ZXing.BarcodeFormat.EAN_13, 0, 1)
+            : new Code128Writer().encode(code, ZXing.BarcodeFormat.CODE_128, 0, 1);
+    }
+
+    public static string Render(string code, double widthMm, double heightMm)
+    {
+        var matrix = Encode(code);
         var modules = matrix.Width;
 
         var sb = new StringBuilder(1024);

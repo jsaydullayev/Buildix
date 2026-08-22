@@ -161,28 +161,53 @@ public class ProductBarcodeTests
         Assert.Contains("nazorat raqami", result.Error!);
     }
 
-    [Fact]
-    public async Task Barcode_of_wrong_length_is_refused_with_the_actual_length()
+    // ── Do'konning o'z kodlari ──────────────────────────────────────────────
+    // Zavod yorlig'i yo'q tovarlar ko'p, ular uchun omborchi eng oddiy raqamni
+    // beradi. Bunday kod EAN-13 ga sig'maydi va Code 128 bilan bosiladi.
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("12345678")]
+    [InlineData("ABC-01")]
+    public async Task A_shop_code_is_stored_exactly_as_typed(string typed)
     {
         using var h = new TestHarness();
 
         var result = await h.NewProductService()
-            .CreateProductAsync(NewProduct(barcode: "12345678"), sellerId: null);
+            .CreateProductAsync(NewProduct(barcode: typed), sellerId: null);
 
-        Assert.False(result.IsSuccess);
-        Assert.Contains("8", result.Error!);
+        Assert.True(result.IsSuccess, result.Error);
+        // Aynan kiritilgani saqlanadi: yorliq skanerlanganda o'sha kod qaytadi.
+        Assert.Equal(typed, result.Value.Barcode);
     }
 
     [Fact]
-    public async Task Barcode_with_letters_is_refused()
+    public async Task A_thirteen_digit_code_with_a_broken_check_digit_is_still_refused()
     {
         using var h = new TestHarness();
 
+        // 13 xonali raqam — bu zavod kodi da'vosi. Uni jimgina "do'kon kodi"
+        // deb qabul qilish omborchini adashtirardi: u zavod yorlig'ini
+        // noto'g'ri ko'chirganini bilmay qolardi.
         var result = await h.NewProductService()
-            .CreateProductAsync(NewProduct(barcode: "ABC0123456789"), sellerId: null);
+            .CreateProductAsync(NewProduct(barcode: "4780123456789"), sellerId: null);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("raqam", result.Error!);
+        Assert.Contains("nazorat", result.Error!);
+    }
+
+    [Fact]
+    public async Task A_non_ascii_code_is_refused_before_printing()
+    {
+        using var h = new TestHarness();
+
+        // Code 128 faqat ASCII ni kodlaydi — kirill kiritilsa yorliq bosishda
+        // portlardi, shuning uchun kiritish paytida aytiladi.
+        var result = await h.NewProductService()
+            .CreateProductAsync(NewProduct(barcode: "Семент"), sellerId: null);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
     }
 
     [Fact]

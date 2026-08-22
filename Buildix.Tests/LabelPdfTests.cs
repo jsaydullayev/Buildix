@@ -130,11 +130,22 @@ public class LabelPdfTests
     }
 
     [Fact]
-    public void An_invalid_code_is_refused_rather_than_printed_blank()
+    public void An_empty_code_is_refused_rather_than_printed_blank()
     {
-        // Yaroqsiz kod bilan yorliq bosilsa, u skanerlanmaydi va buni faqat
-        // kassada bilishadi — shuning uchun bu yerda to'xtaymiz.
+        // Bo'sh kod bilan yorliq bosilsa, unda chiziq umuman bo'lmaydi va buni
+        // faqat kassada bilishadi — shuning uchun bu yerda to'xtaymiz.
         Assert.Throws<ArgumentException>(() =>
-            LabelPdfRenderer.Render([new LabelData("Sement", "1234567890123", "CEM")]));
+            LabelPdfRenderer.Render([new LabelData("Sement", "  ", "CEM")]));
+    }
+
+    [Fact]
+    public void A_shop_code_prints_without_the_ean13_grouping()
+    {
+        // «1» kabi do'kon kodi Code 128 bilan bosiladi. Raqamlar qatorida
+        // EAN-13 ning 1-6-6 guruhlashi qo'llanmasligi kerak — u faqat 13
+        // xonali zavod kodiga tegishli.
+        var pdf = LabelPdfRenderer.Render([new LabelData("Sement", "1", "CEM")]);
+        Assert.NotEmpty(pdf);
+        Assert.Equal(0x25, pdf[0]);   // '%' — PDF sarlavhasi
     }
 }

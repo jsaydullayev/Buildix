@@ -104,7 +104,7 @@ public class ProductLabelService : IProductLabelService
         // kiritilishidan oldin biriktirilgani). Uni bu yerda ushlaymiz: aks holda
         // SVG chizuvchi istisno tashlaydi va omborchi «noto'g'ri parametr» degan
         // umumiy 400 ni oladi — qaysi tovar aybdorligi ko'rinmaydi.
-        var broken = products.Where(p => !Barcodes.Ean13.IsValid(p.Barcode)).ToList();
+        var broken = products.Where(p => !Barcodes.Symbology.TryNormalize(p.Barcode ?? string.Empty, out _, out _)).ToList();
         if (broken.Count > 0)
             return Result.Failure<byte[]>(
                 $"Yaroqsiz shtrix-kod: {string.Join(", ", broken.Select(p => $"'{p.Name}' ({p.Barcode})"))}. " +

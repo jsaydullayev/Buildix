@@ -78,7 +78,7 @@ public class Ean13Tests
     [Fact]
     public void Svg_contains_bars_and_scales_to_the_requested_size()
     {
-        var svg = BarcodeSvg.Ean13("4006381333931", widthMm: 40, heightMm: 12);
+        var svg = BarcodeSvg.Render("4006381333931", widthMm: 40, heightMm: 12);
 
         // Bo'sh zona bilan birga — u yorliqda ham saqlanishi shart.
         Assert.Contains("viewBox=\"0 0 113 100\"", svg);
@@ -101,7 +101,7 @@ public class Ean13Tests
         const string code = "4006381333931";
         var expected = new EAN13Writer().encode(code, ZXing.BarcodeFormat.EAN_13, 0, 1);
 
-        var svg = BarcodeSvg.Ean13(code, 40, 12);
+        var svg = BarcodeSvg.Render(code, 40, 12);
         var actual = new bool[expected.Width];
         foreach (System.Text.RegularExpressions.Match m in
                  System.Text.RegularExpressions.Regex.Matches(svg, @"<rect x=""(\d+)"" y=""0"" width=""(\d+)"""))
@@ -116,9 +116,70 @@ public class Ean13Tests
     }
 
     [Fact]
-    public void Svg_refuses_an_invalid_code()
+    public void Svg_refuses_an_empty_code()
     {
-        // Yaroqsiz kod jimgina bo'sh yorliq berib qo'ymasin.
-        Assert.Throws<ArgumentException>(() => BarcodeSvg.Ean13("1234567890123", 40, 12));
+        // Bo'sh kod jimgina bo'sh yorliq berib qo'ymasin.
+        Assert.Throws<ArgumentException>(() => BarcodeSvg.Render("   ", 40, 12));
+    }
+
+    // ── Do'konning o'z kodi (Code 128) ──────────────────────────────────────
+    // Zavod yorlig'i yo'q tovarlar do'konda ko'p. Ular uchun omborchi eng
+    // oddiy raqamni beradi — «1», «2», «15». EAN-13 bunday kodni qabul qila
+    // olmaydi (u aynan 13 xona va nazorat raqamini talab qiladi), shuning
+    // uchun bunday kodlar Code 128 bilan bosiladi.
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("15")]
+    [InlineData("A-3")]
+    [InlineData("SKLAD-01")]
+    public void A_shop_code_is_accepted_and_printed_as_code128(string raw)
+    {
+        Assert.True(Symbology.TryNormalize(raw, out var code, out var error), error);
+        Assert.Equal(raw, code);
+        Assert.Equal(BarcodeKind.Code128, Symbology.KindOf(code!));
+
+        var svg = BarcodeSvg.Render(code!, 40, 12);
+        Assert.Contains("<rect", svg);
+        Assert.Contains("width=\"40mm\"", svg);
+    }
+
+    [Fact]
+    public void A_shop_code_scans_back_as_exactly_what_was_typed()
+    {
+        // Eng muhimi: «1» yorlig'i skanerlanganda «1» qaytishi kerak. Agar kod
+        // saqlashda jimgina o'zgartirilsa (masalan ichki EAN-13 ga aylantirilsa),
+        // omborchi kiritgan raqam bilan bazadagi kod boshqa-boshqa bo'lib qolardi.
+        const string code = "1";
+        var matrix = new Code128Writer().encode(code, ZXing.BarcodeFormat.CODE_128, 0, 1);
+        var svg = BarcodeSvg.Render(code, 40, 12);
+
+        var actual = new bool[matrix.Width];
+        foreach (System.Text.RegularExpressions.Match m in
+                 System.Text.RegularExpressions.Regex.Matches(svg, @"<rect x=""(\d+)"" y=""0"" width=""(\d+)"""))
+        {
+            var start = int.Parse(m.Groups[1].Value);
+            var width = int.Parse(m.Groups[2].Value);
+            for (var i = start; i < start + width; i++) actual[i] = true;
+        }
+        for (var x = 0; x < matrix.Width; x++)
+            Assert.True(matrix[x, 0] == actual[x], $"{x}-modul mos kelmadi");
+    }
+
+    [Fact]
+    public void A_thirteen_digit_code_still_must_pass_the_check_digit()
+    {
+        // 13 xonali raqam — bu zavod kodi da'vosi. Nazorat raqami xato bo'lsa
+        // uni jimgina «do'kon kodi» deb qabul qilish omborchini adashtirardi:
+        // u zavod yorlig'ini noto'g'ri kiritganini bilmay qolardi.
+        Assert.False(Symbology.TryNormalize("4780123456789", out _, out var error));
+        Assert.Contains("nazorat", error!);
+    }
+
+    [Fact]
+    public void Non_ascii_is_refused_before_it_reaches_the_printer()
+    {
+        Assert.False(Symbology.TryNormalize("Семент", out _, out var error));
+        Assert.NotNull(error);
     }
 }

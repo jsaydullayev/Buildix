@@ -92,11 +92,20 @@ public static class LabelPdfRenderer
                             // chiziqlarni o'z qutisi ichida markazlaydi, quti esa
                             // chapda qolib ketadi va kod raqamlarga nisbatan
                             // surilib ko'rinadi.
+                            // Chiziqlar enini modul soniga qarab cheklaymiz.
+                            // «1» kabi qisqa kod atigi ~35 modul — uni butun
+                            // yorliqqa cho'zsak chiziqlar haddan tashqari
+                            // yo'g'on chiqadi va yorliqlar har xil ko'rinadi.
+                            // 0.5 mm — EAN-13 nominalidan (0.33 mm) kengroq,
+                            // ya'ni skaner uchun bemalol, lekin cho'zilmagan.
+                            var modules = BarcodeSvg.ModuleCount(label.Barcode);
+                            var codeWidthMm = Math.Min(barsWidthMm, modules * 0.5);
+
                             col.Item().PaddingTop(1, Unit.Millimetre)
                                 .AlignCenter()
-                                .Width((float)barsWidthMm, Unit.Millimetre)
+                                .Width((float)codeWidthMm, Unit.Millimetre)
                                 .Height((float)barsHeightMm, Unit.Millimetre)
-                                .Svg(BarcodeSvg.Ean13(label.Barcode, barsWidthMm, barsHeightMm));
+                                .Svg(BarcodeSvg.Render(label.Barcode, codeWidthMm, barsHeightMm));
 
                             // Raqamlar chiziqlar ostida — skaner ishlamay qolsa
                             // kassir kodni qo'lda kirita oladi.
@@ -132,7 +141,9 @@ public static class LabelPdfRenderer
     /// keladi — chiziqlar ham aynan shunday guruhlangan.</para>
     /// </summary>
     private static string Spaced(string code) =>
-        code.Length == 13
+        // Guruhlash faqat EAN-13 ga tegishli — do'konning o'z kodi («1»,
+        // «A-3») qanday kiritilgan bo'lsa, shundayligicha chiqadi.
+        Symbology.KindOf(code) == BarcodeKind.Ean13
             ? $"{code[0]} {code[1..7]} {code[7..]}"
             : code;
 }
