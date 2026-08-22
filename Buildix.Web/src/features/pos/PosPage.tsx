@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ import { unitLabel } from '@/shared/lib/units';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
+import { mergePending, type PendingLine } from './pending';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -205,6 +206,22 @@ export default function PosPage() {
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
+  /**
+   * Serverga yuborilgan, lekin javobi hali kelmagan qatorlar — savat DARHOL
+   * chizilishi uchun. Kassir qobig'idagi bilan bir xil yondashuv.
+   */
+  const [pending, setPending] = useState<PendingLine[]>([]);
+  const pendingSeq = useRef(0);
+  const dropPending = (key: string) => setPending((rows) => rows.filter((r) => r.key !== key));
+
+  /** Shtrix-kod → tovar: ikkinchi skanerlashda tarmoqqa chiqilmaydi. */
+  const barcodeIndex = useRef(new Map<string, NonNullable<typeof productsQuery.data>['items'][number]>());
+  useEffect(() => {
+    for (const p of productsQuery.data?.items ?? []) {
+      if (p.barcode) barcodeIndex.current.set(p.barcode, p);
+    }
+  }, [productsQuery.data]);
+
   // M-5: after any cart mutation, also refresh the product grid so displayed
   // stock (and the out-of-stock disable) reflects the sold quantities.
   const refreshAll = () => {
@@ -218,17 +235,44 @@ export default function PosPage() {
    * aks holda xabar. Skaner klaviatura kabi ishlagani va maydon doim fokusda
    * turgani uchun global tugma tutuvchi kerak emas.
    */
+  /** Tovarni savatga qo'shadi va uni darhol ekranga chizadi. */
+  function addProduct(p: { id: string; name: string; salePrice: number; minSalePrice: number; unit: number; unitName: string }) {
+    addItem.mutate({
+      productId: p.id,
+      salePrice: p.salePrice,
+      minSalePrice: p.minSalePrice,
+      optimistic: {
+        key: `pending-${p.id}-${pendingSeq.current++}`,
+        productId: p.id,
+        productName: p.name,
+        quantity: 1,
+        salePrice: p.salePrice,
+        // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
+        // savat qatorida esa teskarisi ataladi.
+        unit: p.unitName,
+        unitValue: p.unit,
+      },
+    });
+  }
+
   async function handleScan() {
     const code = search.trim();
-    if (!code || addItem.isPending) return;
+    if (!code) return;
 
+    // 1) Lokal indeks — katalogdan yuklangan yoki ilgari skanerlangan kod
+    //    bo'lsa tarmoqqa umuman chiqilmaydi.
+    const known = barcodeIndex.current.get(code);
+    if (known) {
+      addProduct(known);
+      setSearch('');
+      return;
+    }
+
+    // 2) Noma'lum kod — bu yagona kutish, va u ham faqat birinchi marta.
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
-      addItem.mutate({
-        productId: product.id,
-        salePrice: product.salePrice,
-        minSalePrice: product.minSalePrice,
-      });
+      if (product.barcode) barcodeIndex.current.set(product.barcode, product);
+      addProduct(product);
       setSearch('');
       return;
     }
@@ -244,14 +288,10 @@ export default function PosPage() {
     // Nom bo'yicha qidiruv: ro'yxat aynan shu so'rovga tegishli bo'lsagina.
     // debouncedSearch tekshiruvisiz bu yerda eski natijalar turadi.
     if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
-    const items = productsQuery.data?.items ?? [];
-    const only = items.length === 1 ? items[0] : undefined;
+    const found = productsQuery.data?.items ?? [];
+    const only = found.length === 1 ? found[0] : undefined;
     if (only) {
-      addItem.mutate({
-        productId: only.id,
-        salePrice: only.salePrice,
-        minSalePrice: only.minSalePrice,
-      });
+      addProduct(only);
       setSearch('');
     }
   }
@@ -284,7 +324,12 @@ export default function PosPage() {
   // M-4: add a line by productId + price only — works from the product grid AND
   // from the cart "+" (which no longer depends on the current search results).
   const addItem = useMutation({
-    mutationFn: async (p: { productId: string; salePrice: number; minSalePrice: number }) => {
+    mutationFn: async (p: {
+      productId: string;
+      salePrice: number;
+      minSalePrice: number;
+      optimistic?: PendingLine;
+    }) => {
       // Birinchi mahsulot chekni ham yaratadi (lazy draft).
       const id = await ensureSale();
       return posApi.addItem(id, {
@@ -294,6 +339,18 @@ export default function PosPage() {
         salePrice: p.salePrice,
         minSalePrice: p.minSalePrice,
       });
+    },
+    // So'rov yuborilishidan OLDIN chiziladi — kassir tarmoqni kutmaydi.
+    onMutate: (vars) => {
+      setActionError(null);
+      if (vars.optimistic) setPending((rows) => [...rows, vars.optimistic!]);
+    },
+    onSettled: async (_d, _e, vars) => {
+      // Avval haqiqiy chek, keyin vaqtincha qatorni olib tashlash — teskarisi
+      // bo'lsa ro'yxat bir lahzaga bo'shab ko'zga tashlanardi.
+      await qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
+      void qc.invalidateQueries({ queryKey: ['pos-products'] });
+      if (vars.optimistic) dropPending(vars.optimistic.key);
     },
     onSuccess: () => {
       setActionError(null);
@@ -347,7 +404,7 @@ export default function PosPage() {
     onSuccess: refresh,
   });
 
-  const items = sale?.items ?? [];
+  const items = useMemo(() => mergePending(sale?.items ?? [], pending), [sale?.items, pending]);
   const total = sale?.totalAmount ?? 0;
   // Aralash: uch ulush yig'indisi jami bilan teng bo'lishi shart.
   const mixSum = mixSumOf(mixParts);
@@ -494,7 +551,7 @@ export default function PosPage() {
                     key={p.id}
                     type="button"
                     disabled={p.quantity <= 0}
-                    onClick={() => addItem.mutate({ productId: p.id, salePrice: p.salePrice, minSalePrice: p.minSalePrice })}
+                    onClick={() => addProduct(p)}
                     className="flex flex-col rounded-card border border-border bg-surface p-3 text-left transition-colors hover:border-primary disabled:opacity-50"
                   >
                     <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-hairline text-muted-2">
@@ -631,7 +688,17 @@ export default function PosPage() {
                       disabled={!it.productId}
                       onClick={() =>
                         it.productId &&
-                        addItem.mutate({ productId: it.productId, salePrice: it.salePrice, minSalePrice: it.salePrice })
+                        addProduct({
+                          id: it.productId,
+                          name: it.productName,
+                          salePrice: it.salePrice,
+                          // Qator narxi allaqachon tasdiqlangan — quyi chegara
+                          // sifatida o'shani beramiz, aks holda server torg'
+                          // qilingan narxni rad etardi.
+                          minSalePrice: it.salePrice,
+                          unit: it.unitValue,
+                          unitName: it.unit,
+                        })
                       }
                       className="flex h-7 w-7 items-center justify-center rounded-md border border-input-border text-muted hover:text-primary disabled:opacity-40"
                     >

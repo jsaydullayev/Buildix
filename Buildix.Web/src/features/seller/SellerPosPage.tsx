@@ -29,6 +29,7 @@ import { publicMarketApi } from '@/shared/api/auth';
 import { categoriesApi, type Product } from '@/features/warehouse/api';
 import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
+import { mergePending, type PendingLine } from '@/features/pos/pending';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -202,7 +203,40 @@ export default function SellerPosPage() {
   });
 
   const sale = saleQuery.data;
-  const items = sale?.items ?? [];
+  /**
+   * Skanerdan qo'shilgan, lekin server hali tasdiqlamagan qatorlar.
+   *
+   * <p>Kassada tezlik hal qiluvchi: mijoz turibdi, kassir esa ketma-ket
+   * skanerlaydi. Ilgari har «bip» dan keyin 3 ta so'rov ketma-ket ketardi
+   * (kodni izlash → qatorni qo'shish → chekni qayta o'qish) va tovar ekranda
+   * faqat uchalasi tugagach ko'rinardi. Endi qator DARHOL chiziladi, server
+   * ishi esa orqada davom etadi.</p>
+   *
+   * <p>Nega alohida holat, so'rov keshini yamash emas: chekning birinchi
+   * tovarida `saleId` hali yo'q (qoralama aynan shu paytda yaratiladi), ya'ni
+   * yamash uchun kalit yo'q. Bu ro'yxat esa saleId dan mustaqil.</p>
+   */
+  const [pending, setPending] = useState<PendingLine[]>([]);
+  const dropPending = (key: string) => setPending((rows) => rows.filter((r) => r.key !== key));
+  // Tez ketma-ket skanerlashda kalitlar takrorlanmasin.
+  const pendingSeq = useRef(0);
+
+  /**
+   * Shtrix-kod → tovar. Katalogdan yuklangan har bir tovar va serverdan
+   * topilgan har bir kod shu yerga tushadi, shuning uchun ikkinchi marta
+   * skanerlashda tarmoqqa umuman chiqilmaydi.
+   */
+  const barcodeIndex = useRef(new Map<string, Product>());
+  useEffect(() => {
+    for (const p of productsQuery.data?.items ?? []) {
+      if (p.barcode) barcodeIndex.current.set(p.barcode, p);
+    }
+  }, [productsQuery.data]);
+
+  // Ko'rinadigan savat: server qatorlari + hali tasdiqlanmaganlari. Bir xil
+  // tovar bo'lsa miqdor qo'shiladi — server ham aynan shunday birlashtiradi,
+  // ya'ni tasdiqlangach ro'yxat sakramaydi.
+  const items = useMemo(() => mergePending(sale?.items ?? [], pending), [sale?.items, pending]);
   const total = sale?.totalAmount ?? 0;
   // Chegirmasiz oraliq summa — chegirma qatorini ko'rsatish uchun kerak
   // (total allaqachon chegirma ayirilgan holda keladi).
@@ -273,8 +307,21 @@ export default function SellerPosPage() {
     else setActionError(err.message ?? '');
   };
 
+  /**
+   * Savatga qo'shish. Qator DARHOL chiziladi, server ishi orqada davom etadi.
+   *
+   * <p>`onMutate` React Query da so'rov yuborilishidan OLDIN ishlaydi, ya'ni
+   * kassir tarmoqni umuman kutmaydi. Server javob bergach `onSettled` chekni
+   * qayta o'qiydi va vaqtincha qator o'rnini haqiqiysiga bo'shatadi.</p>
+   */
   const addItem = useMutation({
-    mutationFn: async (p: { productId: string; salePrice: number; minSalePrice: number; quantity?: number }) => {
+    mutationFn: async (p: {
+      productId: string;
+      salePrice: number;
+      minSalePrice: number;
+      quantity?: number;
+      optimistic?: PendingLine;
+    }) => {
       const id = await ensureSale();
       return posApi.addItem(id, {
         isExternal: false,
@@ -284,12 +331,24 @@ export default function SellerPosPage() {
         minSalePrice: p.minSalePrice,
       });
     },
-    onSuccess: (_item, vars) => {
+    onMutate: (vars) => {
       setActionError(null);
+      // Qoldiq ham darhol kamayadi — katalogdagi son bilan savat bir vaqtda
+      // yangilansin, aks holda kassir «qo'shildimi?» deb ikkilanadi.
       bumpStock(vars.productId, -(vars.quantity ?? 1));
-      void refreshSale();
+      if (vars.optimistic) setPending((rows) => [...rows, vars.optimistic!]);
     },
-    onError: onMutationError,
+    onError: (e, vars) => {
+      // Xatoda ham qoldiqni tiklaymiz: server qatorni qabul qilmadi.
+      bumpStock(vars.productId, vars.quantity ?? 1);
+      onMutationError(e);
+    },
+    onSettled: async (_data, _err, vars) => {
+      // Avval haqiqiy chekni tortamiz, KEYIN vaqtincha qatorni olib tashlaymiz —
+      // teskarisi bo'lsa ro'yxat bir lahzaga bo'shab, ko'zga tashlanardi.
+      await refreshSale();
+      if (vars.optimistic) dropPending(vars.optimistic.key);
+    },
   });
 
   const addExternal = useMutation({
@@ -488,17 +547,45 @@ export default function SellerPosPage() {
    * o'sha → aks holda xabar. Ikkinchi bosqich skanersiz ham foydali: kassir
    * nomni terib Enter bossa, tovar qo'shiladi.</p>
    */
+  /** Tovarni savatga qo'shadi va uni darhol ekranga chizadi. */
+  function addProduct(product: Product) {
+    addItem.mutate({
+      productId: product.id,
+      salePrice: product.salePrice,
+      minSalePrice: product.minSalePrice,
+      optimistic: {
+        key: `pending-${product.id}-${pendingSeq.current++}`,
+        productId: product.id,
+        productName: product.name,
+        quantity: 1,
+        salePrice: product.salePrice,
+        // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
+        // savat qatorida esa teskarisi ataladi.
+        unit: product.unitName,
+        unitValue: product.unit,
+      },
+    });
+  }
+
   async function handleScan() {
     const code = search.trim();
-    if (!code || addItem.isPending) return;
+    if (!code) return;
 
+    // 1) Lokal indeks. Katalogdan yuklangan yoki ilgari skanerlangan kod
+    //    bo'lsa tarmoqqa UMUMAN chiqilmaydi — tovar shu zahoti savatda.
+    const known = barcodeIndex.current.get(code);
+    if (known) {
+      addProduct(known);
+      setSearch('');
+      return;
+    }
+
+    // 2) Noma'lum kod — serverdan so'raymiz. Bu yagona kutish, va u ham faqat
+    //    birinchi marta: topilgan kod indeksga tushadi.
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
-      addItem.mutate({
-        productId: product.id,
-        salePrice: product.salePrice,
-        minSalePrice: product.minSalePrice,
-      });
+      if (product.barcode) barcodeIndex.current.set(product.barcode, product);
+      addProduct(product);
       setSearch('');
       return;
     }
@@ -517,14 +604,10 @@ export default function SellerPosPage() {
     // eski natijalar turadi (qidiruv debounce bilan kechikadi) va Enter
     // butunlay boshqa tovarni chekka tushirardi.
     if (debouncedSearch.trim() !== code || productsQuery.isFetching) return;
-    const items = productsQuery.data?.items ?? [];
-    const only = items.length === 1 ? items[0] : undefined;
+    const found = productsQuery.data?.items ?? [];
+    const only = found.length === 1 ? found[0] : undefined;
     if (only) {
-      addItem.mutate({
-        productId: only.id,
-        salePrice: only.salePrice,
-        minSalePrice: only.minSalePrice,
-      });
+      addProduct(only);
       setSearch('');
     }
   }
@@ -711,9 +794,7 @@ export default function SellerPosPage() {
                       // disabled while ANY add was in flight, which capped the
                       // cashier at one product per round-trip.
                       disabled={out}
-                      onClick={() =>
-                        addItem.mutate({ productId: p.id, salePrice: p.salePrice, minSalePrice: p.minSalePrice })
-                      }
+                      onClick={() => addProduct(p)}
                       className={cn(
                         'flex flex-col gap-2 rounded-card border bg-surface p-3 text-left transition-colors',
                         out
