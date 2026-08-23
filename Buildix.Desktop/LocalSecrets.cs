@@ -61,6 +61,20 @@ public sealed class LocalSecrets
         _root = new JsonObject();
     }
 
+    /// <summary>
+    /// Yangilanish serverining manzili. Sozlamada bo'lmasa — <c>null</c> va
+    /// yangilanish umuman tekshirilmaydi.
+    ///
+    /// <para>Ataylab sirlar fayliga qo'yilgan: har do'kon o'z kanalidan
+    /// (masalan sinov yoki asosiy) yangilanishi mumkin va buni o'rnatuvchi
+    /// qayta yig'masdan o'zgartirsa bo'ladi.</para>
+    /// </summary>
+    public string? UpdateFeedUrl =>
+        _root["UpdateFeedUrl"] is JsonValue v && v.TryGetValue<string>(out var url)
+        && !string.IsNullOrWhiteSpace(url)
+            ? url
+            : null;
+
     /// <summary>Kalit bo'yicha sirni oladi; bo'lmasa <paramref name="create"/> bilan yaratadi.</summary>
     public string GetOrCreate(string key, Func<string> create)
     {

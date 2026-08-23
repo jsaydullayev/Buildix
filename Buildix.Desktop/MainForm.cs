@@ -17,14 +17,16 @@ public sealed class MainForm : Form
     private readonly ApiHost _api;
     private readonly PostgresHost _db;
     private readonly LocalSecrets _secrets;
+    private readonly Updater _updater;
     private readonly Label _status;
     private WebView2? _web;
 
-    public MainForm(ApiHost api, PostgresHost db, LocalSecrets secrets)
+    public MainForm(ApiHost api, PostgresHost db, LocalSecrets secrets, Updater updater)
     {
         _api = api;
         _db = db;
         _secrets = secrets;
+        _updater = updater;
 
         Text = "Buildix";
         WindowState = FormWindowState.Maximized;
@@ -163,6 +165,29 @@ public sealed class MainForm : Form
         };
 
         _web.Source = new Uri(_api.BaseUrl);
+
+        // Yangilanish FONDA tekshiriladi — ochilishni kechiktirmaydi va
+        // internetsiz do'konda hech narsa o'zgarmaydi.
+        _ = CheckUpdateAsync();
+    }
+
+    /// <summary>
+    /// Yangi versiya yuklab qo'yilgan bo'lsa sarlavhada bildiradi.
+    ///
+    /// <para>Qayta ishga tushishni TAKLIF QILMAYMIZ: kassir savdo o'rtasida
+    /// bo'lishi mumkin va «hozir yangilansinmi?» degan oyna aynan noto'g'ri
+    /// paytda chiqadi. Yangi versiya ilova keyingi safar ochilganda o'zi
+    /// qo'llanadi.</para>
+    /// </summary>
+    private async Task CheckUpdateAsync()
+    {
+        await _updater.CheckAsync();
+        if (_updater.PendingVersion is null || IsDisposed) return;
+
+        BeginInvoke(() =>
+        {
+            Text = $"Buildix — {_updater.PendingVersion} versiyasi keyingi ochilishda o'rnatiladi";
+        });
     }
 
     private static void OpenExternally(string uri)

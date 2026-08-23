@@ -1,3 +1,5 @@
+using Velopack;
+
 namespace Buildix.Desktop;
 
 internal static class Program
@@ -15,6 +17,13 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        // ENG BIRINCHI qator bo'lishi shart. O'rnatish, yangilanish va
+        // o'chirish paytida ilova maxsus argumentlar bilan chaqiriladi va
+        // shu chaqiruvlarni Velopack shu yerda ushlab qoladi. Undan keyin
+        // qo'yilsa — masalan bitta nusxa qulfidan keyin — yangilanish
+        // «ilova allaqachon ochiq» degan xabarga urilib to'xtab qolardi.
+        VelopackApp.Build().Run();
+
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var isFirst);
         if (!isFirst)
         {
@@ -39,7 +48,11 @@ internal static class Program
             var api = new ApiHost(port, job);
             var db = new PostgresHost(job);
 
-            Application.Run(new MainForm(api, db, secrets));
+            // Yangilanish manzili sozlamada. Bo'lmasa tekshiruv umuman
+            // o'tkazilmaydi — ilova yangilanishsiz ham to'liq ishlaydi.
+            var updater = new Updater(secrets.UpdateFeedUrl);
+
+            Application.Run(new MainForm(api, db, secrets, updater));
 
             // Tozalash aynan shu yerda: Application.Run qaytgan, ya'ni oyna
             // yopilgan va endi kutish mumkin. Tartib muhim — avval API, keyin
