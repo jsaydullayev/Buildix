@@ -7,6 +7,41 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 
+  <!--
+    Development sozlamasi NASHRGA TUSHMASIN. Uning ichida baza paroli, JWT
+    imzo kaliti, Telegram tokeni va SuperAdmin paroli bor — ular faqat
+    dasturchi mashinasida qolishi kerak. `dotnet publish` sukut bo'yicha
+    barcha appsettings*.json ni ko'chiradi, ya'ni desktop to'plami do'konga
+    shu sirlar bilan borishi mumkin edi.
+  -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Development.example.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <!--
+    Desktop to'plami: qurilgan interfeys nashr papkasidagi `spa/` ga tushadi.
+    Buni qo'lda nusxalash unutilishi mumkin edi va natijada ilova bo'sh
+    ekran ko'rsatardi — sababi esa faqat do'konda bilinardi.
+
+    `dotnet publish -p:IncludeSpa=true` bilan yoqiladi. Interfeys oldindan
+    `npm run build` bilan qurilgan bo'lishi kerak; qurilmagan bo'lsa nashr
+    to'xtaydi va sababini aytadi.
+  -->
+  <Target Name="CopySpaToPublish" AfterTargets="Publish" Condition="'$(IncludeSpa)' == 'true'">
+    <PropertyGroup>
+      <SpaSource>$(MSBuildProjectDirectory)\..\Buildix.Web\dist</SpaSource>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(SpaSource)')"
+           Text="Interfeys qurilmagan: $(SpaSource) topilmadi. Avval Buildix.Web papkasida `npm run build` bajaring." />
+    <ItemGroup>
+      <SpaFiles Include="$(SpaSource)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaFiles)"
+          DestinationFiles="@(SpaFiles->'$(PublishDir)spa\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Message Importance="high" Text="Interfeys nusxalandi: @(SpaFiles->Count()) fayl → $(PublishDir)spa" />
+  </Target>
+
   <ItemGroup>
     <Compile Remove="Controllers\NewFolder\**" />
     <Content Remove="Controllers\NewFolder\**" />

@@ -63,6 +63,22 @@ try
     Log.Information("Logging to: PostgreSQL + Console");
     Log.Information("Time Zone: GMT+5 (Tashkent Time)");
 
+    // ── Desktop rejimi: har o'rnatishning O'Z siri ──────────────────────────
+    //
+    // Do'kon kompyuterida sirni qo'lda kiritadigan odam yo'q. Ularni
+    // o'rnatuvchiga tikib qo'yish esa xavfli bo'lardi: bitta nusxadan
+    // chiqarilgan kalit bilan har qanday do'konning tokenini soxtalashtirish
+    // mumkin edi. Shuning uchun kalit BIRINCHI ISHGA TUSHISHDA yaratiladi va
+    // shu kompyuterda qoladi — har do'konda boshqacha.
+    if (builder.Configuration.GetValue<bool>("Desktop:Enabled"))
+    {
+        var localConfig = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "Buildix", "local.json");
+        DesktopBootstrap.EnsureLocalSecrets(localConfig);
+        builder.Configuration.AddJsonFile(localConfig, optional: false, reloadOnChange: false);
+    }
+
     // Fail fast if required secrets are missing — no defaults baked in.
     var jwtKey = builder.Configuration["Jwt:Key"];
     if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < JwtSetting.MinKeyLength)
