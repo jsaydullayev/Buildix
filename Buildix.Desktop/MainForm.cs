@@ -15,12 +15,16 @@ namespace Buildix.Desktop;
 public sealed class MainForm : Form
 {
     private readonly ApiHost _api;
+    private readonly PostgresHost _db;
+    private readonly LocalSecrets _secrets;
     private readonly Label _status;
     private WebView2? _web;
 
-    public MainForm(ApiHost api)
+    public MainForm(ApiHost api, PostgresHost db, LocalSecrets secrets)
     {
         _api = api;
+        _db = db;
+        _secrets = secrets;
 
         Text = "Buildix";
         WindowState = FormWindowState.Maximized;
@@ -40,7 +44,13 @@ public sealed class MainForm : Form
         Controls.Add(_status);
 
         Shown += async (_, _) => await StartAsync();
-        FormClosed += async (_, _) => await _api.DisposeAsync();
+        FormClosed += async (_, _) =>
+        {
+            // Tartib muhim: avval API, keyin baza. Teskarisi bo'lsa API
+            // yopilayotgan bazaga so'rov yuborib xato yozardi.
+            await _api.DisposeAsync();
+            await _db.DisposeAsync();
+        };
     }
 
     private async Task StartAsync()
@@ -50,6 +60,25 @@ public sealed class MainForm : Form
             Fail("Buildix.API topilmadi.\n\nIlova to'liq o'rnatilmagan bo'lishi mumkin — "
                  + "o'rnatuvchini qaytadan ishga tushiring.");
             return;
+        }
+
+        // ── Baza ──────────────────────────────────────────────────────────
+        if (_db.IsBundled)
+        {
+            _status.Text = "Ma'lumotlar bazasi ishga tushmoqda…";
+            string? dbError;
+            try
+            {
+                dbError = await _db.StartAsync(
+                    key => _secrets.GetOrCreate(key, PostgresHost.NewPassword),
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                dbError = ex.Message;
+            }
+            if (dbError is not null) { Fail(dbError); return; }
+            _api.ConnectionString = _db.ConnectionString;
         }
 
         try

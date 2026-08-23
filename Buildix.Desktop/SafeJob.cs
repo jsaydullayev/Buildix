@@ -12,7 +12,7 @@ namespace Buildix.Desktop;
 /// tushish esa «port band» xatosi bilan tugaydi va omborchi buni tushunmaydi.
 /// Job Object bu holatni operatsion tizim darajasida hal qiladi.</para>
 /// </summary>
-internal sealed class SafeJob : IDisposable
+public sealed class SafeJob : IDisposable
 {
     private IntPtr _handle;
 

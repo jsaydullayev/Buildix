@@ -28,8 +28,21 @@ internal static class Program
 
         ApplicationConfiguration.Initialize();
 
+        // Bitta Job Object ikkala bola jarayonni ham ushlab turadi: ilova
+        // qanday tugasa ham baza va API orqada qolmaydi.
+        using var job = new SafeJob();
         var port = ApiHost.FindFreePort(PreferredPort);
-        var api = new ApiHost(port);
-        Application.Run(new MainForm(api));
+
+        try
+        {
+            var secrets = new LocalSecrets();
+            var api = new ApiHost(port, job);
+            var db = new PostgresHost(job);
+            Application.Run(new MainForm(api, db, secrets));
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Buildix", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 }

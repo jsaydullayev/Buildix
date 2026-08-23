@@ -21,10 +21,14 @@ namespace Buildix.Desktop;
 public sealed class ApiHost : IAsyncDisposable
 {
     private readonly int _port;
+    private readonly SafeJob _job;
     private Process? _process;
-    private readonly SafeJob _job = new();
 
-    public ApiHost(int port) => _port = port;
+    public ApiHost(int port, SafeJob job)
+    {
+        _port = port;
+        _job = job;
+    }
 
     public string BaseUrl => $"http://127.0.0.1:{_port}";
 
@@ -33,6 +37,9 @@ public sealed class ApiHost : IAsyncDisposable
         Path.Combine(AppContext.BaseDirectory, "api", "Buildix.API.exe");
 
     public bool ApiExists => File.Exists(ExecutablePath);
+
+    /// <summary>Baza ulanish satri — qobiq tomonidan beriladi.</summary>
+    public string? ConnectionString { get; set; }
 
     public void Start()
     {
@@ -45,6 +52,10 @@ public sealed class ApiHost : IAsyncDisposable
         };
         psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Desktop";
         psi.Environment["ASPNETCORE_URLS"] = BaseUrl;
+        // Ulanish satri muhit o'zgaruvchisi orqali: fayldagi sozlamada parol
+        // ochiq yotmasin va uni tasodifan nusxalab yuborish imkoni bo'lmasin.
+        if (!string.IsNullOrWhiteSpace(ConnectionString))
+            psi.Environment["ConnectionStrings__DefaultConnection"] = ConnectionString;
 
         _process = Process.Start(psi)
             ?? throw new InvalidOperationException("Buildix.API ishga tushmadi.");
@@ -108,6 +119,5 @@ public sealed class ApiHost : IAsyncDisposable
             catch (InvalidOperationException) { /* allaqachon tugagan */ }
         }
         _process?.Dispose();
-        _job.Dispose();
     }
 }

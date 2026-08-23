@@ -149,9 +149,18 @@ try
                Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS") ??
                Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split(':').Last() ??
                "8080";
-    // Use 0.0.0.0 for Docker compatibility (allows external access)
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-    Log.Information("Configuring to listen on: http://0.0.0.0:{0}", port);
+    // Bulutda 0.0.0.0 shart — Docker konteyneriga tashqaridan kirish shu orqali.
+    //
+    // Desktopda esa aksincha: do'kon kompyuteridagi API ni butun tarmoqqa
+    // ochish keraksiz xavf. Bitta kassali do'konda uni faqat shu kompyuterning
+    // o'zi ishlatadi, ya'ni loopback yetarli. Ikki-uch kassali do'konda
+    // qolganlari lokal tarmoq orqali ulanadi — o'shanda Desktop:AllowLan
+    // ataylab yoqiladi.
+    var desktop = builder.Configuration.GetValue<bool>("Desktop:Enabled");
+    var allowLan = builder.Configuration.GetValue<bool>("Desktop:AllowLan");
+    var bindHost = desktop && !allowLan ? "127.0.0.1" : "0.0.0.0";
+    builder.WebHost.UseUrls($"http://{bindHost}:{port}");
+    Log.Information("Configuring to listen on: http://{Host}:{Port}", bindHost, port);
 
     builder.Services.AddHealthChecks();
 
