@@ -76,3 +76,6 @@ deploy/nginx/certs/*
 deploy/nginx/certbot-www/*
 !deploy/nginx/certbot-www/.gitkeep
 deploy/nginx/letsencrypt/
+
+# build-desktop.ps1 yig'gan o'rnatuvchi va paketlar (~120 MB dan)
+artifacts/

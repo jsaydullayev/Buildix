@@ -22,7 +22,16 @@ internal static class Program
         // shu chaqiruvlarni Velopack shu yerda ushlab qoladi. Undan keyin
         // qo'yilsa — masalan bitta nusxa qulfidan keyin — yangilanish
         // «ilova allaqachon ochiq» degan xabarga urilib to'xtab qolardi.
-        VelopackApp.Build().Run();
+        //
+        // AutoApplyOnStartup — aynan shu chaqiruv yangilanishni haqiqatan
+        // o'rnatadi. Updater faqat paketni diskka yuklab qo'yadi; uni shu yer
+        // ochib almashtiradi. Sukut bo'yicha yoqilgan bo'lsa ham ataylab
+        // oshkora yozilgan: buni o'chirish ilovani har kuni yangi versiyani
+        // yuklab olib, abadiy eskisida qoladigan holga keltiradi va bunda
+        // hech qanday xato ham chiqmaydi — ya'ni hech kim sezmaydi.
+        VelopackApp.Build()
+            .SetAutoApplyOnStartup(true)
+            .Run();
 
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var isFirst);
         if (!isFirst)

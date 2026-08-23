@@ -6,6 +6,14 @@ namespace Buildix.Desktop;
 /// <summary>
 /// Yangilanishlarni fonda tekshiradi va yuklab qo'yadi.
 ///
+/// <para><b>Bu sinf faqat YUKLAB OLADI.</b> Qo'llashni Velopack ning o'zi
+/// bajaradi: <see cref="VelopackApp"/> ishga tushishda yuklab qo'yilgan
+/// paketni topsa, uni o'zi o'rnatadi (<c>SetAutoApplyOnStartup</c>, qarang
+/// <c>Program.Main</c>). Shu sababli bu yerda <c>ApplyUpdatesAndRestart</c>
+/// yoki <c>WaitExitThenApplyUpdates</c> chaqirilmaydi — ular ishlayotgan
+/// ilovani to'xtatadi yoki yopilishda kassirga progress oynasini
+/// ko'rsatadi.</para>
+///
 /// <para><b>Nega hech qachon o'zi qayta ishga tushmaydi.</b> Kassada
 /// yangilanish savdoni to'xtatishi mumkin emas: mijoz turibdi, savatda tovar
 /// bor. Shuning uchun yangi versiya jimgina yuklab olinadi va faqat ilova
