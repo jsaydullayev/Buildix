@@ -926,6 +926,55 @@ try
 
     app.MapHub<Buildix.API.Hubs.SalesHub>("/hubs/sales");
 
+    // ── Desktop rejimi: interfeysni API ning O'ZI beradi ─────────────────────
+    //
+    // Bulutda SPA ni nginx beradi va /api ni shu servisga uzatadi. Do'kon
+    // kompyuterida nginx yo'q — u yerda bitta jarayon ishlaydi, shuning uchun
+    // qurilgan SPA shu yerdan beriladi.
+    //
+    // Fallback SHART: React Router yo'llari (/taxtapul/seller/pos) serverda
+    // mavjud emas, ular index.html ga tushib, brauzerda hal qilinadi. Lekin
+    // /api va /hubs bundan chetda qoladi — aks holda noto'g'ri yozilgan
+    // endpoint 404 o'rniga HTML qaytarardi va xato butunlay boshqa joyda
+    // «JSON o'rniga <!DOCTYPE» bo'lib chiqardi.
+    if (builder.Configuration.GetValue<bool>("Desktop:Enabled"))
+    {
+        var spaRoot = Path.Combine(AppContext.BaseDirectory, "spa");
+        if (Directory.Exists(spaRoot))
+        {
+            var spaFiles = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(spaRoot);
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = spaFiles });
+
+            app.MapFallback(async context =>
+            {
+                var path = context.Request.Path.Value ?? "/";
+                if (path.StartsWith("/api", StringComparison.OrdinalIgnoreCase) ||
+                    path.StartsWith("/hubs", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+
+                var index = Path.Combine(spaRoot, "index.html");
+                if (!File.Exists(index))
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+                context.Response.ContentType = "text/html; charset=utf-8";
+                // Interfeys yangilanganda eski nusxa qolib ketmasin.
+                context.Response.Headers["Cache-Control"] = "no-cache";
+                await context.Response.SendFileAsync(index);
+            });
+
+            Log.Information("Desktop rejimi: interfeys {Path} dan beriladi", spaRoot);
+        }
+        else
+        {
+            Log.Warning("Desktop rejimi yoqilgan, lekin {Path} topilmadi — interfeys berilmaydi", spaRoot);
+        }
+    }
+
     // Seed endpoint: requires both IsDevelopment() AND SEED_ENABLED=true so it
     // can never fire in production even if the environment var is misconfigured.
     if (app.Environment.IsDevelopment() &&

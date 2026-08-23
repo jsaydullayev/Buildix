@@ -52,12 +52,19 @@
     <meta name="apple-mobile-web-app-title" content="Buildix" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <!--
+      Shriftlar ilova ichida, Google CDN dan emas. Do'kon kompyuterida internet
+      bo'lmasligi mumkin — CDN dan kelgan shrift u yerda umuman yuklanmaydi va
+      interfeys tizim shriftiga tushib qoladi. Bulutda ham foydali: tashqi
+      so'rov yo'qoladi va CSP soddalashadi.
+    -->
+    <!--
+      Bitta fayl barcha og'irliklarga xizmat qiladi (variable shrift), shuning
+      uchun ikkita alohida preload kerak emas. Kirill — interfeysning asosiy
+      yozuvi (ru/uz), shuning uchun aynan u oldindan yuklanadi.
+    -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/GolosText-400-cyrillic.woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
 
     <script type="application/ld+json">
       {
