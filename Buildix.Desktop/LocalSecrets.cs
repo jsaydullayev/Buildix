@@ -18,6 +18,19 @@ public sealed class LocalSecrets
     private readonly string _path;
     private readonly JsonObject _root;
 
+    /// <summary>
+    /// Fayl shu ishga tushishda yangidan yaratildimi.
+    ///
+    /// <para>Muhim: baza paroli faqat shu faylda saqlanadi, bazaning o'zida
+    /// esa uning hash'i yotadi va uni qaytarib bo'lmaydi. Ya'ni fayl
+    /// yo'qolgan, lekin baza mavjud bo'lsa — yangi parol bilan unga
+    /// ULANIB BO'LMAYDI. Buni oldindan aniqlab, tushunarli xabar berish
+    /// kerak: aks holda foydalanuvchi PostgreSQL ning rus tilidagi
+    /// «проверка подлинности не пройдена» xabarini ko'radi va nima
+    /// qilishni bilmaydi.</para>
+    /// </summary>
+    public bool CreatedNow { get; }
+
     public LocalSecrets()
     {
         _path = Path.Combine(
@@ -25,11 +38,15 @@ public sealed class LocalSecrets
             "Buildix", "desktop.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
 
+        CreatedNow = !File.Exists(_path);
+
         if (File.Exists(_path))
         {
             try
             {
                 _root = JsonNode.Parse(File.ReadAllText(_path)) as JsonObject ?? new JsonObject();
+                // Oldingi versiya huquqlarni cheklamagan bo'lishi mumkin.
+                SecretFile.Restrict(_path);
                 return;
             }
             catch (JsonException)
@@ -62,10 +79,8 @@ public sealed class LocalSecrets
     private void Save()
     {
         var json = _root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-        // Avval vaqtinchalik faylga, keyin o'rniga: yozish o'rtasida elektr
-        // uzilsa yarim fayl qolmasin.
-        var tmp = _path + ".tmp";
-        File.WriteAllText(tmp, json);
-        File.Move(tmp, _path, overwrite: true);
+        // SecretFile atomik yozadi VA huquqlarni cheklaydi: bu faylda baza
+        // paroli bor, ProgramData esa sukut bo'yicha hammaga o'qishga ochiq.
+        SecretFile.Write(_path, json);
     }
 }

@@ -38,7 +38,16 @@ internal static class Program
             var secrets = new LocalSecrets();
             var api = new ApiHost(port, job);
             var db = new PostgresHost(job);
+
             Application.Run(new MainForm(api, db, secrets));
+
+            // Tozalash aynan shu yerda: Application.Run qaytgan, ya'ni oyna
+            // yopilgan va endi kutish mumkin. Tartib muhim — avval API, keyin
+            // baza: teskarisi bo'lsa API yopilayotgan bazaga so'rov yuborib
+            // xato yozardi. Toza yopilmasa PostgreSQL keyingi kirishda
+            // tiklash jurnalini o'qiydi va ishga tushish sekinlashadi.
+            api.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            db.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         catch (InvalidOperationException ex)
         {

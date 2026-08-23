@@ -1,4 +1,6 @@
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -38,6 +40,8 @@ public static class DesktopBootstrap
             try
             {
                 root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject();
+                // Oldingi versiya huquqlarni cheklamagan bo'lishi mumkin.
+                Restrict(path);
             }
             catch (JsonException)
             {
@@ -68,10 +72,45 @@ public static class DesktopBootstrap
         if (!changed) return;
 
         var json = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-        // Avval vaqtinchalik faylga yozib, keyin o'rniga qo'yamiz: yozish
-        // o'rtasida elektr uzilsa yarim fayl qolmasin.
+        // Avval vaqtinchalik faylga yozib, huquqlarni O'SHA yerda cheklab,
+        // keyin o'rniga qo'yamiz. Ikki sabab: yozish o'rtasida elektr uzilsa
+        // yarim fayl qolmasin, va fayl bir lahza ham hammaga ochiq turmasin.
         var tmp = path + ".tmp";
         File.WriteAllText(tmp, json);
+        Restrict(tmp);
         File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>
+    /// Faylni faqat egasiga ochiq qoldiradi.
+    ///
+    /// <para><c>%ProgramData%</c> sukut bo'yicha «Users» guruhiga o'qishga
+    /// ochiq. Ichida JWT imzo kaliti bor: uni o'qigan odam istalgan
+    /// foydalanuvchining tokenini yasashi mumkin. Kassirning o'z Windows
+    /// hisobi bo'lsa, u ilovaga umuman kirmasdan egasi bo'lib qolardi.</para>
+    /// </summary>
+    private static void Restrict(string path)
+    {
+        // Bulutda (Linux konteyner) bu kod ishlamaydi va kerak ham emas —
+        // u yerda sir muhit o'zgaruvchisidan keladi, faylda saqlanmaydi.
+        if (!OperatingSystem.IsWindows()) return;
+
+        var acl = new FileSecurity();
+        acl.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        acl.AddAccessRule(new FileSystemAccessRule(
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            FileSystemRights.FullControl, AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+            FileSystemRights.FullControl, AccessControlType.Allow));
+
+        var me = WindowsIdentity.GetCurrent().User;
+        if (me is not null)
+        {
+            acl.AddAccessRule(new FileSystemAccessRule(
+                me, FileSystemRights.FullControl, AccessControlType.Allow));
+        }
+
+        new FileInfo(path).SetAccessControl(acl);
     }
 }

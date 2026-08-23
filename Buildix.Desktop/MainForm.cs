@@ -43,14 +43,24 @@ public sealed class MainForm : Form
         };
         Controls.Add(_status);
 
-        Shown += async (_, _) => await StartAsync();
-        FormClosed += async (_, _) =>
+        // Ushlanmagan istisno bu yerda ilovani JIMGINA yopib yuborardi:
+        // `async void` ichidagi xato hech qayerga chiqmaydi va omborchi
+        // faqat oyna g'oyib bo'lganini ko'rardi.
+        Shown += async (_, _) =>
         {
-            // Tartib muhim: avval API, keyin baza. Teskarisi bo'lsa API
-            // yopilayotgan bazaga so'rov yuborib xato yozardi.
-            await _api.DisposeAsync();
-            await _db.DisposeAsync();
+            try
+            {
+                await StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Fail("Kutilmagan xato." + Environment.NewLine + Environment.NewLine + ex.Message);
+            }
         };
+        // Tozalash bu yerda EMAS: FormClosed — `async void`, WinForms uni
+        // kutmaydi va jarayon tugab ketadi. Natijada PostgreSQL toza
+        // yopilmasdi va har kirishda tiklash jurnali o'qilardi. Tozalash
+        // Program.Main da, Application.Run qaytgandan keyin bajariladi.
     }
 
     private async Task StartAsync()
@@ -71,6 +81,7 @@ public sealed class MainForm : Form
             {
                 dbError = await _db.StartAsync(
                     key => _secrets.GetOrCreate(key, PostgresHost.NewPassword),
+                    _secrets.CreatedNow,
                     CancellationToken.None);
             }
             catch (Exception ex)
