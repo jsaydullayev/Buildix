@@ -2,7 +2,7 @@ using Buildix.Domain.Common;
 
 namespace Buildix.Domain.Entities;
 
-public class ProductCategory : ISoftDelete
+public class ProductCategory : ISoftDelete, IUpdateTracked
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;

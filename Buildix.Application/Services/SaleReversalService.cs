@@ -169,7 +169,6 @@ public class SaleReversalService : ISaleReversalService
                 if (cashRegister != null)
                 {
                     cashRegister.CurrentBalance -= cashRefund;
-                    cashRegister.LastUpdated = DateTime.UtcNow;
                     _logger.LogInformation(
                         "Sale {SaleId} cancelled — refunded {Amount} cash to market {MarketId} till",
                         saleId, cashRefund, sale.MarketId);
@@ -356,7 +355,6 @@ public class SaleReversalService : ISaleReversalService
                 if (cashRegister != null)
                 {
                     cashRegister.CurrentBalance -= netCashOnSale;
-                    cashRegister.LastUpdated = DateTime.UtcNow;
                     _logger.LogInformation(
                         "Cash reversed on sale delete: SaleId={SaleId} NetCash={Amount} NewBalance={Balance}",
                         saleId, netCashOnSale, cashRegister.CurrentBalance);
@@ -573,7 +571,6 @@ public class SaleReversalService : ISaleReversalService
                     if (cashRegister != null)
                     {
                         cashRegister.CurrentBalance -= overpaid;
-                        cashRegister.LastUpdated = DateTime.UtcNow;
                         _logger.LogInformation(
                             "Cash refunded on item return: SaleId={SaleId} Amount={Amount} NewBalance={Balance}",
                             sale.Id, overpaid, cashRegister.CurrentBalance);

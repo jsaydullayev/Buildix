@@ -90,13 +90,11 @@ public sealed class ExternalPayoutLedger : IExternalPayoutLedger
                 Id = Guid.NewGuid(),
                 MarketId = sale.MarketId,
                 CurrentBalance = 0,
-                LastUpdated = DateTime.UtcNow,
             };
             _db.CashRegisters.Add(register);
         }
 
         register.CurrentBalance += outgoing ? -amount : amount;
-        register.LastUpdated = DateTime.UtcNow;
 
         // Касса ro'yxatiga yozuv. Balansni bu emas, yuqoridagi CurrentBalance
         // belgilaydi — CashLedger shartnomasi shunday.

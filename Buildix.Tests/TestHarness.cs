@@ -27,6 +27,20 @@ public sealed class FakeCurrentMarketService : ICurrentMarketService
 }
 
 /// <summary>
+/// Qo'lda suriladigan soat. Boshlang'ich nuqta o'tmishdagi aniq sana:
+/// testdagi vaqtlar tizim soatiga bog'liq bo'lmasin.
+/// </summary>
+public sealed class TestClock : TimeProvider
+{
+    private DateTimeOffset _now = new(2026, 1, 1, 9, 0, 0, TimeSpan.Zero);
+
+    public override DateTimeOffset GetUtcNow() => _now;
+
+    /// <summary>Soatni oldinga suradi.</summary>
+    public void Advance(TimeSpan by) => _now = _now.Add(by);
+}
+
+/// <summary>
 /// One isolated EF-InMemory database per test, wired with the real
 /// AppDbContext + UnitOfWork so query filters, SUM-based totals and status
 /// transitions run for real. Only the peripheral collaborators (audit log,
@@ -68,9 +82,20 @@ public sealed class TestHarness : IDisposable
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
-        Db = new AppDbContext(options, Market);
+        Db = new AppDbContext(options, Market, DbClock);
         UnitOfWork = new UnitOfWork(Db, NullLogger<UnitOfWork>.Instance);
     }
+
+    /// <summary>
+    /// Bazaga yoziladigan <c>UpdatedAt</c> ni boshqaradigan soat. Yuqoridagi
+    /// <see cref="Clock"/> dan boshqa narsa: u — Toshkent biznes soati (smena,
+    /// kechikish), bu esa yozuv vaqtini belgilaydi.
+    ///
+    /// <para>Boshqariladigan qilingan, chunki tizim soatiga tayanib bo'lmaydi:
+    /// uning aniqligi Windows'da ~15 ms va ketma-ket ikki saqlash bir xil vaqt
+    /// olishi mumkin.</para>
+    /// </summary>
+    public TestClock DbClock { get; } = new();
 
     // Real credit applier over the InMemory context. The substituted
     // ICustomerService returns 0 available credit by default, so credit

@@ -176,8 +176,7 @@ public partial class RegistrationRequestService
                 {
                     Id = Guid.NewGuid(),
                     MarketId = market.Id,
-                    CurrentBalance = 0m,
-                    LastUpdated = DateTime.UtcNow
+                    CurrentBalance = 0m
                 });
 
                 user.MarketId = market.Id;

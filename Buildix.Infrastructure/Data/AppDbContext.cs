@@ -1,4 +1,5 @@
 using Buildix.Application.Interfaces;
+using Buildix.Domain.Common;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Interfaces;
 using Buildix.Domain.Enums;
@@ -9,11 +10,26 @@ namespace Buildix.Infrastructure.Data;
 public class AppDbContext : DbContext, IAppDbContext
 {
     private readonly ICurrentMarketService? _currentMarket;
+    private readonly TimeProvider _clock;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentMarketService? currentMarket = null)
+    /// <param name="timeProvider">
+    /// <c>UpdatedAt</c> uchun soat. Berilmasa tizim soati ishlatiladi.
+    ///
+    /// <para>Ataylab almashtiriladigan qilingan: bu maydonni tekshiradigan
+    /// testda vaqtni oldinga surishdan boshqa iloj yo'q edi, chunki Windows'da
+    /// <c>DateTime.UtcNow</c> aniqligi ~15 ms — ketma-ket ikki saqlash bir xil
+    /// vaqt olishi mumkin va test tasodifan yiqilardi. Soatsiz yozilgan
+    /// birinchi variant undan ham yomon chiqdi: u YIQILMASDAN o'tar,
+    /// lekin aslida hech narsani tekshirmasdi.</para>
+    /// </param>
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        ICurrentMarketService? currentMarket = null,
+        TimeProvider? timeProvider = null)
         : base(options)
     {
         _currentMarket = currentMarket;
+        _clock = timeProvider ?? TimeProvider.System;
     }
 
     // Defense-in-depth tenant scope for the global query filters in
@@ -192,7 +208,7 @@ public class AppDbContext : DbContext, IAppDbContext
                 ExpiryReminderDays = 3,
                 SupportPhone = "+998 71 200 70 07",
                 SupportTelegram = "@buildix_support",
-                UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc),
             });
         });
 
@@ -205,10 +221,10 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.Code).ValueGeneratedNever();
             b.Property(x => x.PriceUzs).HasPrecision(18, 2);
             b.HasData(
-                new PlatformPlan { Code = PlanCode.Start, PriceUzs = 600_000m, MaxUsers = 3, MaxPoints = 1, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
-                new PlatformPlan { Code = PlanCode.Standard, PriceUzs = 1_200_000m, MaxUsers = 8, MaxPoints = 1, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
+                new PlatformPlan { Code = PlanCode.Start, PriceUzs = 600_000m, MaxUsers = 3, MaxPoints = 1, UpdatedAt = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
+                new PlatformPlan { Code = PlanCode.Standard, PriceUzs = 1_200_000m, MaxUsers = 8, MaxPoints = 1, UpdatedAt = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) },
                 // MaxUsers = 0 → limitsiz.
-                new PlatformPlan { Code = PlanCode.Pro, PriceUzs = 2_400_000m, MaxUsers = 0, MaxPoints = 3, UpdatedAtUtc = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) });
+                new PlatformPlan { Code = PlanCode.Pro, PriceUzs = 2_400_000m, MaxUsers = 0, MaxPoints = 3, UpdatedAt = new DateTime(2026, 7, 26, 0, 0, 0, DateTimeKind.Utc) });
         });
 
         // Obuna to'lovlari. Tenant filtri YO'Q — bu platforma buxgalteriyasi,
@@ -581,6 +597,12 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<DebtAuditLog>(b =>
         {
             b.HasKey(x => x.Id);
+
+            // UpdatedAt bu yerda ham YO'Q — sabab AuditLog dagidek:
+            // trg_debtauditlogs_append_only qatorni o'zgartirishga yo'l
+            // qo'ymaydi.
+            b.Ignore(x => x.UpdatedAt);
+
             b.Property(x => x.OldPrice).HasPrecision(18, 2);
             b.Property(x => x.NewPrice).HasPrecision(18, 2);
             b.Property(x => x.Comment).IsRequired().HasMaxLength(500);
@@ -765,6 +787,16 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<AuditLog>(b =>
         {
             b.HasKey(x => x.Id);
+
+            // UpdatedAt bu jadvalda YO'Q. Audit qatori hech qachon
+            // o'zgarmaydi — buni bazadagi trigger majburlaydi
+            // (trg_auditlogs_append_only, UPDATE va DELETE ni rad etadi).
+            // Ustun qo'shilsa u abadiy yaratilish vaqtiga teng bo'lib turar,
+            // ya'ni hech narsa aytmaydigan yolg'on maydon bo'lardi. Bulut bilan
+            // sinxronizatsiya bu jadval uchun CreatedAt dan foydalanadi va bu
+            // kelishuv emas — jadvalning o'zgarmasligini baza kafolatlaydi.
+            b.Ignore(x => x.UpdatedAt);
+
             b.Property(x => x.EntityType).IsRequired().HasMaxLength(100);
             b.Property(x => x.Action).IsRequired().HasMaxLength(50);
             b.Property(x => x.Payload);
@@ -829,8 +861,8 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.CurrentBalance).HasPrecision(18, 2).IsRequired();
-            b.Property(x => x.LastUpdated).IsRequired();
-            b.HasIndex(x => x.LastUpdated);
+            b.Property(x => x.UpdatedAt).IsRequired();
+            b.HasIndex(x => x.UpdatedAt);
 
             // K2 — optimistic concurrency via PostgreSQL system column xmin.
             // No DDL needed — xmin exists on every PG table. Stops concurrent
@@ -938,5 +970,78 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<AuditLog>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashRegister>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashWithdrawal>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
+    }
+
+    // ── UpdatedAt ────────────────────────────────────────────────────────────
+    // Ikkala SaveChanges ham shu yerdan o'tadi: sinxron chaqiruv EF ichida
+    // asinxroniga yo'naltirilmaydi, shuning uchun ikkalasini ham qoplash SHART.
+    // Bittasi qoplanmasa, o'sha yo'l orqali o'tgan o'zgarish bulutga umuman
+    // yetib bormasdi.
+
+    public override int SaveChanges()
+    {
+        StampUpdatedAt();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampUpdatedAt();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        StampUpdatedAt();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampUpdatedAt();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Har bir o'zgargan yozuvga vaqt qo'yadi.
+    ///
+    /// <para><b>Nega bu yerda, xizmatlarda emas.</b> Oldin bu maydon
+    /// xizmatlarda qo'lda yozilardi va shu sababli ishonchsiz edi:
+    /// <c>ProductService</c> uni butunlay unutgan — tovar narxi o'zgarsa ham
+    /// <c>UpdatedAt</c> eski qolardi. Bunday xato hech qanday belgi bermaydi
+    /// va faqat bulutdagi ma'lumot eskirganida bilinardi. Bu yerda esa uni
+    /// unutish imkonsiz: yozuv boradigan yagona yo'l shu.</para>
+    ///
+    /// <para><b>Yumshoq o'chirish ham o'zgarish.</b> <c>IsDeleted = true</c>
+    /// EF uchun oddiy <c>Modified</c>, ya'ni vaqt shu yerda ham yangilanadi.
+    /// Busiz bulut o'chirilgan yozuvni hech qachon ko'rmasdi — u tirik bo'lib
+    /// qolaverardi.</para>
+    ///
+    /// <para><b>Soat bittada.</b> Do'konda baza va API bitta kompyuterda —
+    /// server kassada. Ikkinchi va uchinchi kassa o'sha API ga murojaat
+    /// qiladi, ya'ni vaqtni har doim bitta soat qo'yadi. Kassalarning
+    /// soatlari bir-biridan farq qilsa ham suv belgisi buzilmaydi.</para>
+    ///
+    /// <para><b>Chetlab o'tadigan yo'l bor.</b> <c>ExecuteUpdate</c> va xom SQL
+    /// kuzatuvchini aylanib o'tadi, demak bu yerga tushmaydi. Bugun ular faqat
+    /// <c>RefreshToken</c>, <c>TelegramLinkCode</c> va
+    /// <c>IdempotencyRecord</c> ga tegadi — uchalasi ham bulutga
+    /// yuborilmaydi. Shu jadvallardan tashqarida <c>ExecuteUpdate</c>
+    /// ishlatilsa, vaqtni O'SHA YERDA qo'lda yozish kerak.</para>
+    /// </summary>
+    private void StampUpdatedAt()
+    {
+        // Bitta saqlash ichidagi hamma yozuv bir xil vaqt oladi: aks holda
+        // ular orasida bir necha mikrosoniya farq paydo bo'lardi va suv
+        // belgisi aynan shu farqqa tushib qolgan yozuvni o'tkazib yuborishi
+        // mumkin edi.
+        var now = _clock.GetUtcNow().UtcDateTime;
+
+        foreach (var entry in ChangeTracker.Entries<IUpdateTracked>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                entry.Entity.UpdatedAt = now;
+        }
     }
 }

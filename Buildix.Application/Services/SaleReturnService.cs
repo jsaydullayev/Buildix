@@ -143,7 +143,6 @@ public class SaleReturnService : ISaleReturnService
                     if (register != null)
                     {
                         register.CurrentBalance -= refund;
-                        register.LastUpdated = DateTime.UtcNow;
                     }
                     _cashLedger.Record(marketId, -refund, CashMovementType.Expense,
                         userId: userId, refNumber: sale.SaleNumber, comment: "Возврат");

@@ -60,7 +60,9 @@ public class Product : BaseEntity, ISoftDelete
     public bool IsTemporary { get; set; } = false;
     public Guid? CreatedBySellerId { get; set; }
     public bool IsDeleted { get; set; } = false;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    // UpdatedAt — BaseEntity da (IUpdateTracked). Bu yerda takrorlanmaydi:
+    // ikkita e'lon bo'lsa biri ikkinchisini yashirib qo'yardi va qaysi biri
+    // yozilayotganini aytib bo'lmasdi.
     public DateTime? DeletedAt { get; set; }
 
     // Pricing

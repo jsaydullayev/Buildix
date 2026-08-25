@@ -44,7 +44,6 @@ public class ProductImageService : IProductImageService
 
         var newUrl = await _imageStorage.SaveAsync(marketId, product.Id, bytes, extension, cancellationToken);
         product.ImageUrl = newUrl;
-        product.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Products.Update(product);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -76,7 +75,6 @@ public class ProductImageService : IProductImageService
 
         var oldImageUrl = product.ImageUrl;
         product.ImageUrl = null;
-        product.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Products.Update(product);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

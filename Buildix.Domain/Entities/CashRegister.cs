@@ -1,10 +1,12 @@
+using Buildix.Domain.Common;
+
 namespace Buildix.Domain.Entities;
 
-public class CashRegister
+public class CashRegister : IUpdateTracked
 {
     public Guid Id { get; set; }
     public decimal CurrentBalance { get; set; }
-    public DateTime LastUpdated { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public Guid? LastWithdrawalId { get; set; }
 
     // Multi-tenancy: each Market owns exactly one CashRegister.

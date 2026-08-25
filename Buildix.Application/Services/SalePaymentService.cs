@@ -254,14 +254,12 @@ public class SalePaymentService : ISalePaymentService
                     {
                         Id = Guid.NewGuid(),
                         MarketId = sale.MarketId,
-                        CurrentBalance = 0,
-                        LastUpdated = DateTime.UtcNow
+                        CurrentBalance = 0
                     };
                     _context.CashRegisters.Add(cashRegister);
                 }
 
                 cashRegister.CurrentBalance += cashPortion;
-                cashRegister.LastUpdated = DateTime.UtcNow;
 
                 // Касса jurnaliga sotuvning naqd ulushi (kirim) — Продажа · Ч-####.
                 // Balansni bu emas, yuqoridagi CurrentBalance belgilaydi; bu faqat

@@ -152,13 +152,11 @@ public class DebtService : IDebtService
                     {
                         Id = Guid.NewGuid(),
                         MarketId = marketId,
-                        CurrentBalance = 0m,
-                        LastUpdated = DateTime.UtcNow
+                        CurrentBalance = 0m
                     };
                     _context.CashRegisters.Add(register);
                 }
                 register.CurrentBalance += request.Amount;
-                register.LastUpdated = DateTime.UtcNow;
 
                 // Касса jurnaliga qarz to'lovining naqd ulushi (kirim) —
                 // Оплата долга · Ч-####. Kim: pulni yig'gan kassir (actor).

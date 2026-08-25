@@ -1,3 +1,5 @@
+using Buildix.Domain.Common;
+
 namespace Buildix.Domain.Entities;
 
 /// <summary>
@@ -11,7 +13,7 @@ namespace Buildix.Domain.Entities;
 /// <para>Har so'rovda o'qilmaydi: <c>IPlatformSettingsProvider</c> uni
 /// keshda saqlaydi va faqat yozuvdan keyin yangilaydi.</para>
 /// </summary>
-public class PlatformSettings
+public class PlatformSettings : IUpdateTracked
 {
     /// <summary>Har doim 1 — jadval bitta qatorli.</summary>
     public int Id { get; set; } = 1;
@@ -68,5 +70,5 @@ public class PlatformSettings
     public string? SupportTelegram { get; set; }
     public string? SupportEmail { get; set; }
 
-    public DateTime UpdatedAtUtc { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }

@@ -73,7 +73,6 @@ public class SuperAdminSettingsService : ISuperAdminSettingsService
         row.SupportPhone = Trim(dto.SupportPhone);
         row.SupportTelegram = Trim(dto.SupportTelegram);
         row.SupportEmail = Trim(dto.SupportEmail);
-        row.UpdatedAtUtc = DateTime.UtcNow;
 
         // Narxlar — kelajakdagi to'lovlar uchun. O'tgan to'lovlar o'z summasini
         // saqlaydi (SubscriptionPayment), shuning uchun tarix o'zgarmaydi.
@@ -87,7 +86,6 @@ public class SuperAdminSettingsService : ISuperAdminSettingsService
             plan.PriceUzs = p.PriceUzs;
             plan.MaxUsers = p.MaxUsers < 0 ? 0 : p.MaxUsers;
             plan.MaxPoints = p.MaxPoints < 1 ? 1 : p.MaxPoints;
-            plan.UpdatedAtUtc = row.UpdatedAtUtc;
         }
 
         await _context.SaveChangesAsync(ct);
@@ -109,7 +107,7 @@ public class SuperAdminSettingsService : ISuperAdminSettingsService
         if (row is not null) return row;
 
         // Himoya qatlami: seed biror sababga ko'ra yo'qolsa, ish to'xtamasin.
-        row = new PlatformSettings { Id = 1, UpdatedAtUtc = DateTime.UtcNow };
+        row = new PlatformSettings { Id = 1 };
         _context.PlatformSettings.Add(row);
         await _context.SaveChangesAsync(ct);
         return row;

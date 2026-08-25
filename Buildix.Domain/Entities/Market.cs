@@ -1,3 +1,4 @@
+using Buildix.Domain.Common;
 using Buildix.Domain.Enums;
 
 namespace Buildix.Domain.Entities;
@@ -5,7 +6,7 @@ namespace Buildix.Domain.Entities;
 /// <summary>
 /// Market/Tenant - alohida biznes egasi
 /// </summary>
-public class Market
+public class Market : IUpdateTracked
 {
     public int Id { get; set; }  // Primary Key - int (auto-increment)
     public string Name { get; set; } = string.Empty;
@@ -36,6 +37,12 @@ public class Market
     /// </summary>
     public DateTime? RenewalReminderSentFor { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Oxirgi o'zgarish vaqti — <c>AppDbContext.SaveChanges</c> qo'yadi.
+    /// Sabab va istisnolar: <see cref="IUpdateTracked"/>.
+    /// </summary>
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // ── Block state (operational, reversible) ────────────────────────────
     // Separate from IsActive (which is the soft-delete flag set by

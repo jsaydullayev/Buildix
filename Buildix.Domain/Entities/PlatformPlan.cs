@@ -1,5 +1,7 @@
 using Buildix.Domain.Enums;
 
+using Buildix.Domain.Common;
+
 namespace Buildix.Domain.Entities;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace Buildix.Domain.Entities;
 /// <see cref="SubscriptionPayment"/> o'z summasini yozib qo'yadi, shuning
 /// uchun narx ko'tarilsa tarix qayta yozilmaydi.</para>
 /// </summary>
-public class PlatformPlan
+public class PlatformPlan : IUpdateTracked
 {
     /// <summary>Birlamchi kalit — tarif kodining o'zi (uch qatordan ortiq bo'lmaydi).</summary>
     public PlanCode Code { get; set; }
@@ -28,5 +30,5 @@ public class PlatformPlan
     /// <summary>Savdo nuqtalari chegarasi.</summary>
     public int MaxPoints { get; set; }
 
-    public DateTime UpdatedAtUtc { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }

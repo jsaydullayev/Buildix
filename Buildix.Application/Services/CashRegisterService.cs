@@ -94,8 +94,7 @@ public class CashRegisterService : ICashRegisterService
         {
             Id = Guid.NewGuid(),
             MarketId = marketId,
-            CurrentBalance = 0,
-            LastUpdated = DateTime.UtcNow
+            CurrentBalance = 0
         };
         _context.CashRegisters.Add(register);
         try
@@ -144,7 +143,7 @@ public class CashRegisterService : ICashRegisterService
             {
                 Id = cashRegister.Id,
                 CurrentBalance = cashRegister.CurrentBalance,
-                LastUpdated = cashRegister.LastUpdated,
+                LastUpdated = cashRegister.UpdatedAt,
                 Withdrawals = withdrawals.Select(w => new CashWithdrawalDto
                 {
                     Id = w.Id,
@@ -225,7 +224,6 @@ public class CashRegisterService : ICashRegisterService
                     _context.CashWithdrawals.Add(withdrawal);
 
                     cashRegister.CurrentBalance -= request.Amount;
-                    cashRegister.LastUpdated = DateTime.UtcNow;
                     cashRegister.LastWithdrawalId = withdrawal.Id;
 
                     // Касса jurnaliga chiqim. «Новая операция» Инкассация yoki
@@ -256,7 +254,6 @@ public class CashRegisterService : ICashRegisterService
 
                     _context.CashWithdrawals.Add(withdrawal);
 
-                    cashRegister.LastUpdated = DateTime.UtcNow;
                     cashRegister.LastWithdrawalId = withdrawal.Id;
 
                     await _context.SaveChangesAsync(cancellationToken);
@@ -360,7 +357,6 @@ public class CashRegisterService : ICashRegisterService
                 if (register.CurrentBalance < w.Amount)
                     return Result.Failure<bool>("Недостаточно средств в кассе.", "INSUFFICIENT_FUNDS");
                 register.CurrentBalance -= w.Amount;
-                register.LastUpdated = DateTime.UtcNow;
                 register.LastWithdrawalId = w.Id;
             }
 
@@ -457,7 +453,6 @@ public class CashRegisterService : ICashRegisterService
             {
                 var cashRegister = await GetOrCreateRegisterAsync(marketId, cancellationToken);
                 cashRegister.CurrentBalance += amount;
-                cashRegister.LastUpdated = DateTime.UtcNow;
 
                 // Касса jurnaliga naqd kiritish (kirim) — Внесение.
                 _cashLedger.Record(marketId, amount, CashMovementType.Deposit, userId: userId, comment: comment);

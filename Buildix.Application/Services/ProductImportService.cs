@@ -243,7 +243,6 @@ public sealed class ProductImportService : IProductImportService
                     IsActive = true,
                     IsDeleted = false,
                     CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
                 };
         }
 

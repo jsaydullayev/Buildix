@@ -59,7 +59,6 @@ public class MarketSettingsService : IMarketSettingsService
         s.InactivityLogoutMinutes = Math.Max(0, r.InactivityLogoutMinutes);
         s.AuditEnabled = r.AuditEnabled;
 
-        s.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(s);
     }

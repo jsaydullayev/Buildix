@@ -1,3 +1,4 @@
+using Buildix.Domain.Common;
 using Buildix.Domain.Enums;
 
 namespace Buildix.Domain.Entities;
@@ -11,7 +12,7 @@ namespace Buildix.Domain.Entities;
 /// Defaults mirror the values shown in the Settings mockup so a freshly
 /// provisioned market behaves sensibly before the owner ever opens the screen.
 /// </summary>
-public class MarketSettings
+public class MarketSettings : IUpdateTracked
 {
     /// <summary>PK == FK to Market.Id (1:1).</summary>
     public int MarketId { get; set; }
