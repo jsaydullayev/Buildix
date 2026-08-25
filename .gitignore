@@ -79,3 +79,7 @@ deploy/nginx/letsencrypt/
 
 # build-desktop.ps1 yig'gan o'rnatuvchi va paketlar (~120 MB dan)
 artifacts/
+
+# Desktop yangilanish paketlari serverda turadi, git da emas (har biri 120 MB dan)
+deploy/updates/*
+!deploy/updates/.gitkeep

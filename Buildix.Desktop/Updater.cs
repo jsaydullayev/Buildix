@@ -40,7 +40,11 @@ public sealed class Updater
     /// </summary>
     public async Task CheckAsync()
     {
-        if (string.IsNullOrWhiteSpace(_feedUrl)) return;
+        if (string.IsNullOrWhiteSpace(_feedUrl))
+        {
+            RecordOutcome("manzil sozlanmagan — tekshirilmadi");
+            return;
+        }
 
         try
         {
@@ -48,15 +52,61 @@ public sealed class Updater
             if (!manager.IsInstalled) return;   // ishlab chiqish rejimida o'tkazamiz
 
             var update = await manager.CheckForUpdatesAsync();
-            if (update is null) return;
+            if (update is null)
+            {
+                RecordOutcome("yangilanish yo'q — eng so'nggi versiya");
+                return;
+            }
 
             await manager.DownloadUpdatesAsync(update);
             PendingVersion = update.TargetFullRelease.Version.ToString();
+            RecordOutcome($"{PendingVersion} yuklab olindi — keyingi ochilishda o'rnatiladi");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Internet yo'q, server javob bermadi, paket buzilgan — bularning
             // hech biri kassani to'xtatmasligi kerak.
+            RecordOutcome($"muvaffaqiyatsiz: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Oxirgi tekshiruv natijasini faylga yozadi.
+    ///
+    /// <para><b>Nega kerak.</b> Yuqoridagi <c>catch</c> hamma xatoni yutadi va
+    /// bu ataylab shunday — kassir server muammosini ko'rmasligi kerak. Lekin
+    /// shu sababli yangilanish umuman kelmayotganini HECH KIM sezmaydi:
+    /// do'konda xato chiqmaydi, ilova esa eski versiyada ishlayveradi. Manzil
+    /// noto'g'ri yozilgan yoki serverdagi papka yopiq bo'lsa, buni aniqlashning
+    /// yagona yo'li — shu fayl. Do'konga borgan yoki masofadan ulangan odam
+    /// birinchi navbatda shuni ochadi.</para>
+    ///
+    /// <para>Fayl HAR SAFAR qayta yoziladi, ustiga qo'shilmaydi: bu yerda
+    /// tarix emas, «hozir nima bo'lyapti» degan savolga javob kerak, va
+    /// o'sib boradigan jurnal do'kon diskini yeb qo'yishi mumkin.</para>
+    /// </summary>
+    private static void RecordOutcome(string outcome)
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Buildix", "update.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // BOM bilan: bu faylni do'konda Bloknot, PowerShell yoki boshqa
+            // vosita ochadi va ularning bir qismi BOM'siz UTF-8 ni tizim
+            // kodlashi deb o'qiydi — natijada o'zbekcha matn tanib bo'lmas
+            // holga keladi. Xabar tushunarsiz bo'lsa, jurnalning ma'nosi
+            // qolmaydi.
+            File.WriteAllText(
+                path,
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {outcome}{Environment.NewLine}",
+                new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        }
+        catch (Exception)
+        {
+            // Yozib bo'lmadi (huquq yo'q, disk to'lgan) — bu yangilanishdan
+            // ham, savdodan ham muhimroq emas.
         }
     }
 }

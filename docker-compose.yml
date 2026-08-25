@@ -105,6 +105,12 @@ services:
       - ./deploy/nginx/certs:/etc/nginx/certs
       # ACME webroot — shared with the certbot service below.
       - ./deploy/nginx/certbot-www:/var/www/certbot
+      # Do'kon ilovasining yangilanishlari. Bu papka repo ichida EMAS: paketlar
+      # 120 MB dan va ular git'ga tushmasligi kerak. Serverda o'zingiz
+      # yaratasiz va vpk chiqargan fayllarni ichiga ko'chirasiz —
+      # deploy/README.md → «Desktop yangilanishlari». Faqat o'qish uchun:
+      # nginx bu fayllarni hech qachon o'zgartirmasligi kerak.
+      - ${UPDATES_DIR:-./deploy/updates}:/srv/updates:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/healthz >/dev/null || exit 1"]
       interval: 30s

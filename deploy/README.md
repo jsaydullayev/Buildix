@@ -253,6 +253,70 @@ needs no CORS. Add a separate-origin client with
   30) once a day, so the table cannot fill the disk.
 - **Rebuild after code changes:** `docker compose up -d --build`
 
+## 5. Desktop yangilanishlari
+
+Do'kon ilovasi (`Buildix.Desktop`) yangi versiyani shu serverdan oladi.
+Velopack'ga statik papkadan boshqa hech narsa kerak emas.
+
+**Nega birinchi o'rnatish flesh-disk bilan.** To'plam 124 MB, delta esa
+0,3 MB. Ya'ni faqat birinchi o'rnatish og'ir; undan keyingi har bir
+yangilanish deyarli hech narsa turmaydi. Do'kon interneti sekin bo'lsa
+birinchi o'rnatuvchini qo'lda olib borish soatlab kutishdan tez.
+
+### Chiqarish
+
+```powershell
+# 1. Ish kompyuterida to'plamni yig'ish (Windows).
+./deploy/build-desktop.ps1 -Version 0.2.0
+#    → artifacts/Buildix-win-Setup.exe        ← flesh-diskka, yangi do'konlar uchun
+#    → artifacts/Buildix-0.2.0-delta.nupkg    ← serverga, mavjud do'konlar uchun
+#    → artifacts/releases.win.json
+```
+
+```bash
+# 2. Serverga ko'chirish. <MAXFIY> — taxmin qilib bo'lmaydigan papka nomi
+#    (masalan `uuidgen` natijasi). Papka ochiq qoldirilsa mahsulotni istagan
+#    odam yuklab oladi; autoindex o'chiq, ya'ni yo'lni bilmasdan topib
+#    bo'lmaydi.
+scp artifacts/*.nupkg artifacts/releases.win.json artifacts/RELEASES \
+    server:/srv/buildix/updates/<MAXFIY>/
+```
+
+ESKI PAKETLARNI O'CHIRMANG. Delta faqat oldingi versiya paketiga nisbatan
+qo'llanadi. 0.1.0 dagi do'kon bir necha oy yangilanmagan bo'lsa, unga
+oraliq paketlar kerak bo'ladi.
+
+### Har do'konda bir marta
+
+`%ProgramData%\Buildix\desktop.json` ichiga manzilni yozing (fayl
+administrator huquqini talab qiladi — ichida baza paroli bor):
+
+```json
+{
+  "Database:Password": "…o'zgartirmang…",
+  "UpdateFeedUrl": "https://<domen>/updates/<MAXFIY>/"
+}
+```
+
+Manzil bo'lmasa yangilanish umuman tekshirilmaydi va ilova to'liq
+ishlayveradi. Bu ataylab shunday: sinov do'konini alohida papkaga
+(`/updates/<BOSHQA-MAXFIY>/`) yo'naltirib, yangi versiyani avval o'sha
+yerda tekshirish mumkin.
+
+### Nima kutish kerak
+
+Ilova ochilganda fonda tekshiradi va topsa jimgina yuklab oladi. Savdo
+to'xtamaydi — sarlavhada shunchaki eslatma paydo bo'ladi. Yangi versiya
+ilova KEYINGI safar ochilganda o'rnatiladi. Internet yo'q bo'lsa xato
+chiqmaydi.
+
+### Hozircha imzo yo'q
+
+O'rnatuvchi kod imzosi bilan imzolanmagan, shuning uchun Windows
+SmartScreen «Windows protected your PC» ogohlantirishini ko'rsatadi
+(«Batafsil» → «Baribir ishga tushirish»). Buni o'rnatuvchi usta bosib
+o'tadi, mijoz emas. Sertifikat masalasi keyinga qoldirilgan.
+
 ## Files
 
 | Path | Purpose |
@@ -265,3 +329,5 @@ needs no CORS. Add a separate-origin client with
 | `deploy/nginx/default.conf` | plain-HTTP edge config (local runs only) |
 | `deploy/nginx/ensure-cert.sh` | start-up step: temporary self-signed cert if none is mounted |
 | `deploy/nginx/certs/` | certificates nginx reads (`fullchain.pem` + `privkey.pem`), gitignored |
+| `deploy/build-desktop.ps1` | do'kon uchun o'rnatuvchi va yangilanish paketlarini yig'adi (Windows) |
+| `deploy/updates/` | yangilanish paketlari turadigan papka (`UPDATES_DIR` bilan almashtiriladi), gitignored |
