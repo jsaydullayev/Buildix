@@ -203,6 +203,12 @@ public sealed class MainForm : Form
         // Yangilanish FONDA tekshiriladi — ochilishni kechiktirmaydi va
         // internetsiz do'konda hech narsa o'zgarmaydi.
         _ = CheckUpdateAsync();
+
+        // Kunlik zaxira nusxa ham fonda: interfeys allaqachon ekranda va
+        // kassir savdoni boshlayveradi. Ulanuvchi kassada baza yo'q, shuning
+        // uchun u yerda bu chaqiruv o'tkazib yuboriladi.
+        if (_secrets.ServerUrl is null)
+            _ = _db.BackupIfDueAsync(CancellationToken.None);
     }
 
     /// <summary>

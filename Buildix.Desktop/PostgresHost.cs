@@ -268,6 +268,90 @@ public sealed class PostgresHost : IAsyncDisposable
         return (p.ExitCode, errTask.Result, outTask.Result);
     }
 
+    /// <summary>Zaxira nusxalar papkasi.</summary>
+    public static string BackupDir => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "Buildix", "backups");
+
+    /// <summary>Kuniga bir marta — shundan tez-tez nusxa olishning ma'nosi yo'q.</summary>
+    private static readonly TimeSpan BackupInterval = TimeSpan.FromHours(20);
+
+    /// <summary>Necha kunlik tarix saqlanadi.</summary>
+    private const int BackupsToKeep = 14;
+
+    /// <summary>
+    /// Kunlik zaxira nusxa oladi (kerak bo'lsa) va eskilarini o'chiradi.
+    ///
+    /// <para><b>Nimadan himoya qiladi.</b> Xato bilan o'chirilgan ma'lumot va
+    /// buzilgan baza — ikkalasi ham daqiqalar ichida tiklanadi.
+    /// <b>Nimadan himoya qilmaydi:</b> disk ishdan chiqishi yoki kompyuter
+    /// o'g'irlanishi. Nusxa o'sha diskda yotadi, ya'ni bu yagona zaxira
+    /// bo'lolmaydi — u bulutga sinxronizatsiyaning o'rnini bosmaydi.</para>
+    ///
+    /// <para><b>Nega jadval bo'yicha emas, ochilishda.</b> Do'kon kompyuteri
+    /// kechasi o'chiriladi, ya'ni «har kuni soat 02:00 da» degan jadval hech
+    /// qachon ishlamasdi. Ochilishda tekshirish esa ilova ishlatilayotgan har
+    /// kuni bir marta bajarilishini kafolatlaydi.</para>
+    ///
+    /// <para><b>Nega fonda.</b> Nusxa olish bir necha soniya oladi va uni
+    /// kutish savdoning boshlanishini kechiktirardi. Xato bo'lsa ham savdo
+    /// to'xtamaydi — sabab jurnalga yoziladi.</para>
+    /// </summary>
+    public async Task BackupIfDueAsync(CancellationToken ct)
+    {
+        try
+        {
+            Directory.CreateDirectory(BackupDir);
+
+            var existing = new DirectoryInfo(BackupDir)
+                .GetFiles("buildix-*.dump")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ToList();
+
+            if (existing.Count > 0 &&
+                DateTime.UtcNow - existing[0].LastWriteTimeUtc < BackupInterval)
+            {
+                return;
+            }
+
+            // Vaqtinchalik nomga yoziladi va faqat MUVAFFAQIYATLI tugagach
+            // haqiqiy nomga o'tkaziladi. Aks holda yarim yozilgan fayl
+            // to'liq nusxadek ko'rinar va uni tiklashga urinilganda
+            // ma'lumot yo'qligi ANIQ SHU PAYTDA bilinardi.
+            var stamp = DateTime.Now.ToString("yyyy-MM-dd-HHmm");
+            var target = Path.Combine(BackupDir, $"buildix-{stamp}.dump");
+            var temp = target + ".partial";
+
+            var (code, err, _) = await RunAsync(Bin("pg_dump"),
+                $"-h 127.0.0.1 -p {_port} -U {DbUser} -d {DbName} -Fc -f \"{temp}\"",
+                ct, _password);
+
+            if (code != 0)
+            {
+                try { File.Delete(temp); } catch (IOException) { }
+                _log?.WriteLine($"[buildix] zaxira nusxa olinmadi: {err.Trim()}");
+                return;
+            }
+
+            File.Move(temp, target, overwrite: true);
+            _log?.WriteLine($"[buildix] zaxira nusxa: {target}");
+
+            // Eskilarini o'chiramiz — aks holda papka cheksiz o'sib, do'kon
+            // diskini to'ldirib qo'yardi.
+            foreach (var old in existing.Skip(BackupsToKeep - 1))
+            {
+                try { old.Delete(); } catch (IOException) { }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Zaxira nusxa savdodan muhimroq emas: xato bo'lsa jurnalga
+            // yoziladi va ilova ishlayveradi.
+            try { _log?.WriteLine($"[buildix] zaxira nusxa xatosi: {ex.Message}"); }
+            catch (Exception) { }
+        }
+    }
+
     /// <summary>Yangi tasodifiy parol — birinchi ishga tushish uchun.</summary>
     public static string NewPassword() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).Replace("/", "_").Replace("+", "-");

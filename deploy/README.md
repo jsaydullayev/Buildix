@@ -348,6 +348,37 @@ qilinmaydi.
 Sozlama `%ProgramData%\Buildix\desktop.json` da saqlanadi — nashr fayllarida
 emas, ya'ni yangilanish unga tegmaydi.
 
+### Kunlik zaxira nusxa
+
+Ilova ochilganda oxirgi nusxa 20 soatdan eski bo'lsa, fonda yangisini oladi:
+`%ProgramData%\Buildix\backups\buildix-YYYY-MM-DD-HHmm.dump`. Oxirgi 14 tasi
+saqlanadi, eskilari o'chiriladi.
+
+Jadval bo'yicha emas, **ochilishda** — do'kon kompyuteri kechasi o'chiriladi
+va «har kuni soat 02:00 da» degan jadval hech qachon ishlamasdi.
+
+**Nimadan himoya qiladi:** xato bilan o'chirilgan ma'lumot, buzilgan baza.
+**Nimadan himoya qilmaydi:** disk ishdan chiqishi, kompyuter o'g'irlanishi —
+nusxa o'sha diskda yotadi. Shuning uchun bu bulutga sinxronizatsiyaning
+o'rnini bosmaydi.
+
+Tiklash (ilova YOPIQ bo'lishi shart emas, lekin savdo to'xtatilsin):
+
+```powershell
+$bin = "$env:LOCALAPPDATA\Buildix\current\pg\bin"
+$env:PGPASSWORD = (Get-Content "$env:ProgramData\Buildix\desktop.json" -Raw | ConvertFrom-Json).'Database:Password'
+
+# Yangi bazaga tiklash - mavjudini buzmasdan tekshirish uchun
+& "$bin\createdb.exe" -h 127.0.0.1 -p 5433 -U buildix buildix_tiklangan
+& "$bin\pg_restore.exe" -h 127.0.0.1 -p 5433 -U buildix -d buildix_tiklangan `
+    "$env:ProgramData\Buildix\backups\buildix-2026-08-25-1200.dump"
+```
+
+Tekshirgach, ishlaydigan bazani almashtirish uchun ilovani yoping, eski
+`buildix` bazasini boshqa nomga o'tkazing va tiklanganini `buildix` deb
+nomlang. **Har chorakda bir marta shu mashqni o'tkazing** — sinalmagan
+zaxira zaxira emas.
+
 ### Hozircha imzo yo'q
 
 O'rnatuvchi kod imzosi bilan imzolanmagan, shuning uchun Windows
