@@ -25,7 +25,7 @@ public sealed class PostgresHost : IAsyncDisposable
 
     private readonly SafeJob _job;
     private Process? _process;
-    private StreamWriter? _log;
+    private TextWriter? _log;
     private int _port;
     private string _password = "";
 
@@ -113,7 +113,12 @@ public sealed class PostgresHost : IAsyncDisposable
         // tiklanish, buzilgan fayl yoki joy yetishmasligi kabi sabablar faqat
         // shu yerda ko'rinadi; ularsiz do'kondan «ochilmayapti» degandan
         // boshqa hech qanday ma'lumot kelmasdi.
-        _log = new StreamWriter(DbLogPath, append: false, new UTF8Encoding(true)) { AutoFlush = true };
+        // Bu jurnalga IKKI joydan yoziladi: baza chiqishi (fon ipi) va
+        // zaxira nusxa natijasi. StreamWriter bir vaqtda ikki ipdan
+        // yozishga mo'ljallanmagan.
+        _log = TextWriter.Synchronized(
+            new StreamWriter(SecretFile.RotateLog(DbLogPath), append: false, new UTF8Encoding(true))
+            { AutoFlush = true });
         _process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is null) return;
@@ -302,6 +307,14 @@ public sealed class PostgresHost : IAsyncDisposable
         try
         {
             Directory.CreateDirectory(BackupDir);
+
+            // Yarim yozilgan fayllarni tozalaymiz. Ular ilova nusxa olish
+            // paytida yopilganda qoladi va o'zi hech qachon ketmasdi — har
+            // uzilishda bittadan to'planib, do'kon diskini yeb borardi.
+            foreach (var partial in Directory.GetFiles(BackupDir, "*.partial"))
+            {
+                try { File.Delete(partial); } catch (IOException) { }
+            }
 
             var existing = new DirectoryInfo(BackupDir)
                 .GetFiles("buildix-*.dump")

@@ -23,7 +23,7 @@ public sealed class ApiHost : IAsyncDisposable
     private readonly int _port;
     private readonly SafeJob _job;
     private Process? _process;
-    private StreamWriter? _log;
+    private TextWriter? _log;
 
     public ApiHost(int port, SafeJob job)
     {
@@ -87,7 +87,12 @@ public sealed class ApiHost : IAsyncDisposable
         // Oqimlar ASINXRON o'qiladi. Sinxron o'qish (yoki umuman o'qimaslik)
         // quvur to'lganda bola jarayonni muzlatib qo'yardi — u yozmoqchi
         // bo'ladi, hech kim o'qimaydi va API abadiy kutib qoladi.
-        _log = new StreamWriter(LogPath, append: false, new System.Text.UTF8Encoding(true)) { AutoFlush = true };
+        // Ikki oqim (stdout va stderr) IKKI XIL ipdan yozadi va StreamWriter
+        // buni ko'tarmaydi — yozuvlar bir-biriga aralashib, jurnalni
+        // o'qib bo'lmas holga keltirardi yoki istisno tashlardi.
+        _log = TextWriter.Synchronized(
+            new StreamWriter(SecretFile.RotateLog(LogPath), append: false, new System.Text.UTF8Encoding(true))
+            { AutoFlush = true });
         _process.OutputDataReceived += WriteLine;
         _process.ErrorDataReceived += WriteLine;
         _process.BeginOutputReadLine();

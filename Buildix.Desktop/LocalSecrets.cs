@@ -36,7 +36,15 @@ public sealed class LocalSecrets
         _path = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "Buildix", "desktop.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var folder = Path.GetDirectoryName(_path)!;
+        Directory.CreateDirectory(folder);
+
+        // Butun papka cheklanadi, faqat sirlar fayli emas. Ichida baza
+        // fayllari va zaxira nusxalar yotadi — ular ham do'kon ma'lumoti.
+        // Bu yerda, eng boshida: keyin yaratiladigan hamma narsa meros
+        // orqali himoyalangan bo'lib tug'iladi.
+        try { SecretFile.RestrictDirectory(folder); }
+        catch (UnauthorizedAccessException) { /* huquq yo'q — ilova baribir ishlaydi */ }
 
         CreatedNow = !File.Exists(_path);
 
