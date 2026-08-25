@@ -20,6 +20,7 @@ public sealed class MainForm : Form
     private readonly Updater _updater;
     private readonly Label _status;
     private WebView2? _web;
+    private Button? _setup;
 
     public MainForm(ApiHost api, PostgresHost db, LocalSecrets secrets, Updater updater)
     {
@@ -67,6 +68,25 @@ public sealed class MainForm : Form
 
     private async Task StartAsync()
     {
+        // ── Ulanuvchi kassa ───────────────────────────────────────────────
+        // Bu kompyuterda na baza, na API ko'tariladi: ikkalasi ham server
+        // kassada. Shu sababli u sezilarli tez ochiladi — migratsiya ham,
+        // PostgreSQL ham kutilmaydi.
+        if (_secrets.ServerUrl is { } serverUrl)
+        {
+            _status.Text = "Server kassaga ulanmoqda…";
+            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
+            if (problem is not null)
+            {
+                FailWithSetup(problem, serverUrl);
+                return;
+            }
+
+            await ShowInterfaceAsync(serverUrl);
+            WatchServer(serverUrl);
+            return;
+        }
+
         if (!_api.ApiExists)
         {
             Fail("Buildix.API topilmadi.\n\nIlova to'liq o'rnatilmagan bo'lishi mumkin — "
@@ -75,7 +95,20 @@ public sealed class MainForm : Form
         }
 
         // ── Baza ──────────────────────────────────────────────────────────
-        if (_db.IsBundled)
+        // To'plamda PostgreSQL bo'lmasa DARHOL to'xtaymiz. Ilgari bu holat
+        // jimgina o'tib ketardi: API ulanish satrisiz ishga tushar va
+        // sozlamadagi zaxira qiymatga (ishlab chiqish bazasi) urinardi.
+        // Dasturchining kompyuterida bunday baza bor, shuning uchun hammasi
+        // ishlayotgandek ko'rinardi — do'konda esa ilova tushunarsiz xato
+        // bilan ochilmasdi.
+        if (!_db.IsBundled)
+        {
+            Fail("Ma'lumotlar bazasi topilmadi.\n\n"
+                 + "To'plam to'liq emas — PostgreSQL ilova bilan birga kelmagan.\n"
+                 + "O'rnatuvchini qaytadan yuklab, qayta o'rnating.");
+            return;
+        }
+
         {
             _status.Text = "Ma'lumotlar bazasi ishga tushmoqda…";
             string? dbError;
@@ -96,6 +129,7 @@ public sealed class MainForm : Form
 
         try
         {
+            _api.AllowLan = _secrets.AllowLan;
             _api.Start();
         }
         catch (Exception ex)
@@ -112,10 +146,10 @@ public sealed class MainForm : Form
             return;
         }
 
-        await ShowInterfaceAsync();
+        await ShowInterfaceAsync(_api.BaseUrl);
     }
 
-    private async Task ShowInterfaceAsync()
+    private async Task ShowInterfaceAsync(string baseUrl)
     {
         _status.Text = "Interfeys yuklanmoqda…";
 
@@ -164,7 +198,7 @@ public sealed class MainForm : Form
                 _status.Visible = false;
         };
 
-        _web.Source = new Uri(_api.BaseUrl);
+        _web.Source = new Uri(baseUrl);
 
         // Yangilanish FONDA tekshiriladi — ochilishni kechiktirmaydi va
         // internetsiz do'konda hech narsa o'zgarmaydi.
@@ -207,5 +241,92 @@ public sealed class MainForm : Form
         _status.Text = message;
         _status.Visible = true;
         _web?.Hide();
+    }
+
+    /// <summary>
+    /// Server topilmaganda ko'rsatiladigan ekran — sababi va uni TUZATISH
+    /// tugmasi bilan.
+    ///
+    /// <para><b>Nega tugma kerak.</b> Eng ko'p uchraydigan sabab — server
+    /// kompyuterning IP manzili o'zgargani (router qayta yoqilgan). Tugmasiz
+    /// kassir faqat «ulanib bo'lmadi» degan yozuvni ko'rar va do'kon savdo
+    /// qila olmay qolardi — texnik kelguncha.</para>
+    /// </summary>
+    private void FailWithSetup(string problem, string serverUrl)
+    {
+        Fail($"Server kassaga ulanib bo'lmadi.\n\n{problem}\n\nManzil: {serverUrl}");
+
+        if (_setup is not null) return;
+
+        _setup = new Button
+        {
+            Text = "Sozlamani ochish",
+            Size = new Size(190, 40),
+            Anchor = AnchorStyles.None,
+            BackColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 10F),
+        };
+        _setup.Location = new Point((ClientSize.Width - _setup.Width) / 2, ClientSize.Height / 2 + 60);
+        _setup.Click += (_, _) =>
+        {
+            using var form = new SetupForm(_secrets);
+            if (form.ShowDialog(this) != DialogResult.OK) return;
+
+            // Sozlama o'zgargach ilovani qayta ochish kerak: rol (server yoki
+            // ulanuvchi) ishga tushishda hal bo'ladi va uni yo'l-yo'lakay
+            // almashtirish yarim holatlar keltirib chiqarardi.
+            MessageBox.Show(
+                "Saqlandi. O'zgarish kuchga kirishi uchun Buildix'ni qaytadan oching.",
+                "Buildix", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Close();
+        };
+        Controls.Add(_setup);
+        _setup.BringToFront();
+    }
+
+    /// <summary>
+    /// Server kassa bilan aloqani kuzatib turadi.
+    ///
+    /// <para><b>Nega kerak.</b> Server o'chsa yoki tarmoq uzilsa, WebView2
+    /// brauzerning ingliz tilidagi «This site can't be reached» sahifasini
+    /// ko'rsatardi. Kassir uchun bu hech narsa anglatmaydi va u ilova
+    /// buzilgan deb o'ylaydi.</para>
+    ///
+    /// <para><b>Nega o'zi qaytadan ulanadi.</b> Uzilish odatda qisqa — router
+    /// qayta yoqiladi, kabel qimirlatiladi. Aloqa tiklangach sahifa o'zi
+    /// yangilanadi va savdo davom etadi; kassirdan hech narsa talab
+    /// qilinmaydi.</para>
+    /// </summary>
+    private void WatchServer(string serverUrl)
+    {
+        var offline = false;
+
+        var timer = new System.Windows.Forms.Timer { Interval = 5000 };
+        timer.Tick += async (_, _) =>
+        {
+            if (IsDisposed) { timer.Stop(); return; }
+
+            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
+
+            if (problem is not null && !offline)
+            {
+                offline = true;
+                Fail("Server kassa bilan aloqa uzildi.\n\n" + problem
+                     + "\n\nAloqa tiklanishi bilan ish o'zi davom etadi.");
+            }
+            else if (problem is null && offline)
+            {
+                offline = false;
+                _status.Visible = false;
+                _web?.Show();
+                // Uzilish paytida yuborilgan so'rovlar yo'qolgan bo'lishi
+                // mumkin, shuning uchun sahifa qayta yuklanadi — yarim
+                // to'ldirilgan ekran bilan ishlashdan ko'ra shu xavfsiz.
+                _web?.CoreWebView2?.Reload();
+            }
+        };
+        timer.Start();
+        Disposed += (_, _) => timer.Dispose();
     }
 }

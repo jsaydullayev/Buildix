@@ -32,6 +32,13 @@ public sealed class ApiHost : IAsyncDisposable
 
     public string BaseUrl => $"http://127.0.0.1:{_port}";
 
+    /// <summary>
+    /// API ni lokal tarmoqqa ochish (2- va 3-kassa uchun). Qiymat
+    /// kompyuterning o'z sozlamasidan keladi, nashr faylidan emas — nashr
+    /// fayli har yangilanishda almashadi.
+    /// </summary>
+    public bool AllowLan { get; set; }
+
     /// <summary>Nashr papkasidagi API. Ishlab chiqishda ham, o'rnatilgandan keyin ham bir xil joyda.</summary>
     private static string ExecutablePath =>
         Path.Combine(AppContext.BaseDirectory, "api", "Buildix.API.exe");
@@ -51,7 +58,11 @@ public sealed class ApiHost : IAsyncDisposable
             CreateNoWindow = true,
         };
         psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Desktop";
-        psi.Environment["ASPNETCORE_URLS"] = BaseUrl;
+        // Tarmoqqa ochilganda API 0.0.0.0 ni o'zi tanlaydi (Program.cs), shu
+        // sababli bu yerda faqat port muhim — manzilni belgilab qo'yish uni
+        // qayta loopback'ga qamab qo'yardi.
+        psi.Environment["ASPNETCORE_URLS"] = AllowLan ? $"http://0.0.0.0:{_port}" : BaseUrl;
+        psi.Environment["Desktop__AllowLan"] = AllowLan ? "true" : "false";
         // Ulanish satri muhit o'zgaruvchisi orqali: fayldagi sozlamada parol
         // ochiq yotmasin va uni tasodifan nusxalab yuborish imkoni bo'lmasin.
         if (!string.IsNullOrWhiteSpace(ConnectionString))

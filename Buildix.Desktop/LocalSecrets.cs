@@ -75,6 +75,55 @@ public sealed class LocalSecrets
             ? url
             : null;
 
+    /// <summary>
+    /// Bu kompyuter ULANADIGAN server kassa manzili. <c>null</c> bo'lsa —
+    /// bu kompyuterning O'ZI server: bazani va API ni u ko'taradi.
+    ///
+    /// <para><b>Nega sukut bo'yicha null.</b> Do'konlarning ko'pchiligida bitta
+    /// kassa bor va ular hech narsa sozlamasligi kerak. Ikkinchi va uchinchi
+    /// kassa esa ataylab sozlanadi — <c>Buildix.Desktop.exe --setup</c>.</para>
+    ///
+    /// <para><b>Nega bitta bazaga uchta kassa.</b> Har kassada o'z bazasi
+    /// bo'lsa, ikkisi bir vaqtda oxirgi qop sementni sotib yuborardi va chek
+    /// raqamlari to'qnashardi: qoldiq qulfi ham, raqam qulfi ham faqat bitta
+    /// baza ichida ishlaydi.</para>
+    /// </summary>
+    public string? ServerUrl =>
+        _root["ServerUrl"] is JsonValue v && v.TryGetValue<string>(out var url)
+        && !string.IsNullOrWhiteSpace(url)
+            ? url
+            : null;
+
+    /// <summary>Server manzilini yozadi; <c>null</c> — bu kompyuter server bo'ladi.</summary>
+    public void SetServerUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            _root.Remove("ServerUrl");
+        else
+            _root["ServerUrl"] = url.Trim().TrimEnd('/');
+        Save();
+    }
+
+    /// <summary>
+    /// API ni lokal tarmoqqa ochish. Sukut bo'yicha YOPIQ — bitta kassali
+    /// do'konda uni ochish keraksiz xavf.
+    ///
+    /// <para><b>Nega bu yerda, <c>appsettings.Desktop.json</c> da emas.</b>
+    /// Nashr sozlamasi har yangilanishda almashadi, ya'ni u yerga yozilgan
+    /// qiymat jimgina yo'qolar va bir kun kelib boshqa kassalar ulana olmay
+    /// qolardi — sababi esa hech qayerda ko'rinmasdi. Bu fayl esa
+    /// kompyuterniki: yangilanish unga tegmaydi.</para>
+    /// </summary>
+    public bool AllowLan =>
+        _root["AllowLan"] is JsonValue v && v.TryGetValue<bool>(out var on) && on;
+
+    public void SetAllowLan(bool allow)
+    {
+        if (allow) _root["AllowLan"] = true;
+        else _root.Remove("AllowLan");
+        Save();
+    }
+
     /// <summary>Kalit bo'yicha sirni oladi; bo'lmasa <paramref name="create"/> bilan yaratadi.</summary>
     public string GetOrCreate(string key, Func<string> create)
     {

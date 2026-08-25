@@ -15,7 +15,7 @@ internal static class Program
     private const string SingleInstanceName = @"Global\Buildix.Desktop";
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         // ENG BIRINCHI qator bo'lishi shart. O'rnatish, yangilanish va
         // o'chirish paytida ilova maxsus argumentlar bilan chaqiriladi va
@@ -33,6 +33,18 @@ internal static class Program
             .SetAutoApplyOnStartup(true)
             .Run();
 
+        ApplicationConfiguration.Initialize();
+
+        // Sozlash oynasi bitta nusxa qulfidan OLDIN: kassa ochiq turgan
+        // paytda ham manzilni ko'rish va tuzatish kerak bo'ladi. Aks holda
+        // texnik avval ilovani yopishga majbur bo'lardi — do'kon esa savdo
+        // qilayotgan bo'lishi mumkin.
+        if (args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunSetup();
+            return;
+        }
+
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var isFirst);
         if (!isFirst)
         {
@@ -43,8 +55,6 @@ internal static class Program
                 MessageBoxIcon.Information);
             return;
         }
-
-        ApplicationConfiguration.Initialize();
 
         // Bitta Job Object ikkala bola jarayonni ham ushlab turadi: ilova
         // qanday tugasa ham baza va API orqada qolmaydi.
@@ -68,8 +78,29 @@ internal static class Program
             // baza: teskarisi bo'lsa API yopilayotgan bazaga so'rov yuborib
             // xato yozardi. Toza yopilmasa PostgreSQL keyingi kirishda
             // tiklash jurnalini o'qiydi va ishga tushish sekinlashadi.
+            //
+            // Ulanuvchi kassada ikkalasi ham umuman ishga tushmagan — bu
+            // chaqiruvlar o'sha holatda hech narsa qilmaydi.
             api.DisposeAsync().AsTask().GetAwaiter().GetResult();
             db.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Buildix", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>
+    /// Kassa sozlamasi oynasi. Alohida ishga tushadi va hech narsa
+    /// ko'tarmaydi — manzilni o'zgartirish uchun bazani ochish shart emas.
+    /// </summary>
+    private static void RunSetup()
+    {
+        try
+        {
+            var secrets = new LocalSecrets();
+            using var form = new SetupForm(secrets);
+            Application.Run(form);
         }
         catch (InvalidOperationException ex)
         {

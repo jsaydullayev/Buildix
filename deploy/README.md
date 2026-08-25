@@ -310,6 +310,34 @@ to'xtamaydi — sarlavhada shunchaki eslatma paydo bo'ladi. Yangi versiya
 ilova KEYINGI safar ochilganda o'rnatiladi. Internet yo'q bo'lsa xato
 chiqmaydi.
 
+### Do'konda bir nechta kassa
+
+Bir do'konda 1–3 kassa bo'lishi mumkin va ularning hammasi **bitta bazaga**
+ishlaydi. Har kassada alohida baza bo'lsa, ikkisi bir vaqtda oxirgi qop
+sementni sotib yuborardi va chek raqamlari to'qnashardi — qoldiq qulfi ham,
+raqam qulfi ham faqat bitta baza ichida ishlaydi.
+
+```
+Buildix.Desktop.exe --setup
+```
+
+**Server kassada** (bittasi): «Bu kompyuter — SERVER» + «Boshqa kassalar shu
+kompyuterga ulanadi» belgisi + «Tarmoq ruxsatini ochish» (UAC so'raydi,
+brandmauerda 5088-portni faqat xususiy tarmoq uchun ochadi). Oynada shu
+kompyuterning manzili ko'rsatiladi — boshqa kassalarda aynan shu yoziladi.
+
+**Qolgan kassalarda**: «Server kassaga ULANADI» + manzil + «Tekshirish».
+Tekshiruv serverga haqiqiy so'rov yuboradi, ya'ni xato manzil do'kondan
+chiqib ketishdan oldin bilinadi.
+
+Ulanuvchi kassada na baza, na API ko'tariladi — u faqat oyna. Shu sababli
+tezroq ochiladi. Aloqa uzilsa ekranda tushunarli xabar chiqadi va aloqa
+tiklanishi bilan ish o'zi davom etadi; kassirdan hech narsa talab
+qilinmaydi.
+
+Sozlama `%ProgramData%\Buildix\desktop.json` da saqlanadi — nashr fayllarida
+emas, ya'ni yangilanish unga tegmaydi.
+
 ### Hozircha imzo yo'q
 
 O'rnatuvchi kod imzosi bilan imzolanmagan, shuning uchun Windows

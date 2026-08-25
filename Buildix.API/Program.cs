@@ -160,6 +160,18 @@ try
     var allowLan = builder.Configuration.GetValue<bool>("Desktop:AllowLan");
     var bindHost = desktop && !allowLan ? "127.0.0.1" : "0.0.0.0";
     builder.WebHost.UseUrls($"http://{bindHost}:{port}");
+
+    // Tinglash manzilini ochishning O'ZI yetarli emas. AllowedHosts
+    // (appsettings.Desktop.json da — localhost) Host sarlavhasini tekshiradi,
+    // ya'ni 2-kassadan kelgan `Host: 192.168.1.10:5088` so'rovi 400 bilan rad
+    // etilardi — port ochiq bo'lsa ham. Bu xato tarmoq muammosiga o'xshab
+    // ko'rinardi va uni do'konda topish juda qiyin.
+    //
+    // Bu yerda `*` xavfsiz: manzil do'konning ichki tarmog'i bilan cheklangan
+    // (brandmauer qoidasi faqat xususiy profil uchun) va IP manzillar DHCP
+    // sababli o'zgarib turadi, ya'ni ro'yxatni oldindan yozib bo'lmaydi.
+    if (desktop && allowLan)
+        builder.Configuration["AllowedHosts"] = "*";
     Log.Information("Configuring to listen on: http://{Host}:{Port}", bindHost, port);
 
     builder.Services.AddHealthChecks();
