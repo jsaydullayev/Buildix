@@ -23,6 +23,7 @@ public sealed class ApiHost : IAsyncDisposable
     private readonly int _port;
     private readonly SafeJob _job;
     private Process? _process;
+    private StreamWriter? _log;
 
     public ApiHost(int port, SafeJob job)
     {
@@ -68,9 +69,44 @@ public sealed class ApiHost : IAsyncDisposable
         if (!string.IsNullOrWhiteSpace(ConnectionString))
             psi.Environment["ConnectionStrings__DefaultConnection"] = ConnectionString;
 
+        // API ning chiqishi faylga yoziladi. Busiz u hech qayerga bormasdi:
+        // jarayon oynasiz ishga tushadi va ishga tushishda yiqilsa, do'konda
+        // «API javob bermadi» degan umumiy xabardan boshqa hech narsa
+        // qolmasdi — sababini aniqlashning yo'li yo'q edi.
+        psi.RedirectStandardOutput = true;
+        psi.RedirectStandardError = true;
+        // API o'zbekcha xabarlar yozadi va ular UTF-8 da. Kodlash
+        // ko'rsatilmasa .NET oqimni tizim kod sahifasida o'qir va harflar
+        // faylda tanib bo'lmas holga kelardi.
+        psi.StandardOutputEncoding = System.Text.Encoding.UTF8;
+        psi.StandardErrorEncoding = System.Text.Encoding.UTF8;
+
         _process = Process.Start(psi)
             ?? throw new InvalidOperationException("Buildix.API ishga tushmadi.");
+
+        // Oqimlar ASINXRON o'qiladi. Sinxron o'qish (yoki umuman o'qimaslik)
+        // quvur to'lganda bola jarayonni muzlatib qo'yardi — u yozmoqchi
+        // bo'ladi, hech kim o'qimaydi va API abadiy kutib qoladi.
+        _log = new StreamWriter(LogPath, append: false, new System.Text.UTF8Encoding(true)) { AutoFlush = true };
+        _process.OutputDataReceived += WriteLine;
+        _process.ErrorDataReceived += WriteLine;
+        _process.BeginOutputReadLine();
+        _process.BeginErrorReadLine();
+
         _job.Attach(_process);
+    }
+
+    /// <summary>API jurnali — do'konda muammoni aniqlashning yagona izi.</summary>
+    public static string LogPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "Buildix", "api.log");
+
+    private void WriteLine(object _, DataReceivedEventArgs e)
+    {
+        if (e.Data is null) return;
+        try { _log?.WriteLine(e.Data); }
+        catch (IOException) { /* jurnal yozilmasa ham API ishlayversin */ }
+        catch (ObjectDisposedException) { /* yopilish paytida */ }
     }
 
     /// <summary>API javob berguncha kutadi. Bermasa — sababini aytadi.</summary>
@@ -130,5 +166,6 @@ public sealed class ApiHost : IAsyncDisposable
             catch (InvalidOperationException) { /* allaqachon tugagan */ }
         }
         _process?.Dispose();
+        _log?.Dispose();
     }
 }

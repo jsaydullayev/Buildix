@@ -109,23 +109,21 @@ public sealed class MainForm : Form
             return;
         }
 
+        _status.Text = "Ma'lumotlar bazasi ishga tushmoqda…";
+        string? dbError;
+        try
         {
-            _status.Text = "Ma'lumotlar bazasi ishga tushmoqda…";
-            string? dbError;
-            try
-            {
-                dbError = await _db.StartAsync(
-                    key => _secrets.GetOrCreate(key, PostgresHost.NewPassword),
-                    _secrets.CreatedNow,
-                    CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                dbError = ex.Message;
-            }
-            if (dbError is not null) { Fail(dbError); return; }
-            _api.ConnectionString = _db.ConnectionString;
+            dbError = await _db.StartAsync(
+                key => _secrets.GetOrCreate(key, PostgresHost.NewPassword),
+                _secrets.CreatedNow,
+                CancellationToken.None);
         }
+        catch (Exception ex)
+        {
+            dbError = ex.Message;
+        }
+        if (dbError is not null) { Fail(dbError); return; }
+        _api.ConnectionString = _db.ConnectionString;
 
         try
         {
@@ -142,7 +140,9 @@ public sealed class MainForm : Form
         var error = await _api.WaitUntilReadyAsync(TimeSpan.FromSeconds(90), CancellationToken.None);
         if (error is not null)
         {
-            Fail(error + "\n\nEng ko'p uchraydigan sabab — PostgreSQL xizmati ishlamayapti.");
+            // Jurnal yo'lini ko'rsatamiz: usiz do'kondan «ochilmayapti»
+            // degandan boshqa hech qanday ma'lumot kelmasdi.
+            Fail(error + "\n\nBatafsil: " + ApiHost.LogPath);
             return;
         }
 

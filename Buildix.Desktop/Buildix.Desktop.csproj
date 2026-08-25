@@ -13,7 +13,12 @@
       oldidan oshiriladi, aks holda yangilanish «yangisi yo'q» deb o'tib
       ketadi.
     -->
-    <Version>0.1.0</Version>
+    <!-- Chiqarish versiyasining YAGONA manbasi: deploy/build-desktop.ps1 uni
+         shu yerdan oladi. Sinov chiqarishlari 0.2.3 gacha yetdi, shuning uchun
+         raqam shundan past bo'lishi mumkin emas — aks holda o'rnatilgan
+         nusxalar yangilanishni ko'rmaydi. Birinchi haqiqiy chiqarishda raqamni
+         ataylab tanlang (masalan 1.0.0). -->
+    <Version>0.2.3</Version>
     <AssemblyTitle>Buildix</AssemblyTitle>
     <Product>Buildix</Product>
     <Company>Strotech</Company>

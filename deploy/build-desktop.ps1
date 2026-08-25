@@ -67,6 +67,113 @@ if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
     throw "vpk topilmadi. O'rnatish: dotnet tool install -g vpk"
 }
 
+# --- To'plamdagi PostgreSQL --------------------------------------------------
+# Do'kon kompyuterida hech narsa alohida o'rnatilmaydi, shu jumladan baza ham.
+# Rasmiy "binaries" arxivi olinadi - u o'rnatuvchi emas, oddiy zip: ichidan
+# kerakli papkalarni ko'chirib qo'yish yetarli.
+#
+# Versiya QATTIQ belgilangan. Har yig'ishda eng yangisini olish - do'konlarga
+# bir-biridan farq qiladigan baza tarqatish demak, va bunday farq faqat
+# ma'lumot buzilganda bilinardi.
+$PgVersion = '17.6-1'
+# Nazorat summasi 2026-08-25 da yuklab olingan arxivdan hisoblangan. Uni
+# tekshirish arxiv yo'lda o'zgarmaganiga ishonch beradi; versiya
+# yangilanganda bu qiymat ham yangilanishi SHART, aks holda yig'ish to'xtaydi.
+$PgSha256 = 'D378882ABD001A186735ACD6F6BA716BCA6CCD192E800412D4FD15ED25376B3E'
+# Kesh ilovaning O'RNATISH papkasidan TASHQARIDA bo'lishi shart. Birinchi
+# variant `%LocalAppData%\Buildix\build-cache` edi va u har yig'ishda qaytadan
+# 330 MB yuklab olardi: o'sha papka Velopack'niki va u har o'rnatish/yangilash
+# paytida tozalanadi.
+$cacheDir = Join-Path $env:LOCALAPPDATA 'Buildix-build-cache'
+$pgZip = Join-Path $cacheDir "postgresql-$PgVersion-windows-x64-binaries.zip"
+$pgDir = Join-Path $cacheDir "pgsql-$PgVersion"
+
+function Get-BundledPostgres {
+    if (Test-Path (Join-Path $pgDir 'bin\postgres.exe')) { return $pgDir }
+
+    New-Item -ItemType Directory -Force $cacheDir | Out-Null
+    if (-not (Test-Path $pgZip)) {
+        Write-Host "PostgreSQL $PgVersion yuklab olinmoqda (~330 MB, bir marta)..." -ForegroundColor Cyan
+        $url = "https://get.enterprisedb.com/postgresql/postgresql-$PgVersion-windows-x64-binaries.zip"
+        # -C - : uzilgan yerdan davom ettiradi. Bu shart emasdek tuyulardi,
+        # lekin 330 MB ni sekin ulanishda yuklash o'n daqiqadan oshadi va
+        # bitta uzilish butun yig'ishni boshidan boshlashga majbur qilardi.
+        # Invoke-WebRequest bu hajmda sezilarli sekin, shuning uchun curl.
+        foreach ($attempt in 1..3) {
+            & curl.exe -L --fail -C - --retry 3 --retry-delay 5 `
+                --connect-timeout 30 --max-time 3600 -o $pgZip $url
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq 3) { throw "PostgreSQL arxivini yuklab bolmadi (kod $LASTEXITCODE)." }
+            Write-Host "  uzildi, davom ettirilmoqda ($attempt/3)..." -ForegroundColor Yellow
+        }
+    }
+
+    if ($PgSha256) {
+        $actual = (Get-FileHash $pgZip -Algorithm SHA256).Hash
+        if ($actual -ne $PgSha256) {
+            Remove-Item $pgZip -Force
+            throw "PostgreSQL arxivi kutilgan nazorat summasiga mos emas: $actual"
+        }
+    } else {
+        Write-Host ("DIQQAT: arxiv nazorat summasi tekshirilmadi. build-desktop.ps1 dagi " +
+                    "`$PgSha256 ga shu qiymatni yozing: " +
+                    (Get-FileHash $pgZip -Algorithm SHA256).Hash) -ForegroundColor Yellow
+    }
+
+    Write-Host "PostgreSQL ochilmoqda..." -ForegroundColor Cyan
+    $tmp = "$pgDir-tmp"
+    if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+    # Expand-Archive bu hajmdagi arxivda bir necha daqiqa oladi; .NET ning
+    # o'z ochuvchisi ancha tez.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($pgZip, $tmp)
+
+    # Arxiv ichida bitta `pgsql` papkasi bo'ladi.
+    $inner = Join-Path $tmp 'pgsql'
+    if (-not (Test-Path $inner)) { throw "Arxiv ichida pgsql papkasi topilmadi." }
+
+    # Do'konga kerak bo'lmagan narsalar. bin/lib/share qoladi: initdb
+    # share/ dan bazani quradi, kengaytmalar esa lib/ da.
+    foreach ($drop in 'include', 'doc', 'symbols', 'StackBuilder', 'pgAdmin 4') {
+        $path = Join-Path $inner $drop
+        if (Test-Path $path) { Remove-Item $path -Recurse -Force }
+    }
+
+    # --- Visual C++ ish vaqti ------------------------------------------------
+    # PostgreSQL binarlari vcruntime140 / vcruntime140_1 / msvcp140 ni talab
+    # qiladi. Ular Windows tarkibiga KIRMAYDI - «Visual C++ Redistributable»
+    # bilan keladi. Ko'p kompyuterda u boshqa dasturlar tufayli o'rnatilgan
+    # bo'ladi, lekin toza Windows'da yo'q: o'shanda postgres.exe umuman ishga
+    # tushmay, «vcruntime140.dll topilmadi» degan tushunarsiz oyna chiqadi.
+    #
+    # Fayllar exe yoniga qo'yiladi (app-local). Windows qidiruv tartibida
+    # exe yonidagi papka System32 dan oldin keladi, ya'ni to'plamdagi nusxa
+    # ishlatiladi va tizimda nima borligi ahamiyatsiz bo'ladi.
+    #
+    # Manba - yig'ish kompyuterining System32 papkasi. Bu Microsoft ruxsat
+    # bergan tarqatish usuli va fayllar tarqatma paketdagi bilan aynan bir xil.
+    $crt = 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll'
+    foreach ($dll in $crt) {
+        $src = Join-Path $env:WINDIR "System32\$dll"
+        if (-not (Test-Path $src)) {
+            throw "$dll topilmadi. Yig'ish kompyuteriga Visual C++ Redistributable o'rnating."
+        }
+        $version = (Get-Item $src).VersionInfo.FileVersion
+        # PostgreSQL 17 MSVC 14.4x bilan qurilgan; undan eski ish vaqti mos kelmaydi.
+        if ([version]($version -replace '^(\d+\.\d+).*', '$1.0.0') -lt [version]'14.40.0.0') {
+            throw "$dll juda eski ($version). Kamida 14.40 kerak."
+        }
+        Copy-Item $src (Join-Path $inner 'bin') -Force
+        Write-Host "  ish vaqti: $dll $version" -ForegroundColor DarkGray
+    }
+
+    Move-Item $inner $pgDir
+    Remove-Item $tmp -Recurse -Force
+    return $pgDir
+}
+
+$pgSource = Get-BundledPostgres
+
 # --- 1. Interfeys ------------------------------------------------------------
 Write-Host "`n[1/3] Interfeys qurilmoqda..." -ForegroundColor Cyan
 Push-Location "$root\Buildix.Web"
@@ -92,9 +199,31 @@ Invoke-Native dotnet @(
     '-p:IncludeSpa=true', '-o', "$stage\api", '--nologo'
 ) 'API nashr qilinmadi.'
 
-# Nashr natijasini TEKSHIRAMIZ. Bu uchta tekshiruvning har biri ilgari
-# haqiqatan sodir bo'lgan xatoga qarshi turadi va ularning hammasi faqat
-# do'konda, o'rnatilgandan keyin sezilardi.
+# PostgreSQL qobiq yonidagi `pg` papkasiga - PostgresHost aynan shu yerdan
+# qidiradi (AppContext.BaseDirectory/pg/bin).
+Write-Host "PostgreSQL to'plamga ko'chirilmoqda..." -ForegroundColor Cyan
+Copy-Item $pgSource "$stage\pg" -Recurse -Force
+
+# Nashr natijasini TEKSHIRAMIZ. Bu tekshiruvlarning har biri ilgari haqiqatan
+# sodir bo'lgan xatoga qarshi turadi va ularning hammasi faqat do'konda,
+# o'rnatilgandan keyin sezilardi.
+#
+# Baza tekshiruvi ayniqsa muhim: u yo'q bo'lganda ilova JIMGINA
+# appsettings.json dagi zaxira ulanish satriga (dasturchi bazasi) urinardi va
+# dasturchining kompyuterida hammasi ishlayotgandek ko'rinardi.
+foreach ($tool in 'postgres', 'initdb', 'createdb', 'pg_isready', 'pg_ctl', 'pg_dump') {
+    if (-not (Test-Path "$stage\pg\bin\$tool.exe")) {
+        throw "PostgreSQL to'plamga tushmadi: $tool.exe yo'q."
+    }
+}
+if (-not (Test-Path "$stage\pg\share\postgres.bki")) {
+    throw "PostgreSQL share papkasi to'liq emas - initdb bazani qura olmaydi."
+}
+foreach ($dll in 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll') {
+    if (-not (Test-Path "$stage\pg\bin\$dll")) {
+        throw "$dll to'plamga tushmadi - toza Windows'da baza ishga tushmaydi."
+    }
+}
 if (-not (Test-Path "$stage\api\appsettings.Desktop.json")) {
     throw "appsettings.Desktop.json nashrga tushmadi - desktop rejimi yoqilmaydi, ilova bosh oyna korsatadi."
 }

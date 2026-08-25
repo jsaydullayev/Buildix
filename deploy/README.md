@@ -273,6 +273,16 @@ birinchi o'rnatuvchini qo'lda olib borish soatlab kutishdan tez.
 #    → artifacts/releases.win.json
 ```
 
+**Birinchi yig'ish uzoqroq davom etadi:** skript PostgreSQL ning rasmiy
+binarlarini (~330 MB) yuklab oladi va `%LocalAppData%\Buildix-build-cache`
+ga qo'yadi. Keyingi yig'ishlar shu keshdan foydalanadi. Uzilsa, keyingi
+urinish o'sha yerdan davom etadi.
+
+To'plam ichida PostgreSQL 17.6 keladi — do'konda hech narsa alohida
+o'rnatilmaydi. Baza `%ProgramData%\Buildix\pgdata` da yashaydi va
+yangilanish unga tegmaydi. Yonida Visual C++ ish vaqti kutubxonalari ham
+boradi: ularsiz toza Windows'da baza umuman ishga tushmasdi.
+
 ```bash
 # 2. Serverga ko'chirish. <MAXFIY> — taxmin qilib bo'lmaydigan papka nomi
 #    (masalan `uuidgen` natijasi). Papka ochiq qoldirilsa mahsulotni istagan
