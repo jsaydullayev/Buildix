@@ -42,6 +42,14 @@ export const en: TranslationSchema = {
     name: 'Buildix',
     footer: '© 2026 Buildix · Strotech',
   },
+  sync: {
+    unpaired: 'The shop computer is not paired with the cloud — data here is not updating.',
+    stale: 'Data last updated {{age}} ago — the shop is offline.',
+    ageUnknown: 'a while',
+    ageMinutes: '{{count}} min',
+    ageHours: '{{count}} h',
+    ageDays: '{{count}} d',
+  },
   nav: {
     sections: {
       operations: 'Operations',

@@ -40,6 +40,14 @@ export const ru = {
     name: 'Buildix',
     footer: '© 2026 Buildix · Strotech',
   },
+  sync: {
+    unpaired: 'Компьютер магазина не подключён к облаку — данные здесь не обновляются.',
+    stale: 'Данные обновлены {{age}} назад — магазин не на связи.',
+    ageUnknown: 'давно',
+    ageMinutes: '{{count}} мин',
+    ageHours: '{{count}} ч',
+    ageDays: '{{count}} дн',
+  },
   nav: {
     sections: {
       operations: 'Операции',

@@ -42,6 +42,14 @@ export const uz: TranslationSchema = {
     name: 'Buildix',
     footer: '© 2026 Buildix · Strotech',
   },
+  sync: {
+    unpaired: "Do'kon kompyuteri bulutga bog'lanmagan — bu yerdagi ma'lumot yangilanmaydi.",
+    stale: "Ma'lumot {{age}} oldin yangilangan — do'kon aloqada emas.",
+    ageUnknown: 'anchadan',
+    ageMinutes: '{{count}} daqiqa',
+    ageHours: '{{count}} soat',
+    ageDays: '{{count}} kun',
+  },
   nav: {
     sections: {
       operations: 'Operatsiyalar',

@@ -28,6 +28,24 @@ public class MarketsController : ApiControllerBase
         _marketSettingsService = marketSettingsService;
     }
 
+    /// <summary>
+    /// Ekrandagi ma'lumot qanchalik yangi ekani.
+    ///
+    /// <para>Egasi telefonda ko'radigan raqamlar do'kondan sinxronizatsiya
+    /// orqali keladi. Do'kon internetsiz ishlayotgan bo'lsa, ular eskirgan
+    /// bo'ladi — lekin eskirgandek KO'RINMAYDI. Bu yo'l shu farqni
+    /// ko'rsatadi.</para>
+    ///
+    /// <para>Barcha rollarga ochiq: kassir ham o'z ekranidagi son qachongi
+    /// ekanini bilishi kerak.</para>
+    /// </summary>
+    [HttpGet("~/api/Markets/sync-status")]
+    [Authorize]
+    public async Task<ActionResult<SyncFreshnessDto>> SyncStatus(
+        [FromServices] ISyncFreshnessService freshness,
+        CancellationToken cancellationToken)
+        => Ok(await freshness.GetAsync(_currentMarketService.GetCurrentMarketId(), cancellationToken));
+
     // Owner only — the whole Настройки screen. Absolute routes so the paths
     // stay clean (GET/PUT /api/Markets/settings) under the [action] template.
     [HttpGet("~/api/Markets/settings")]

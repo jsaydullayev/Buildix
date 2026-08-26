@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { RequireSubscription } from '@/shared/auth/guards';
 import { BrandLogo, Spinner } from '@/shared/ui';
+import { SyncFreshnessBanner } from '@/shared/sync/SyncFreshnessBanner';
 
 /**
  * Authenticated shell: navy sidebar + scrollable content area.
@@ -40,6 +41,8 @@ export function AppLayout() {
             </button>
             <BrandLogo size="sm" onDark />
           </div>
+
+          <SyncFreshnessBanner />
 
           <Suspense
             fallback={
