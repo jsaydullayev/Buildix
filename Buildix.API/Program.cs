@@ -695,7 +695,7 @@ try
     // Bulutdan tortish — faqat do'kon nusxasida ma'noga ega. Bulutda
     // ishlaganda Cloud:TerminalKey berilmaydi va xizmat birinchi tekshiruvda
     // o'zini to'xtatadi.
-    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.CloudPullBackgroundService>();
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.CloudSyncBackgroundService>();
     // Webhook'siz muhitlar (lokal dev, ochiq IP'siz server) uchun Telegram
     // long-polling. Faqat Telegram:UseLongPolling=true bo'lganda ishga tushadi.
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.TelegramLongPollingBackgroundService>();

@@ -41,6 +41,7 @@ public class SyncPushService : ISyncPushService
         int marketId, SyncPushDto payload, CancellationToken ct = default)
     {
         var perTable = new Dictionary<string, int>();
+        var deferred = new Dictionary<string, int>();
 
         // Butun to'plam BITTA tranzaksiyada. Yarim qabul qilingan to'plam eng
         // yomon holat bo'lardi: sotuv bor, qatorlari yo'q — va bulutdagi
@@ -60,10 +61,10 @@ public class SyncPushService : ISyncPushService
             // do'kon QO'SHNI do'konning sotuviga qator yoki to'lov qo'shib
             // yuborishi mumkin edi: tashqi kalit buni qabul qilardi va
             // qo'shnining hisoboti jimgina buzilardi.
-            var ownSales = await OwnSaleIdsAsync(payload, marketId, ct);
+            var parents = await ClassifyParentsAsync(payload, marketId, ct);
 
-            var items = Keep(payload.SaleItems, x => ownSales.Contains(x.SaleId), "SaleItem", marketId);
-            var payments = Keep(payload.Payments, x => ownSales.Contains(x.SaleId), "Payment", marketId);
+            var items = Split(payload.SaleItems, x => x.SaleId, parents, "SaleItem", marketId, deferred);
+            var payments = Split(payload.Payments, x => x.SaleId, parents, "Payment", marketId, deferred);
 
             perTable["SaleItem"] = await UpsertAsync(_context.SaleItems, items, marketId, ct);
             perTable["Payment"] = await UpsertAsync(_context.Payments, payments, marketId, ct);
@@ -80,7 +81,7 @@ public class SyncPushService : ISyncPushService
                 marketId, accepted, string.Join(", ", perTable.Where(p => p.Value > 0).Select(p => $"{p.Key}={p.Value}")));
         }
 
-        return new SyncPushResultDto(accepted, perTable);
+        return new SyncPushResultDto(accepted, perTable, deferred);
     }
 
     /// <summary>
@@ -121,51 +122,91 @@ public class SyncPushService : ISyncPushService
         return incoming.Count;
     }
 
+    /// <summary>Ota-sotuvning holati.</summary>
+    private enum Parent { Mine, Foreign, Unknown }
+
     /// <summary>
-    /// Shu do'konga tegishli sotuvlarning ID lari: hozir kelganlari va
-    /// bulutda allaqachon bor bo'lganlari.
+    /// Bola qatorlar havola qiladigan sotuvlarni uch guruhga ajratadi.
+    ///
+    /// <para>Farq HAL QILUVCHI: begona sotuv — bu nosozlik yoki urinish va u
+    /// rad etiladi; noma'lum sotuv esa shunchaki HALI yetib bormagan va uni
+    /// rad etish ma'lumotni abadiy yo'qotardi.</para>
     /// </summary>
-    private async Task<HashSet<Guid>> OwnSaleIdsAsync(
+    private async Task<Dictionary<Guid, Parent>> ClassifyParentsAsync(
         SyncPushDto payload, int marketId, CancellationToken ct)
     {
-        // Kelgan sotuvlar yuqorida MarketId majburan almashtirilib yozildi,
-        // ya'ni ular ta'rifi bo'yicha shu do'konniki.
-        var ids = payload.Sales.Select(x => x.Id).ToHashSet();
+        var result = new Dictionary<Guid, Parent>();
 
-        // Qolganlari bulutda oldindan bo'lishi mumkin (masalan bugungi qator
-        // kechagi sotuvga tegishli) — ularni bazadan tekshiramiz.
+        // Hozir kelgan sotuvlar yuqorida MarketId majburan almashtirilib
+        // yozildi, ya'ni ular ta'rifi bo'yicha shu do'konniki.
+        foreach (var sale in payload.Sales) result[sale.Id] = Parent.Mine;
+
         var referenced = payload.SaleItems.Select(x => x.SaleId)
             .Concat(payload.Payments.Select(x => x.SaleId))
-            .Where(id => !ids.Contains(id))
+            .Where(id => !result.ContainsKey(id))
             .Distinct()
             .ToList();
 
-        if (referenced.Count > 0)
-        {
-            var known = await _context.Sales
-                .IgnoreQueryFilters()
-                .Where(s => referenced.Contains(s.Id) && s.MarketId == marketId)
-                .Select(s => s.Id)
-                .ToListAsync(ct);
-            foreach (var id in known) ids.Add(id);
-        }
+        if (referenced.Count == 0) return result;
 
-        return ids;
+        var known = await _context.Sales
+            .IgnoreQueryFilters()
+            .Where(s => referenced.Contains(s.Id))
+            .Select(s => new { s.Id, s.MarketId })
+            .ToListAsync(ct);
+
+        foreach (var sale in known)
+            result[sale.Id] = sale.MarketId == marketId ? Parent.Mine : Parent.Foreign;
+
+        foreach (var id in referenced)
+            if (!result.ContainsKey(id)) result[id] = Parent.Unknown;
+
+        return result;
     }
 
-    /// <summary>Begona yozuvlarni chiqarib tashlaydi va buni jurnalga yozadi.</summary>
-    private List<T> Keep<T>(List<T> rows, Func<T, bool> mine, string table, int marketId)
+    /// <summary>
+    /// Qabul qilinadiganlarni ajratadi; begonalarini rad etadi, otasi hali
+    /// yetib bormaganlarini esa kechiktiradi.
+    /// </summary>
+    private List<T> Split<T>(
+        List<T> rows,
+        Func<T, Guid> parentOf,
+        Dictionary<Guid, Parent> parents,
+        string table,
+        int marketId,
+        Dictionary<string, int> deferred)
     {
-        var kept = rows.Where(mine).ToList();
-        if (kept.Count != rows.Count)
+        var kept = new List<T>(rows.Count);
+        var foreign = 0;
+        var waiting = 0;
+
+        foreach (var row in rows)
+        {
+            switch (parents.TryGetValue(parentOf(row), out var state) ? state : Parent.Unknown)
+            {
+                case Parent.Mine: kept.Add(row); break;
+                case Parent.Foreign: foreign++; break;
+                default: waiting++; break;
+            }
+        }
+
+        if (foreign > 0)
         {
             // JIMGINA tashlab yuborilmaydi: bu yoki do'kon nusxasidagi jiddiy
-            // nosozlik, yoki ataylab qilingan urinish. Ikkalasi ham ko'rinishi
-            // kerak.
+            // nosozlik, yoki ataylab qilingan urinish.
             _logger.LogWarning(
-                "Push from market {MarketId}: {Dropped} {Table} row(s) rejected — parent sale belongs elsewhere",
-                marketId, rows.Count - kept.Count, table);
+                "Push from market {MarketId}: {Count} {Table} row(s) rejected — parent sale belongs to another market",
+                marketId, foreign, table);
         }
+
+        if (waiting > 0)
+        {
+            deferred[table] = waiting;
+            _logger.LogInformation(
+                "Push from market {MarketId}: {Count} {Table} row(s) deferred — parent sale not received yet",
+                marketId, waiting, table);
+        }
+
         return kept;
     }
 

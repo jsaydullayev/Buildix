@@ -32,7 +32,21 @@ public class SyncPushDto
         + Sales.Count + SaleItems.Count + Payments.Count;
 }
 
-/// <summary>Bulutning javobi: nechta qator qabul qilindi.</summary>
+/// <summary>
+/// Bulutning javobi.
+///
+/// <para><b><see cref="Deferred"/> nima uchun alohida.</b> Bola qator otasi
+/// hali yuborilmagan bo'lishi mumkin: sotuvlar paketi to'lgan va o'sha
+/// sotuv keyingi safarga qolgan. Bunday qatorni rad etib, do'kon belgisini
+/// oldinga surish uni ABADIY yo'qotardi — sotuv keyin yetib borar, qatori
+/// esa hech qachon. Shuning uchun u «kechiktirildi» deb qaytariladi va
+/// do'kon o'sha jadval belgisini surmaydi: keyingi urinishda otasi yetib
+/// borgach, qator ham o'tadi.</para>
+///
+/// <para>Bu BEGONA otadan farq qiladi: begona sotuvga tegishli qator
+/// butunlay rad etiladi va jurnalga yoziladi.</para>
+/// </summary>
 public record SyncPushResultDto(
     int Accepted,
-    IReadOnlyDictionary<string, int> PerTable);
+    IReadOnlyDictionary<string, int> PerTable,
+    IReadOnlyDictionary<string, int> Deferred);

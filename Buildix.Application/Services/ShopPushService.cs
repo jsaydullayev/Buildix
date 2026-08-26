@@ -32,6 +32,9 @@ public class ShopPushService : IShopPushService
     /// </summary>
     private const int BatchSize = 200;
 
+    /// <summary>Bitta chaqiruvdagi eng ko'p yuborish soni.</summary>
+    private const int MaxPassesPerRun = 25;
+
     private static readonly DateTimeOffset DefaultWatermark =
         new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -60,7 +63,36 @@ public class ShopPushService : IShopPushService
 
     public bool IsConfigured => _options.IsConfigured;
 
+    /// <summary>
+    /// Navbat bo'shaguncha ketma-ket yuboradi.
+    ///
+    /// <para><b>Nega halqa.</b> Bitta so'rovda bir jadvaldan 200 qator
+    /// ketadi. Do'kon bir kun aloqasiz ishlagan bo'lsa, orqada minglab yozuv
+    /// to'planadi va ular besh daqiqada 200 tadan bo'shab, soatlab davom
+    /// etardi — egasining telefonidagi raqamlar shuncha vaqt orqada
+    /// qolardi.</para>
+    ///
+    /// <para>Qadamlar soni cheklangan: bitta chaqiruv cheksiz cho'zilib
+    /// ketmasin, qolgani keyingi safar davom etadi.</para>
+    /// </summary>
     public async Task<ShopPushResult> PushAsync(CancellationToken ct = default)
+    {
+        var total = 0;
+        for (var pass = 0; pass < MaxPassesPerRun; pass++)
+        {
+            var result = await PushOnceAsync(ct);
+
+            // Uzilish yuz bersa, shu paytgacha yetkazilgani saqlanib qoladi:
+            // belgilar har qadamda alohida suriladi.
+            if (!result.Success) return total > 0 ? ShopPushResult.Ok(total) : result;
+
+            total += result.Rows;
+            if (result.Rows == 0) break;   // navbat bo'shadi
+        }
+        return ShopPushResult.Ok(total);
+    }
+
+    private async Task<ShopPushResult> PushOnceAsync(CancellationToken ct = default)
     {
         if (!_options.IsConfigured)
             return ShopPushResult.Skipped("Bulut sozlanmagan — do'kon hali bog'lanmagan.");
@@ -78,7 +110,7 @@ public class ShopPushService : IShopPushService
             .ToDictionaryAsync(s => s.TableName, ct);
 
         var payload = new SyncPushDto();
-        var sent = new Dictionary<string, DateTimeOffset>();
+        var sent = new Dictionary<string, (DateTimeOffset Watermark, Guid LastId)>();
 
         payload.Products = await CollectAsync(
             _context.Products.Where(x => x.MarketId == marketId), states, sent, ct);
@@ -115,6 +147,16 @@ public class ShopPushService : IShopPushService
                 _logger.LogWarning("Push rejected: {Reason}", reason);
                 return ShopPushResult.Failed(reason);
             }
+
+            // Otasi hali yetib bormagan qatorlar bo'lsa, O'SHA jadval belgisi
+            // surilmaydi — keyingi urinishda otasi o'tgach, ular ham o'tadi.
+            // Belgi surilsa, qator abadiy yo'qolardi.
+            var accepted = await response.Content.ReadFromJsonAsync<SyncPushResultDto>(
+                EntityWireFormat.Options, ct);
+            if (accepted?.Deferred is { Count: > 0 } waiting)
+            {
+                foreach (var table in waiting.Keys) sent.Remove(table);
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -127,14 +169,15 @@ public class ShopPushService : IShopPushService
 
         // Bulut qabul qildi — endi belgilarni surish mumkin.
         var now = _clock.GetUtcNow().UtcDateTime;
-        foreach (var (table, watermark) in sent)
+        foreach (var (table, cursor) in sent)
         {
             if (!states.TryGetValue(table, out var state))
             {
                 state = new SyncPushState { MarketId = marketId, TableName = table };
                 _context.SyncPushStates.Add(state);
             }
-            state.Watermark = watermark;
+            state.Watermark = cursor.Watermark;
+            state.LastId = cursor.LastId;
             state.LastPushedAtUtc = now;
         }
         await _unitOfWork.SaveChangesAsync(ct);
@@ -155,28 +198,40 @@ public class ShopPushService : IShopPushService
     private async Task<List<T>> CollectAsync<T>(
         IQueryable<T> scoped,
         Dictionary<string, SyncPushState> states,
-        Dictionary<string, DateTimeOffset> sent,
+        Dictionary<string, (DateTimeOffset Watermark, Guid LastId)> sent,
         CancellationToken ct)
         where T : BaseEntity
     {
         var name = typeof(T).Name;
-        var since = states.TryGetValue(name, out var state) ? state.Watermark : DefaultWatermark;
-        var sinceUtc = since.UtcDateTime;
+        var state = states.GetValueOrDefault(name);
+        var sinceUtc = (state?.Watermark ?? DefaultWatermark).UtcDateTime;
+        var lastId = state?.LastId ?? Guid.Empty;
 
+        // Kursor — (vaqt, kalit) juftligi. Faqat vaqt bo'yicha `>=` bilan bir
+        // xil vaqtga ega paket ABADIY qayta yuborilardi (bitta saqlashdagi
+        // 200 qator aynan bir xil vaqt oladi), qat'iy `>` bilan esa uning bir
+        // qismi butunlay o'tkazib yuborilardi. Juftlik ikkalasini ham hal
+        // qiladi: tartib to'liq aniq va har paket oldinga siljiydi.
+        //
         // IgnoreQueryFilters — o'chirilgan yozuv ham yuborilishi SHART: aks
         // holda bulutda u tirik bo'lib qolaverardi va egasining telefonida
         // bekor qilingan savdo hamon ko'rinardi.
         var rows = await scoped
             .IgnoreQueryFilters()
-            .Where(x => x.UpdatedAt >= sinceUtc)
-            .OrderBy(x => x.UpdatedAt)
+            .Where(x => x.UpdatedAt > sinceUtc
+                     || (x.UpdatedAt == sinceUtc && x.Id.CompareTo(lastId) > 0))
+            .OrderBy(x => x.UpdatedAt).ThenBy(x => x.Id)
             .Take(BatchSize)
             .AsNoTracking()
             .ToListAsync(ct);
 
         if (rows.Count > 0)
-            sent[name] = new DateTimeOffset(
-                DateTime.SpecifyKind(rows[^1].UpdatedAt, DateTimeKind.Utc), TimeSpan.Zero);
+        {
+            var last = rows[^1];
+            sent[name] = (
+                new DateTimeOffset(DateTime.SpecifyKind(last.UpdatedAt, DateTimeKind.Utc), TimeSpan.Zero),
+                last.Id);
+        }
 
         return rows;
     }

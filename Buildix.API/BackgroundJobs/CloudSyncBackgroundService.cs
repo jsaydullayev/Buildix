@@ -3,8 +3,8 @@ using Buildix.Application.Interfaces;
 namespace Buildix.API.BackgroundJobs;
 
 /// <summary>
-/// Bulutdan o'zgarishlarni muntazam olib turadi: do'kon xodimlari va obuna
-/// holati bulutga tegishli va do'kon ularni faqat shu yo'l bilan biladi.
+/// Bulut bilan ikki tomonlama sinxronizatsiya: avval o'zgarishlarni oladi,
+/// so'ng o'zining savdolarini yuboradi.
 ///
 /// <para><b>Birinchi tortish DARHOL.</b> Yangi o'rnatilgan do'kon bazasi
 /// bo'sh — na market, na foydalanuvchi bor, ya'ni kirish oynasidan nariga
@@ -20,16 +20,16 @@ namespace Buildix.API.BackgroundJobs;
 /// bog'lanmagan bo'lishi mumkin va bu xato emas — u shunchaki lokal
 /// ishlaydi.</para>
 /// </summary>
-public class CloudPullBackgroundService : BackgroundService
+public class CloudSyncBackgroundService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<CloudPullBackgroundService> _logger;
+    private readonly ILogger<CloudSyncBackgroundService> _logger;
 
-    public CloudPullBackgroundService(
+    public CloudSyncBackgroundService(
         IServiceScopeFactory scopeFactory,
-        ILogger<CloudPullBackgroundService> logger)
+        ILogger<CloudSyncBackgroundService> logger)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
@@ -46,14 +46,22 @@ public class CloudPullBackgroundService : BackgroundService
 
                 if (!sync.IsConfigured) return;   // bog'lanmagan — qayta urinishning ma'nosi yo'q
 
-                var result = await sync.PullAsync(stoppingToken);
-                if (!result.Success)
+                var pulled = await sync.PullAsync(stoppingToken);
+                if (!pulled.Success)
                 {
                     // Xizmat sababni bazaga yozdi; bu yerda faqat jurnal.
                     // Istisno TASHLANMAYDI: aloqa uzilishi do'konda normal
                     // holat va u fon xizmatini o'ldirmasligi kerak.
-                    _logger.LogWarning("Cloud pull unsuccessful: {Error}", result.Error);
+                    _logger.LogWarning("Cloud pull unsuccessful: {Error}", pulled.Error);
                 }
+
+                // Yuborish TORTISHDAN KEYIN. Do'kon o'z market raqamini
+                // faqat tortishdan biladi va usiz nima yuborishni ham
+                // aniqlay olmaydi.
+                var push = scope.ServiceProvider.GetRequiredService<IShopPushService>();
+                var pushed = await push.PushAsync(stoppingToken);
+                if (!pushed.Success)
+                    _logger.LogWarning("Cloud push unsuccessful: {Error}", pushed.Error);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
