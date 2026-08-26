@@ -31,6 +31,17 @@ export interface MarketSettings {
   auditEnabled: boolean;
 }
 
+/**
+ * Do'kon dasturining o'rnatuvchisi.
+ *
+ * <p>`url` bo'sh bo'lsa paket hali serverga qo'yilmagan — bu xato emas, shu
+ * sababli sahifa tugma o'rniga tushuntirish ko'rsatadi.</p>
+ */
+export interface DesktopApp {
+  url: string;
+  version: string | null;
+}
+
 export const settingsApi = {
   get: async (): Promise<MarketSettings> => {
     const { data } = await apiClient.get<MarketSettings>('/Markets/settings');
@@ -38,6 +49,10 @@ export const settingsApi = {
   },
   update: async (body: MarketSettings): Promise<MarketSettings> => {
     const { data } = await apiClient.put<MarketSettings>('/Markets/settings', body);
+    return data;
+  },
+  desktopApp: async (): Promise<DesktopApp> => {
+    const { data } = await apiClient.get<DesktopApp>('/Markets/desktop-app');
     return data;
   },
 };

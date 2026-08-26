@@ -28,6 +28,27 @@ public record RedeemPairingRequest(
     [property: JsonPropertyName("code")] string Code,
     [property: JsonPropertyName("terminalName")] string TerminalName);
 
+/// <summary>
+/// Do'kon egasining login-paroli bilan bog'lash so'rovi — kodsiz asosiy yo'l.
+///
+/// <para><c>Subdomain</c> ixtiyoriy: bir xil login turli do'konlarda
+/// uchrashi mumkin va o'shanda do'konni ko'rsatish kerak bo'ladi.</para>
+/// </summary>
+public record ActivateTerminalRequest(
+    [property: JsonPropertyName("username")] string Username,
+    [property: JsonPropertyName("password")] string Password,
+    [property: JsonPropertyName("subdomain")] string? Subdomain,
+    [property: JsonPropertyName("terminalName")] string TerminalName);
+
+/// <summary>
+/// Do'kon dasturini yuklab olish uchun kerakli ma'lumot.
+///
+/// <para><c>Url</c> bo'sh bo'lsa paket hali serverga qo'yilmagan.</para>
+/// </summary>
+public record DesktopAppDto(
+    [property: JsonPropertyName("url")] string Url,
+    [property: JsonPropertyName("version")] string? Version);
+
 /// <summary>Panel uchun: do'konga bog'langan kompyuter.</summary>
 public record TerminalDto(
     [property: JsonPropertyName("id")] Guid Id,

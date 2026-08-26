@@ -78,6 +78,19 @@ export function LoginPage() {
     return <Navigate to={home} replace />;
   }
 
+  // Ildizdagi login (`/login`), lekin sessiya allaqachon bor — do'koniga
+  // qaytaramiz. Ilgari bu holat formani QAYTA ko'rsatardi: foydalanuvchi
+  // hali kirgan bo'lsa ham parol so'ralardi va bu «tizim o'zi chiqarib
+  // yubordi» bo'lib ko'rinardi. Do'kon dasturi aynan shu manzilni ochadi,
+  // ya'ni har ochilishda kassir qaytadan kirishga majbur bo'lardi.
+  //
+  // `home` bu yerda ishlamaydi — u manzildagi sub-yo'lga tayanadi va u
+  // hozir yo'q; do'kon ildiziga yuboramiz, u yoqda IndexRedirect o'zi
+  // kerakli sahifani tanlaydi.
+  if (isAuthenticated && !subdomain && session?.subdomain && session.role !== ROLES.SuperAdmin) {
+    return <Navigate to={`/${session.subdomain}`} replace />;
+  }
+
   const onSubmit = handleSubmit(async (values) => {
     try {
       const data = await login.mutateAsync({ ...values, subdomain: subdomain ?? null });

@@ -69,6 +69,12 @@ services:
       Telegram__BotUsername: ${TELEGRAM_BOT_USERNAME:-}
       Telegram__WebhookSecret: ${TELEGRAM_WEBHOOK_SECRET:-}
       Telegram__DailySummaryHour: ${TELEGRAM_DAILY_SUMMARY_HOUR:-21}
+      # ── Do'kon dasturi (desktop) ─────────────────────────────────────────
+      # O'rnatuvchining manzili. Bo'sh bo'lsa sozlamalar sahifasida yuklab
+      # olish tugmasi o'rniga «hali tayyor emas» yoziladi. Manzilni faqat
+      # kirgan EGA ko'radi, shuning uchun uni sir papkaga qo'yish mumkin.
+      Desktop__InstallerUrl: ${DESKTOP_INSTALLER_URL:-}
+      Desktop__Version: ${DESKTOP_VERSION:-}
     volumes:
       # Product images persist across deploys in a named volume.
       - uploads:/app/wwwroot/uploads

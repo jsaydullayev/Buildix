@@ -16,6 +16,13 @@ public interface ITerminalPairingService
     Task<Result<PairedTerminalDto>> RedeemAsync(
         string code, string terminalName, string? ipAddress, CancellationToken ct = default);
 
+    /// <summary>
+    /// Kodsiz bog'laydi — do'kon egasi o'z login-paroli bilan. Parolni
+    /// CHAQIRUVCHI tekshiradi va faqat <c>Owner</c> ekanini kafolatlaydi.
+    /// </summary>
+    Task<Result<PairedTerminalDto>> ActivateAsync(
+        int marketId, string terminalName, string? ipAddress, CancellationToken ct = default);
+
     /// <summary>Kalit bo'yicha kompyuterni taniydi. Yaroqsiz bo'lsa — null.</summary>
     Task<ShopTerminal?> AuthenticateAsync(string key, CancellationToken ct = default);
 

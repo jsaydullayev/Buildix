@@ -861,6 +861,16 @@ export const uz: TranslationSchema = {
       audit: 'Audit jurnali',
       auditHint: 'Xodimlar amallarini yozib borish',
     },
+    desktop: {
+      title: 'Do‘kon dasturi',
+      subtitle: 'Internetsiz ham ishlaydigan kassa — do‘kon kompyuteriga o‘rnatiladi',
+      step1: 'Faylni yuklab olib, do‘kon kompyuterida ishga tushiring.',
+      step2: 'Dastur ochilgach shu login va parolingiz bilan kiring — do‘kon ma’lumotlari o‘zi tortiladi.',
+      step3: 'Shundan keyin kassirlar o‘z login-paroli bilan kiraveradi.',
+      download: 'Yuklab olish (Windows)',
+      version: 'versiya {{version}}',
+      notReady: 'Dastur hali yuklashga tayyor emas. Qo‘llab-quvvatlash xizmatiga murojaat qiling.',
+    },
   },
   employees: {
     title: 'Xodimlar',

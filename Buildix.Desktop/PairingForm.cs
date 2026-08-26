@@ -14,16 +14,31 @@ namespace Buildix.Desktop;
 /// <para><b>Nega qobiqda, interfeysda emas.</b> Interfeysga kirish uchun
 /// foydalanuvchi kerak, foydalanuvchi esa aynan shu qadamdan keyin paydo
 /// bo'ladi. Tovuq va tuxum: uzilishning yagona joyi — qobiq.</para>
+///
+/// <para><b>Ikki yo'l.</b> Asosiysi — do'kon EGASINING login-paroli: u
+/// hisobiga allaqachon ega va undan boshqa isbot so'rashning ma'nosi yo'q.
+/// Zaxirasi — paneldan olingan bir martalik kod: egasi yo'q bo'lganda yoki
+/// paroli esdan chiqqanda qo'llab-quvvatlash shu yo'l bilan yordam
+/// beradi.</para>
 /// </summary>
 public sealed class PairingForm : Form
 {
     private readonly LocalSecrets _secrets;
 
     private readonly TextBox _cloud = new() { Width = 320 };
+    private readonly TextBox _username = new() { Width = 220 };
+    private readonly TextBox _password = new() { Width = 220, UseSystemPasswordChar = true };
     private readonly TextBox _code = new() { Width = 200, CharacterCasing = CharacterCasing.Upper };
-    private readonly TextBox _name = new() { Width = 200, Text = "Server kassa" };
-    private readonly Label _result = new() { AutoSize = false, Width = 460, Height = 46 };
-    private readonly Button _pair = new() { Text = "Bog'lash", Width = 120 };
+    private readonly TextBox _name = new() { Width = 220, Text = "Server kassa" };
+    private readonly Label _result = new() { AutoSize = false, Width = 470, Height = 52 };
+    private readonly Button _pair = new() { Text = "Kirish va bog'lash", Width = 170 };
+    private readonly LinkLabel _switchMode = new() { AutoSize = true, Text = "Kod bilan bog'lash" };
+
+    private readonly TableLayoutPanel _loginRows = new();
+    private readonly TableLayoutPanel _codeRows = new();
+
+    /// <summary>Kod rejimi yoqilganmi. Sukut bo'yicha — login-parol.</summary>
+    private bool _codeMode;
 
     public PairingForm(LocalSecrets secrets)
     {
@@ -35,38 +50,39 @@ public sealed class PairingForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(520, 330);
+        ClientSize = new Size(540, 400);
         Font = new Font("Segoe UI", 9.75F);
 
         var intro = new Label
         {
             AutoSize = false,
-            Width = 470,
-            Height = 62,
+            Width = 490,
+            Height = 60,
             Text = "Bu kompyuter hali bulutga bog'lanmagan, shuning uchun do'kon "
                  + "xodimlari hali yo'q va tizimga kirib bo'lmaydi.\r\n\r\n"
-                 + "Buildix panelidan olingan bir martalik kodni kiriting.",
+                 + "Do'kon EGASINING login va paroli bilan kiring.",
         };
+
+        BuildLoginRows();
+        BuildCodeRows();
 
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
-            ColumnCount = 2,
-            RowCount = 6,
+            ColumnCount = 1,
+            RowCount = 7,
+            AutoSize = true,
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
         layout.Controls.Add(intro, 0, 0);
-        layout.SetColumnSpan(intro, 2);
-
-        layout.Controls.Add(Caption("Bulut manzili:"), 0, 1);
-        layout.Controls.Add(_cloud, 1, 1);
-        layout.Controls.Add(Caption("Kod:"), 0, 2);
-        layout.Controls.Add(_code, 1, 2);
-        layout.Controls.Add(Caption("Kassa nomi:"), 0, 3);
-        layout.Controls.Add(_name, 1, 3);
+        layout.Controls.Add(Row("Bulut manzili:", _cloud), 0, 1);
+        layout.Controls.Add(_loginRows, 0, 2);
+        layout.Controls.Add(_codeRows, 0, 3);
+        // Kassa nomi ikkala yo'lda ham kerak, shuning uchun u almashadigan
+        // qismdan TASHQARIDA turadi — rejimni almashtirganda yozilgan nom
+        // yo'qolmasin.
+        layout.Controls.Add(Row("Kassa nomi:", _name), 0, 4);
+        layout.Controls.Add(_result, 0, 5);
 
         var buttons = new FlowLayoutPanel
         {
@@ -81,31 +97,89 @@ public sealed class PairingForm : Form
         var later = new Button { Text = "Keyinroq", Width = 120, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(later);
         buttons.Controls.Add(_pair);
-
-        layout.Controls.Add(_result, 0, 4);
-        layout.SetColumnSpan(_result, 2);
-        layout.Controls.Add(buttons, 0, 5);
-        layout.SetColumnSpan(buttons, 2);
+        _switchMode.Margin = new Padding(0, 9, 18, 0);
+        buttons.Controls.Add(_switchMode);
+        layout.Controls.Add(buttons, 0, 6);
 
         Controls.Add(layout);
         AcceptButton = _pair;
         CancelButton = later;
 
+        _switchMode.LinkClicked += (_, _) => SetMode(!_codeMode);
         _pair.Click += async (_, _) => await PairAsync();
+
+        SetMode(codeMode: false);
     }
 
-    private static Label Caption(string text) =>
-        new() { Text = text, AutoSize = true, Margin = new Padding(0, 6, 6, 0) };
+    private void BuildLoginRows()
+    {
+        _loginRows.ColumnCount = 1;
+        _loginRows.AutoSize = true;
+        _loginRows.Margin = new Padding(0);
+        _loginRows.Controls.Add(Row("Login:", _username));
+        _loginRows.Controls.Add(Row("Parol:", _password));
+    }
+
+    private void BuildCodeRows()
+    {
+        _codeRows.ColumnCount = 1;
+        _codeRows.AutoSize = true;
+        _codeRows.Margin = new Padding(0);
+        _codeRows.Controls.Add(Row("Kod:", _code));
+    }
+
+    /// <summary>Yorliq + maydon juftligi.</summary>
+    private static Control Row(string caption, Control field)
+    {
+        var row = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0, 3, 0, 3) };
+        row.Controls.Add(new Label { Text = caption, Width = 110, Margin = new Padding(0, 6, 0, 0) });
+        row.Controls.Add(field);
+        return row;
+    }
+
+    private void SetMode(bool codeMode)
+    {
+        _codeMode = codeMode;
+        _loginRows.Visible = !codeMode;
+        _codeRows.Visible = codeMode;
+        _pair.Text = codeMode ? "Kod bilan bog'lash" : "Kirish va bog'lash";
+        _switchMode.Text = codeMode ? "Login-parol bilan bog'lash" : "Kod bilan bog'lash";
+        Show(Color.DimGray, string.Empty);
+        if (codeMode) _code.Focus(); else _username.Focus();
+    }
 
     private async Task PairAsync()
     {
         var url = _cloud.Text.Trim().TrimEnd('/');
-        var code = _code.Text.Trim();
-
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(code))
+        if (string.IsNullOrWhiteSpace(url))
         {
-            Show(Color.Firebrick, "Bulut manzili va kodni kiriting.");
+            Show(Color.Firebrick, "Bulut manzilini kiriting.");
             return;
+        }
+
+        var terminalName = _name.Text.Trim();
+
+        // Har rejimning o'z manzili va o'z tanasi — qolgan hammasi bir xil.
+        string path;
+        object body;
+        if (_codeMode)
+        {
+            var code = _code.Text.Trim();
+            if (string.IsNullOrWhiteSpace(code)) { Show(Color.Firebrick, "Kodni kiriting."); return; }
+            path = "/api/pairing/redeem";
+            body = new { code, terminalName };
+        }
+        else
+        {
+            var username = _username.Text.Trim();
+            var password = _password.Text;
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+            {
+                Show(Color.Firebrick, "Login va parolni kiriting.");
+                return;
+            }
+            path = "/api/pairing/activate";
+            body = new { username, password, subdomain = (string?)null, terminalName };
         }
 
         _pair.Enabled = false;
@@ -113,9 +187,7 @@ public sealed class PairingForm : Form
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-            var response = await http.PostAsJsonAsync(
-                $"{url}/api/pairing/redeem",
-                new { code, terminalName = _name.Text.Trim() });
+            var response = await http.PostAsJsonAsync(url + path, body);
 
             if (!response.IsSuccessStatusCode)
             {

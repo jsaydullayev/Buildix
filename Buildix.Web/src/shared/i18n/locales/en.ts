@@ -861,6 +861,16 @@ export const en: TranslationSchema = {
       audit: 'Audit log',
       auditHint: 'Record employee actions',
     },
+    desktop: {
+      title: 'Shop application',
+      subtitle: 'A till that keeps working without internet — installed on the shop computer',
+      step1: 'Download the file and run it on the shop computer.',
+      step2: 'Once it opens, sign in with this same login and password — the shop data pulls itself down.',
+      step3: 'From then on cashiers sign in with their own logins.',
+      download: 'Download (Windows)',
+      version: 'version {{version}}',
+      notReady: 'The application is not available for download yet. Please contact support.',
+    },
   },
   employees: {
     title: 'Employees',

@@ -213,7 +213,15 @@ public sealed class MainForm : Form
                 _status.Visible = false;
         };
 
-        _web.Source = new Uri(baseUrl);
+        // ── Nega ildiz EMAS, `/login` ─────────────────────────────────────
+        // Ildizda reklama sahifasi turadi — narxlar, «bog'lanish», tanishtiruv.
+        // U bulutdagi TASHRIFCHI uchun. Do'kon kompyuterida esa faqat
+        // ishlaydigan odam o'tiradi va unga birinchi ko'rinadigan narsa ish
+        // ekrani bo'lishi kerak, sotuv sahifasi emas.
+        //
+        // Sessiya hali yaroqli bo'lsa `/login` o'zi ish ekraniga o'tkazadi,
+        // ya'ni har ochilishda parol so'ralmaydi.
+        _web.Source = new Uri(new Uri(baseUrl.TrimEnd('/') + "/"), "login");
 
         // Yangilanish FONDA tekshiriladi — ochilishni kechiktirmaydi va
         // internetsiz do'konda hech narsa o'zgarmaydi.

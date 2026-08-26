@@ -333,4 +333,112 @@ public class TerminalPairingTests
 
         Assert.True(issued.IsFailure);
     }
+
+    // ── Kodsiz faollashtirish (do'kon egasining login-paroli) ──────────────
+    // Parolni tekshirish kontrollerda, shu sababli bu yerdagi sinovlar
+    // faollashtirishning O'ZI kod oqimi bilan bir xil chegaralarga
+    // bo'ysunishini tekshiradi.
+
+    [Fact]
+    public async Task Kodsiz_faollashtirilganda_kalit_beriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+
+        var paired = await service.ActivateAsync(market.Id, "Server kassa", "192.168.1.10");
+
+        Assert.True(paired.IsSuccess, paired.Error);
+        Assert.Equal(market.Id, paired.Value.MarketId);
+        Assert.Equal("Sement Savdo", paired.Value.MarketName);
+        Assert.False(string.IsNullOrWhiteSpace(paired.Value.Key));
+
+        // Kalit bazada OCHIQ yotmasligi kerak — faqat hash'i.
+        var stored = Assert.Single(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+        Assert.DoesNotContain(paired.Value.Key, stored.KeyHash);
+        Assert.Equal("192.168.1.10", stored.LastIpAddress);
+    }
+
+    [Fact]
+    public async Task Kodsiz_berilgan_kalit_bilan_kompyuter_tanaladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+
+        var paired = await service.ActivateAsync(market.Id, "Kassa", null);
+        var terminal = await service.AuthenticateAsync(paired.Value.Key);
+
+        Assert.NotNull(terminal);
+        Assert.Equal(market.Id, terminal!.MarketId);
+    }
+
+    /// <summary>
+    /// Bitta do'kon — bitta baza. Bu chegara kod oqimida bor edi; kodsiz yo'l
+    /// uni CHETLAB O'TMASLIGI kerak, aks holda egasi bilmasdan ikkinchi
+    /// mustaqil baza yaratib qo'yardi va ikkalasi bulutda bir-birining
+    /// ustiga yozardi.
+    /// </summary>
+    [Fact]
+    public async Task Kodsiz_yol_ikkinchi_kompyuterni_qoshmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        await service.ActivateAsync(market.Id, "Birinchi", null);
+
+        var second = await service.ActivateAsync(market.Id, "Ikkinchi", null);
+
+        Assert.True(second.IsFailure);
+        Assert.Equal("ALREADY_PAIRED", second.Code);
+        Assert.Single(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Kodsiz_yol_ochirilgan_dokonga_boglamaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        market.IsActive = false;
+        await h.Db.SaveChangesAsync();
+        var service = NewService(h);
+
+        var paired = await service.ActivateAsync(market.Id, "Kassa", null);
+
+        Assert.True(paired.IsFailure);
+        Assert.Empty(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Kodsiz_yol_mavjud_bolmagan_dokonga_boglamaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var service = NewService(h);
+
+        var paired = await service.ActivateAsync(999, "Kassa", null);
+
+        Assert.True(paired.IsFailure);
+        Assert.Empty(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Eski kompyuter bekor qilingandan keyin kodsiz yo'l yana ishlashi
+    /// kerak — kassa almashtirilganda odatiy holat aynan shu.
+    /// </summary>
+    [Fact]
+    public async Task Eskisi_bekor_qilingach_kodsiz_yol_yana_ishlaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var first = await service.ActivateAsync(market.Id, "Eski", null);
+        await service.RevokeAsync(first.Value.TerminalId, Guid.NewGuid());
+
+        var second = await service.ActivateAsync(market.Id, "Yangi", null);
+
+        Assert.True(second.IsSuccess, second.Error);
+        Assert.NotEqual(first.Value.Key, second.Value.Key);
+        // Eski kalit endi o'tmaydi.
+        Assert.Null(await service.AuthenticateAsync(first.Value.Key));
+    }
 }

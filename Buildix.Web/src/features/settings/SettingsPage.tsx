@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react';
+import { Check, Download } from 'lucide-react';
 import { PageHeader, Button, Card, Toggle, Spinner, LanguageSwitch } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
@@ -214,8 +214,61 @@ export default function SettingsPage() {
             onChange={(v) => set('auditEnabled', v)}
           />
         </Section>
+
+        {/* Do'kon dasturi — internetsiz ishlaydigan kassa */}
+        <DesktopSection />
       </div>
     </>
+  );
+}
+
+/**
+ * Do'kon dasturini yuklab olish.
+ *
+ * <p><b>Nega aynan sozlamalarda.</b> Dasturni o'rnatish — do'kon egasining
+ * bir martalik ishi, kundalik amal emas. Uni menyuga alohida chiqarish
+ * kassirlarga hech qachon kerak bo'lmaydigan bandni har kuni ko'rsatardi.</p>
+ *
+ * <p>Manzil serverdan so'raladi va sahifaga qattiq yozilmaydi: paket turgan
+ * papka ataylab sir (deploy/README.md → «Desktop yangilanishlari»).</p>
+ */
+function DesktopSection() {
+  const { t } = useTranslation();
+  const query = useQuery({ queryKey: ['desktop-app'], queryFn: settingsApi.desktopApp });
+
+  return (
+    <Section title={t('settings.desktop.title')} subtitle={t('settings.desktop.subtitle')}>
+      <ol className="flex flex-col gap-2 text-[13px] text-muted">
+        <li>1. {t('settings.desktop.step1')}</li>
+        <li>2. {t('settings.desktop.step2')}</li>
+        <li>3. {t('settings.desktop.step3')}</li>
+      </ol>
+
+      <div className="border-t border-hairline pt-4">
+        {query.isLoading ? (
+          <Spinner size={18} />
+        ) : query.data?.url ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Oddiy havola, `fetch` emas: fayl 124 MB va uni brauzer
+                xotirasiga yuklashning ma'nosi yo'q — yuklab olishni
+                brauzerning o'zi boshqarsin (to'xtatish, davom ettirish). */}
+            <a
+              href={query.data.url}
+              className="inline-flex h-9 items-center gap-2 rounded-btn bg-primary px-4 text-[13.5px] font-medium text-white transition-opacity hover:opacity-90"
+            >
+              <Download size={16} /> {t('settings.desktop.download')}
+            </a>
+            {query.data.version && (
+              <span className="text-[12.5px] text-muted-2">
+                {t('settings.desktop.version', { version: query.data.version })}
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-[12.5px] text-muted-2">{t('settings.desktop.notReady')}</p>
+        )}
+      </div>
+    </Section>
   );
 }
 

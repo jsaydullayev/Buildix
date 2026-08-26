@@ -46,6 +46,27 @@ public class MarketsController : ApiControllerBase
         CancellationToken cancellationToken)
         => Ok(await freshness.GetAsync(_currentMarketService.GetCurrentMarketId(), cancellationToken));
 
+    /// <summary>
+    /// Do'kon dasturini (desktop) yuklab olish manzili.
+    ///
+    /// <para><b>Nega alohida yo'l bilan beriladi.</b> O'rnatuvchi turgan
+    /// papka nomi ataylab taxmin qilib bo'lmaydigan qilib qo'yilgan va
+    /// nginx'da ro'yxat ko'rsatish o'chirilgan — ya'ni manzilni bilmasdan
+    /// topib bo'lmaydi. Uni sahifaga qattiq yozib qo'ysak, o'sha sirning
+    /// ma'nosi qolmasdi: manzil har bir tashrifchining brauzeriga
+    /// tushardi. Shu yerda esa uni faqat kirgan EGA oladi.</para>
+    ///
+    /// <para>Sozlanmagan bo'lsa <c>url</c> bo'sh qaytadi — sahifa tugma
+    /// o'rniga «hali tayyor emas» deb yozadi. Bu xato emas: yangi
+    /// o'rnatilgan serverda paket hali qo'yilmagan bo'lishi normal.</para>
+    /// </summary>
+    [HttpGet("~/api/Markets/desktop-app")]
+    [Authorize(Policy = "OwnerOnly")]
+    public ActionResult<DesktopAppDto> DesktopApp([FromServices] IConfiguration configuration)
+        => Ok(new DesktopAppDto(
+            configuration["Desktop:InstallerUrl"]?.Trim() ?? string.Empty,
+            configuration["Desktop:Version"]?.Trim()));
+
     // Owner only — the whole Настройки screen. Absolute routes so the paths
     // stay clean (GET/PUT /api/Markets/settings) under the [action] template.
     [HttpGet("~/api/Markets/settings")]

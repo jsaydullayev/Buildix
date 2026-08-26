@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
@@ -124,70 +124,111 @@ public class TerminalPairingService : ITerminalPairingService
                     "Kod noto'g'ri yoki muddati o'tgan. Panelda yangi kod oling.");
             }
 
-            var market = await _context.Markets
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(m => m.Id == row.MarketId, ct);
-            if (market is null)
-                return Result.Failure<PairedTerminalDto>("Do'kon topilmadi", "NOT_FOUND");
-
-            // O'chirilgan do'kon uchun kompyuter bog'lanmaydi. Kod berilgandan
-            // keyin do'kon o'chirilgan bo'lishi mumkin va o'shanda bog'lanish
-            // hech qachon ishlatilmaydigan kalit yaratardi.
-            if (!market.IsActive)
-                return Result.Failure<PairedTerminalDto>("Do'kon o'chirilgan.", "NOT_FOUND");
-
-            // ── Bitta do'kon — bitta baza ───────────────────────────────────
-            // Kalit ishlaydigan kompyuter — bu do'konning MA'LUMOTLAR BAZASI
-            // turgan joy. Ikkitasi bo'lsa, bitta do'kon nomidan ikkita
-            // mustaqil baza ish ko'radi: ikkalasi ham o'z chek raqamlarini
-            // beradi, o'z qoldig'ini yuritadi va bulutga bir-birining ustiga
-            // yozadi. Bu pul va qoldiq ma'lumotini JIMGINA buzadi — hech
-            // qanday xato chiqmaydi, faqat raqamlar to'g'ri kelmay qoladi.
-            //
-            // Ikkinchi va uchinchi kassa bulutga umuman bog'lanmaydi: ular
-            // server kassadagi API ga lokal tarmoq orqali ulanadi va o'z
-            // kalitiga muhtoj emas.
-            //
-            // Shuning uchun eskisini AVTOMATIK bekor qilmaymiz: eski
-            // kompyuterda hali yuborilmagan savdolar qolgan bo'lishi mumkin
-            // va ularni jimgina yo'qotib bo'lmaydi. Operator ataylab bekor
-            // qilsin.
-            var active = await _context.ShopTerminals
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(t => t.MarketId == row.MarketId && t.RevokedAtUtc == null, ct);
-            if (active is not null)
-            {
-                return Result.Failure<PairedTerminalDto>(
-                    $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan. "
-                    + "Yangisini bog'lashdan oldin panelda eskisini bekor qiling — "
-                    + "unda yuborilmagan savdolar qolgan bo'lishi mumkin.",
-                    "ALREADY_PAIRED");
-            }
-
-            var key = NewKey();
-            var terminal = new ShopTerminal
-            {
-                Id = Guid.NewGuid(),
-                MarketId = row.MarketId,
-                Name = string.IsNullOrWhiteSpace(terminalName) ? "Kassa" : terminalName.Trim(),
-                KeyHash = HashKey(key),
-                LastSeenAtUtc = now,
-                LastIpAddress = ipAddress,
-            };
-            _context.ShopTerminals.Add(terminal);
+            var created = await CreateTerminalAsync(row.MarketId, terminalName, ipAddress, now, ct);
+            if (created.IsFailure) return created;
 
             row.UsedAtUtc = now;
-            row.UsedByTerminalId = terminal.Id;
+            row.UsedByTerminalId = created.Value.TerminalId;
 
             await _unitOfWork.SaveChangesAsync(ct);
-
-            _logger.LogInformation(
-                "Terminal {TerminalId} paired to market {MarketId} from {Ip}",
-                terminal.Id, terminal.MarketId, ipAddress ?? "?");
-
-            return Result.Success(new PairedTerminalDto(
-                terminal.Id, terminal.MarketId, market.Name, key));
+            return created;
         });
+    }
+
+    /// <summary>
+    /// Do'kon egasining login-paroli bilan bog'laydi — kodsiz.
+    ///
+    /// <para><b>Nega kerak.</b> Kodni faqat SuperAdmin bera olardi, ya'ni
+    /// yangi kompyuterni ishga tushirish uchun do'kon egasi platformaga
+    /// murojaat qilishga majbur edi. Egasi o'z hisobiga allaqachon ega —
+    /// undan boshqa isbot so'rashning ma'nosi yo'q.</para>
+    ///
+    /// <para><b>Kim chaqiradi.</b> Faqat <c>Owner</c> — buni chaqiruvchi
+    /// (kontroller) tekshiradi, chunki parolni tekshirish o'sha yerda.
+    /// Kassir ham bog'lay olsa, o'g'irlangan bitta parol butun do'kon
+    /// bazasini begona kompyuterga ko'chirish imkonini berardi.</para>
+    /// </summary>
+    public async Task<Result<PairedTerminalDto>> ActivateAsync(
+        int marketId, string terminalName, string? ipAddress, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var created = await CreateTerminalAsync(marketId, terminalName, ipAddress, now, ct);
+            if (created.IsFailure) return created;
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            return created;
+        });
+    }
+
+    /// <summary>
+    /// Do'konni tekshirib, unga yangi kompyuter yozadi. Saqlash CHAQIRUVCHIDA
+    /// — kod oqimi shu bilan birga kodni ham o'lik deb belgilashi kerak, va
+    /// bu ikkisi bitta tranzaksiyada bo'lishi shart.
+    /// </summary>
+    private async Task<Result<PairedTerminalDto>> CreateTerminalAsync(
+        int marketId, string terminalName, string? ipAddress, DateTime now, CancellationToken ct)
+    {
+        var market = await _context.Markets
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == marketId, ct);
+        if (market is null)
+            return Result.Failure<PairedTerminalDto>("Do'kon topilmadi", "NOT_FOUND");
+
+        // O'chirilgan do'kon uchun kompyuter bog'lanmaydi. Kod berilgandan
+        // keyin do'kon o'chirilgan bo'lishi mumkin va o'shanda bog'lanish
+        // hech qachon ishlatilmaydigan kalit yaratardi.
+        if (!market.IsActive)
+            return Result.Failure<PairedTerminalDto>("Do'kon o'chirilgan.", "NOT_FOUND");
+
+        // ── Bitta do'kon — bitta baza ───────────────────────────────────
+        // Kalit ishlaydigan kompyuter — bu do'konning MA'LUMOTLAR BAZASI
+        // turgan joy. Ikkitasi bo'lsa, bitta do'kon nomidan ikkita
+        // mustaqil baza ish ko'radi: ikkalasi ham o'z chek raqamlarini
+        // beradi, o'z qoldig'ini yuritadi va bulutga bir-birining ustiga
+        // yozadi. Bu pul va qoldiq ma'lumotini JIMGINA buzadi — hech
+        // qanday xato chiqmaydi, faqat raqamlar to'g'ri kelmay qoladi.
+        //
+        // Ikkinchi va uchinchi kassa bulutga umuman bog'lanmaydi: ular
+        // server kassadagi API ga lokal tarmoq orqali ulanadi va o'z
+        // kalitiga muhtoj emas.
+        //
+        // Shuning uchun eskisini AVTOMATIK bekor qilmaymiz: eski
+        // kompyuterda hali yuborilmagan savdolar qolgan bo'lishi mumkin
+        // va ularni jimgina yo'qotib bo'lmaydi. Operator ataylab bekor
+        // qilsin.
+        var active = await _context.ShopTerminals
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.MarketId == marketId && t.RevokedAtUtc == null, ct);
+        if (active is not null)
+        {
+            return Result.Failure<PairedTerminalDto>(
+                $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan. "
+                + "Yangisini bog'lashdan oldin panelda eskisini bekor qiling — "
+                + "unda yuborilmagan savdolar qolgan bo'lishi mumkin.",
+                "ALREADY_PAIRED");
+        }
+
+        var key = NewKey();
+        var terminal = new ShopTerminal
+        {
+            Id = Guid.NewGuid(),
+            MarketId = marketId,
+            Name = string.IsNullOrWhiteSpace(terminalName) ? "Kassa" : terminalName.Trim(),
+            KeyHash = HashKey(key),
+            LastSeenAtUtc = now,
+            LastIpAddress = ipAddress,
+        };
+        _context.ShopTerminals.Add(terminal);
+
+        _logger.LogInformation(
+            "Terminal {TerminalId} paired to market {MarketId} from {Ip}",
+            terminal.Id, terminal.MarketId, ipAddress ?? "?");
+
+        return Result.Success(new PairedTerminalDto(
+            terminal.Id, terminal.MarketId, market.Name, key));
     }
 
     /// <summary>
