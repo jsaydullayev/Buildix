@@ -29,7 +29,7 @@ import { publicMarketApi } from '@/shared/api/auth';
 import { categoriesApi, type Product } from '@/features/warehouse/api';
 import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
-import { mergePending, type PendingLine } from '@/features/pos/pending';
+import { bumpPending, mergePending, settlePending, type PendingLine, type PendingMap } from '@/features/pos/pending';
 import { useGlobalScanner } from '@/features/pos/useGlobalScanner';
 import { printPdfBlob } from '@/shared/lib/printPdf';
 import {
@@ -218,10 +218,19 @@ export default function SellerPosPage() {
    * tovarida `saleId` hali yo'q (qoralama aynan shu paytda yaratiladi), ya'ni
    * yamash uchun kalit yo'q. Bu ro'yxat esa saleId dan mustaqil.</p>
    */
-  const [pending, setPending] = useState<PendingLine[]>([]);
-  const dropPending = (key: string) => setPending((rows) => rows.filter((r) => r.key !== key));
-  // Tez ketma-ket skanerlashda kalitlar takrorlanmasin.
-  const pendingSeq = useRef(0);
+  const [pending, setPending] = useState<PendingMap>({});
+
+  /**
+   * Serverga hali yuborilmagan bosishlar — tovar bo'yicha to'planadi.
+   *
+   * <p>Kassir bir soniyada uch marta bosishi mumkin. Har bosish uchun alohida
+   * so'rov yuborish uchta muammoni birdan keltirib chiqarardi: so'rovlar
+   * parallel ketib javoblari TARTIBSIZ kelardi, har javob chekni qayta
+   * o'qishga majbur qilardi, va oxirgi javob kelguncha summa eski qolardi.
+   * Bu yerda bosishlar birlashadi.</p>
+   */
+  const cartBuffer = useRef(new Map<string, { line: PendingLine; quantity: number }>());
+  const draining = useRef(false);
 
   /**
    * Shtrix-kod → tovar. Katalogdan yuklangan har bir tovar va serverdan
@@ -239,7 +248,19 @@ export default function SellerPosPage() {
   // tovar bo'lsa miqdor qo'shiladi — server ham aynan shunday birlashtiradi,
   // ya'ni tasdiqlangach ro'yxat sakramaydi.
   const items = useMemo(() => mergePending(sale?.items ?? [], pending), [sale?.items, pending]);
-  const total = sale?.totalAmount ?? 0;
+  /**
+   * Jami summa — ekrandagi qatorlardan hisoblanadi, server maydonidan EMAS.
+   *
+   * <p>Avval u `sale.totalAmount` dan olinardi, ya'ni har bosishdan keyin chek
+   * qayta o'qilguncha eski qiymatni ko'rsatardi — tez bosishlarda bu «summa
+   * oxirida sekin hisoblanadi» bo'lib ko'rinardi. Formula serverdagi bilan
+   * AYNAN bir xil (SaleTotals), shuning uchun tasdiq kelganda son
+   * sakramaydi.</p>
+   */
+  const total = useMemo(() => {
+    const gross = items.reduce((sum, it) => sum + it.salePrice * it.quantity, 0);
+    return Math.max(0, gross - (sale?.discountAmount ?? 0));
+  }, [items, sale?.discountAmount]);
   // Chegirmasiz oraliq summa — chegirma qatorini ko'rsatish uchun kerak
   // (total allaqachon chegirma ayirilgan holda keladi).
   const gross = items.reduce((acc, it) => acc + it.totalPrice, 0);
@@ -308,50 +329,6 @@ export default function SellerPosPage() {
     if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
     else setActionError(err.message ?? '');
   };
-
-  /**
-   * Savatga qo'shish. Qator DARHOL chiziladi, server ishi orqada davom etadi.
-   *
-   * <p>`onMutate` React Query da so'rov yuborilishidan OLDIN ishlaydi, ya'ni
-   * kassir tarmoqni umuman kutmaydi. Server javob bergach `onSettled` chekni
-   * qayta o'qiydi va vaqtincha qator o'rnini haqiqiysiga bo'shatadi.</p>
-   */
-  const addItem = useMutation({
-    mutationFn: async (p: {
-      productId: string;
-      salePrice: number;
-      minSalePrice: number;
-      quantity?: number;
-      optimistic?: PendingLine;
-    }) => {
-      const id = await ensureSale();
-      return posApi.addItem(id, {
-        isExternal: false,
-        productId: p.productId,
-        quantity: p.quantity ?? 1,
-        salePrice: p.salePrice,
-        minSalePrice: p.minSalePrice,
-      });
-    },
-    onMutate: (vars) => {
-      setActionError(null);
-      // Qoldiq ham darhol kamayadi — katalogdagi son bilan savat bir vaqtda
-      // yangilansin, aks holda kassir «qo'shildimi?» deb ikkilanadi.
-      bumpStock(vars.productId, -(vars.quantity ?? 1));
-      if (vars.optimistic) setPending((rows) => [...rows, vars.optimistic!]);
-    },
-    onError: (e, vars) => {
-      // Xatoda ham qoldiqni tiklaymiz: server qatorni qabul qilmadi.
-      bumpStock(vars.productId, vars.quantity ?? 1);
-      onMutationError(e);
-    },
-    onSettled: async (_data, _err, vars) => {
-      // Avval haqiqiy chekni tortamiz, KEYIN vaqtincha qatorni olib tashlaymiz —
-      // teskarisi bo'lsa ro'yxat bir lahzaga bo'shab, ko'zga tashlanardi.
-      await refreshSale();
-      if (vars.optimistic) dropPending(vars.optimistic.key);
-    },
-  });
 
   const addExternal = useMutation({
     mutationFn: async (p: { name: string; salePrice: number; costPrice: number; quantity: number }) => {
@@ -549,24 +526,95 @@ export default function SellerPosPage() {
    * o'sha → aks holda xabar. Ikkinchi bosqich skanersiz ham foydali: kassir
    * nomni terib Enter bossa, tovar qo'shiladi.</p>
    */
-  /** Tovarni savatga qo'shadi va uni darhol ekranga chizadi. */
+  /**
+   * Tovarni savatga qo'shadi.
+   *
+   * <p>Ekran DARHOL yangilanadi (savat ham, qoldiq ham), so'rov esa navbatga
+   * tushadi. Kassir necha marta tez bosishidan qat'i nazar ekran
+   * sakramaydi.</p>
+   */
   function addProduct(product: Product) {
-    addItem.mutate({
+    const line: PendingLine = {
       productId: product.id,
+      productName: product.name,
       salePrice: product.salePrice,
       minSalePrice: product.minSalePrice,
-      optimistic: {
-        key: `pending-${product.id}-${pendingSeq.current++}`,
-        productId: product.id,
-        productName: product.name,
-        quantity: 1,
-        salePrice: product.salePrice,
-        // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
-        // savat qatorida esa teskarisi ataladi.
-        unit: product.unitName,
-        unitValue: product.unit,
-      },
-    });
+      // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
+      // savat qatorida esa teskarisi ataladi.
+      unit: product.unitName,
+      unitValue: product.unit,
+    };
+
+    setActionError(null);
+    setPending((map) => bumpPending(map, line, 1));
+    // Qoldiq ham darhol kamayadi — katalogdagi son bilan savat bir vaqtda
+    // yangilansin, aks holda kassir «qo'shildimi?» deb ikkilanadi.
+    bumpStock(product.id, -1);
+
+    const buffered = cartBuffer.current.get(product.id);
+    if (buffered) buffered.quantity += 1;
+    else cartBuffer.current.set(product.id, { line, quantity: 1 });
+
+    void drainCart();
+  }
+
+  /**
+   * Navbatni bo'shatadi: so'rovlar KETMA-KET yuboriladi.
+   *
+   * <p><b>Nega ketma-ket.</b> Parallel so'rovlarning javoblari istalgan
+   * tartibda keladi va har biri chekni qayta o'qishga majbur qiladi. Uchta
+   * tez bosishda ekran goh bo'shab, goh birdan to'lib ko'rinardi.</p>
+   *
+   * <p><b>Nega birlashtirish.</b> Navbatdagi so'rov ketayotganda kassir yana
+   * bossa, ular BITTA so'rovga yig'iladi.</p>
+   *
+   * <p>Chek faqat navbat BO'SHAGANDAN keyin bir marta qayta o'qiladi.</p>
+   */
+  async function drainCart() {
+    if (draining.current) return;
+    draining.current = true;
+
+    const confirmed: Record<string, number> = {};
+    let lastSaleId: string | null = saleId;
+    try {
+      while (cartBuffer.current.size > 0) {
+        const batch = [...cartBuffer.current.values()];
+        cartBuffer.current.clear();
+
+        lastSaleId = await ensureSale();
+
+        for (const item of batch) {
+          await posApi.addItem(lastSaleId, {
+            isExternal: false,
+            productId: item.line.productId,
+            quantity: item.quantity,
+            salePrice: item.line.salePrice,
+            minSalePrice: item.line.minSalePrice,
+          });
+          confirmed[item.line.productId] = (confirmed[item.line.productId] ?? 0) + item.quantity;
+        }
+      }
+
+      // Kalit ATAYLAB shu yerdagi qiymatdan: birinchi tovarda `saleId` holati
+      // hali bo'sh bo'ladi va eski kod aynan shu sababli `['pos-sale', null]`
+      // ni yangilar edi — chek qayta o'qilmasdi, optimistik qator esa
+      // o'chirilardi va tovar ekrandan YO'QOLARDI.
+      await refreshSale(lastSaleId);
+      setPending((map) => settlePending(map, confirmed));
+    } catch (e) {
+      // Xatoda taxmin qilmaymiz: optimistik holat tashlanadi va haqiqat
+      // serverdan qayta o'qiladi. Yarim to'g'ri savat eng yomon holat
+      // bo'lardi — kassir noto'g'ri summani aytib yuborardi.
+      cartBuffer.current.clear();
+      setPending({});
+      void qc.invalidateQueries({ queryKey: ['pos-products'] });
+      if (lastSaleId) void refreshSale(lastSaleId);
+      onMutationError(e);
+    } finally {
+      draining.current = false;
+    }
+
+    if (cartBuffer.current.size > 0) void drainCart();
   }
 
   async function handleScan() {

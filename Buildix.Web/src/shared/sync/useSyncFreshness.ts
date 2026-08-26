@@ -27,7 +27,9 @@ export interface SyncFreshness {
 export function useSyncFreshness() {
   return useQuery<SyncFreshness>({
     queryKey: ['sync-freshness'],
-    queryFn: () => apiClient.get<SyncFreshness>('/api/Markets/sync-status').then((r) => r.data),
+    // `apiClient` ning asosi allaqachon `/api` — bu yerda uni takrorlash
+    // kerak emas, aks holda `/api/api/...` chiqib 404 bo'ladi.
+    queryFn: () => apiClient.get<SyncFreshness>('/Markets/sync-status').then((r) => r.data),
     refetchInterval: 60_000,
     retry: false,
     staleTime: 30_000,

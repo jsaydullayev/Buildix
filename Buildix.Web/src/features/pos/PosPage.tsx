@@ -27,7 +27,7 @@ import { printPdfBlob } from '@/shared/lib/printPdf';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
-import { mergePending, type PendingLine } from './pending';
+import { bumpPending, mergePending, settlePending, type PendingLine, type PendingMap } from './pending';
 import { useGlobalScanner } from './useGlobalScanner';
 import {
   EMPTY_MIX,
@@ -212,9 +212,20 @@ export default function PosPage() {
    * Serverga yuborilgan, lekin javobi hali kelmagan qatorlar — savat DARHOL
    * chizilishi uchun. Kassir qobig'idagi bilan bir xil yondashuv.
    */
-  const [pending, setPending] = useState<PendingLine[]>([]);
-  const pendingSeq = useRef(0);
-  const dropPending = (key: string) => setPending((rows) => rows.filter((r) => r.key !== key));
+  const [pending, setPending] = useState<PendingMap>({});
+
+  /**
+   * Serverga hali yuborilmagan bosishlar — tovar bo'yicha to'planadi.
+   *
+   * <p>Kassir bir soniyada uch marta bosishi mumkin. Har bosish uchun alohida
+   * so'rov yuborish uchta muammoni birdan keltirib chiqarardi: so'rovlar
+   * parallel ketib javoblari TARTIBSIZ kelardi, har javob chekni qayta
+   * o'qishga majbur qilardi, va oxirgi javob kelguncha summa eski qolardi.
+   * Bu yerda esa bosishlar birlashadi: navbatdagi so'rov tugagunicha
+   * to'planganlari BITTA so'rovda ketadi.</p>
+   */
+  const cartBuffer = useRef(new Map<string, { line: PendingLine; quantity: number }>());
+  const draining = useRef(false);
 
   /** Shtrix-kod → tovar: ikkinchi skanerlashda tarmoqqa chiqilmaydi. */
   const barcodeIndex = useRef(new Map<string, NonNullable<typeof productsQuery.data>['items'][number]>());
@@ -237,24 +248,105 @@ export default function PosPage() {
    * aks holda xabar. Skaner klaviatura kabi ishlagani va maydon doim fokusda
    * turgani uchun global tugma tutuvchi kerak emas.
    */
-  /** Tovarni savatga qo'shadi va uni darhol ekranga chizadi. */
+  /**
+   * Tovarni savatga qo'shadi.
+   *
+   * <p>Ekran DARHOL yangilanadi, so'rov esa navbatga tushadi. Kassir
+   * tarmoqni kutmaydi va necha marta tez bosishidan qat'i nazar ekran
+   * sakramaydi.</p>
+   */
   function addProduct(p: { id: string; name: string; salePrice: number; minSalePrice: number; unit: number; unitName: string }) {
-    addItem.mutate({
+    const line: PendingLine = {
       productId: p.id,
+      productName: p.name,
       salePrice: p.salePrice,
       minSalePrice: p.minSalePrice,
-      optimistic: {
-        key: `pending-${p.id}-${pendingSeq.current++}`,
-        productId: p.id,
-        productName: p.name,
-        quantity: 1,
-        salePrice: p.salePrice,
-        // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
-        // savat qatorida esa teskarisi ataladi.
-        unit: p.unitName,
-        unitValue: p.unit,
-      },
-    });
+      // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
+      // savat qatorida esa teskarisi ataladi.
+      unit: p.unitName,
+      unitValue: p.unit,
+    };
+
+    setActionError(null);
+    setPending((map) => bumpPending(map, line, 1));
+
+    const buffered = cartBuffer.current.get(p.id);
+    if (buffered) buffered.quantity += 1;
+    else cartBuffer.current.set(p.id, { line, quantity: 1 });
+
+    void drainCart();
+  }
+
+  /**
+   * Navbatni bo'shatadi: so'rovlar KETMA-KET yuboriladi.
+   *
+   * <p><b>Nega ketma-ket.</b> Parallel so'rovlarning javoblari istalgan
+   * tartibda keladi va har biri chekni qayta o'qishga majbur qiladi. Uchta
+   * tez bosishda ekran goh bo'shab, goh birdan to'lib ko'rinardi. Ketma-ket
+   * yuborishda esa har lahzada bitta haqiqat bo'ladi.</p>
+   *
+   * <p><b>Nega birlashtirish.</b> Navbatdagi so'rov ketayotganda kassir yana
+   * bossa, ular BITTA so'rovga yig'iladi: uch bosish uchun uch emas, ikki
+   * so'rov ketadi (birinchisi darhol, qolgani birlashib).</p>
+   *
+   * <p>Chek faqat navbat BO'SHAGANDAN keyin bir marta qayta o'qiladi — har
+   * bosishdan keyin emas.</p>
+   */
+  async function drainCart() {
+    if (draining.current) return;
+    draining.current = true;
+
+    const confirmed: Record<string, number> = {};
+    let lastSaleId: string | null = saleId;
+    try {
+      while (cartBuffer.current.size > 0) {
+        const batch = [...cartBuffer.current.values()];
+        cartBuffer.current.clear();
+
+        // Birinchi tovar chekni ham yaratadi (lazy draft). ensureSale bitta
+        // va'daga tayanadi, ya'ni tez bosishlarda ikkinchi qoralama
+        // yaratilmaydi.
+        lastSaleId = await ensureSale();
+
+        for (const item of batch) {
+          await posApi.addItem(lastSaleId, {
+            isExternal: false,
+            productId: item.line.productId,
+            quantity: item.quantity,
+            salePrice: item.line.salePrice,
+            minSalePrice: item.line.minSalePrice,
+          });
+          confirmed[item.line.productId] = (confirmed[item.line.productId] ?? 0) + item.quantity;
+        }
+      }
+
+      // Kalit ATAYLAB shu yerdagi qiymatdan: birinchi tovarda `saleId` holati
+      // hali bo'sh bo'ladi va eski kod aynan shu sababli `['pos-sale', null]`
+      // ni yangilar edi — ya'ni chek qayta o'qilmasdi, optimistik qator esa
+      // o'chirilardi va tovar ekrandan YO'QOLARDI.
+      await qc.invalidateQueries({ queryKey: ['pos-sale', lastSaleId] });
+      void qc.invalidateQueries({ queryKey: ['pos-products'] });
+
+      // Faqat tasdiqlangan miqdor ayiriladi: kutish paytida kassir yana
+      // bosgan bo'lsa, o'sha bosish yo'qolmaydi.
+      setPending((map) => settlePending(map, confirmed));
+    } catch (e) {
+      const err = e as unknown as ApiError;
+      // Xatoda taxmin qilmaymiz: butun optimistik holat tashlanadi va
+      // haqiqat serverdan qayta o'qiladi. Yarim to'g'ri savat eng yomon
+      // holat bo'lardi — kassir noto'g'ri summani aytib yuborardi.
+      cartBuffer.current.clear();
+      setPending({});
+      if (lastSaleId) void qc.invalidateQueries({ queryKey: ['pos-sale', lastSaleId] });
+
+      if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
+      else setActionError(err.message ?? '');
+    } finally {
+      draining.current = false;
+    }
+
+    // Drenaj paytida yangi bosishlar kelgan bo'lsa — davom etamiz.
+    if (cartBuffer.current.size > 0) void drainCart();
   }
 
   async function handleScan() {
@@ -351,49 +443,6 @@ export default function PosPage() {
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });
 
-  // M-4: add a line by productId + price only — works from the product grid AND
-  // from the cart "+" (which no longer depends on the current search results).
-  const addItem = useMutation({
-    mutationFn: async (p: {
-      productId: string;
-      salePrice: number;
-      minSalePrice: number;
-      optimistic?: PendingLine;
-    }) => {
-      // Birinchi mahsulot chekni ham yaratadi (lazy draft).
-      const id = await ensureSale();
-      return posApi.addItem(id, {
-        isExternal: false,
-        productId: p.productId,
-        quantity: 1,
-        salePrice: p.salePrice,
-        minSalePrice: p.minSalePrice,
-      });
-    },
-    // So'rov yuborilishidan OLDIN chiziladi — kassir tarmoqni kutmaydi.
-    onMutate: (vars) => {
-      setActionError(null);
-      if (vars.optimistic) setPending((rows) => [...rows, vars.optimistic!]);
-    },
-    onSettled: async (_d, _e, vars) => {
-      // Avval haqiqiy chek, keyin vaqtincha qatorni olib tashlash — teskarisi
-      // bo'lsa ro'yxat bir lahzaga bo'shab ko'zga tashlanardi.
-      await qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
-      void qc.invalidateQueries({ queryKey: ['pos-products'] });
-      if (vars.optimistic) dropPending(vars.optimistic.key);
-    },
-    onSuccess: () => {
-      setActionError(null);
-      refreshAll();
-    },
-    onError: (e) => {
-      const err = e as unknown as ApiError;
-      // Smena ochilmagan bo'lsa — bu butun kassani bloklaydigan holat, shuning
-      // uchun savat ustidagi kichik xato emas, to'liq ekranli ogohlantirish.
-      if (err.code === 'SHIFT_NOT_OPEN') setStartError(err.message ?? '');
-      else setActionError(err.message ?? '');
-    },
-  });
   const removeOne = useMutation({
     mutationFn: (itemId: string) => posApi.removeItem(saleId!, itemId, 1),
     onSuccess: refreshAll,
@@ -435,7 +484,21 @@ export default function PosPage() {
   });
 
   const items = useMemo(() => mergePending(sale?.items ?? [], pending), [sale?.items, pending]);
-  const total = sale?.totalAmount ?? 0;
+
+  /**
+   * Jami summa — ekrandagi qatorlardan hisoblanadi, server maydonidan EMAS.
+   *
+   * <p>Avval u `sale.totalAmount` dan olinardi, ya'ni har bosishdan keyin
+   * chek qayta o'qilguncha eski qiymatni ko'rsatib turardi. Tez bosishlarda
+   * bu «summa oxirida sekin hisoblanadi» bo'lib ko'rinardi. Formula
+   * serverdagi bilan AYNAN bir xil (SaleTotals): qatorlar yig'indisi minus
+   * chegirma, noldan past emas — shuning uchun tasdiq kelganda son
+   * sakramaydi.</p>
+   */
+  const total = useMemo(() => {
+    const gross = items.reduce((sum, it) => sum + it.salePrice * it.quantity, 0);
+    return Math.max(0, gross - (sale?.discountAmount ?? 0));
+  }, [items, sale?.discountAmount]);
   // Aralash: uch ulush yig'indisi jami bilan teng bo'lishi shart.
   const mixSum = mixSumOf(mixParts);
   const mixRemainder = money(total - mixSum);

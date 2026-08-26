@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Common;
@@ -53,6 +53,35 @@ public class SaleItemService : ISaleItemService
         return sellerRole == Role.Seller;
     }
 
+    /// <summary>
+    /// Takes a row lock on the parent Sale before its lines are touched.
+    /// </summary>
+    /// <remarks>
+    /// <para>Every method below follows the same shape: read the lines, decide
+    /// whether to merge into an existing one, write the new quantity. Without a
+    /// lock, two requests for the same product on the same receipt both read
+    /// quantity 1 and both write 2 — one increment is LOST. Stock, meanwhile, is
+    /// decremented under the product's own <c>FOR UPDATE</c> lock and stays
+    /// correct, so the goods leave the shop while the receipt forgets them. That
+    /// is the worst possible failure here: money missing, stock gone.</para>
+    ///
+    /// <para>Reproduced live — twelve rapid clicks issued in parallel produced a
+    /// receipt of 8 900 instead of 9 600.</para>
+    ///
+    /// <para>The lock is per receipt, so it costs nothing in practice: one
+    /// cashier owns one draft. Lock ORDER is always Sale then Product — every
+    /// caller below keeps it, which is what rules out a deadlock.</para>
+    /// </remarks>
+    private async Task LockSaleAsync(Guid saleId, CancellationToken cancellationToken)
+    {
+        // The in-memory test provider has no SQL locking — and no parallel
+        // writers either, so there is nothing to protect there.
+        if (_context.Database.ProviderName?.Contains("InMemory") != false) return;
+
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"Sales\" WHERE \"Id\" = {saleId} FOR UPDATE", cancellationToken);
+    }
+
     public async Task<Result<SaleItemDto>> AddSaleItemAsync(Guid saleId, AddSaleItemDto request, CancellationToken cancellationToken = default)
     {
         if (request.Quantity <= 0)
@@ -68,6 +97,9 @@ public class SaleItemService : ISaleItemService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            // Boshqa so'rov shu chekni o'zgartirayotgan bo'lsa — navbat kutamiz.
+            await LockSaleAsync(saleId, cancellationToken);
+
             // Get sale with MarketId filtering
             var sales = await _unitOfWork.Sales.FindAsync(
                 s => s.Id == saleId && s.MarketId == marketId,
@@ -328,6 +360,9 @@ public class SaleItemService : ISaleItemService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            // Boshqa so'rov shu chekni o'zgartirayotgan bo'lsa — navbat kutamiz.
+            await LockSaleAsync(saleId, cancellationToken);
+
             // Get sale with MarketId filtering
             var sales = await _unitOfWork.Sales.FindAsync(
                 s => s.Id == saleId && s.MarketId == marketId,
@@ -471,6 +506,9 @@ public class SaleItemService : ISaleItemService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            // Boshqa so'rov shu chekni o'zgartirayotgan bo'lsa — navbat kutamiz.
+            await LockSaleAsync(saleId, cancellationToken);
+
             var sales = await _unitOfWork.Sales.FindAsync(
                 s => s.Id == saleId && s.MarketId == marketId,
                 cancellationToken);
@@ -655,6 +693,11 @@ public class SaleItemService : ISaleItemService
             var sale = saleItem.Sale;
             if (sale == null || sale.MarketId != marketId)
                 return Result.Failure<SaleItemDto>("Sotuv topilmadi");
+
+            // Narx MUTLAQ qiymat bilan yoziladi, ya'ni bu yerda qo'shilish
+            // yo'qolmaydi. Qulf esa jamini qayta hisoblash uchun kerak: shu
+            // payt boshqa so'rov qator qo'shayotgan bo'lishi mumkin.
+            await LockSaleAsync(sale.Id, cancellationToken);
 
             // S2 — refuse to mutate prices on a finalised sale. Previously the
             // method would happily overwrite SalePrice on a Paid / Debt /
