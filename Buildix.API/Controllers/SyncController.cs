@@ -1,4 +1,5 @@
 using Buildix.API.Filters;
+using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Entities;
@@ -23,6 +24,41 @@ public class SyncController : ControllerBase
     private readonly ISyncPullService _pull;
 
     public SyncController(ISyncPullService pull) => _pull = pull;
+
+    /// <summary>
+    /// Do'kondan kelgan yozuvlarni qabul qiladi.
+    ///
+    /// <para>Kelgan qatorlarning <c>MarketId</c> si kalitdan aniqlangan
+    /// do'konga majburan almashtiriladi — do'kon qaysi do'kon ekanini o'zi
+    /// aytmaydi.</para>
+    /// </summary>
+    [HttpPost("push")]
+    public async Task<ActionResult<SyncPushResultDto>> Push(
+        [FromServices] ISyncPushService push,
+        CancellationToken ct = default)
+    {
+        var terminal = (ShopTerminal)HttpContext.Items[TerminalAuthorizeAttribute.TerminalItemKey]!;
+
+        // Tana ATAYLAB qo'lda o'qiladi. `[FromBody]` bo'lsa, MVC uni global
+        // sozlama bilan o'qir edi — u yerda esa vaqtni Toshkent mintaqasiga
+        // suradigan o'zgartirgich turibdi. Sinxronizatsiya kanali undan
+        // butunlay mustaqil bo'lishi SHART: bir marta shu tuzoqqa tushilgan
+        // va natijada sanalar 5 soatga siljigan edi.
+        SyncPushDto? payload;
+        try
+        {
+            payload = await System.Text.Json.JsonSerializer.DeserializeAsync<SyncPushDto>(
+                Request.Body, EntityWireFormat.Options, ct);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            return BadRequest(new { message = "To'plamni o'qib bo'lmadi: " + ex.Message });
+        }
+
+        if (payload is null) return BadRequest(new { message = "Bo'sh to'plam." });
+
+        return Ok(await push.AcceptAsync(terminal.MarketId, payload, ct));
+    }
 
     /// <summary>
     /// Bulutdagi o'zgarishlarni beradi: do'konning o'zi va xodimlar.

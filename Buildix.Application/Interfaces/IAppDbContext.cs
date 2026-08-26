@@ -50,6 +50,7 @@ public interface IAppDbContext
     DbSet<TelegramLinkCode> TelegramLinkCodes { get; }
     DbSet<ShopTerminal> ShopTerminals { get; }
     DbSet<SyncState> SyncStates { get; }
+    DbSet<SyncPushState> SyncPushStates { get; }
     DbSet<TerminalPairingCode> TerminalPairingCodes { get; }
     DbSet<PlatformPlan> PlatformPlans { get; }
     DbSet<PlatformSettings> PlatformSettings { get; }

@@ -80,6 +80,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<TelegramLinkCode> TelegramLinkCodes => Set<TelegramLinkCode>();
     public DbSet<ShopTerminal> ShopTerminals => Set<ShopTerminal>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
+    public DbSet<SyncPushState> SyncPushStates => Set<SyncPushState>();
     public DbSet<TerminalPairingCode> TerminalPairingCodes => Set<TerminalPairingCode>();
     public DbSet<PlatformPlan> PlatformPlans => Set<PlatformPlan>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
@@ -302,6 +303,13 @@ public class AppDbContext : DbContext, IAppDbContext
             // (birinchi tortishdan avval), shuning uchun tashqi kalit yo'q.
             b.Property(x => x.MarketId).ValueGeneratedNever();
             b.Property(x => x.LastError).HasMaxLength(500);
+        });
+
+        // Yuborish belgilari — har jadval uchun bittadan.
+        modelBuilder.Entity<SyncPushState>(b =>
+        {
+            b.HasKey(x => new { x.MarketId, x.TableName });
+            b.Property(x => x.TableName).HasMaxLength(64);
         });
 
         // Bir martalik bog'lanish kodi.

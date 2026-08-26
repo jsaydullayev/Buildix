@@ -673,6 +673,8 @@ try
     });
     builder.Services.AddHttpClient("cloud", c => c.Timeout = TimeSpan.FromSeconds(30));
     builder.Services.AddScoped<IShopSyncService, ShopSyncService>();
+    builder.Services.AddScoped<IShopPushService, ShopPushService>();
+    builder.Services.AddScoped<ISyncPushService, SyncPushService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
