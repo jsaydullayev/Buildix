@@ -1,0 +1,249 @@
+using System.Net;
+using System.Net.Http.Json;
+using Buildix.Application.DTOs;
+using Buildix.Application.Interfaces;
+using Buildix.Application.Services;
+using Buildix.Domain.Entities;
+using Buildix.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+
+namespace Buildix.Tests;
+
+/// <summary>
+/// Do'kon nusxasi bulutdan kelgan ma'lumotni lokal bazaga yozadi. Bu yerdagi
+/// tekshiruvlar ikkita narsani kafolatlaydi: yangi o'rnatilgan do'kon
+/// ishlatishga yaroqli holga kelishi va uzilish yuz berganda o'zgarishlar
+/// JIMGINA yo'qolmasligi.
+/// </summary>
+public class ShopSyncTests
+{
+    /// <summary>Bulut o'rniga: berilgan javobni qaytaradigan HTTP.</summary>
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _reply;
+        public HttpRequestMessage? LastRequest { get; private set; }
+
+        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> reply) => _reply = reply;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            return Task.FromResult(_reply(request));
+        }
+    }
+
+    private static (ShopSyncService Service, StubHandler Handler) NewService(
+        TestHarness h, Func<HttpRequestMessage, HttpResponseMessage> reply)
+    {
+        var handler = new StubHandler(reply);
+        var factory = Substitute.For<IHttpClientFactory>();
+        factory.CreateClient("cloud").Returns(_ => new HttpClient(handler, disposeHandler: false));
+
+        var options = new ShopCloudOptions { Url = "https://bulut.test/", TerminalKey = "kalit" };
+        var service = new ShopSyncService(
+            h.Db, h.UnitOfWork, factory, options,
+            NullLogger<ShopSyncService>.Instance, h.DbClock);
+        return (service, handler);
+    }
+
+    private static HttpResponseMessage Json(SyncPullDto payload) =>
+        new(HttpStatusCode.OK) { Content = JsonContent.Create(payload) };
+
+    private static SyncPullDto Payload(
+        SyncMarketDto? market, params SyncUserDto[] users)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, market, users);
+    }
+
+    private static SyncMarketDto NewMarket(int id = 9, string name = "Taxtapul") =>
+        new(id, name, "Toshkent", "Start", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            true, false, null, Guid.NewGuid(), new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero));
+
+    private static SyncUserDto NewUser(string username, Role role = Role.Seller, bool deleted = false) =>
+        new(Guid.NewGuid(), username, "Xodim", "$2a$hash", null, (int)role, !deleted, deleted,
+            Array.Empty<string>(), false, "Uzbek", null, null,
+            new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero));
+
+    /// <summary>
+    /// Asosiy holat: bo'sh do'kon bazasi birinchi tortishdan keyin
+    /// ishlatishga yaroqli bo'ladi.
+    /// </summary>
+    [Fact]
+    public async Task Bosh_baza_birinchi_tortishdan_keyin_toladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var (service, _) = NewService(h, _ => Json(Payload(NewMarket(), NewUser("jamshid", Role.Owner))));
+
+        var result = await service.PullAsync();
+
+        Assert.True(result.Success, result.Error);
+        var market = await h.Db.Markets.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(9, market.Id);
+        Assert.Equal("Taxtapul", market.Name);
+
+        var user = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal("jamshid", user.Username);
+        Assert.Equal(9, user.MarketId);
+        Assert.Equal("$2a$hash", user.PasswordHash);
+    }
+
+    /// <summary>
+    /// Market ID bulutdagidek bo'lishi SHART: aks holda keyin yuboriladigan
+    /// har bir savdo boshqa do'konga tegishli bo'lib qolardi.
+    /// </summary>
+    [Fact]
+    public async Task Market_id_bulutdagidek_yoziladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var (service, _) = NewService(h, _ => Json(Payload(NewMarket(id: 42))));
+
+        await service.PullAsync();
+
+        Assert.Equal(42, (await h.Db.Markets.IgnoreQueryFilters().SingleAsync()).Id);
+    }
+
+    [Fact]
+    public async Task Takroriy_tortish_nusxa_yaratmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var user = NewUser("kassir");
+        var (service, _) = NewService(h, _ => Json(Payload(NewMarket(), user)));
+
+        await service.PullAsync();
+        await service.PullAsync();
+
+        Assert.Single(await h.Db.Markets.IgnoreQueryFilters().ToListAsync());
+        Assert.Single(await h.Db.Users.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Bulutda o'chirilgan xodim do'konda ham o'chgan bo'lishi kerak — aks
+    /// holda bo'shatilgan kassir kirishda davom etardi.
+    /// </summary>
+    [Fact]
+    public async Task Ochirilgan_xodim_dokonda_ham_ochadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var user = NewUser("kassir");
+        var (service, _) = NewService(h, _ => Json(Payload(NewMarket(), user)));
+        await service.PullAsync();
+
+        var removed = user with { IsDeleted = true, IsActive = false };
+        var (second, _) = NewService(h, _ => Json(Payload(null, removed)));
+        await second.PullAsync();
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.True(stored.IsDeleted);
+        Assert.False(stored.IsActive);
+    }
+
+    /// <summary>Keyingi so'rov oxirgi belgidan boshlanishi kerak.</summary>
+    [Fact]
+    public async Task Suv_belgisi_saqlanadi_va_qayta_yuboriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var stamp = new DateTimeOffset(2026, 6, 15, 8, 30, 0, TimeSpan.Zero);
+        var payload = new SyncPullDto(stamp, stamp, NewMarket(), Array.Empty<SyncUserDto>());
+        var (service, handler) = NewService(h, _ => Json(payload));
+
+        await service.PullAsync();
+        var state = await h.Db.SyncStates.SingleAsync();
+        Assert.Equal(stamp, state.PullWatermark);
+
+        await service.PullAsync();
+        Assert.Contains(Uri.EscapeDataString(stamp.ToString("O")), handler.LastRequest!.RequestUri!.Query);
+    }
+
+    /// <summary>
+    /// Internet yo'qligi do'konda NORMAL holat: savdo to'xtamasligi va
+    /// sabab yozib qo'yilishi kerak.
+    /// </summary>
+    [Fact]
+    public async Task Aloqa_yoqligida_yiqilmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var (first, _) = NewService(h, _ => Json(Payload(NewMarket())));
+        await first.PullAsync();
+
+        var (broken, _) = NewService(h, _ => throw new HttpRequestException("tarmoq yo'q"));
+        var result = await broken.PullAsync();
+
+        Assert.False(result.Success);
+        var state = await h.Db.SyncStates.SingleAsync();
+        Assert.NotNull(state.LastError);
+    }
+
+    /// <summary>
+    /// Aloqa uzilganda suv belgisi OLDINGA SURILMASLIGI shart: aks holda
+    /// o'sha o'zgarishlar do'konga hech qachon yetib bormasdi.
+    /// </summary>
+    [Fact]
+    public async Task Xatoda_suv_belgisi_surilmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var stamp = new DateTimeOffset(2026, 6, 15, 8, 30, 0, TimeSpan.Zero);
+        var (first, _) = NewService(h, _ => Json(
+            new SyncPullDto(stamp, stamp, NewMarket(), Array.Empty<SyncUserDto>())));
+        await first.PullAsync();
+
+        var (broken, _) = NewService(h, _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        await broken.PullAsync();
+
+        Assert.Equal(stamp, (await h.Db.SyncStates.SingleAsync()).PullWatermark);
+    }
+
+    /// <summary>
+    /// Bekor qilingan kalit oddiy aloqa uzilishidan farq qiladi: u o'z-o'zidan
+    /// tuzalmaydi va odam aralashuvini talab qiladi.
+    /// </summary>
+    [Fact]
+    public async Task Bekor_qilingan_kalit_alohida_aytiladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var (first, _) = NewService(h, _ => Json(Payload(NewMarket())));
+        await first.PullAsync();
+
+        var (revoked, _) = NewService(h, _ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var result = await revoked.PullAsync();
+
+        Assert.False(result.Success);
+        Assert.Contains("bog'lash", result.Error!);
+    }
+
+    [Fact]
+    public async Task Boglanmagan_dokon_tortmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var factory = Substitute.For<IHttpClientFactory>();
+        var service = new ShopSyncService(
+            h.Db, h.UnitOfWork, factory, new ShopCloudOptions(),
+            NullLogger<ShopSyncService>.Instance, h.DbClock);
+
+        var result = await service.PullAsync();
+
+        Assert.False(service.IsConfigured);
+        Assert.True(result.Success);          // xato emas, shunchaki hali bog'lanmagan
+        factory.DidNotReceive().CreateClient(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task Muvaffaqiyatda_eski_xato_tozalanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var (first, _) = NewService(h, _ => Json(Payload(NewMarket())));
+        await first.PullAsync();
+
+        var (broken, _) = NewService(h, _ => new HttpResponseMessage(HttpStatusCode.BadGateway));
+        await broken.PullAsync();
+        Assert.NotNull((await h.Db.SyncStates.SingleAsync()).LastError);
+
+        var (fixedAgain, _) = NewService(h, _ => Json(Payload(NewMarket())));
+        await fixedAgain.PullAsync();
+
+        Assert.Null((await h.Db.SyncStates.SingleAsync()).LastError);
+    }
+}

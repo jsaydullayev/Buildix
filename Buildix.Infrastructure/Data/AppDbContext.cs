@@ -79,6 +79,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<TelegramLinkCode> TelegramLinkCodes => Set<TelegramLinkCode>();
     public DbSet<ShopTerminal> ShopTerminals => Set<ShopTerminal>();
+    public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<TerminalPairingCode> TerminalPairingCodes => Set<TerminalPairingCode>();
     public DbSet<PlatformPlan> PlatformPlans => Set<PlatformPlan>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
@@ -290,6 +291,17 @@ public class AppDbContext : DbContext, IAppDbContext
                 .HasDatabaseName("IX_ShopTerminals_ActivePerMarket");
 
             b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+        });
+
+        // Sinxronizatsiya holati — do'kon nusxasining o'z yozuvi.
+        modelBuilder.Entity<SyncState>(b =>
+        {
+            b.HasKey(x => x.MarketId);
+            // Market bilan birga o'chmaydi va uni yaratishni talab qilmaydi:
+            // holat yozuvi market kelishidan OLDIN ham paydo bo'lishi mumkin
+            // (birinchi tortishdan avval), shuning uchun tashqi kalit yo'q.
+            b.Property(x => x.MarketId).ValueGeneratedNever();
+            b.Property(x => x.LastError).HasMaxLength(500);
         });
 
         // Bir martalik bog'lanish kodi.

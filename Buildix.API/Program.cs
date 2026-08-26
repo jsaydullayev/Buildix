@@ -662,6 +662,17 @@ try
     builder.Services.AddScoped<ITelegramLinkService, TelegramLinkService>();
     builder.Services.AddScoped<ITerminalPairingService, TerminalPairingService>();
     builder.Services.AddScoped<ISyncPullService, SyncPullService>();
+
+    // Do'kon nusxasining bulut sozlamasi. Qiymatlar QOBIQDAN muhit
+    // o'zgaruvchisi orqali keladi: kalit API o'qiydigan sozlama faylida
+    // ochiq yotmasligi kerak.
+    builder.Services.AddSingleton(new ShopCloudOptions
+    {
+        Url = builder.Configuration["Cloud:Url"],
+        TerminalKey = builder.Configuration["Cloud:TerminalKey"],
+    });
+    builder.Services.AddHttpClient("cloud", c => c.Timeout = TimeSpan.FromSeconds(30));
+    builder.Services.AddScoped<IShopSyncService, ShopSyncService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
