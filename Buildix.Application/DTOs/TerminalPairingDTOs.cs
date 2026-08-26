@@ -27,3 +27,12 @@ public record PairedTerminalDto(
 public record RedeemPairingRequest(
     [property: JsonPropertyName("code")] string Code,
     [property: JsonPropertyName("terminalName")] string TerminalName);
+
+/// <summary>Panel uchun: do'konga bog'langan kompyuter.</summary>
+public record TerminalDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("pairedAt")] DateTime PairedAt,
+    [property: JsonPropertyName("lastSeenAtUtc")] DateTime? LastSeenAtUtc,
+    [property: JsonPropertyName("revokedAtUtc")] DateTime? RevokedAtUtc,
+    [property: JsonPropertyName("lastIpAddress")] string? LastIpAddress);

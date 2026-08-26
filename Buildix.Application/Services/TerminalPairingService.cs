@@ -130,6 +130,40 @@ public class TerminalPairingService : ITerminalPairingService
             if (market is null)
                 return Result.Failure<PairedTerminalDto>("Do'kon topilmadi", "NOT_FOUND");
 
+            // O'chirilgan do'kon uchun kompyuter bog'lanmaydi. Kod berilgandan
+            // keyin do'kon o'chirilgan bo'lishi mumkin va o'shanda bog'lanish
+            // hech qachon ishlatilmaydigan kalit yaratardi.
+            if (!market.IsActive)
+                return Result.Failure<PairedTerminalDto>("Do'kon o'chirilgan.", "NOT_FOUND");
+
+            // ── Bitta do'kon — bitta baza ───────────────────────────────────
+            // Kalit ishlaydigan kompyuter — bu do'konning MA'LUMOTLAR BAZASI
+            // turgan joy. Ikkitasi bo'lsa, bitta do'kon nomidan ikkita
+            // mustaqil baza ish ko'radi: ikkalasi ham o'z chek raqamlarini
+            // beradi, o'z qoldig'ini yuritadi va bulutga bir-birining ustiga
+            // yozadi. Bu pul va qoldiq ma'lumotini JIMGINA buzadi — hech
+            // qanday xato chiqmaydi, faqat raqamlar to'g'ri kelmay qoladi.
+            //
+            // Ikkinchi va uchinchi kassa bulutga umuman bog'lanmaydi: ular
+            // server kassadagi API ga lokal tarmoq orqali ulanadi va o'z
+            // kalitiga muhtoj emas.
+            //
+            // Shuning uchun eskisini AVTOMATIK bekor qilmaymiz: eski
+            // kompyuterda hali yuborilmagan savdolar qolgan bo'lishi mumkin
+            // va ularni jimgina yo'qotib bo'lmaydi. Operator ataylab bekor
+            // qilsin.
+            var active = await _context.ShopTerminals
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.MarketId == row.MarketId && t.RevokedAtUtc == null, ct);
+            if (active is not null)
+            {
+                return Result.Failure<PairedTerminalDto>(
+                    $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan. "
+                    + "Yangisini bog'lashdan oldin panelda eskisini bekor qiling — "
+                    + "unda yuborilmagan savdolar qolgan bo'lishi mumkin.",
+                    "ALREADY_PAIRED");
+            }
+
             var key = NewKey();
             var terminal = new ShopTerminal
             {
@@ -170,6 +204,79 @@ public class TerminalPairingService : ITerminalPairingService
             .FirstOrDefaultAsync(t => t.KeyHash == hash, ct);
 
         return terminal is { RevokedAtUtc: null } ? terminal : null;
+    }
+
+    /// <summary>
+    /// Do'konga bog'langan kompyuterlar ro'yxati — panel uchun.
+    ///
+    /// <para>Bekor qilinganlari ham qaytadi: operator «qachon va nimani
+    /// bekor qilganman» degan savolga javob topa olishi kerak.</para>
+    /// </summary>
+    public async Task<IReadOnlyList<TerminalDto>> ListAsync(int marketId, CancellationToken ct = default)
+    {
+        var rows = await _context.ShopTerminals
+            .IgnoreQueryFilters()
+            .Where(t => t.MarketId == marketId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(ct);
+
+        return rows.Select(t => new TerminalDto(
+            t.Id, t.Name, t.CreatedAt, t.LastSeenAtUtc, t.RevokedAtUtc, t.LastIpAddress)).ToList();
+    }
+
+    /// <summary>
+    /// Kalitni bekor qiladi — kompyuter shu zahoti bulutdan uziladi.
+    ///
+    /// <para><b>Qachon kerak.</b> Kompyuter almashtirilganda yoki
+    /// yo'qolganda. Bekor qilish qaytarilmaydi: kalitning o'zi hech qayerda
+    /// saqlanmaydi, ya'ni uni «qayta yoqib» bo'lmaydi — yangi bog'lanish
+    /// kerak bo'ladi.</para>
+    ///
+    /// <para><b>Eski kompyuterdagi ma'lumot.</b> Bekor qilingandan keyin u
+    /// yuborilmagan savdolarni bulutga jo'nata olmaydi. Shuning uchun buni
+    /// faqat ataylab, eski kompyuter bilan ishi tugagach qilish kerak.</para>
+    /// </summary>
+    public async Task<Result<bool>> RevokeAsync(
+        Guid terminalId, Guid byUserId, CancellationToken ct = default)
+    {
+        var terminal = await _context.ShopTerminals
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == terminalId, ct);
+
+        if (terminal is null)
+            return Result.Failure<bool>("Kompyuter topilmadi", "NOT_FOUND");
+
+        // Takroriy bekor qilish xato emas: operator ro'yxatni yangilamasdan
+        // ikki marta bosishi mumkin va bu hech narsani buzmaydi.
+        if (terminal.RevokedAtUtc is not null) return Result.Success(true);
+
+        terminal.RevokedAtUtc = _clock.GetUtcNow().UtcDateTime;
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogWarning(
+            "Terminal {TerminalId} ({Name}) of market {MarketId} revoked by {UserId}",
+            terminal.Id, terminal.Name, terminal.MarketId, byUserId);
+
+        return Result.Success(true);
+    }
+
+    /// <summary>
+    /// Aloqa vaqtini belgilaydi.
+    ///
+    /// <para><b>Har so'rovda EMAS.</b> Sinxronizatsiya tez-tez takrorlanadi va
+    /// har chaqiruvda yozish bazani keraksiz yuklardi. Bir daqiqadan tez
+    /// yangilashning ma'nosi ham yo'q: bu maydon «do'kon uch kundan beri
+    /// aloqaga chiqmayapti» degan savolga javob beradi, soniyalarni
+    /// o'lchamaydi.</para>
+    /// </summary>
+    public async Task TouchAsync(ShopTerminal terminal, string? ipAddress, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+        if (terminal.LastSeenAtUtc is { } last && now - last < TimeSpan.FromMinutes(1)) return;
+
+        terminal.LastSeenAtUtc = now;
+        if (!string.IsNullOrWhiteSpace(ipAddress)) terminal.LastIpAddress = ipAddress;
+        await _unitOfWork.SaveChangesAsync(ct);
     }
 
     /// <summary>Sakkiz belgi, ikki bo'lakka ajratilgan: BX-4K7P-92MC.</summary>

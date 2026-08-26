@@ -18,4 +18,13 @@ public interface ITerminalPairingService
 
     /// <summary>Kalit bo'yicha kompyuterni taniydi. Yaroqsiz bo'lsa — null.</summary>
     Task<ShopTerminal?> AuthenticateAsync(string key, CancellationToken ct = default);
+
+    /// <summary>Do'konga bog'langan kompyuterlar (bekor qilinganlari ham).</summary>
+    Task<IReadOnlyList<TerminalDto>> ListAsync(int marketId, CancellationToken ct = default);
+
+    /// <summary>Kalitni bekor qiladi — kompyuter shu zahoti uziladi.</summary>
+    Task<Result<bool>> RevokeAsync(Guid terminalId, Guid byUserId, CancellationToken ct = default);
+
+    /// <summary>Aloqa vaqtini belgilaydi (bir daqiqada bir marta).</summary>
+    Task TouchAsync(ShopTerminal terminal, string? ipAddress, CancellationToken ct = default);
 }

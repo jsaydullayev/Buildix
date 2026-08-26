@@ -413,6 +413,34 @@ public class SuperAdminController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>Do'konga bog'langan kompyuterlar.</summary>
+    [HttpGet("markets/{marketId:int}/terminals")]
+    public async Task<IActionResult> ListTerminals(
+        int marketId,
+        [FromServices] Buildix.Application.Interfaces.ITerminalPairingService pairing,
+        CancellationToken ct)
+        => Ok(await pairing.ListAsync(marketId, ct));
+
+    /// <summary>
+    /// Kompyuterni bulutdan uzadi.
+    ///
+    /// <para>Kompyuter almashtirilganda yoki yo'qolganda ishlatiladi. Bu
+    /// yangi kompyuterni bog'lashning YAGONA yo'li ham: bitta do'konga bir
+    /// vaqtda faqat bitta kompyuter bog'lanadi.</para>
+    /// </summary>
+    [HttpPost("terminals/{terminalId:guid}/revoke")]
+    public async Task<IActionResult> RevokeTerminal(
+        Guid terminalId,
+        [FromServices] Buildix.Application.Interfaces.ITerminalPairingService pairing,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerId(out var superAdminId)) return Unauthorized();
+
+        var result = await pairing.RevokeAsync(terminalId, superAdminId, ct);
+        if (result.IsFailure) return NotFound(new { message = result.Error });
+        return Ok(new { revoked = true });
+    }
+
     private bool TryGetCallerId(out Guid id)
     {
         var raw = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

@@ -274,7 +274,20 @@ public class AppDbContext : DbContext, IAppDbContext
             // yo'l. Unikal: ikkita kompyuter bir xil kalitga ega bo'lishi
             // mumkin emas va bu bazada ham majburlanadi.
             b.HasIndex(x => x.KeyHash).IsUnique();
-            b.HasIndex(x => x.MarketId);
+
+            // Bitta do'kon — bitta AMALDAGI kompyuter. Bu qoida xizmatda ham
+            // tekshiriladi, lekin u yerdagi tekshiruv poygaga ochiq: ikkita
+            // bog'lanish bir vaqtda kelsa, ikkalasi ham «amaldagi kompyuter
+            // yo'q» degan holatni ko'rib, ikkitasini yaratib qo'yardi. Va
+            // aynan shu holat eng yomoni: bitta do'kon nomidan ikkita
+            // mustaqil baza ish ko'radi.
+            //
+            // Qisman indeks — bekor qilinganlari tarix uchun qoladi va
+            // o'rinni band qilmaydi.
+            b.HasIndex(x => x.MarketId)
+                .IsUnique()
+                .HasFilter("\"RevokedAtUtc\" IS NULL")
+                .HasDatabaseName("IX_ShopTerminals_ActivePerMarket");
 
             b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
         });

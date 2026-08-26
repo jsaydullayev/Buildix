@@ -21,6 +21,14 @@ namespace Buildix.Application.Services;
 /// o'tkazib yuborardi. <c>&gt;=</c> esa oxirgi to'plamni qayta yuboradi —
 /// bu zarar qilmaydi, chunki do'kon tomonda yozuv ID bo'yicha ustiga
 /// yoziladi.</para>
+///
+/// <para><b>Nimaga tayanadi.</b> Suv belgisi yozuv natijadan IZ QOLDIRMASDAN
+/// chiqib ketmasligiga tayanadi. Bugun bu shart bajariladi: foydalanuvchi
+/// hech qachon qattiq o'chirilmaydi (faqat <c>IsDeleted</c>) va boshqa
+/// do'konga ko'chirilmaydi — ikkalasi ham kodda tekshirilib ko'rildi. Agar
+/// keyinchalik shunday amal qo'shilsa, do'kondagi nusxa o'sha yozuvni
+/// ABADIY saqlab qolardi: bo'shatilgan kassir kirishda davom etardi va bu
+/// hech qanday belgi bermasdi.</para>
 /// </summary>
 public class SyncPullService : ISyncPullService
 {

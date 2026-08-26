@@ -194,6 +194,135 @@ public class TerminalPairingTests
         Assert.Null(await service.AuthenticateAsync(paired.Value.Key));
     }
 
+    /// <summary>
+    /// Bitta do'kon — bitta baza. Ikkita bog'langan kompyuter bo'lsa, bitta
+    /// do'kon nomidan ikkita mustaqil baza ish ko'radi: ikkalasi ham o'z chek
+    /// raqamlarini beradi va bulutga bir-birining ustiga yozadi. Bu pul
+    /// ma'lumotini JIMGINA buzadi.
+    /// </summary>
+    [Fact]
+    public async Task Ikkinchi_kompyuter_boglanmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+
+        var first = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        await service.RedeemAsync(first.Value.Code, "Server kassa", null);
+
+        var second = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var blocked = await service.RedeemAsync(second.Value.Code, "Ikkinchi kompyuter", null);
+
+        Assert.True(blocked.IsFailure);
+        Assert.Contains("Server kassa", blocked.Error);
+        Assert.Single(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Kompyuter almashtirilganda: eskisi bekor qilinadi va yangisi
+    /// bog'lanadi. Busiz yuqoridagi qoida boshi berk ko'chaga olib borardi.
+    /// </summary>
+    [Fact]
+    public async Task Bekor_qilingandan_keyin_yangisi_boglanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+
+        var first = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var old = await service.RedeemAsync(first.Value.Code, "Eski kompyuter", null);
+
+        var revoked = await service.RevokeAsync(old.Value.TerminalId, Guid.NewGuid());
+        Assert.True(revoked.IsSuccess);
+
+        var second = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var fresh = await service.RedeemAsync(second.Value.Code, "Yangi kompyuter", null);
+
+        Assert.True(fresh.IsSuccess, fresh.Error);
+        // Eski kalit endi ishlamaydi.
+        Assert.Null(await service.AuthenticateAsync(old.Value.Key));
+        Assert.NotNull(await service.AuthenticateAsync(fresh.Value.Key));
+    }
+
+    [Fact]
+    public async Task Ochirilgan_dokonga_boglanib_bolmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var issued = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+
+        market.IsActive = false;          // egasi o'chirildi
+        await h.Db.SaveChangesAsync();
+
+        var paired = await service.RedeemAsync(issued.Value.Code, "Kassa", null);
+
+        Assert.True(paired.IsFailure);
+        Assert.Empty(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Aloqa vaqti — «do'kon uch kundan beri chiqmayapti» degan xabarning
+    /// yagona manbai. U yangilanmasa, xabar hech qachon to'g'ri bo'lmaydi.
+    /// </summary>
+    [Fact]
+    public async Task Aloqa_vaqti_yangilanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var issued = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var paired = await service.RedeemAsync(issued.Value.Code, "Kassa", null);
+
+        var terminal = (await service.AuthenticateAsync(paired.Value.Key))!;
+        var pairedAt = terminal.LastSeenAtUtc;
+
+        h.DbClock.Advance(TimeSpan.FromHours(6));
+        await service.TouchAsync(terminal, "192.168.1.44");
+
+        var after = await h.Db.ShopTerminals.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(pairedAt!.Value.AddHours(6), after.LastSeenAtUtc);
+        Assert.Equal("192.168.1.44", after.LastIpAddress);
+    }
+
+    /// <summary>
+    /// Sinxronizatsiya tez-tez takrorlanadi — har chaqiruvda yozish bazani
+    /// keraksiz yuklardi.
+    /// </summary>
+    [Fact]
+    public async Task Aloqa_vaqti_har_soniyada_yozilmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var issued = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var paired = await service.RedeemAsync(issued.Value.Code, "Kassa", null);
+        var terminal = (await service.AuthenticateAsync(paired.Value.Key))!;
+        var before = terminal.LastSeenAtUtc;
+
+        h.DbClock.Advance(TimeSpan.FromSeconds(20));
+        await service.TouchAsync(terminal, null);
+
+        Assert.Equal(before, terminal.LastSeenAtUtc);
+    }
+
+    [Fact]
+    public async Task Royxatda_bekor_qilinganlar_ham_korinadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var issued = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var paired = await service.RedeemAsync(issued.Value.Code, "Eski", null);
+        await service.RevokeAsync(paired.Value.TerminalId, Guid.NewGuid());
+
+        var list = await service.ListAsync(market.Id);
+
+        var row = Assert.Single(list);
+        Assert.Equal("Eski", row.Name);
+        Assert.NotNull(row.RevokedAtUtc);
+    }
+
     [Fact]
     public async Task Mavjud_bolmagan_dokon_uchun_kod_berilmaydi()
     {

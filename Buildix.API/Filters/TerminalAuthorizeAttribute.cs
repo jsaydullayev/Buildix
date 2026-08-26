@@ -48,6 +48,12 @@ public sealed class TerminalAuthorizeAttribute : Attribute, IAsyncActionFilter
         http.Items["MarketId"] = terminal.MarketId;
         http.Items[TerminalItemKey] = terminal;
 
+        // Aloqa vaqti shu yerda belgilanadi. Busiz maydon faqat bog'langan
+        // kunni ko'rsatib turardi va «do'kon uch kundan beri aloqaga
+        // chiqmayapti» degan xabar uchun ma'lumot umuman bo'lmasdi.
+        await pairing.TouchAsync(
+            terminal, http.Connection.RemoteIpAddress?.ToString(), http.RequestAborted);
+
         await next();
     }
 }
