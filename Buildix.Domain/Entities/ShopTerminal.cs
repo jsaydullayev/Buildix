@@ -43,6 +43,18 @@ public class ShopTerminal : BaseEntity
     /// </summary>
     public DateTime? RevokedAtUtc { get; set; }
 
+    /// <summary>
+    /// Egasiga «do'kon aloqada emas» xabari oxirgi marta qachon yuborilgani.
+    ///
+    /// <para><b>Nega bazada, xotirada emas.</b> Birinchi variantda bu
+    /// ma'lumot fon xizmatining xotirasida turardi va API har qayta ishga
+    /// tushganda unutilardi — ya'ni har yangilanish yoki qayta ishga tushirish
+    /// egasiga o'sha xabarni QAYTA yuborardi. Bir necha takrordan keyin u
+    /// bildirishnomalarni o'chirib qo'yadi va haqiqiy nosozlikni ham
+    /// ko'rmaydi.</para>
+    /// </summary>
+    public DateTime? LastOfflineAlertAtUtc { get; set; }
+
     /// <summary>Oxirgi ko'rilgan IP — shubhali holatni aniqlash uchun.</summary>
     public string? LastIpAddress { get; set; }
 

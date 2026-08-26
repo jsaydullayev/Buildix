@@ -22,7 +22,19 @@ namespace Buildix.API.BackgroundJobs;
 /// </summary>
 public class CloudSyncBackgroundService : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// Sinxronizatsiya oralig'i.
+    ///
+    /// <para><b>Nega bir daqiqa.</b> Egasining telefonidagi raqam qanchalik
+    /// eskirishi AYNAN shu songa bog'liq: interfeys allaqachon har 60
+    /// soniyada yangilanadi, ya'ni kechikishning sababi u emas. Besh
+    /// daqiqada egasi endigina bo'lgan savdoni olti daqiqagacha ko'rmasligi
+    /// mumkin edi.</para>
+    ///
+    /// <para>Narxi arzimas: o'zgarish bo'lmasa so'rov bir necha yuz bayt,
+    /// kuniga ~1,5 MB. Buning evaziga «jonli» so'zi rost bo'ladi.</para>
+    /// </summary>
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<CloudSyncBackgroundService> _logger;

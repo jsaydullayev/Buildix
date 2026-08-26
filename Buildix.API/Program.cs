@@ -676,6 +676,7 @@ try
     builder.Services.AddScoped<IShopPushService, ShopPushService>();
     builder.Services.AddScoped<ISyncPushService, SyncPushService>();
     builder.Services.AddScoped<ISyncFreshnessService, SyncFreshnessService>();
+    builder.Services.AddScoped<IShopOfflineAlertService, ShopOfflineAlertService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
@@ -697,6 +698,11 @@ try
     // ishlaganda Cloud:TerminalKey berilmaydi va xizmat birinchi tekshiruvda
     // o'zini to'xtatadi.
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.CloudSyncBackgroundService>();
+
+    // Do'kon uzoq aloqaga chiqmasa egasiga xabar. Bu BULUT ishi: do'kon
+    // nusxasida ishga tushmaydi, chunki u yerda bitta do'kon bor va uning
+    // aloqasizligini o'ziga aytishning ma'nosi yo'q.
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.ShopOfflineAlertBackgroundService>();
     // Webhook'siz muhitlar (lokal dev, ochiq IP'siz server) uchun Telegram
     // long-polling. Faqat Telegram:UseLongPolling=true bo'lganda ishga tushadi.
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.TelegramLongPollingBackgroundService>();
