@@ -142,9 +142,20 @@ export default function WarehousePage() {
           </div>
         </div>
 
-        {/* Table */}
-        <Card className="overflow-hidden">
-          <div className="grid grid-cols-[2.2fr_0.9fr_1.1fr_0.9fr_1fr_0.3fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+        {/*
+          Jadval QOLGAN balandlikni to'ldiradi.
+
+          Ilgari karta faqat qatorlar qancha bo'lsa shuncha edi: uchta tovarda
+          uning ostida yarim ekran bo'sh kulrang maydon qolardi, qator ko'p
+          bo'lganda esa butun sahifa surilardi va ustun nomlari yuqoriga
+          chiqib ketardi — omborchi qaysi ustun nimaligini eslab qolishga
+          majbur bo'lardi.
+
+          Endi karta ekranni to'ldiradi, ustun nomlari joyida qoladi va
+          faqat qatorlar suriladi.
+        */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="grid flex-none grid-cols-[2.2fr_0.9fr_1.1fr_0.9fr_1fr_0.3fr] items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
             <span>{t('warehouse.cols.product')}</span>
             <span className="text-right">{t('warehouse.cols.stock')}</span>
             <span className="text-right">{t('warehouse.cols.minStock')}</span>
@@ -153,17 +164,19 @@ export default function WarehousePage() {
             <span />
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
-            </div>
-          ) : rows.length > 0 ? (
-            rows.map((p) => (
-              <WarehouseRow key={p.id} product={p} canEdit={canEdit} onOpen={() => setMoving(p)} />
-            ))
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
-          )}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {listQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
+              </div>
+            ) : rows.length > 0 ? (
+              rows.map((p) => (
+                <WarehouseRow key={p.id} product={p} canEdit={canEdit} onOpen={() => setMoving(p)} />
+              ))
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
+            )}
+          </div>
         </Card>
 
         <p className="text-[12px] text-muted-2">{t('warehouse.movementHint')}</p>

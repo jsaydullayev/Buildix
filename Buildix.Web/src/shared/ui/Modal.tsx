@@ -36,8 +36,27 @@ export function Modal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-text/40 px-4 py-10"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className={cn('w-full animate-fade-in rounded-card bg-surface shadow-xl', widthClass)}>
-        <div className="flex items-start justify-between border-b border-hairline px-6 py-4">
+      {/*
+        Oyna EKRANDAN oshmaydi: balandligi cheklangan va ichi ustun bo'lib
+        taqsimlanadi.
+
+        Ilgari oyna kontent qancha bo'lsa shuncha o'sardi va butun sahifa
+        skroll bo'lardi. Ro'yxat uzun bo'lganda — masalan omborda tovar
+        harakati — sarlavha ham, pastdagi amal tugmasi ham ekrandan chiqib
+        ketardi: foydalanuvchi «Tuzatish» ni topish uchun o'nlab qatorni
+        aylantirib o'tishga majbur edi.
+
+        Endi faqat O'RTA qism aylanadi; sarlavha va pastki qator joyida
+        turadi. `dvh` telefon brauzerlarining yig'iladigan paneli uchun:
+        `vh` da oynaning pasti panel ostida qolib ketardi.
+      */}
+      <div
+        className={cn(
+          'flex max-h-[calc(100dvh-5rem)] w-full animate-fade-in flex-col rounded-card bg-surface shadow-xl',
+          widthClass,
+        )}
+      >
+        <div className="flex flex-none items-start justify-between border-b border-hairline px-6 py-4">
           <div>
             <h2 className="text-[17px] font-semibold">{title}</h2>
             {subtitle && <p className="mt-0.5 text-[12.5px] text-muted-2">{subtitle}</p>}
@@ -51,9 +70,11 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        {/* `overscroll-contain` — ro'yxat oxiriga yetganda sahifa ortidan
+            aylanib ketmasin. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-hairline px-6 py-4">
+          <div className="flex flex-none items-center justify-end gap-3 border-t border-hairline px-6 py-4">
             {footer}
           </div>
         )}

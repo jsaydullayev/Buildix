@@ -138,6 +138,52 @@ public class LabelPdfTests
             LabelPdfRenderer.Render([new LabelData("Sement", "  ", "CEM")]));
     }
 
+    /// <summary>
+    /// PDF sahifasining FIZIK o'lchamini o'lchaydi.
+    ///
+    /// <para>Ilgari bu yerda faqat «PDF chiqdimi» tekshirilardi. Ya'ni maket
+    /// noto'g'ri o'lchamda chiqsa ham sinov yashil qolaverardi va buni faqat
+    /// do'konda, printerdan chiqqan qog'ozni ko'rib bilishardi.</para>
+    ///
+    /// <para>PDF birligi — punkt (1/72 dyuym). QuestPDF `Unit.Millimetre` ni
+    /// o'zi o'giradi, lekin o'sha o'girish to'g'ri ekaniga ishonch shu
+    /// yerdan keladi.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(58, 40)]
+    [InlineData(40, 30)]
+    [InlineData(30, 20)]
+    public void Page_is_exactly_the_requested_size_in_mm(double widthMm, double heightMm)
+    {
+        var pdf = LabelPdfRenderer.Render(
+            [new LabelData("Sement M400", Ean13.NewInternal(), "CEM-400")],
+            widthMm, heightMm);
+
+        var (w, h) = FirstPageSizeMm(pdf);
+
+        // Yarim millimetr — chop etishda sezilmaydigan chegara.
+        Assert.True(Math.Abs(w - widthMm) < 0.5, $"eni {w:F2} mm, kutilgani {widthMm} mm");
+        Assert.True(Math.Abs(h - heightMm) < 0.5, $"bo'yi {h:F2} mm, kutilgani {heightMm} mm");
+    }
+
+    /// <summary>PDF dagi birinchi /MediaBox ni millimetrga o'giradi.</summary>
+    private static (double WidthMm, double HeightMm) FirstPageSizeMm(byte[] pdf)
+    {
+        // QuestPDF siqmagan holda yozadi, shuning uchun /MediaBox matn
+        // ko'rinishida topiladi. Topilmasa — sinov jim o'tib ketmasin.
+        var text = System.Text.Encoding.Latin1.GetString(pdf);
+        var match = System.Text.RegularExpressions.Regex.Match(
+            text, @"/MediaBox\s*\[\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s*\]");
+        Assert.True(match.Success, "PDF ichida /MediaBox topilmadi");
+
+        var pt = match.Groups.Cast<System.Text.RegularExpressions.Group>()
+            .Skip(1).Select(g => double.Parse(g.Value, System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
+
+        const double MmPerPoint = 25.4 / 72.0;
+        return ((pt[2] - pt[0]) * MmPerPoint, (pt[3] - pt[1]) * MmPerPoint);
+    }
+
     [Fact]
     public void A_shop_code_prints_without_the_ean13_grouping()
     {

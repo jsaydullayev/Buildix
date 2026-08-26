@@ -1,4 +1,4 @@
-using Buildix.Application.DTOs;
+﻿using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Enums;
@@ -108,8 +108,26 @@ public class NotificationService : INotificationService
     }
 
     /// <summary>
+    /// Holat-alertlarining prefikslari.
+    ///
+    /// <para>Bular VOQEA emas, HOLAT haqidagi xabarlar: «qoldiq kam»,
+    /// «qarz muddati o'tgan». Holat tugagach ular yolg'onga aylanadi va
+    /// o'chirilishi kerak. Voqea xabarlari (savdo bo'ldi, smena yopildi)
+    /// bu ro'yxatga kirmaydi va hech qachon o'chirilmaydi.</para>
+    /// </summary>
+    private static readonly string[] StateAlertPrefixes =
+        ["lowstock:", "outofstock:", "debt-overdue:", "debt-today:"];
+
+    /// <summary>
     /// Holat-alertlarni yarashtiradi: kam/tugagan qoldiq + muddati o'tgan/bugungi
     /// qarzlar. Har biri dedup-kalit bilan yoziladi (takror emas). Bir SaveChanges.
+    ///
+    /// <para><b>Ikki tomonlama.</b> Ilgari bu yer faqat QO'SHARDI. Omborchi
+    /// inventarizatsiya qilib qoldiqni to'ldirsa ham, «Mало на складе»
+    /// ogohlantirishi panelda turaverardi — chunki uni hech kim olib
+    /// tashlamasdi. Egasi ekranda 7 978 kg sementni ko'rib turib, yonida
+    /// «kam qoldi» degan yozuvni o'qirdi. Endi holat tugagan alertlar
+    /// o'chiriladi.</para>
     /// </summary>
     private async Task ReconcileAlertsAsync(int marketId, CancellationToken cancellationToken)
     {
@@ -121,9 +139,15 @@ public class NotificationService : INotificationService
             .Select(n => n.DedupKey!)
             .ToListAsync(cancellationToken)).ToHashSet();
 
+        // HOZIR o'rinli bo'lgan holat-alertlar. Takrorlanish sababli
+        // yozilmagani ham bu yerga tushadi — aks holda uni o'zimiz
+        // o'chirib qo'yardik.
+        var live = new HashSet<string>();
+
         var added = false;
         void Add(NotificationCategory cat, NotificationSeverity sev, string title, string text, string action, string key)
         {
+            live.Add(key);
             if (recentKeys.Contains(key)) return;
             recentKeys.Add(key);
             _db.Notifications.Add(new Notification
@@ -135,11 +159,17 @@ public class NotificationService : INotificationService
             added = true;
         }
 
-        // Kam/tugagan qoldiq
+        // Kam/tugagan qoldiq.
+        //
+        // Ro'yxat CHEKLANMAGAN holda olinadi. Ilgari `Take(100)` bor edi va
+        // u yozish uchun yetarli — panelda baribir to'rttasi ko'rinadi.
+        // Lekin endi shu ro'yxat «qaysi alert hali o'rinli» degan savolga
+        // ham javob beradi: kesilgan bo'lsa, yuzinchidan keyingi tovarning
+        // HAQIQIY ogohlantirishi o'chib ketardi. Faqat kerakli uchta maydon
+        // olinadi, shuning uchun uzun ro'yxat ham qimmat emas.
         var lowStock = await _db.Products.AsNoTracking()
             .Where(p => p.MarketId == marketId && !p.IsHidden && p.Quantity <= p.MinThreshold)
             .Select(p => new { p.Id, p.Name, p.Quantity })
-            .Take(100)
             .ToListAsync(cancellationToken);
         foreach (var p in lowStock)
         {
@@ -156,7 +186,8 @@ public class NotificationService : INotificationService
         var debts = await _db.Debts.AsNoTracking()
             .Where(d => d.MarketId == marketId && d.Status == DebtStatus.Open && d.DueDate != null && d.DueDate < todayEnd)
             .Select(d => new { d.Id, d.DueDate, d.RemainingDebt, CustomerName = d.Customer.FullName })
-            .Take(100)
+            // Yuqoridagi qoldiq ro'yxati kabi cheklanmagan — ro'yxat
+            // «qaysi alert hali o'rinli» degan savolga ham javob beradi.
             .ToListAsync(cancellationToken);
         foreach (var d in debts)
         {
@@ -166,6 +197,32 @@ public class NotificationService : INotificationService
             else
                 Add(NotificationCategory.Debt, NotificationSeverity.Warning,
                     "Срок оплаты долга — сегодня", $"{d.CustomerName ?? "Клиент"} · {d.RemainingDebt:N0} сум", "debts", $"debt-today:{d.Id}");
+        }
+
+        // ── Holati tugaganlarini olib tashlaymiz ──────────────────────────
+        // Yuqoridagi ikki so'rov «hozir o'rinli» bo'lgan hamma narsani
+        // sanab chiqdi. Bazadagi holat-alertlarning qolgani endi to'g'ri
+        // emas: tovar to'ldirilgan yoki qarz to'langan.
+        //
+        // Prefikslar SQL ga ATAYLAB qo'lda yozilgan: `StateAlertPrefixes.Any(...)`
+        // shakli EF tomonidan o'girilmaydi va so'rov ish vaqtida yiqilardi.
+        // Massiv esa saralashni O'QIShDAN KEYIN tekshirish uchun qoladi —
+        // ikkalasi bir xil ro'yxatdan foydalanishi uchun sinov bor.
+        var candidates = await _db.Notifications
+            .Where(n => n.MarketId == marketId
+                        && n.DedupKey != null
+                        && (n.DedupKey.StartsWith("lowstock:")
+                            || n.DedupKey.StartsWith("outofstock:")
+                            || n.DedupKey.StartsWith("debt-overdue:")
+                            || n.DedupKey.StartsWith("debt-today:")))
+            .ToListAsync(cancellationToken);
+
+        var stale = candidates.Where(n => !live.Contains(n.DedupKey!)).ToList();
+
+        if (stale.Count > 0)
+        {
+            _db.Notifications.RemoveRange(stale);
+            added = true;
         }
 
         if (added) await _db.SaveChangesAsync(cancellationToken);

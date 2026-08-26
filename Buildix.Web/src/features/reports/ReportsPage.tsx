@@ -268,7 +268,21 @@ export default function ReportsPage() {
                 .slice()
                 .sort((a, b) => b.totalSales - a.totalSales)
                 .slice(0, 5)}
-              total={categoryQuery.data?.totalSales ?? 0}
+              // Bo'luvchi — BARCHA kategoriyalar yig'indisi, serverning
+              // `totalSales` i emas.
+              //
+              // Server qatorlarni chegirmasiz (gross) beradi, jamini esa
+              // chegirma ayirilgan holda (net) — bu ataylab shunday, chunki
+              // chegirma butun chekka tegishli va uni bitta kategoriyaga
+              // bo'lib bo'lmaydi. Lekin ulushni net'ga bo'lish 100% dan
+              // oshib ketardi: ekranda bitta kategoriya «111%» deb turgan
+              // va chizig'i kartadan chiqib ketgan edi.
+              //
+              // Bu karta «qaysi kategoriya ko'p sotildi» degan savolga javob
+              // beradi, ya'ni ulushlar yig'indisi aynan 100% bo'lishi kerak.
+              // Kesilgan beshta emas, hammasi qo'shiladi — aks holda ulush
+              // «eng yaxshi beshtaning ichida» degan boshqa ma'noni olardi.
+              total={(categoryQuery.data?.categories ?? []).reduce((sum, c) => sum + c.totalSales, 0)}
               loading={categoryQuery.isLoading}
             />
             <PaymentsCard
@@ -279,8 +293,13 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Top products + staff */}
-        <div className="grid grid-cols-2 items-start gap-4">
+        {/*
+          Oxirgi qator QOLGAN balandlikni to'ldiradi — ilgari uning ostida
+          yarim ekran bo'sh kulrang maydon qolardi. `items-start` olib
+          tashlandi: kartalar bir xil bo'yga cho'ziladi va yonma-yon
+          notekis turmaydi.
+        */}
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
           <TopProductsCard items={topQuery.data?.items ?? []} loading={topQuery.isLoading} />
           <StaffCard staff={staffQuery.data?.staff ?? []} loading={staffQuery.isLoading} />
         </div>
@@ -442,7 +461,7 @@ function CategoriesCard({
                 <div className="h-2 rounded-pill bg-hairline">
                   <div
                     className={cn('h-2 rounded-pill', CATEGORY_BARS[i] ?? 'bg-primary/30')}
-                    style={{ width: `${Math.max(ratio * 100, 2)}%` }}
+                    style={{ width: barWidth(ratio) }}
                   />
                 </div>
               </div>
@@ -452,6 +471,20 @@ function CategoriesCard({
       )}
     </Card>
   );
+}
+
+/**
+ * Chiziq kengligi — foizda, o'z yo'lakchasidan CHIQMAYDIGAN qilib.
+ *
+ * <p>Ma'lumot har doim ham 0–100 oralig'ida bo'lavermaydi: chegirma,
+ * qaytarish yoki manfiy summa ulushni 100 dan oshirib yoki noldan pastga
+ * tushirib yuborishi mumkin. Bunday paytda chiziq kartadan chiqib ketardi
+ * — ekranda aynan shu ko'rindi. Raqam esa o'z holicha ko'rsatilaveradi:
+ * uni yashirish muammoni ko'rinmas qilardi, tuzatmasdi.</p>
+ */
+function barWidth(ratio: number, min = 2): string {
+  if (!Number.isFinite(ratio)) return `${min}%`;
+  return `${Math.min(100, Math.max(min, ratio * 100))}%`;
 }
 
 // --- Payment methods ---------------------------------------------------------
@@ -583,7 +616,7 @@ function StaffCard({ staff, loading }: { staff: StaffRow[]; loading: boolean }) 
                   <div className="mt-1.5 h-[5px] w-[90px] rounded-pill bg-hairline">
                     <div
                       className="h-[5px] rounded-pill bg-primary"
-                      style={{ width: `${maxRevenue > 0 ? Math.max((s.revenue / maxRevenue) * 100, 3) : 0}%` }}
+                      style={{ width: maxRevenue > 0 ? barWidth(s.revenue / maxRevenue, 3) : '0%' }}
                     />
                   </div>
                 </div>

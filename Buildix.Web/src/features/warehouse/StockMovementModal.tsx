@@ -81,7 +81,21 @@ export function StockMovementModal({
               <Spinner size={22} />
             </div>
           ) : movementsQuery.data && movementsQuery.data.length > 0 ? (
-            <div className="flex flex-col">
+            /*
+              Ro'yxat O'Z ichida aylanadi.
+
+              Tovar harakati vaqt o'tgan sari o'sib boradi va bir necha
+              o'nlab qatorga yetadi. Ilgari ular oynani cho'zib yuborardi va
+              pastdagi «Tuzatish» ekrandan chiqib ketardi — omborchi uni
+              topish uchun butun tarixni aylantirib o'tishga majbur edi. Endi
+              tarix shu quti ichida qoladi, tuzatish esa doim ko'rinib
+              turadi.
+
+              Balandlik ekranga nisbatan: kichik monitorda ham, kattasida
+              ham ro'yxat oynaning yarmidan oshmaydi. Qatorlar oz bo'lsa
+              quti o'zi kichrayadi — bo'sh joy qolmaydi.
+            */
+            <div className="max-h-[45vh] overflow-y-auto overscroll-contain pr-1">
               {movementsQuery.data.map((m) => (
                 <MovementRow key={m.id} m={m} unit={unit} label={movementLabel(t, m)} lang={i18n.language} />
               ))}
