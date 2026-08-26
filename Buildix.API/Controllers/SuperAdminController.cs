@@ -388,6 +388,31 @@ public class SuperAdminController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(new { message = "Do'kon topilmadi." }); }
     }
 
+    /// <summary>
+    /// Do'kon kompyuterini bog'lash uchun bir martalik kod beradi.
+    ///
+    /// <para>Texnik do'konga borganda uni ilovaga kiritadi va kompyuter
+    /// bulutdan o'z kalitini oladi. Kod bir sutka yashaydi va bir marta
+    /// ishlaydi; yangisi olinsa eskisi darhol o'ladi.</para>
+    /// </summary>
+    [HttpPost("markets/{marketId:int}/pairing-code")]
+    public async Task<IActionResult> IssuePairingCode(
+        int marketId,
+        [FromServices] Buildix.Application.Interfaces.ITerminalPairingService pairing,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerId(out var superAdminId)) return Unauthorized();
+
+        var result = await pairing.IssueCodeAsync(marketId, superAdminId, ct);
+        if (result.IsFailure)
+        {
+            return result.Code == "NOT_FOUND"
+                ? NotFound(new { message = result.Error })
+                : BadRequest(new { message = result.Error });
+        }
+        return Ok(result.Value);
+    }
+
     private bool TryGetCallerId(out Guid id)
     {
         var raw = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

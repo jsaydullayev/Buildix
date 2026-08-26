@@ -78,6 +78,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<LoginHistory> LoginHistories => Set<LoginHistory>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<TelegramLinkCode> TelegramLinkCodes => Set<TelegramLinkCode>();
+    public DbSet<ShopTerminal> ShopTerminals => Set<ShopTerminal>();
+    public DbSet<TerminalPairingCode> TerminalPairingCodes => Set<TerminalPairingCode>();
     public DbSet<PlatformPlan> PlatformPlans => Set<PlatformPlan>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
@@ -257,6 +259,40 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasIndex(x => x.ChatId);
             // Tozalash o'tishi shu bo'yicha yuradi.
             b.HasIndex(x => x.ExpiresAtUtc);
+        });
+
+        // Do'kon kompyuteri — bulut bilan gaplashadigan kalit egasi.
+        modelBuilder.Entity<ShopTerminal>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            // SHA-256 hex — aniq 64 belgi.
+            b.Property(x => x.KeyHash).IsRequired().HasMaxLength(64);
+            b.Property(x => x.LastIpAddress).HasMaxLength(64);
+
+            // Har so'rovda kalit hash'i bo'yicha qidiriladi — bu eng issiq
+            // yo'l. Unikal: ikkita kompyuter bir xil kalitga ega bo'lishi
+            // mumkin emas va bu bazada ham majburlanadi.
+            b.HasIndex(x => x.KeyHash).IsUnique();
+            b.HasIndex(x => x.MarketId);
+
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
+        });
+
+        // Bir martalik bog'lanish kodi.
+        modelBuilder.Entity<TerminalPairingCode>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(16);
+
+            // TelegramLinkCode dagi kabi: kod faqat ISHLATILMAGANLAR orasida
+            // unikal. Ishlatilganlar tarix uchun qoladi va kodni band
+            // qilmaydi.
+            b.HasIndex(x => x.Code).IsUnique().HasFilter("\"UsedAtUtc\" IS NULL");
+            b.HasIndex(x => x.MarketId);
+            b.HasIndex(x => x.ExpiresAtUtc);
+
+            b.HasOne(x => x.Market).WithMany().HasForeignKey(x => x.MarketId);
         });
 
         // Configure Customer

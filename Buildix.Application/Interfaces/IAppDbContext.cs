@@ -48,6 +48,8 @@ public interface IAppDbContext
     DbSet<LoginHistory> LoginHistories { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
     DbSet<TelegramLinkCode> TelegramLinkCodes { get; }
+    DbSet<ShopTerminal> ShopTerminals { get; }
+    DbSet<TerminalPairingCode> TerminalPairingCodes { get; }
     DbSet<PlatformPlan> PlatformPlans { get; }
     DbSet<PlatformSettings> PlatformSettings { get; }
     DbSet<SubscriptionPayment> SubscriptionPayments { get; }

@@ -452,6 +452,26 @@ try
                 AutoReplenishment = true
             }));
 
+        // Do'konni bulutga bog'lash — ANONIM va shu sababli eng qattiq
+        // cheklangan yo'l. Kod sakkiz belgi (31 harfli alifbo), ya'ni ~40 bit:
+        // taxmin qilib topish uchun juda ko'p, LEKIN faqat urinishlar soni
+        // cheklangan bo'lsa. Cheklovsiz bo'lsa, sekundiga minglab urinish
+        // yuborgan bot bir sutkada amaldagi kodni topib, do'konning butun
+        // ma'lumotini so'rab oladigan kompyuter qo'sha olardi.
+        //
+        // Soatiga 10 ta — texnik kodni bir-ikki marta xato yozishi normal,
+        // lekin tanlab olishga urinish uchun umuman yetmaydi.
+        options.AddPolicy("terminal-pairing", ctx => System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
+            PartitionKey(ctx),
+            _ => new System.Threading.RateLimiting.SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromHours(1),
+                SegmentsPerWindow = 6,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
         // Export endpoints — Excel/PDF generation is CPU/memory intensive.
         // 10 exports/min per IP stops loop-abuse while allowing normal usage.
         options.AddPolicy("export", ctx => System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
@@ -640,6 +660,7 @@ try
     // Bog'lanishni tasdiqlash: botning bir martalik kodi. Chat ID qo'lda
     // kiritilmaydi — u faqat shu kod orqali isbotlanadi.
     builder.Services.AddScoped<ITelegramLinkService, TelegramLinkService>();
+    builder.Services.AddScoped<ITerminalPairingService, TerminalPairingService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
