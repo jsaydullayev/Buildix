@@ -125,6 +125,21 @@ public sealed class MainForm : Form
         if (dbError is not null) { Fail(dbError); return; }
         _api.ConnectionString = _db.ConnectionString;
 
+        // ── Bulutga bog'lanish ────────────────────────────────────────────
+        // Kalit yo'q bo'lsa do'kon bazasida xodim ham yo'q va kirish
+        // oynasidan nariga o'tib bo'lmaydi. Shu sababli oyna AYNAN shu
+        // yerda ko'rsatiladi: baza tayyor, lekin API hali ishga
+        // tushirilmagan — kalit unga ishga tushishda beriladi va qayta
+        // ishga tushirish kerak bo'lmaydi.
+        if (_secrets.TerminalKey is null)
+        {
+            _status.Text = "Do'konni bulutga bog'lash…";
+            using var pairing = new PairingForm(_secrets);
+            pairing.ShowDialog(this);
+        }
+        _api.CloudUrl = _secrets.CloudUrl;
+        _api.TerminalKey = _secrets.TerminalKey;
+
         try
         {
             _api.AllowLan = _secrets.AllowLan;

@@ -689,6 +689,11 @@ try
     // app_logs Serilog tomonidan yaratiladi, lekin hech qachon tozalanmaydi —
     // sutkalik tozalash (Logging:RetentionDays, standart 30 kun).
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.LogRetentionBackgroundService>();
+
+    // Bulutdan tortish — faqat do'kon nusxasida ma'noga ega. Bulutda
+    // ishlaganda Cloud:TerminalKey berilmaydi va xizmat birinchi tekshiruvda
+    // o'zini to'xtatadi.
+    builder.Services.AddHostedService<Buildix.API.BackgroundJobs.CloudPullBackgroundService>();
     // Webhook'siz muhitlar (lokal dev, ochiq IP'siz server) uchun Telegram
     // long-polling. Faqat Telegram:UseLongPolling=true bo'lganda ishga tushadi.
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.TelegramLongPollingBackgroundService>();

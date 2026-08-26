@@ -49,6 +49,10 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>Baza ulanish satri — qobiq tomonidan beriladi.</summary>
     public string? ConnectionString { get; set; }
 
+    /// <summary>Bulut manzili va shu kompyuterning kaliti — qobiqdan.</summary>
+    public string? CloudUrl { get; set; }
+    public string? TerminalKey { get; set; }
+
     public void Start()
     {
         var psi = new ProcessStartInfo
@@ -68,6 +72,16 @@ public sealed class ApiHost : IAsyncDisposable
         // ochiq yotmasin va uni tasodifan nusxalab yuborish imkoni bo'lmasin.
         if (!string.IsNullOrWhiteSpace(ConnectionString))
             psi.Environment["ConnectionStrings__DefaultConnection"] = ConnectionString;
+
+        // Bulut kaliti ham AYNAN shu yo'l bilan. Uni API o'qiydigan sozlama
+        // fayliga yozish mumkin edi, lekin unda kalit diskda ikkinchi marta,
+        // huquqlari cheklanmagan joyda yotardi. Sirlar faylining yagona
+        // egasi — qobiq.
+        if (!string.IsNullOrWhiteSpace(CloudUrl) && !string.IsNullOrWhiteSpace(TerminalKey))
+        {
+            psi.Environment["Cloud__Url"] = CloudUrl;
+            psi.Environment["Cloud__TerminalKey"] = TerminalKey;
+        }
 
         // API ning chiqishi faylga yoziladi. Busiz u hech qayerga bormasdi:
         // jarayon oynasiz ishga tushadi va ishga tushishda yiqilsa, do'konda

@@ -114,8 +114,30 @@ public class ShopSyncService : IShopSyncService
         // o'zgarishlar do'konga hech qachon yetib bormasdi.
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            if (payload.Market is not null) await UpsertMarketAsync(payload.Market, ct);
-            foreach (var user in payload.Users) await UpsertUserAsync(user, marketId, ct);
+            // ── Tartib MUHIM ────────────────────────────────────────────────
+            // Market o'z egasiga (foydalanuvchiga) ishora qiladi, foydalanuvchi
+            // esa marketga. Ikkalasi ham YANGI bo'lsa, EF qaysi birini oldin
+            // yozishni hal qila olmaydi va «circular dependency» bilan
+            // to'xtaydi — ya'ni yangi do'konning BIRINCHI tortishi butunlay
+            // ishlamaydi. Bulut tomonida do'kon yaratilganda ham aynan shu
+            // uch qadam qo'llanadi (RegistrationRequestService).
+            //
+            // 1. Xodimlar marketsiz yoziladi.
+            var touched = new List<User>();
+            foreach (var user in payload.Users) touched.Add(await UpsertUserAsync(user, ct));
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            // 2. Market — endi uning egasi mavjud.
+            if (payload.Market is not null)
+            {
+                await UpsertMarketAsync(payload.Market, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+
+            // 3. Xodimlar marketga bog'lanadi. Market DTO dan EMAS, shu
+            //    tortishda aniqlangan qiymatdan: bulut buzilgan javob yuborsa
+            //    ham do'konga begona xodim yozilib qolmasligi kerak.
+            foreach (var user in touched) user.MarketId = marketId;
 
             state ??= NewState(marketId);
             state.PullWatermark = payload.NextSince;
@@ -168,7 +190,11 @@ public class ShopSyncService : IShopSyncService
         market.OwnerId = dto.OwnerId;
     }
 
-    private async Task UpsertUserAsync(SyncUserDto dto, int marketId, CancellationToken ct)
+    /// <summary>
+    /// Xodimni yozadi va uni qaytaradi. Market ATAYLAB qo'yilmaydi — u
+    /// yuqoridagi uchinchi qadamda, market yozilgandan keyin belgilanadi.
+    /// </summary>
+    private async Task<User> UpsertUserAsync(SyncUserDto dto, CancellationToken ct)
     {
         var user = await _context.Users
             .IgnoreQueryFilters()
@@ -180,10 +206,6 @@ public class ShopSyncService : IShopSyncService
             _context.Users.Add(user);
         }
 
-        // Market DTO dan EMAS, shu tortishda aniqlangan qiymatdan. Bulut
-        // xato yoki buzilgan javob yuborsa ham, do'konga boshqa do'konning
-        // xodimi yozilib qolmasligi kerak.
-        user.MarketId = marketId;
         user.Username = dto.Username;
         user.FullName = dto.FullName;
         // Parol hash'i — do'kon kirishni O'ZI tekshiradi va busiz internetsiz
@@ -198,6 +220,8 @@ public class ShopSyncService : IShopSyncService
         if (Enum.TryParse<Language>(dto.Language, out var language)) user.Language = language;
         user.MaxDebtPerCheck = dto.MaxDebtPerCheck;
         user.MaxDiscountPercent = dto.MaxDiscountPercent;
+
+        return user;
     }
 
     private async Task<ShopSyncResult> FailAsync(SyncState? state, string reason, CancellationToken ct)

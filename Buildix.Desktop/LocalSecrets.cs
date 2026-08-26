@@ -102,6 +102,42 @@ public sealed class LocalSecrets
             ? url
             : null;
 
+    /// <summary>
+    /// Bulut manzili — do'kon o'z xodimlarini va obuna holatini shu yerdan
+    /// oladi. Bog'lanish paytida yoziladi.
+    /// </summary>
+    public string? CloudUrl =>
+        _root["CloudUrl"] is JsonValue v && v.TryGetValue<string>(out var url)
+        && !string.IsNullOrWhiteSpace(url)
+            ? url
+            : null;
+
+    /// <summary>
+    /// Shu kompyuterning bulutdagi kaliti.
+    ///
+    /// <para><b>Nega aynan shu faylda.</b> Fayl huquqlari cheklangan
+    /// (SYSTEM, Administratorlar va foydalanuvchi), ya'ni kassir o'z hisobidan
+    /// uni o'qiy olmaydi. Kalit bilan butun do'kon ma'lumotini — savdolar,
+    /// mijozlar, parol hash'lari — bulutdan so'rab olish mumkin, shuning
+    /// uchun u parol bilan bir xil darajada himoyalanishi kerak.</para>
+    ///
+    /// <para>Nashr sozlamasiga yozilmaydi: u har yangilanishda almashadi va
+    /// kalit jimgina yo'qolardi.</para>
+    /// </summary>
+    public string? TerminalKey =>
+        _root["TerminalKey"] is JsonValue v && v.TryGetValue<string>(out var key)
+        && !string.IsNullOrWhiteSpace(key)
+            ? key
+            : null;
+
+    /// <summary>Bog'lanish natijasini saqlaydi.</summary>
+    public void SetCloudPairing(string url, string terminalKey)
+    {
+        _root["CloudUrl"] = url.Trim().TrimEnd('/');
+        _root["TerminalKey"] = terminalKey;
+        Save();
+    }
+
     /// <summary>Server manzilini yozadi; <c>null</c> — bu kompyuter server bo'ladi.</summary>
     public void SetServerUrl(string? url)
     {
