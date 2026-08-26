@@ -1,0 +1,97 @@
+using Buildix.Application.DTOs;
+using Buildix.Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Buildix.Application.Services;
+
+/// <summary>
+/// Bulutdan do'konga tushadigan ma'lumot: do'konning o'zi va xodimlar.
+///
+/// <para><b>Nega outbox emas, suv belgisi.</b> Har bir jadvalda
+/// <c>UpdatedAt</c> bor va u <c>SaveChanges</c> ichida markazlashtirilgan,
+/// ya'ni «oxirgi aloqadan keyin nima o'zgardi» degan savolga javob beradigan
+/// tayyor manba mavjud. Navbat jadvali bo'lsa, u ma'lumot bilan bir joyda
+/// turmasligi mumkin edi: yozuv o'zgarib, navbatga tushmay qolishi — yoki
+/// aksincha — mumkin. Bu yerda esa manba bitta va ular orasida farq paydo
+/// bo'lishining imkoni yo'q.</para>
+///
+/// <para><b>Nega <c>&gt;=</c>, <c>&gt;</c> emas.</b> Bir necha yozuv bitta
+/// <c>SaveChanges</c> da o'zgarsa, ular AYNAN bir xil vaqt oladi. Qat'iy
+/// <c>&gt;</c> bilan keyingi so'rov o'sha vaqtdagi yozuvlarni butunlay
+/// o'tkazib yuborardi. <c>&gt;=</c> esa oxirgi to'plamni qayta yuboradi —
+/// bu zarar qilmaydi, chunki do'kon tomonda yozuv ID bo'yicha ustiga
+/// yoziladi.</para>
+/// </summary>
+public class SyncPullService : ISyncPullService
+{
+    private readonly IAppDbContext _context;
+    private readonly TimeProvider _clock;
+
+    public SyncPullService(IAppDbContext context, TimeProvider? clock = null)
+    {
+        _context = context;
+        _clock = clock ?? TimeProvider.System;
+    }
+
+    public async Task<SyncPullDto> PullAsync(
+        int marketId, DateTimeOffset since, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow();
+
+        // Ustunlar UTC saqlaydi, shuning uchun taqqoslash ham UTC da bo'lishi
+        // shart. Mijoz belgini qaysi mintaqada yuborgani ahamiyatsiz —
+        // siljish aynan shu yerda yechiladi.
+        var fromUtc = since.UtcDateTime;
+
+        // IgnoreQueryFilters — bu yerda ATAYLAB. Global filtr o'chirilgan
+        // xodimni yashiradi, do'kon esa aynan o'chirilganini bilishi kerak:
+        // aks holda bo'shatilgan kassir do'konda abadiy ishlayveradi.
+        // MarketId sharti qo'lda qo'yiladi va u yagona chegara.
+        var users = await _context.Users
+            .IgnoreQueryFilters()
+            .Where(u => u.MarketId == marketId && u.UpdatedAt >= fromUtc)
+            .OrderBy(u => u.UpdatedAt)
+            .ToListAsync(ct);
+
+        var market = await _context.Markets
+            .IgnoreQueryFilters()
+            .Where(m => m.Id == marketId && m.UpdatedAt >= fromUtc)
+            .FirstOrDefaultAsync(ct);
+
+        var marketDto = market is null ? null : new SyncMarketDto(
+            market.Id, market.Name, market.City, market.Plan.ToString(),
+            AsUtc(market.ExpiresAt), market.IsActive, market.IsBlocked,
+            market.BlockedReason, market.OwnerId, AsUtc(market.UpdatedAt));
+
+        var userDtos = users.Select(u => new SyncUserDto(
+            u.Id, u.Username, u.FullName, u.PasswordHash, u.Phone, (int)u.Role,
+            u.IsActive, u.IsDeleted, u.Permissions, u.IsPermissionsCustomized,
+            u.Language.ToString(), u.MaxDebtPerCheck, u.MaxDiscountPercent,
+            AsUtc(u.UpdatedAt))).ToList();
+
+        // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
+        // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
+        // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
+        // qolar, lekin u javobga tushmagan bo'lardi.
+        var stamps = userDtos.Select(u => u.UpdatedAt).ToList();
+        if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
+        var nextSince = stamps.Count > 0 ? stamps.Max() : since;
+
+        return new SyncPullDto(now, nextSince, marketDto, userDtos);
+    }
+
+    /// <summary>
+    /// Bazadan kelgan vaqtni siljishi bilan birga qaytaradi.
+    ///
+    /// <para>Qiymat ustunda UTC yotadi, lekin <c>Kind</c> provayderga qarab
+    /// <c>Unspecified</c> bo'lib kelishi mumkin. Uni shundayligicha
+    /// <c>DateTimeOffset</c> ga aylantirish SERVER mintaqasini qo'shib
+    /// yuborardi — ya'ni natija serverning sozlamasiga bog'liq bo'lib
+    /// qolardi.</para>
+    /// </summary>
+    private static DateTimeOffset AsUtc(DateTime value) =>
+        new(DateTime.SpecifyKind(value, DateTimeKind.Utc), TimeSpan.Zero);
+
+    private static DateTimeOffset? AsUtc(DateTime? value) =>
+        value is null ? null : AsUtc(value.Value);
+}

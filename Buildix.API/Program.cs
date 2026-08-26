@@ -661,6 +661,7 @@ try
     // kiritilmaydi — u faqat shu kod orqali isbotlanadi.
     builder.Services.AddScoped<ITelegramLinkService, TelegramLinkService>();
     builder.Services.AddScoped<ITerminalPairingService, TerminalPairingService>();
+    builder.Services.AddScoped<ISyncPullService, SyncPullService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the
     // tenant query-filter is inert, so it market-filters every query itself.
