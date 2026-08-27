@@ -63,6 +63,14 @@ if (-not $Version) {
 }
 Write-Host "Versiya: $Version" -ForegroundColor Cyan
 
+# Velopack CLI. `dotnet tool install -g` uni ~\.dotnet\tools ga qo'yadi va
+# o'sha papkani PATH ga qo'shadi — lekin FAQAT yangi seanslarda. O'rnatgan
+# oynada yoki skript avtomatik chaqirilganda PATH eski holicha qoladi va
+# skript "o'rnatilmagan" deb to'xtardi, aslida o'rnatilgan bo'lsa ham.
+$toolsDir = Join-Path $env:USERPROFILE '.dotnet\tools'
+if (-not (Get-Command vpk -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $toolsDir 'vpk.exe'))) {
+    $env:PATH = "$env:PATH;$toolsDir"
+}
 if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
     throw "vpk topilmadi. O'rnatish: dotnet tool install -g vpk"
 }
