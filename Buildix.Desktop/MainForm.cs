@@ -194,6 +194,12 @@ public sealed class MainForm : Form
         await _web.EnsureCoreWebView2Async(env);
 
         var core = _web.CoreWebView2;
+
+        // Yorliq printeri — sahifa chop etish oynasini ochmasdan bossin.
+        // Printer sozlanmagan bo'lsa ko'prik xato qaytaradi va sahifa
+        // odatdagi yo'lga tushadi, ya'ni ish to'xtamaydi.
+        new LabelPrintBridge(_secrets, env).Attach(core);
+
         // Kassada kerak emas va tasodifan bosilishi mumkin bo'lgan narsalar.
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;

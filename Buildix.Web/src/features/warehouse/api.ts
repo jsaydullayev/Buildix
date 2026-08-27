@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared/api/client';
+import type { LabelImage } from '@/shared/lib/printLabels';
 import type { PagedResult } from '@/shared/api/paged';
 
 export interface Product {
@@ -152,6 +153,26 @@ export const productsApi = {
   }): Promise<Blob> => {
     const { data } = await apiClient.post<Blob>('/Products/labels/preview', body, {
       responseType: 'blob',
+    });
+    return data;
+  },
+
+  /**
+   * Yorliqlar RASM bo'lib — aniq o'lchamda chop etish uchun.
+   *
+   * <p>PDF yo'li bilan bir xil tayyorgarlikdan o'tadi (kodsiz tovarga kod
+   * biriktiriladi), farqi faqat natijada: rasmni aniq `@page` o'lchamli
+   * sahifaga qo'yish mumkin va brauzer uni masshtablamaydi.</p>
+   */
+  labelImages: async (
+    items: { productId: string; copies: number }[],
+    widthMm: number,
+    heightMm: number,
+  ): Promise<LabelImage[]> => {
+    const { data } = await apiClient.post<LabelImage[]>('/Products/labels/images', {
+      items,
+      widthMm,
+      heightMm,
     });
     return data;
   },

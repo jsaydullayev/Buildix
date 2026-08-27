@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Printer, Info } from 'lucide-react';
 import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { printPdfBlob } from '@/shared/lib/printPdf';
+import { printLabels } from '@/shared/lib/printLabels';
 import type { ApiError } from '@/shared/api/types';
 import { productsApi } from './api';
 
@@ -95,21 +95,20 @@ export function PrintLabelsModal({
   const missingCode = targets.filter((p) => p.barcode === null).length;
 
   const print = useMutation({
+    // PDF EMAS, rasm. PDF ning sahifasi to'g'ri o'lchamda edi, lekin uni
+    // brauzerning chop etish oynasi «sahifaga moslash» bilan bosardi va
+    // qog'ozga xato o'lcham urilardi. Rasm aniq `@page` o'lchamli sahifaga
+    // qo'yiladi — masshtab qo'llanmaydi.
     mutationFn: () =>
-      productsApi.labelsPdf(
+      productsApi.labelImages(
         targets.map((p) => ({ productId: p.id, copies: copies[p.id] ?? 1 })),
         size.w,
         size.h,
       ),
-    onSuccess: async (blob) => {
-      // Chop etish oynasi DARHOL ochiladi — ilgari PDF shunchaki yangi oynada
-      // ochilib to'xtardi va omborchi «printerdan hech narsa chiqmadi» deb
-      // o'ylardi (aslida Ctrl+P bosishi kerak edi).
-      const outcome = await printPdfBlob(blob, 'labels.pdf');
-      if (outcome === 'downloaded') {
-        // Yangi oyna ham bloklangan — sababini aytamiz, aks holda ekranda
-        // hech narsa bo'lmaydi va bu «printer ishlamadi» bo'lib tuyuladi.
-        setError(t('labels.popupBlocked'));
+    onSuccess: async (labels) => {
+      const outcome = await printLabels(labels, size.w, size.h);
+      if (outcome === 'failed') {
+        setError(t('labels.printFailed'));
         return;
       }
       onClose();

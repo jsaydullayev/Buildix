@@ -1245,6 +1245,7 @@ export const en: TranslationSchema = {
   },
   labels: {
     popupBlocked: 'The browser blocked the print window — the file was downloaded instead. Check the printer under Devices.',
+    printFailed: 'Could not open the print dialog. Check the browser settings.',
     title: 'Print labels',
     subtitle: '{{count}} products',
     print: 'Print {{count}} labels',

@@ -34,6 +34,18 @@ public sealed class SetupForm : Form
     private readonly Label _result = new() { AutoSize = false, Width = 470, Height = 40 };
     private readonly Button _test = new() { Text = "Tekshirish", Width = 110 };
     private readonly Button _firewall = new() { Text = "Tarmoq ruxsatini ochish", Width = 190 };
+    /// <summary>
+    /// Yorliq printeri — do'konda odatda ikkita printer bo'ladi (chek va
+    /// yorliq). Bir marta tanlanadi va yorliq shundan keyin chop etish
+    /// oynasisiz, aynan kerakli o'lchamda chiqadi. Bo'sh qoldirilsa
+    /// avvalgidek oyna ochiladi.
+    /// </summary>
+    private readonly ComboBox _printer = new()
+    {
+        Width = 260,
+        DropDownStyle = ComboBoxStyle.DropDownList,
+    };
+
     private readonly Button _save = new() { Text = "Saqlash", Width = 110, DialogResult = DialogResult.OK };
 
     public SetupForm(LocalSecrets secrets)
@@ -45,7 +57,7 @@ public sealed class SetupForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(520, 360);
+        ClientSize = new Size(520, 430);
         Font = new Font("Segoe UI", 9.75F);
 
         var current = _secrets.ServerUrl;
@@ -54,12 +66,22 @@ public sealed class SetupForm : Form
         _lan.Checked = _secrets.AllowLan;
         _address.Text = current ?? $"http://192.168.1.10:{DefaultPort}";
 
+        // Windows'dagi printerlar. Ro'yxat bo'sh bo'lishi mumkin (printer
+        // ulanmagan) — o'shanda faqat «tanlanmagan» qatori qoladi va
+        // yorliq avvalgidek oyna orqali bosiladi.
+        _printer.Items.Add(NoPrinter);
+        foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
+            _printer.Items.Add(name);
+        _printer.SelectedItem = _secrets.LabelPrinter is { } saved && _printer.Items.Contains(saved)
+            ? saved
+            : NoPrinter;
+
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 3,
-            RowCount = 9,
+            RowCount = 11,
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -102,7 +124,22 @@ public sealed class SetupForm : Form
         layout.Controls.Add(_address, 1, 6);
         layout.Controls.Add(_test, 2, 6);
 
-        layout.Controls.Add(_result, 0, 7);
+        layout.Controls.Add(new Label
+        {
+            Text = "Yorliq printeri:", AutoSize = true, Margin = new Padding(0, 12, 6, 0),
+        }, 0, 7);
+        layout.Controls.Add(_printer, 1, 7);
+        var printerHint = new Label
+        {
+            AutoSize = false, Width = 470, Height = 30,
+            ForeColor = SystemColors.GrayText,
+            Text = "Tanlansa — yorliq to'g'ridan-to'g'ri shu printerga, aniq o'lchamda chiqadi. "
+                 + "Bo'sh qoldirilsa har safar chop etish oynasi ochiladi.",
+        };
+        layout.Controls.Add(printerHint, 0, 8);
+        layout.SetColumnSpan(printerHint, 3);
+
+        layout.Controls.Add(_result, 0, 9);
         layout.SetColumnSpan(_result, 3);
 
         var buttons = new FlowLayoutPanel
@@ -114,7 +151,7 @@ public sealed class SetupForm : Form
         var cancel = new Button { Text = "Bekor qilish", Width = 110, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(_save);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 8);
+        layout.Controls.Add(buttons, 0, 10);
         layout.SetColumnSpan(buttons, 3);
 
         Controls.Add(layout);
@@ -144,7 +181,13 @@ public sealed class SetupForm : Form
         // Ulanuvchi kassa hech qachon tarmoqqa ochilmaydi: unda API umuman
         // ishga tushmaydi va yoqilgan bayroq faqat chalkashtirardi.
         _secrets.SetAllowLan(!isClient && _lan.Checked);
+
+        var printer = _printer.SelectedItem as string;
+        _secrets.SetLabelPrinter(printer == NoPrinter ? null : printer);
     }
+
+    /// <summary>Ro'yxatdagi «tanlanmagan» qatori.</summary>
+    private const string NoPrinter = "— tanlanmagan (chop etish oynasi ochiladi)";
 
     /// <summary>
     /// Shu kompyuterning lokal tarmoqdagi manzil(lar)i — boshqa kassalarda

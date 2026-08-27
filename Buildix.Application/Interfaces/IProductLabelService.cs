@@ -1,4 +1,4 @@
-using Buildix.Application.Common;
+﻿using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 
 namespace Buildix.Application.Interfaces;
@@ -28,4 +28,8 @@ public interface IProductLabelService
     /// yaratiladi — aks holda kassir «chop etish» bosib, sababsiz xato olardi.
     /// </summary>
     Task<Result<byte[]>> RenderLabelsAsync(PrintLabelsDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Yorliqlarni rasm bo'lib beradi — aniq o'lchamli chop etish uchun.</summary>
+    Task<Result<IReadOnlyList<LabelImageDto>>> RenderLabelImagesAsync(
+        PrintLabelsDto request, CancellationToken cancellationToken = default);
 }

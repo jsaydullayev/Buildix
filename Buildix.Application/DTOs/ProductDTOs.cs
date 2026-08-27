@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace Buildix.Application.DTOs;
@@ -247,6 +247,17 @@ public record LabelItemDto(
 /// Yorliq chop etish so'rovi. Bitta tovar ham, ro'yxatdan belgilangan o'nlab
 /// tovar ham shu yo'l bilan boradi — chop etish oqimi bitta bo'lgani ma'qul.
 /// </summary>
+/// <summary>
+/// Bitta yorliqning rasmi va nechta nusxa bosilishi.
+///
+/// <para><c>Png</c> — base64. Rasm chop etish uchun aniq mm o'lchamli
+/// sahifaga qo'yiladi; nusxa soni rasmni takrorlaydi.</para>
+/// </summary>
+public record LabelImageDto(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("png")] string Png,
+    [property: JsonPropertyName("copies")] int Copies);
+
 public record PrintLabelsDto(
     [property: JsonPropertyName("items")]
     [param: MinLength(1, ErrorMessage = "Kamida bitta tovar tanlang")]

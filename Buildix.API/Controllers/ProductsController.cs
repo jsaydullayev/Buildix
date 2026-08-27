@@ -159,6 +159,25 @@ public class ProductsController : ApiControllerBase
     }
 
     /// <summary>
+    /// Yorliqlarni RASM bo'lib beradi — aniq o'lchamda chop etish uchun.
+    /// </summary>
+    /// <remarks>
+    /// <para>PDF sahifasi so'ralgan o'lchamda chiqadi, lekin uni brauzerning
+    /// chop etish oynasi bosadi va u sukut bo'yicha «sahifaga moslash»
+    /// qiladi — 58×40 mm yorliq A4 ga cho'zilib ketardi. Rasm esa aniq
+    /// <c>@page</c> o'lchami yozilgan sahifaga qo'yiladi va brauzer
+    /// o'lchamni drayverga o'zi aytadi.</para>
+    ///
+    /// <para>Ruxsat PDF yo'li bilan BIR XIL: bu yerda ham kodsiz tovarga
+    /// shtrix-kod biriktiriladi, ya'ni bu o'zgartiruvchi amal.</para>
+    /// </remarks>
+    [HttpPost("~/api/Products/labels/images")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<IReadOnlyList<LabelImageDto>>> PrintLabelImages(
+        [FromBody] PrintLabelsDto request, CancellationToken ct = default)
+        => ToActionResult(await _labelService.RenderLabelImagesAsync(request, ct));
+
+    /// <summary>
     /// Skaner uchun: shtrix-kod bo'yicha aniq moslik. Topilmasa 404.
     /// </summary>
     /// <remarks>

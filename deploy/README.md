@@ -348,6 +348,36 @@ qilinmaydi.
 Sozlama `%ProgramData%\Buildix\desktop.json` da saqlanadi — nashr fayllarida
 emas, ya'ni yangilanish unga tegmaydi.
 
+### Yorliq printeri
+
+Tovar yorliqlari 58×40, 40×30 yoki 30×20 mm rulonga bosiladi. Qog'ozga
+XATO o'lcham urilishining sababi deyarli har doim bitta: brauzerning chop
+etish oynasi sukut bo'yicha «sahifaga moslash» qiladi va Windows'dagi
+printer qog'ozi A4 bo'lsa, kichkina yorliq A4 ga cho'ziladi. Yorliq PDF ining
+o'zi har doim to'g'ri o'lchamda chiqadi — buni sinov millimetrigacha
+tekshiradi.
+
+Endi ikki himoya bor:
+
+1. **Har joyda.** Yorliq aniq `@page { size: 58mm 40mm; margin: 0 }` yozilgan
+   sahifaga qo'yiladi — brauzer o'lchamni drayverga o'zi aytadi va masshtab
+   qo'llamaydi.
+
+2. **Do'kon dasturida.** Sozlamada yorliq printerini bir marta tanlang:
+
+   ```
+   Buildix.Desktop.exe --setup   →   «Yorliq printeri»
+   ```
+
+   Shundan keyin yorliq chop etish oynasisiz, to'g'ridan-to'g'ri o'sha
+   printerga, aniq o'lchamda chiqadi. Do'konda odatda ikkita printer bo'ladi
+   (chek va yorliq) va oynada har safar to'g'risini tanlash kerak edi.
+
+Tanlanmagan bo'lsa avvalgidek oyna ochiladi — ish to'xtamaydi. Oynada
+**Masshtab: 100%** (yoki «Haqiqiy o'lcham») ekaniga ishonch hosil qiling va
+Windows'dagi printer sozlamasida qog'oz o'lchami rulonga mos bo'lsin: bu ikki
+qiymat drayver darajasida bo'lib, ularni ilova o'zgartira olmaydi.
+
 ### Kunlik zaxira nusxa
 
 Ilova ochilganda oxirgi nusxa 20 soatdan eski bo'lsa, fonda yangisini oladi:

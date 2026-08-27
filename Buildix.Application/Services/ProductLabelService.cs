@@ -1,4 +1,4 @@
-using Buildix.Application.Common;
+﻿using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Services.Barcodes;
@@ -76,6 +76,56 @@ public class ProductLabelService : IProductLabelService
     public async Task<Result<byte[]>> RenderLabelsAsync(
         PrintLabelsDto request, CancellationToken cancellationToken = default)
     {
+        var prepared = await PrepareLabelsAsync(request, cancellationToken);
+        if (prepared.IsFailure) return Result.Failure<byte[]>(prepared.Error!, prepared.Code);
+
+        return Result.Success(LabelPdfRenderer.Render(prepared.Value, request.WidthMm, request.HeightMm));
+    }
+
+    /// <summary>
+    /// Yorliqlarni RASM bo'lib beradi — har xil tovar uchun bittadan.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega PDF dan tashqari yana bir yo'l.</b> PDF sahifasi aynan
+    /// so'ralgan o'lchamda chiqadi, lekin uni brauzerning chop etish oynasi
+    /// bosadi va u sukut bo'yicha «sahifaga moslash» qiladi: 58×40 mm maket
+    /// printerdagi A4 qog'ozga cho'zilib ketardi. Rasmni esa aniq
+    /// <c>@page</c> o'lchami yozilgan sahifaga qo'yish mumkin — o'shanda
+    /// brauzer o'lchamni drayverga o'zi aytadi va masshtab qo'llanmaydi.</para>
+    ///
+    /// <para>Maket BITTA joyda qoladi: rasm ham, PDF ham o'sha
+    /// <see cref="LabelPdfRenderer"/> dan chiqadi. Alohida HTML maket
+    /// yozilganda ikkalasi vaqt o'tib bir-biridan uzoqlashardi.</para>
+    ///
+    /// <para>Nusxa soni rasmga ta'sir qilmaydi — bir xil rasm shuncha marta
+    /// bosiladi, shuning uchun yuz nusxa uchun ham bitta rasm yuboriladi.</para>
+    /// </remarks>
+    public async Task<Result<IReadOnlyList<LabelImageDto>>> RenderLabelImagesAsync(
+        PrintLabelsDto request, CancellationToken cancellationToken = default)
+    {
+        var prepared = await PrepareLabelsAsync(request, cancellationToken);
+        if (prepared.IsFailure)
+            return Result.Failure<IReadOnlyList<LabelImageDto>>(prepared.Error!, prepared.Code);
+
+        var images = prepared.Value
+            .Select(l => new LabelImageDto(
+                l.ProductName,
+                Convert.ToBase64String(
+                    LabelPdfRenderer.RenderPreviewPng(l, request.WidthMm, request.HeightMm)),
+                l.Copies))
+            .ToList();
+
+        return Result.Success<IReadOnlyList<LabelImageDto>>(images);
+    }
+
+    /// <summary>
+    /// Tovarlarni tekshiradi, kodsizlariga kod biriktiradi va yorliq
+    /// ma'lumotlarini so'rovdagi TARTIBDA qaytaradi. PDF va rasm yo'llari
+    /// shu yerdan boshlanadi — tekshiruvlar ikki joyda takrorlanmasin.
+    /// </summary>
+    private async Task<Result<IReadOnlyList<LabelData>>> PrepareLabelsAsync(
+        PrintLabelsDto request, CancellationToken cancellationToken)
+    {
         var marketId = _currentMarketService.GetCurrentMarketId();
 
         var ids = request.Items.Select(i => i.ProductId).Distinct().ToList();
@@ -85,7 +135,7 @@ public class ProductLabelService : IProductLabelService
 
         var missing = ids.Count - products.Count;
         if (missing > 0)
-            return Result.Failure<byte[]>($"{missing} ta mahsulot topilmadi.", "NOT_FOUND");
+            return Result.Failure<IReadOnlyList<LabelData>>($"{missing} ta mahsulot topilmadi.", "NOT_FOUND");
 
         // Kodsiz tovarlarga shu yerda kod beriladi. Aks holda kassir yoki
         // omborchi "chop etish" bosib, "kod yo'q" degan xatoni olardi va uni
@@ -94,7 +144,7 @@ public class ProductLabelService : IProductLabelService
         foreach (var product in products.Where(p => string.IsNullOrWhiteSpace(p.Barcode)))
         {
             if (await AssignUniqueBarcodeAsync(product, marketId, cancellationToken) is null)
-                return Result.Failure<byte[]>($"'{product.Name}' uchun shtrix-kod yaratib bo'lmadi.");
+                return Result.Failure<IReadOnlyList<LabelData>>($"'{product.Name}' uchun shtrix-kod yaratib bo'lmadi.");
             generated = true;
         }
         if (generated)
@@ -106,7 +156,7 @@ public class ProductLabelService : IProductLabelService
         // umumiy 400 ni oladi — qaysi tovar aybdorligi ko'rinmaydi.
         var broken = products.Where(p => !Barcodes.Symbology.TryNormalize(p.Barcode ?? string.Empty, out _, out _)).ToList();
         if (broken.Count > 0)
-            return Result.Failure<byte[]>(
+            return Result.Failure<IReadOnlyList<LabelData>>(
                 $"Yaroqsiz shtrix-kod: {string.Join(", ", broken.Select(p => $"'{p.Name}' ({p.Barcode})"))}. " +
                 "Tovar kartochkasidan kodni tuzating yoki tizim o'zi yaratsin.",
                 "INVALID_BARCODE");
@@ -118,7 +168,7 @@ public class ProductLabelService : IProductLabelService
             .Select(i => new LabelData(byId[i.ProductId].Name, byId[i.ProductId].Barcode!, byId[i.ProductId].Sku, i.Copies))
             .ToList();
 
-        return Result.Success(LabelPdfRenderer.Render(labels, request.WidthMm, request.HeightMm));
+        return Result.Success<IReadOnlyList<LabelData>>(labels);
     }
 
     /// <summary>

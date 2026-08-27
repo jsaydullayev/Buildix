@@ -1245,6 +1245,7 @@ export const uz: TranslationSchema = {
   },
   labels: {
     popupBlocked: 'Brauzer chop etish oynasini bloklagan — fayl yuklab olindi. Qurilmalar bo‘limidan printerni sinab ko‘ring.',
+    printFailed: 'Chop etish oynasini ochib bo‘lmadi. Brauzer sozlamalarini tekshiring.',
     title: 'Yorliq chop etish',
     subtitle: '{{count}} ta tovar',
     print: '{{count}} ta yorliq chop etish',

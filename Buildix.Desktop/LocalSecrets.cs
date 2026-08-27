@@ -168,6 +168,32 @@ public sealed class LocalSecrets
         Save();
     }
 
+    /// <summary>
+    /// Yorliq printerining Windows'dagi nomi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega kerak.</b> Do'konda ikkita printer bo'ladi: chek uchun
+    /// va yorliq uchun. Brauzerning chop etish oynasi har safar sukut
+    /// bo'yicha printerni tanlaydi va omborchi uni qo'lda almashtirishga
+    /// majbur bo'lardi — kuniga o'nlab marta. Nom shu yerda bir marta
+    /// saqlanadi va yorliq to'g'ridan-to'g'ri o'sha printerga ketadi.</para>
+    ///
+    /// <para>Bo'sh bo'lsa oyna ochiladi (avvalgi xulq) — ya'ni sozlanmagan
+    /// do'konda ham ish to'xtamaydi.</para>
+    /// </remarks>
+    public string? LabelPrinter =>
+        _root["LabelPrinter"] is JsonValue v && v.TryGetValue<string>(out var name)
+        && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : null;
+
+    public void SetLabelPrinter(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) _root.Remove("LabelPrinter");
+        else _root["LabelPrinter"] = name.Trim();
+        Save();
+    }
+
     /// <summary>Kalit bo'yicha sirni oladi; bo'lmasa <paramref name="create"/> bilan yaratadi.</summary>
     public string GetOrCreate(string key, Func<string> create)
     {
