@@ -42,7 +42,7 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
         // data.allSalesView they must not read the shop's total takings.
         var daySales = _db.Sales.AsNoTracking().Where(s =>
             s.MarketId == marketId && !s.IsDeleted &&
-            s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled &&
+            s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance &&
             s.CreatedAt >= dayStart && s.CreatedAt < dayEnd &&
             (options.SellerId == null || s.SellerId == options.SellerId));
 

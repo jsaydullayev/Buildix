@@ -507,14 +507,20 @@ public class CashRegisterService : ICashRegisterService
                 .Include(s => s.Payments)
                 .ToListAsync(cancellationToken);
 
+            // Eski qarzning texnik qatori (Sale.IsOpeningBalance) — savdo emas:
+            // chek soniga, tushumga va bugungi qarzga kirmaydi. Aks holda mijoz
+            // kiritilgan kuni kassa oynasi bir million so'mlik "sotuv"ni
+            // ko'rsatardi. To'lovi esa haqiqiy pul — quyidagi naqd/karta
+            // summalarida qoladi.
+            var realSales = todaySales.Where(s => !s.IsOpeningBalance).ToList();
             var allPayments = todaySales.SelectMany(s => s.Payments).ToList();
 
             return new TodaySalesSummaryDto
             {
-                TotalSales = todaySales.Count,
-                TotalAmount = todaySales.Sum(s => s.TotalAmount),
-                TotalPaid = todaySales.Sum(s => s.PaidAmount),
-                DebtAmount = todaySales.Sum(s => s.TotalAmount > s.PaidAmount ? s.TotalAmount - s.PaidAmount : 0),
+                TotalSales = realSales.Count,
+                TotalAmount = realSales.Sum(s => s.TotalAmount),
+                TotalPaid = realSales.Sum(s => s.PaidAmount),
+                DebtAmount = realSales.Sum(s => s.TotalAmount > s.PaidAmount ? s.TotalAmount - s.PaidAmount : 0),
                 CashPaid = allPayments
                     .Where(p => p.PaymentType == Domain.Enums.PaymentType.Cash)
                     .Sum(p => p.Amount),

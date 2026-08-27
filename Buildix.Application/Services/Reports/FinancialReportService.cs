@@ -86,7 +86,7 @@ public sealed class FinancialReportService(
         var discounts = await _context.Sales
             .AsNoTracking()
             .Where(s => s.MarketId == marketId
-                     && s.Status != SaleStatus.Cancelled
+                     && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance
                      && s.Status != SaleStatus.Draft)
             .GroupBy(_ => 1)
             .Select(g => new
@@ -116,7 +116,7 @@ public sealed class FinancialReportService(
         // Get all payments for today
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= todayStart && s.CreatedAt < todayEnd &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.Payments), cancellationToken);
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.Payments), cancellationToken);
 
         decimal cashInRegister = 0;
         decimal cardPayments = 0;

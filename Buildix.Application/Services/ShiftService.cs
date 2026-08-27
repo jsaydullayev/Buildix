@@ -424,7 +424,7 @@ public class ShiftService : IShiftService
         var salesInWindow = _db.Sales.AsNoTracking()
             .Where(x => x.MarketId == marketId && x.SellerId == seller
                 && x.CreatedAt >= start && x.CreatedAt <= windowEnd
-                && x.Status != SaleStatus.Draft && x.Status != SaleStatus.Cancelled);
+                && x.Status != SaleStatus.Draft && x.Status != SaleStatus.Cancelled && !x.IsOpeningBalance);
         var revenue = await salesInWindow.SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
         var checkCount = await salesInWindow.CountAsync(cancellationToken);
 

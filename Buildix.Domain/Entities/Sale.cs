@@ -36,6 +36,30 @@ public class Sale : BaseEntity, ISoftDelete
     // total drops. 0 = no discount.
     public decimal DiscountAmount { get; set; }
 
+    /// <summary>
+    /// Bu yozuv SAVDO emas — mijozning tizimdan OLDINGI qarzini olib yuruvchi
+    /// texnik qator.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega bunday yozuv bor.</b> Qarz har doim savdoga bog'lanadi
+    /// (<c>Debt.SaleId</c>). Do'kon Buildix'ga o'tayotganda mijozlarning eski
+    /// qarzi ham kiritiladi, lekin unga mos savdo tizimda yo'q — shu sababli
+    /// tovarsiz qator yaratiladi.</para>
+    ///
+    /// <para><b>Nega belgi kerak.</b> Belgisiz u hisobotlarga oddiy savdo
+    /// bo'lib kirardi: kiritilgan kuni tushum bir million so'mga ko'tarilardi,
+    /// chek soniga qo'shilardi, o'rtacha chekni buzardi va tovari yo'qligi
+    /// uchun marjani yerga urardi. Egasi hisobotda «bu pul qayerdan keldi?»
+    /// degan savolga javob topa olmasdi — chunki uning ortida hech qanday
+    /// tovar yo'q edi.</para>
+    ///
+    /// <para>Qarz moduli bu qatorni ODATDAGIDEK ko'radi: to'lov ham shu yerga
+    /// yoziladi. Faqat TUSHUM hisobi uni chetlab o'tadi. To'langan pul
+    /// kassaga kirim bo'lib tushadi — u yerda u haqiqatan ham pul
+    /// harakati.</para>
+    /// </remarks>
+    public bool IsOpeningBalance { get; set; } = false;
+
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
 

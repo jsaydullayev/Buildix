@@ -94,7 +94,7 @@ public sealed class DashboardService(
 
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= rangeStartUtc && s.CreatedAt < rangeEndUtc &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                  s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
 
         var includeProfit = canViewProfit;
@@ -148,7 +148,7 @@ public sealed class DashboardService(
 
             var prevSales = await _unitOfWork.Sales.FindAsync(
                 s => s.CreatedAt >= prevStartUtc && s.CreatedAt < prevEndUtc &&
-                     s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                     s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                      s.MarketId == marketId,
                 cancellationToken);
 
@@ -174,7 +174,7 @@ public sealed class DashboardService(
 
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= rangeStartUtc && s.CreatedAt < rangeEndUtc &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                  s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
 
         // Fallback: if `today` returned nothing (typical for fresh shops at
@@ -188,7 +188,7 @@ public sealed class DashboardService(
             effectivePeriod = "week";
             sales = await _unitOfWork.Sales.FindAsync(
                 s => s.CreatedAt >= rangeStartUtc && s.CreatedAt < rangeEndUtc &&
-                     s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                     s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                      s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
         }
 
@@ -284,7 +284,7 @@ public sealed class DashboardService(
 
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= rangeStartUtc && s.CreatedAt < rangeEndUtc &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                  s.MarketId == marketId,
             cancellationToken);
 
@@ -358,7 +358,7 @@ public sealed class DashboardService(
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= rangeStartUtc && s.CreatedAt < rangeEndUtc &&
                  s.SellerId == userId &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                  s.MarketId == marketId,
             cancellationToken);
 

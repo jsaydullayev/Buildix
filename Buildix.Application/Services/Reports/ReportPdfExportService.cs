@@ -44,7 +44,7 @@ public sealed class ReportPdfExportService(
 
         var sales = await _unitOfWork.Sales.FindAsync(
             s => s.CreatedAt >= start && s.CreatedAt < end &&
-                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                 s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                  s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments).Include(e => e.Seller).Include(e => e.Customer), cancellationToken);
 
         // Get all products for the sale items

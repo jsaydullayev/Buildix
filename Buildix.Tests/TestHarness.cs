@@ -133,6 +133,10 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, Audit, Settings, Substitute.For<ITelegramNotifier>(),
             Clock, CashLedger, Substitute.For<INotificationService>());
 
+    public CashRegisterService NewCashRegisterService() =>
+        new(UnitOfWork, NullLogger<CashRegisterService>.Instance, Db, Market, Clock, Audit,
+            Settings, Substitute.For<ITelegramNotifier>(), CashLedger);
+
     public ProductService NewProductService() =>
         new(UnitOfWork, Db, Market, Audit, StockLedger);
 

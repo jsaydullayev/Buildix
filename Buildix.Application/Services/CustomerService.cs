@@ -166,14 +166,15 @@ public class CustomerService : ICustomerService
         var monthStartUtc = _clock.LocalDayToUtcRange(new DateTime(_clock.TodayLocal.Year, _clock.TodayLocal.Month, 1)).UtcStart;
         var monthAgg = await _context.Sales
             .Where(s => s.CustomerId.HasValue && customerIds.Contains(s.CustomerId.Value) && s.MarketId == marketId
-                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && s.CreatedAt >= monthStartUtc)
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance
+                && s.CreatedAt >= monthStartUtc)
             .GroupBy(s => s.CustomerId!.Value)
             .Select(g => new { CustomerId = g.Key, Count = g.Count(), Sum = g.Sum(x => x.TotalAmount) })
             .ToDictionaryAsync(x => x.CustomerId, x => new { x.Count, x.Sum }, cancellationToken);
         // Butun tarix bo'yicha: chek soni + summa + oxirgi xarid sanasi (bitta scan).
         var allAgg = await _context.Sales
             .Where(s => s.CustomerId.HasValue && customerIds.Contains(s.CustomerId.Value) && s.MarketId == marketId
-                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance)
             .GroupBy(s => s.CustomerId!.Value)
             .Select(g => new { CustomerId = g.Key, Count = g.Count(), Sum = g.Sum(x => x.TotalAmount), Last = g.Max(x => x.CreatedAt) })
             .ToDictionaryAsync(x => x.CustomerId, x => new { x.Count, x.Sum, x.Last }, cancellationToken);
@@ -205,7 +206,10 @@ public class CustomerService : ICustomerService
         var sales = await _context.Sales
             .AsNoTracking()
             .Where(s => s.CustomerId == customerId && s.MarketId == marketId && !s.IsDeleted
-                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
+                // Eski qarzning texnik qatori XARID emas — ro'yxatda
+                // ko'rinsa, mijoz hech qachon olmagan tovar uchun chek
+                // ochilgandek bo'lardi.
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance)
             .OrderByDescending(s => s.CreatedAt)
             .Take(limit)
             .Select(s => new
@@ -296,7 +300,12 @@ public class CustomerService : ICustomerService
 
             if (hasInitialDebt)
             {
-                // Dummy sale yaratamiz (mahsulotsiz, faqat qarz uchun)
+                // Qarz har doim savdoga bog'lanadi, eski qarzning esa savdosi
+                // yo'q — shuning uchun tovarsiz texnik qator yaratiladi.
+                //
+                // `IsOpeningBalance` MAJBURIY: usiz bu qator hisobotlarga
+                // oddiy savdo bo'lib kirardi va mijoz kiritilgan kuni tushum
+                // qarz summasiga ko'tarilib ketardi.
                 var dummySale = new Buildix.Domain.Entities.Sale
                 {
                     Id = Guid.NewGuid(),
@@ -305,6 +314,7 @@ public class CustomerService : ICustomerService
                     TotalAmount = request.InitialDebt!.Value,
                     PaidAmount = 0,
                     Status = Buildix.Domain.Enums.SaleStatus.Debt,
+                    IsOpeningBalance = true,
                     IsDeleted = false,
                     CreatedAt = DateTime.UtcNow,
                     MarketId = marketId

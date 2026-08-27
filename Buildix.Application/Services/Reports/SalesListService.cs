@@ -39,7 +39,7 @@ public sealed class SalesListService(
         var (_, end) = GetUtcDateRange(endDate ?? date);
 
         Expression<Func<Sale, bool>> salesQuery = s => s.CreatedAt >= start && s.CreatedAt < end &&
-                              s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft &&
+                              s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance &&
                               s.MarketId == marketId &&
                               (userRole != Role.Seller.ToString() || s.SellerId == userId);
 
@@ -153,7 +153,7 @@ public sealed class SalesListService(
             cancellationToken);
 
         var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
+            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
 
         var products = await _unitOfWork.Products.FindAsync(
             p => p.MarketId == marketId,

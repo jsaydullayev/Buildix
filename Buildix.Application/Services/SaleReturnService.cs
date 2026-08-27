@@ -238,7 +238,7 @@ public class SaleReturnService : ISaleReturnService
         var revenue = await _context.Sales
             .AsNoTracking()
             .Where(s => s.MarketId == marketId && s.CreatedAt >= fromUtc
-                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled)
+                && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance)
             .SumAsync(s => (decimal?)s.TotalAmount, cancellationToken) ?? 0m;
 
         var returnTotal = agg?.Total ?? 0m;

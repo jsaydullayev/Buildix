@@ -107,7 +107,7 @@ public class SuperAdminStoreService : ISuperAdminStoreService
         var monthStartUtc = _clock.LocalDayToUtcRange(new DateTime(today.Year, today.Month, 1)).UtcStart;
         var checks = await _context.Sales.IgnoreQueryFilters().AsNoTracking()
             .CountAsync(s => s.MarketId == marketId && !s.IsDeleted
-                             && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled
+                             && s.Status != SaleStatus.Draft && s.Status != SaleStatus.Cancelled && !s.IsOpeningBalance
                              && s.CreatedAt >= monthStartUtc, cancellationToken);
 
         var debt = await _context.Debts.IgnoreQueryFilters().AsNoTracking()

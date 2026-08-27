@@ -488,6 +488,11 @@ public class AppDbContext : DbContext, IAppDbContext
             // max+1 read, so concurrent creates can't reuse a number.
             b.HasIndex(x => new { x.MarketId, x.SaleNumber });
 
+            // Eski qarzning texnik qatori — tushum hisobidan chiqariladi
+            // (Sale.IsOpeningBalance izohiga qarang). Sukut `false`, ya'ni
+            // mavjud savdolar odatdagidek qolaveradi.
+            b.Property(x => x.IsOpeningBalance).HasDefaultValue(false);
+
             // The drawer session this sale was rung up in (receipt "Смена №N").
             // Optional + Restrict: shift history must never cascade-delete sales.
             b.HasOne(x => x.Shift).WithMany().HasForeignKey(x => x.ShiftId)

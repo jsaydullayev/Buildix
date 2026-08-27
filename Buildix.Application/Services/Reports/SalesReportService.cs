@@ -34,7 +34,7 @@ public sealed class SalesReportService(
         var (start, end) = GetUtcDateRange(date);
 
         var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
+            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
 
         var zakups = await _unitOfWork.Zakups.FindAsync(
             z => z.CreatedAt >= start && z.CreatedAt < end && z.MarketId == marketId,
@@ -49,7 +49,7 @@ public sealed class SalesReportService(
         var (start, end) = GetUtcDateRange(date);
 
         var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
+            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.SaleItems), cancellationToken);
 
         // ✅ Batch fetch all ordinary products to avoid N+1 query (faqat oddiy mahsulotlar uchun)
         var ordinaryProductIds = sales
@@ -148,7 +148,7 @@ public sealed class SalesReportService(
         var endDateTime = request.EndDate.AddDays(1);
 
         var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.CreatedAt >= request.StartDate && s.CreatedAt < endDateTime && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
+            s => s.CreatedAt >= request.StartDate && s.CreatedAt < endDateTime && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
 
         var zakups = await _unitOfWork.Zakups.FindAsync(
             z => z.CreatedAt >= request.StartDate && z.CreatedAt < endDateTime && z.MarketId == marketId,
@@ -182,7 +182,7 @@ public sealed class SalesReportService(
 
         // Get daily sales with SaleItems and Payments
         var sales = await _unitOfWork.Sales.FindAsync(
-            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
+            s => s.CreatedAt >= start && s.CreatedAt < end && s.Status != SaleStatus.Cancelled && s.Status != SaleStatus.Draft && !s.IsOpeningBalance && s.MarketId == marketId, q => q.Include(e => e.SaleItems).Include(e => e.Payments), cancellationToken);
 
         // Get zakups
         var zakups = await _unitOfWork.Zakups.FindAsync(
