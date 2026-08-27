@@ -1,4 +1,4 @@
-using Buildix.Application.DTOs;
+﻿using Buildix.Application.DTOs;
 
 namespace Buildix.Application.Interfaces.Reports;
 
@@ -14,4 +14,8 @@ public interface ISalesListService
     /// </summary>
     Task<DailySalesListDto> GetDailySalesListAsync(DateTime date, string? userRole = null, bool canViewProfit = false, Guid? userId = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
     Task<MonthlyCategorySalesResponseDto> GetMonthlyCategorySalesAsync(DateTime date, bool canViewProfit = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Kategoriyalar bo'yicha sotuv — ixtiyoriy davr uchun.</summary>
+    Task<MonthlyCategorySalesResponseDto> GetCategorySalesAsync(
+        DateTime start, DateTime end, bool canViewProfit = false, CancellationToken cancellationToken = default);
 }

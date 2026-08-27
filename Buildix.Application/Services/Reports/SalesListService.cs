@@ -1,4 +1,4 @@
-using Buildix.Application.DTOs;
+﻿using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Interfaces.Reports;
 using Buildix.Domain.Entities;
@@ -142,11 +142,32 @@ public sealed class SalesListService(
         );
     }
 
-    public async Task<MonthlyCategorySalesResponseDto> GetMonthlyCategorySalesAsync(DateTime date, bool canViewProfit = false, CancellationToken cancellationToken = default)
+    public Task<MonthlyCategorySalesResponseDto> GetMonthlyCategorySalesAsync(DateTime date, bool canViewProfit = false, CancellationToken cancellationToken = default)
+    {
+        var start = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        return GetCategorySalesAsync(start, start.AddMonths(1), canViewProfit, cancellationToken);
+    }
+
+    /// <summary>
+    /// Kategoriyalar bo'yicha sotuv — IXTIYORIY davr uchun.
+    /// </summary>
+    /// <remarks>
+    /// <para>Oy bo'yicha variant shu yerga tayanadi, ya'ni hisob mantig'i
+    /// bitta joyda. «Kategoriyalar» bo'limi esa hafta/oy/chorak tanlashi
+    /// mumkin — do'kon egasi «qaysi yo'nalish yaxshi ketyapti» degan savolga
+    /// bir oy kutmasdan javob topishi kerak.</para>
+    ///
+    /// <para><b>Chegirma.</b> U butun chekka tegishli va uni bitta
+    /// kategoriyaga bo'lib bo'lmaydi, shuning uchun kategoriya qatorlari
+    /// chegirmasiz (gross) qoladi, yakuniy jami esa chegirma ayirilgan
+    /// holda. Ulushni hisoblashda qatorlarning O'Z yig'indisi bo'luvchi
+    /// bo'lishi kerak — aks holda foizlar 100 dan oshib ketadi.</para>
+    /// </remarks>
+    public async Task<MonthlyCategorySalesResponseDto> GetCategorySalesAsync(
+        DateTime start, DateTime end, bool canViewProfit = false, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
-        var start = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var end = start.AddMonths(1);
+        var date = start;
 
         var categories = await _unitOfWork.ProductCategories.FindAsync(
             c => c.MarketId == marketId && c.IsActive && !c.IsDeleted,

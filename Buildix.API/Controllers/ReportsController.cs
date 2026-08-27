@@ -205,6 +205,32 @@ public class ReportsController(
         return Ok(report);
     }
 
+    /// <summary>
+    /// Kategoriyalar bo'yicha sotuv — ixtiyoriy davr uchun.
+    /// </summary>
+    /// <remarks>
+    /// <para>«Kategoriyalar» bo'limi shuni chaqiradi: egasi qaysi yo'nalish
+    /// yaxshi ketayotganini hafta/oy/chorak kesimida ko'radi. Yuqoridagi oy
+    /// bo'yicha variant shu bilan bir xil hisobga tayanadi.</para>
+    ///
+    /// <para>Ruxsat sotuvlarniki — bu savdo ma'lumoti; kategoriya ro'yxatini
+    /// ko'rish huquqi o'z-o'zidan tushum raqamlarini ko'rish huquqini
+    /// bermaydi.</para>
+    /// </remarks>
+    [HttpGet("category-sales")]
+    [RequirePermission(PermissionKeys.SalesAccess)]
+    public async Task<ActionResult<MonthlyCategorySalesResponseDto>> GetCategorySales(
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (endDate <= startDate)
+            return BadRequest(new { message = "Davr oxiri boshidan keyin bo'lishi kerak." });
+
+        var report = await _salesListService.GetCategorySalesAsync(
+            startDate, endDate, CanViewProfit(), cancellationToken);
+        return Ok(report);
+    }
+
     // ── PDF exports (IReportPdfExportService) ────────────────────────────────
 
     [HttpGet("daily/export-pdf")]

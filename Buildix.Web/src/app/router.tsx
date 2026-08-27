@@ -39,6 +39,7 @@ const PosPage = lazy(() => import('@/features/pos/PosPage'));
 // filled in over later phases (cash=A3, products=A2, returns=A5).
 const CashPage = lazy(() => import('@/features/cash/CashPage'));
 const ProductsPage = lazy(() => import('@/features/products/ProductsPage'));
+const CategoriesPage = lazy(() => import('@/features/categories/CategoriesPage'));
 const ReturnsPage = lazy(() => import('@/features/returns/ReturnsPage'));
 
 // SuperAdmin konsoli — S0: qobiq, marshrutlar va tema; ekranlar S1..S5 da
@@ -143,6 +144,7 @@ export const router = createBrowserRouter([
       { path: 'audit', element: perm(PERMISSIONS.data.auditLog, <AuditPage />) },
       // Qurilmalar: printer va skanerni sinash. products.access — kassir ham
       // o'z skanerini tekshira olsin.
+      { path: 'categories', element: perm(PERMISSIONS.categories.access, <CategoriesPage />) },
       { path: 'devices', element: perm(PERMISSIONS.products.access, <DevicesPage />) },
       { path: 'notifications', element: perm(PERMISSIONS.notifications.access, <NotificationsPage />) },
       {
