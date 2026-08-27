@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using Buildix.Application.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -36,6 +36,43 @@ namespace Buildix.Application.Services
 
             // Auto-adjust column width
             worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        /// <inheritdoc />
+        public byte[] GenerateExcel(
+            IReadOnlyList<string> headers,
+            IEnumerable<IReadOnlyList<object?>> rows,
+            string sheetName = "Sheet1")
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add(sheetName);
+
+            for (int i = 0; i < headers.Count; i++)
+            {
+                worksheet.Cell(1, i + 1).Value = headers[i];
+                worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+            }
+
+            var r = 2;
+            foreach (var row in rows)
+            {
+                // Qator sarlavhadan uzun bo'lsa ortiqchasi TASHLANADI: aks
+                // holda ustunsiz katakcha paydo bo'lib, fayl jimgina
+                // buzilardi.
+                var take = Math.Min(row.Count, headers.Count);
+                for (int c = 0; c < take; c++)
+                    SetCellValue(worksheet.Cell(r, c + 1), row[c]);
+                r++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+            // Sarlavha qatori doim ko'rinib tursin — uzun ro'yxatni pastga
+            // aylantirganda qaysi ustun nimaligi bilinmay qolardi.
+            worksheet.SheetView.FreezeRows(1);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
