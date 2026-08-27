@@ -44,6 +44,10 @@ export const uz: TranslationSchema = {
   },
   sync: {
     unpaired: "Do'kon kompyuteri bulutga bog'lanmagan — bu yerdagi ma'lumot yangilanmaydi.",
+    unpairedShop: "Bu kompyuter bulutga bog'lanmagan — savdo ishlaydi, lekin egasi uni masofadan ko'ra olmaydi.",
+    staleShop: "Bulutga {{age}} dan beri ma'lumot yuborilmadi — egasi masofadan eski raqamlarni ko'radi.",
+    pushBroken: "Bulutga ma'lumot yuborilmayapti. Savdo ishlayveradi, lekin egasi masofadan eski raqamlarni ko'radi — qo'llab-quvvatlashga murojaat qiling.",
+    pushBrokenCloud: "Do'kon aloqada, lekin ma'lumot kelmayapti — bu yerdagi raqamlar eskirgan. Qo'llab-quvvatlashga murojaat qiling.",
     stale: "Ma'lumot {{age}} oldin yangilangan — do'kon aloqada emas.",
     ageUnknown: 'anchadan',
     ageMinutes: '{{count}} daqiqa',

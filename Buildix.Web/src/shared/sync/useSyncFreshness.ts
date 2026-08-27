@@ -10,6 +10,15 @@ export interface SyncFreshness {
   lastSyncAtUtc: string | null;
   secondsSinceSync: number | null;
   terminalName: string | null;
+  /**
+   * Sinxronizatsiya buzilgan bo'lsa — sababi.
+   *
+   * <p>Aynan shu maydon «aloqa bor, lekin ma'lumot kelmayapti» holatini
+   * ochib beradi — ilgari u yashil belgi ostida butunlay ko'rinmas edi.</p>
+   */
+  error: string | null;
+  /** Ekran do'kon kompyuterida ochilganmi. */
+  isShopMachine: boolean;
 }
 
 /**

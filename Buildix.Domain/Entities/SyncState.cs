@@ -1,4 +1,4 @@
-namespace Buildix.Domain.Entities;
+﻿namespace Buildix.Domain.Entities;
 
 /// <summary>
 /// Do'kon nusxasining sinxronizatsiya holati.
@@ -35,4 +35,20 @@ public class SyncState
     /// faqat egasi telefonda eski raqamlarni ko'rganda bilardi.</para>
     /// </summary>
     public string? LastError { get; set; }
+
+    /// <summary>Oxirgi muvaffaqiyatli YUBORISH (do'kon soati bo'yicha).</summary>
+    public DateTime? LastPushedAtUtc { get; set; }
+
+    /// <summary>
+    /// Oxirgi yuborish xatosi. Muvaffaqiyatda tozalanadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Tortish (pull) va yuborish (push) MUSTAQIL buziladi va ularning
+    /// oqibati ham har xil: tortish ishlamasa do'kon bulutdagi o'zgarishni
+    /// ko'rmaydi, yuborish ishlamasa esa egasining telefonida savdo umuman
+    /// ko'rinmaydi. Bitta maydonda saqlansa, biri ikkinchisini o'chirib
+    /// yuborardi: pull muvaffaqiyatli o'tib xatoni tozalar va push'ning
+    /// buzilgani izsiz yo'qolardi.</para>
+    /// </remarks>
+    public string? LastPushError { get; set; }
 }

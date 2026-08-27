@@ -1,4 +1,4 @@
-using Buildix.Domain.Common;
+﻿using Buildix.Domain.Common;
 
 namespace Buildix.Domain.Entities;
 
@@ -36,6 +36,22 @@ public class ShopTerminal : BaseEntity
     /// chiqmayapti» deyish uchun yagona manba.
     /// </summary>
     public DateTime? LastSeenAtUtc { get; set; }
+
+    /// <summary>
+    /// Do'kondan ma'lumot oxirgi marta QACHON KELGANI (muvaffaqiyatli push).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega <see cref="LastSeenAtUtc"/> yetarli emas.</b> U so'rov
+    /// KELGANIDA, ya'ni kalit tekshiruvidan o'tganda qo'yiladi — push'ning
+    /// o'zi muvaffaqiyatli bo'ldimi yoki tashqi kalit xatosi bilan yiqildimi,
+    /// unga farqi yo'q. Natijada bulut har daqiqada «do'kon aloqada» deb
+    /// belgilar, ma'lumot esa haftalab kelmasligi mumkin edi va egasining
+    /// telefonida yashil «hozirgina sinxron» yozuvi turardi.</para>
+    ///
+    /// <para>«Ma'lumot yangi» degan savolga faqat SHU maydon javob bera
+    /// oladi: aloqa boshqa narsa, ma'lumotning yetib kelishi boshqa.</para>
+    /// </remarks>
+    public DateTime? LastPushAtUtc { get; set; }
 
     /// <summary>
     /// Bekor qilingan vaqt. Null bo'lmasa kalit ishlamaydi — kompyuter

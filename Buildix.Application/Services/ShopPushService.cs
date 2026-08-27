@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
@@ -82,14 +82,67 @@ public class ShopPushService : IShopPushService
         {
             var result = await PushOnceAsync(ct);
 
+            // O'tkazib yuborildi (hali bog'lanmagan yoki bulutdan hech narsa
+            // tortilmagan). Bu na muvaffaqiyat, na xato — holatga TEGMAYMIZ.
+            // Aks holda bog'lanmagan do'kon «hozirgina yubordi» bo'lib
+            // ko'rinardi: `Skipped` ham `Success = true` qaytaradi.
+            if (result.Success && result.Error is not null) return result;
+
             // Uzilish yuz bersa, shu paytgacha yetkazilgani saqlanib qoladi:
             // belgilar har qadamda alohida suriladi.
-            if (!result.Success) return total > 0 ? ShopPushResult.Ok(total) : result;
+            if (!result.Success)
+            {
+                // Yarim yo'lda uzilgan bo'lsa ham bu MUVAFFAQIYAT emas: qolgan
+                // qatorlar hali bulutda yo'q va sabab yozilishi kerak.
+                await RecordOutcomeAsync(result.Error, ct);
+                return total > 0 ? ShopPushResult.Ok(total) : result;
+            }
 
             total += result.Rows;
             if (result.Rows == 0) break;   // navbat bo'shadi
         }
+
+        await RecordOutcomeAsync(null, ct);
         return ShopPushResult.Ok(total);
+    }
+
+    /// <summary>
+    /// Yuborishning natijasini do'kon bazasiga yozadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari push xatosi FAQAT jurnalga tushardi. Oqibati og'ir edi:
+    /// tashqi kalit xatosi yuz bersa, do'kon har daqiqada aynan o'sha paketni
+    /// qayta yuborar va har safar yiqilardi, ekranda esa hech qanday iz
+    /// qolmasdi. Egasining telefonida «hozirgina sinxron» degan yashil belgi
+    /// turardi, chunki u aloqa vaqtiga qarardi — ma'lumot esa haftalab
+    /// kelmasdi.</para>
+    ///
+    /// <para>Holatni yozish O'ZI xato bersa, savdo to'xtamasligi kerak: bu
+    /// yordamchi ma'lumot, pul harakati emas.</para>
+    /// </remarks>
+    private async Task RecordOutcomeAsync(string? error, CancellationToken ct)
+    {
+        try
+        {
+            var state = await _context.SyncStates.FirstOrDefaultAsync(ct);
+            if (state is null) return;
+
+            if (error is null)
+            {
+                state.LastPushedAtUtc = _clock.GetUtcNow().UtcDateTime;
+                state.LastPushError = null;
+            }
+            else
+            {
+                state.LastPushError = error.Length > 500 ? error[..500] : error;
+            }
+
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Push holatini yozib bo'lmadi");
+        }
     }
 
     private async Task<ShopPushResult> PushOnceAsync(CancellationToken ct = default)

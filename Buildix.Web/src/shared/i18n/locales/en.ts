@@ -44,6 +44,10 @@ export const en: TranslationSchema = {
   },
   sync: {
     unpaired: 'The shop computer is not paired with the cloud — data here is not updating.',
+    unpairedShop: 'This computer is not linked to the cloud — sales work, but the owner cannot see them remotely.',
+    staleShop: 'Nothing has reached the cloud for {{age}} — the owner sees stale figures remotely.',
+    pushBroken: 'Data is not reaching the cloud. Sales keep working, but the owner sees stale figures remotely — contact support.',
+    pushBrokenCloud: 'The shop is online, but no data is arriving — the figures here are stale. Contact support.',
     stale: 'Data last updated {{age}} ago — the shop is offline.',
     ageUnknown: 'a while',
     ageMinutes: '{{count}} min',

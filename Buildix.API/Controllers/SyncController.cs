@@ -1,4 +1,4 @@
-using Buildix.API.Filters;
+﻿using Buildix.API.Filters;
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
@@ -23,7 +23,13 @@ public class SyncController : ControllerBase
 {
     private readonly ISyncPullService _pull;
 
-    public SyncController(ISyncPullService pull) => _pull = pull;
+    private readonly IAppDbContext _db;
+
+    public SyncController(ISyncPullService pull, IAppDbContext db)
+    {
+        _pull = pull;
+        _db = db;
+    }
 
     /// <summary>
     /// Do'kondan kelgan yozuvlarni qabul qiladi.
@@ -57,7 +63,42 @@ public class SyncController : ControllerBase
 
         if (payload is null) return BadRequest(new { message = "Bo'sh to'plam." });
 
-        return Ok(await push.AcceptAsync(terminal.MarketId, payload, ct));
+        var result = await push.AcceptAsync(terminal.MarketId, payload, ct);
+
+        // Ma'lumot HAQIQATAN yozildi — endi «yangilik» belgisini shu yerda
+        // qo'yamiz.
+        //
+        // Ilgari yangilik `LastSeenAtUtc` ga qarardi, u esa kalit
+        // tekshiruvidan o'tishda qo'yilardi: push tashqi kalit xatosi bilan
+        // yiqilsa ham «do'kon hozirgina aloqada bo'ldi» deb belgilanardi.
+        // Natijada egasining telefonida yashil «sinxron» yozuvi turar, bulutga
+        // esa haftalab birorta savdo tushmasdi. Aloqa boshqa narsa,
+        // ma'lumotning yetib kelishi boshqa.
+        await MarkDataReceivedAsync(terminal, ct);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Do'kondan ma'lumot kelgan vaqtni belgilaydi. Daqiqada bir marta —
+    /// har push'da yozish jadvalni bekorga bezovta qilardi.
+    /// </summary>
+    private async Task MarkDataReceivedAsync(ShopTerminal terminal, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        if (terminal.LastPushAtUtc is { } last && now - last < TimeSpan.FromMinutes(1)) return;
+
+        try
+        {
+            terminal.LastPushAtUtc = now;
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception)
+        {
+            // Belgini yozib bo'lmasa ham ma'lumot allaqachon qabul qilingan —
+            // bu chaqiruvni yiqitish qabul qilingan qatorlarni qayta
+            // yuborishga majbur qilardi.
+        }
     }
 
     /// <summary>
