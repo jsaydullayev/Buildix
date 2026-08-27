@@ -1135,7 +1135,11 @@ export default function SellerPosPage() {
             </Button>
             <Button
               fullWidth
-              disabled={items.length === 0}
+              // Serverga yetib bormagan qatorlar bo'lsa yakunlab bo'lmaydi:
+              // to'lov oynasi chekni SERVERDAN o'qiydi va o'sha payt ekranda
+              // ko'rinayotgan summadan kam raqam chiqarardi — kassir tovarni
+              // urib, javobni kutmasdan «Yakunlash» bosishi mumkin.
+              disabled={items.length === 0 || Object.keys(pending).length > 0}
               loading={applyDiscount.isPending}
               onClick={openCheckout}
             >

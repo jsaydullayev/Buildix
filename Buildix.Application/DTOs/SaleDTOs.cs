@@ -151,8 +151,15 @@ public record AddPaymentDto(
     [param: Required(ErrorMessage = "To'lov turi majburiy")]
     string PaymentType,
 
+    // NOL ataylab ruxsat etilgan: u «to'lanadigan narsa yo'q, chekni yop»
+    // degani va butun summasi chegirmaga ketgan chek uchun kerak. Manfiy
+    // summa esa hech qachon o'rinli emas.
+    //
+    // Nol haqiqatan o'rinlimi — buni SalePaymentService hal qiladi: qoldiq
+    // bor bo'lsa u rad etiladi. Bu tekshiruv shu qarorni QABUL QILA
+    // olmasdi, chunki u chekning holatini ko'rmaydi.
     [property: JsonPropertyName("amount")]
-    [param: Range(0.01, double.MaxValue, ErrorMessage = "To'lov miqdori 0 dan katta bo'lishi kerak")]
+    [param: Range(0, double.MaxValue, ErrorMessage = "To'lov miqdori manfiy bo'lmasin")]
     decimal Amount,
 
     // Qisman to'lov qarz qoldirsa — yaratilgan qarzning to'lov muddati

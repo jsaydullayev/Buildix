@@ -515,7 +515,12 @@ export default function PosPage() {
         // Nolga teng ulushlar yuborilmaydi (server amount > 0 talab qiladi).
         await posApi.checkout(saleId!, mixPayments(mixParts));
       } else {
-        await posApi.addPayment(saleId!, { paymentType: method, amount: sale.totalAmount });
+        // Summa EKRANDAGI jamidan olinadi. `sale.totalAmount` — serverdan
+        // oxirgi o'qilgan nusxa va u chegirmadan yoki hali yozilmagan
+        // qatordan orqada qolishi mumkin edi; o'shanda kassir ko'rgan
+        // summadan boshqa raqam yuborilardi. Kam yuborilsa chek jimgina
+        // qarzga aylanardi.
+        await posApi.addPayment(saleId!, { paymentType: method, amount: total });
       }
       // Chek uchun AVTORITAR holat: to'lovlardan keyingi paidAmount/qoldiq.
       // Lokal `sale` to'lovgacha bo'lgan nusxa — undan chek chizilsa,
@@ -555,9 +560,15 @@ export default function PosPage() {
 
   // Aralashda kiritilgan ulushlar yig'indisi jami bilan AYNAN teng bo'lishi
   // shart — kam bo'lsa chek yopilmaydi, ko'p bo'lsa ortiqcha pul qayd bo'lardi.
+  // Serverga yetib bormagan qatorlar bormi. Ular bo'lsa ekrandagi jami
+  // serverdagidan katta va yakunlash noto'g'ri summa yuborardi — kassir
+  // tovarni urib, javobni kutmasdan «Yakunlash» bosishi mumkin.
+  const settling = Object.keys(pending).length > 0;
+
   const canCheckout =
     items.length > 0 &&
     !checkout.isPending &&
+    !settling &&
     (method !== 'Mixed' || (total > 0 && mixRemainder === 0));
 
   return (

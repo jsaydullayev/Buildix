@@ -123,4 +123,125 @@ public class SalePaymentTests
         Assert.Equal(DebtStatus.Closed, debt.Status);
         Assert.Equal(0, debt.RemainingDebt);
     }
+
+    // ── To'liq chegirma qo'yilgan chek ────────────────────────────────────
+    // Ilgari barcha himoyalar `TotalAmount > 0` shartiga bog'langan edi va
+    // jami nolga tushganda hammasi chetlab o'tilardi: chek cheksiz pul qabul
+    // qilar, qoldiq manfiy bo'lib ketar va Draft holatida abadiy ochiq
+    // qolardi. Kassir buni faqat keyinroq — chekka tovar qo'shganda —
+    // «Bu savdo allaqachon to'liq to'langan» degan tushunarsiz xabardan
+    // bilardi.
+
+    /// <summary>Chegirma butun summani yeb qo'ysa, chek YOPILISHI kerak.</summary>
+    [Fact]
+    public async Task Toliq_chegirmali_chek_nol_tolov_bilan_yopiladi()
+    {
+        using var h = new TestHarness();
+        var saleId = await SeedSaleWithItemAsync(h, unitPrice: 1200, qty: 2);   // jami 2400
+        var sale = await ReloadSaleAsync(h, saleId);
+        sale!.DiscountAmount = 2400;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await h.NewSalePaymentService().AddPaymentAsync(saleId, new AddPaymentDto("Cash", 0));
+
+        Assert.True(result.IsSuccess, result.Error);
+        var closed = await ReloadSaleAsync(h, saleId);
+        Assert.Equal(SaleStatus.Paid, closed!.Status);
+        Assert.Equal(0m, closed.TotalAmount);
+        Assert.Equal(0m, closed.PaidAmount);
+        // Pul harakati bo'lmagan — Payment qatori ham yozilmasligi kerak.
+        Assert.Empty(await h.Db.Payments.IgnoreQueryFilters().Where(p => p.SaleId == saleId).ToListAsync());
+    }
+
+    /// <summary>
+    /// Jami nolga teng chekka PUL qabul qilinmasligi kerak. Aynan shu teshik
+    /// qoldiqni manfiyga tushirardi.
+    /// </summary>
+    [Fact]
+    public async Task Toliq_chegirmali_chek_pul_qabul_qilmaydi()
+    {
+        using var h = new TestHarness();
+        var saleId = await SeedSaleWithItemAsync(h, unitPrice: 1200, qty: 2);
+        var sale = await ReloadSaleAsync(h, saleId);
+        sale!.DiscountAmount = 2400;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await h.NewSalePaymentService().AddPaymentAsync(saleId, new AddPaymentDto("Cash", 2400));
+
+        Assert.True(result.IsFailure);
+        var untouched = await ReloadSaleAsync(h, saleId);
+        Assert.Equal(0m, untouched!.PaidAmount);
+        Assert.Equal(SaleStatus.Draft, untouched.Status);
+    }
+
+    /// <summary>
+    /// Foydalanuvchi ko'rgan xato aynan shu ketma-ketlikdan tug'ilardi:
+    /// to'liq chegirma → pul o'tib ketadi → chekka tovar qo'shiladi →
+    /// «allaqachon to'liq to'langan». Endi ikkinchi qadam bo'lmaydi, ya'ni
+    /// uchinchisi ham yuz bermaydi.
+    /// </summary>
+    [Fact]
+    public async Task Chegirmadan_keyin_tovar_qoshilsa_chek_buzilmaydi()
+    {
+        using var h = new TestHarness();
+        var saleId = await SeedSaleWithItemAsync(h, unitPrice: 1200, qty: 2);
+        var sale = await ReloadSaleAsync(h, saleId);
+        sale!.DiscountAmount = 2400;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+        var svc = h.NewSalePaymentService();
+
+        // Pul o'tmaydi — teshik yopilgan.
+        Assert.True((await svc.AddPaymentAsync(saleId, new AddPaymentDto("Cash", 2400))).IsFailure);
+        h.Db.ChangeTracker.Clear();
+
+        // Chegirma olib tashlanadi (kassir xatosini tuzatdi) va chek odatdagidek yopiladi.
+        var again = await ReloadSaleAsync(h, saleId);
+        again!.DiscountAmount = 0;
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await svc.AddPaymentAsync(saleId, new AddPaymentDto("Cash", 2400));
+
+        Assert.True(result.IsSuccess, result.Error);
+        var paid = await ReloadSaleAsync(h, saleId);
+        Assert.Equal(SaleStatus.Paid, paid!.Status);
+        Assert.Equal(2400m, paid.PaidAmount);
+    }
+
+    /// <summary>Qoldiq bor bo'lsa nol to'lov chekni yopmasligi kerak.</summary>
+    [Fact]
+    public async Task Qoldiq_bor_chekni_nol_tolov_yopmaydi()
+    {
+        using var h = new TestHarness();
+        var saleId = await SeedSaleWithItemAsync(h, unitPrice: 1200, qty: 2);
+
+        var result = await h.NewSalePaymentService().AddPaymentAsync(saleId, new AddPaymentDto("Cash", 0));
+
+        Assert.True(result.IsFailure);
+        var sale = await ReloadSaleAsync(h, saleId);
+        Assert.Equal(SaleStatus.Draft, sale!.Status);
+    }
+
+    /// <summary>Tovarsiz qoralamani nol to'lov bilan yopib bo'lmaydi.</summary>
+    [Fact]
+    public async Task Bosh_chekni_nol_tolov_yopmaydi()
+    {
+        using var h = new TestHarness();
+        var sale = new Sale
+        {
+            Id = Guid.NewGuid(), SellerId = Guid.NewGuid(),
+            Status = SaleStatus.Draft, MarketId = 1,
+        };
+        h.Db.Sales.Add(sale);
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await h.NewSalePaymentService().AddPaymentAsync(sale.Id, new AddPaymentDto("Cash", 0));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(SaleStatus.Draft, (await ReloadSaleAsync(h, sale.Id))!.Status);
+    }
 }

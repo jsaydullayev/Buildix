@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Common;
@@ -109,6 +109,17 @@ public class SalePaymentService : ISalePaymentService
 
     public async Task<Result<PaymentDto>> AddPaymentAsync(Guid saleId, AddPaymentDto request, CancellationToken cancellationToken = default)
     {
+        // Nol summa — «to'lanadigan narsa yo'q, chekni yop» degani. Bu butun
+        // summasi chegirmaga ketgan chek uchun: kassa jamini yuboradi, u esa
+        // nol. Ilgari bunday chaqiruv «summa noldan katta bo'lishi kerak» deb
+        // rad etilardi va chek yopilmay qolardi — kassir uni yopishning
+        // hech qanday yo'lini topa olmasdi.
+        //
+        // Haqiqiy to'lov ekanini ApplyTendersAsync hal qiladi: qoldiq bo'lsa
+        // nol to'lov chekni yopmaydi, u yerda qoldiq tekshiriladi.
+        if (request.Amount == 0)
+            return await ApplyTendersAsync(saleId, [], request.DueDate, cancellationToken);
+
         var (tenders, error) = ParseTenders(new[] { (request.PaymentType, request.Amount) });
         if (error is not null) return Result.Failure<PaymentDto>(error);
         return await ApplyTendersAsync(saleId, tenders!, request.DueDate, cancellationToken);
@@ -196,15 +207,43 @@ public class SalePaymentService : ISalePaymentService
             // below (already-paid, over-payment, debt) use the real total.
             await SaleTotals.RecalculateAsync(_context, sale, cancellationToken);
 
-            // Allaqachon to'liq to'langan savdoga qayta to'lov qilish taqiqlanadi.
-            if (sale.TotalAmount > 0 && sale.PaidAmount >= sale.TotalAmount)
-                return Result.Failure<PaymentDto>("Bu savdo allaqachon to'liq to'langan.");
+            // ── To'lanadigan qoldiq ─────────────────────────────────────────
+            // Quyidagi ikkala himoya ham ilgari `TotalAmount > 0` shartiga
+            // bog'langan edi va jami NOLGA tushganda (butun summa chegirmaga
+            // ketsa) ikkalasi ham chetlab o'tilardi. Oqibati og'ir edi: bunday
+            // chek cheksiz pul qabul qilaverardi, qoldiq manfiy bo'lib ketardi
+            // va chek Draft holatida abadiy ochiq qolardi. Keyin unga tovar
+            // qo'shilsa, to'langan summa yangi jamidan katta bo'lib qolar va
+            // kassir «Bu savdo allaqachon to'liq to'langan» degan tushunarsiz
+            // xabarga urilardi — aslida muammo bir necha qadam oldin tug'ilgan
+            // edi.
+            //
+            // Endi qoldiq bitta joyda hisoblanadi va himoyalar jamining
+            // qiymatidan QAT'I NAZAR ishlaydi.
+            var owed = sale.TotalAmount - sale.PaidAmount;
 
-            // Over-payment guard: never accept more than the outstanding balance.
-            // Without this, PaidAmount could exceed TotalAmount and the overage
-            // would silently resurface later as phantom customer credit.
-            if (sale.TotalAmount > 0 && totalTendered > sale.TotalAmount - sale.PaidAmount)
+            if (totalTendered > 0 && owed <= 0)
+                return Result.Failure<PaymentDto>(sale.TotalAmount <= 0
+                    ? "Bu chek bo'yicha to'lanadigan summa yo'q."
+                    : "Bu savdo allaqachon to'liq to'langan.");
+
+            // Ortiqcha to'lov hech qachon qabul qilinmaydi: aks holda PaidAmount
+            // jamidan oshib ketardi va ortiqcha pul keyinroq mijozning soxta
+            // krediti bo'lib qayta paydo bo'lardi.
+            if (totalTendered > owed)
                 return Result.Failure<PaymentDto>("To'lov summasi qoldiq summadan oshib ketdi.");
+
+            // Nol to'lov FAQAT to'lanadigan narsa qolmaganda o'rinli. Qoldiq
+            // bor bo'lsa, chekni pulsiz yopib bo'lmaydi — aks holda tovar
+            // do'kondan pulsiz chiqib ketardi.
+            if (totalTendered == 0 && owed > 0)
+                return Result.Failure<PaymentDto>("To'lov summasi ko'rsatilmagan.");
+
+            // Bo'sh chekni yopib bo'lmaydi. Nol to'lov to'liq chegirma
+            // qo'yilgan HAQIQIY chek uchun; tovarsiz chek esa shunchaki
+            // ochilib qolgan qoralama.
+            if (totalTendered == 0 && (sale.SaleItems is null || sale.SaleItems.Count == 0))
+                return Result.Failure<PaymentDto>("Bo'sh chekni yopib bo'lmaydi.");
 
             // VALIDATION: Mijozsiz qarzga savdo taqiqlanadi
             var newPaidAmount = sale.PaidAmount + totalTendered;
@@ -283,8 +322,13 @@ public class SalePaymentService : ISalePaymentService
                 sale.PaidAmount, sale.PaidAmount >= sale.TotalAmount,
                 sale.PaidAmount > 0, sale.PaidAmount < sale.TotalAmount);
 
-            // 1. To'liq to'langan savdo
-            if (sale.TotalAmount > 0 && sale.PaidAmount >= sale.TotalAmount)
+            // 1. To'liq to'langan savdo.
+            //
+            // `TotalAmount > 0` sharti ATAYLAB olib tashlandi: butun summa
+            // chegirmaga ketgan chek ham yopilishi kerak. Ilgari u quyidagi
+            // «jami nol — Draft holicha qoldiramiz» shoxiga tushib, ochiq
+            // qolaverardi.
+            if (sale.PaidAmount >= sale.TotalAmount)
             {
                 // Semantic distinction (mirrors DebtService.PayAsync):
                 //   Paid   = sale was paid in full at sale time, never had debt.
@@ -352,10 +396,6 @@ public class SalePaymentService : ISalePaymentService
                 }
             }
             // 3. TotalAmount 0 bo'lsa (hali mahsulotlar qo'shilgan yo'q), status Draft da qoladi
-            else if (sale.TotalAmount == 0)
-            {
-                _logger.LogInformation("Sale {SaleId} has TotalAmount=0, keeping Draft status", saleId);
-            }
             else
             {
                 _logger.LogWarning("Unhandled case for sale {SaleId}: TotalAmount={TotalAmount}, PaidAmount={PaidAmount}",
@@ -382,17 +422,22 @@ public class SalePaymentService : ISalePaymentService
 
             _logger.LogInformation("Sale {SaleId} final status: {Status}", sale.Id, sale.Status);
 
-            // Audit log
-            var primary = payments[0];
-            await _auditLogService.LogPaymentActionAsync(primary.Id, sale.SellerId, cancellationToken);
+            // To'liq chegirma qo'yilgan chek nol to'lov bilan yopiladi — unda
+            // Payment qatori umuman bo'lmaydi va yozib qo'yadigan pul harakati
+            // ham yo'q.
+            var primary = payments.Count > 0 ? payments[0] : null;
+            if (primary is not null)
+                await _auditLogService.LogPaymentActionAsync(primary.Id, sale.SellerId, cancellationToken);
 
             return Result.Success(new PaymentDto(
-                primary.Id,
+                primary?.Id ?? Guid.Empty,
                 // A split has no single tender type — report it as "mixed" so the
                 // client does not label the whole sale by its first instalment.
-                tenders.Count > 1 ? "mixed" : primary.PaymentType.ToString().ToLowerInvariant(),
+                payments.Count > 1 ? "mixed" : primary?.PaymentType.ToString().ToLowerInvariant() ?? "none",
                 totalTendered,
-                primary.CreatedAt,
+                // Nol to'lovda Payment qatori yo'q — vaqt chekning o'zidan
+                // olinadi (SaveChanges uni shu tranzaksiyada belgilagan).
+                primary?.CreatedAt ?? sale.UpdatedAt,
                 sale.Status.ToString().ToLowerInvariant(), // Yangilangan sale status
                 sale.PaidAmount, // Yangilangan paid amount
                 sale.TotalAmount // Total amount
