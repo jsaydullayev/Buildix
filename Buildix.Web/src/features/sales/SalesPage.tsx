@@ -125,7 +125,12 @@ export default function SalesPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Stat cards (today) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -218,8 +223,15 @@ export default function SalesPage() {
         </div>
 
         {/* Table */}
-        <Card className="overflow-hidden">
-          <div className="grid grid-cols-sales items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+          {/*
+            Jadval QOLGAN balandlikni to'ldiradi: ustun nomlari joyida
+            qoladi, faqat qatorlar suriladi. Ilgari qator ko'p bo'lganda
+            butun sahifa surilardi va sarlavha yuqoriga chiqib ketardi;
+            qator kam bo'lganda esa karta ostida yarim ekran bo'sh joy
+            qolardi.
+          */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="grid flex-none grid-cols-sales items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
             <span>{t('sales.cols.number')}</span>
             <span>{t('sales.cols.time')}</span>
             <span>{t('sales.cols.seller')}</span>
@@ -229,17 +241,19 @@ export default function SalesPage() {
             <span className="text-right">{t('sales.cols.sum')}</span>
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
+          <div className="min-h-0 flex-1 overflow-auto">
+            {listQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
+              </div>
+            ) : listQuery.data && listQuery.data.items.length > 0 ? (
+              listQuery.data.items.map((sale) => (
+                <SaleRow key={sale.id} sale={sale} onOpen={() => setOpenSale(sale)} />
+              ))
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('sales.empty')}</div>
+            )}
             </div>
-          ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((sale) => (
-              <SaleRow key={sale.id} sale={sale} onOpen={() => setOpenSale(sale)} />
-            ))
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('sales.empty')}</div>
-          )}
         </Card>
 
         {listQuery.data && listQuery.data.total > 0 && (

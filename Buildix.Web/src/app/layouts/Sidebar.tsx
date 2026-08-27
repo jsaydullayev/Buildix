@@ -1,4 +1,5 @@
-import { NavLink, useParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { NavLink, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronsUpDown, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
@@ -28,6 +29,26 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const logout = useLogout();
 
   const base = `/${subdomain}`;
+
+  /**
+   * Joriy bo'limni ko'rinadigan joyga suradi.
+   *
+   * <p>Menyu bandlari ko'p va past ekranga hammasi sig'maydi — ro'yxat
+   * suriladi. Bunda foydalanuvchi ochgan bo'lim ro'yxatning pastida qolib
+   * ketishi mumkin edi: ekranda «Audit» sahifasi turgan, yon menyuda esa
+   * u umuman ko'rinmasdi va qayerda ekanini bilib bo'lmasdi.</p>
+   *
+   * <p>Bandlarni kichraytirish yo'li tanlanmadi: do'kon kompyuterida
+   * sensorli ekran bo'lishi mumkin va kichik nishon barmoq bilan
+   * bosilmaydi.</p>
+   */
+  const navRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const active = navRef.current?.querySelector('a[aria-current="page"]');
+    // `nearest` — allaqachon ko'rinib turgan bandda ro'yxat qimirlamaydi.
+    active?.scrollIntoView({ block: 'nearest' });
+  }, [pathname]);
   // Keep only sections that still have a visible item after permission filtering,
   // so an empty section heading never floats above nothing.
   const sections = NAV_SECTIONS.map((s) => ({
@@ -58,7 +79,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       )}
       <aside
         className={cn(
-          'flex w-sidebar flex-none flex-col overflow-y-auto bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white',
+          'flex w-sidebar flex-none flex-col overflow-hidden bg-sidebar px-3.5 pb-[18px] pt-[22px] text-white',
           // Kichik ekranda — suriladigan panel; lg dan boshlab odatdagi ustun.
           'fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
@@ -87,7 +108,16 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       </button>
 
       {/* Main nav — grouped into titled sections (design). */}
-      <nav className="flex flex-col gap-[18px] overflow-y-auto">
+      {/*
+        Menyu ro'yxati YAGONA aylanuvchi qatlam.
+
+        Qobiq balandligi ekranga bog'langach, band ko'p bo'lgan menyu
+        sig'may qoldi. Ikkita aylanuvchi qatlam (aside + nav) bo'lganda
+        bandlar o'rtasidan kesilib, pastdagilariga umuman yetib bo'lmasdi.
+        Endi ro'yxat o'zi suriladi, pastdagi foydalanuvchi bloki esa doim
+        ko'rinib turadi.
+      */}
+      <nav ref={navRef} className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto">
         {sections.map((section) => (
           <div key={section.titleKey} className="flex flex-col gap-0.5">
             <div className="mb-1 px-3 text-[10.5px] font-semibold uppercase tracking-[0.6px] text-white/35">
@@ -104,7 +134,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       </nav>
 
       {/* Footer: settings (owner) + user */}
-      <div className="mt-auto flex flex-col gap-0.5">
+      <div className="mt-3 flex flex-none flex-col gap-0.5">
         {hasRole(ROLES.Owner, ROLES.SuperAdmin) && (
           <NavLink to={`${base}/settings`} className={linkClass} onClick={onClose}>
             <Settings size={17} />

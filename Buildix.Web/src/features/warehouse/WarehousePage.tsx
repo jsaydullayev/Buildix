@@ -101,7 +101,12 @@ export default function WarehousePage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label={t('warehouse.stats.positions')} value={stats.positions} />
           <StatCard label={t('warehouse.stats.low')} value={stats.low} tone="warn" />

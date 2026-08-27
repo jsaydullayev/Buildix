@@ -21,9 +21,23 @@ export function AppLayout() {
 
   return (
     <RequireSubscription>
-      <div className="flex min-h-screen bg-bg text-text">
+      {/*
+        Qobiq balandligi EKRANGA bog'langan, sahifaning o'ziga emas.
+
+        Ilgari `min-h-screen` edi: sahifa kontent qancha bo'lsa shuncha
+        cho'zilar va butun oyna surilardi. Jadval sarlavhalari yuqoriga
+        chiqib ketardi — omborchi o'ntadan keyingi qatorda qaysi ustun
+        nimaligini eslab qolishga majbur bo'lardi.
+
+        Endi surish MAIN ichida bo'ladi: yon menyu joyida qoladi, jadvalli
+        ekranlarda esa kartaning o'z aylanish sohasi ishlaydi va ustun
+        nomlari ko'rinib turadi. Kontenti uzun oddiy sahifalar (Panel,
+        Hisobotlar) odatdagidek main ichida suriladi — hech narsa
+        kesilmaydi.
+      */}
+      <div className="flex h-screen overflow-hidden bg-bg text-text">
         <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           {/* Mobil sarlavha — faqat yon menyu yashiringanda. Sahifaning o'z
               sarlavhasi (PageHeader) ostida qoladi, shuning uchun ingichka.
               sticky: sahifa pastga surilganda ham tepada qoladi — aks holda

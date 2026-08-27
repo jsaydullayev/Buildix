@@ -120,7 +120,12 @@ export default function PurchasesPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label={t('purchases.stats.count')} value={stats.count} />
           <StatCard label={t('purchases.stats.sum')} value={formatSum(stats.sum)} suffix={t('common.currency')} />
@@ -135,9 +140,13 @@ export default function PurchasesPage() {
 
         <div className="grid grid-cols-[2fr_1fr] items-start gap-[18px]">
           {/* Receipts */}
-          <Card className="overflow-hidden">
+          {/*
+            Jadval QOLGAN balandlikni to'ldiradi: qidiruv, ustun nomlari va
+            sahifalash joyida qoladi, faqat qatorlar suriladi.
+          */}
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {/* Search + delivery-status tabs (server-side filtered). */}
-            <div className="flex items-center gap-3 border-b border-hairline px-5 py-2.5">
+            <div className="flex flex-none items-center gap-3 border-b border-hairline px-5 py-2.5">
               <div className="relative flex-none">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-2" />
                 <input
@@ -171,7 +180,7 @@ export default function PurchasesPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-purchases items-center gap-3 border-b border-hairline bg-bg/40 px-5 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
+            <div className="grid flex-none grid-cols-purchases items-center gap-3 border-b border-hairline bg-bg/40 px-5 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2">
               <span>{t('purchases.cols.number')}</span>
               <span>{t('purchases.cols.supplier')}</span>
               <span>{t('purchases.cols.items')}</span>
@@ -179,24 +188,26 @@ export default function PurchasesPage() {
               <span className="text-right">{t('purchases.cols.sum')}</span>
               <span>{t('purchases.cols.status')}</span>
             </div>
-            {listQuery.isLoading ? (
-              <div className="flex items-center justify-center py-20 text-primary">
-                <Spinner size={24} />
-              </div>
-            ) : (listQuery.data?.items?.length ?? 0) > 0 ? (
-              listQuery.data!.items.map((r) => (
-                <ReceiptRow
-                  key={r.id}
-                  receipt={r}
-                  onOpen={() => setOpenReceiptId(r.id)}
-                  onDelete={canDelete ? () => askDelete(r) : undefined}
-                />
-              ))
-            ) : (
-              <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
-            )}
+            <div className="min-h-0 flex-1 overflow-auto">
+              {listQuery.isLoading ? (
+                <div className="flex items-center justify-center py-20 text-primary">
+                  <Spinner size={24} />
+                </div>
+              ) : (listQuery.data?.items?.length ?? 0) > 0 ? (
+                listQuery.data!.items.map((r) => (
+                  <ReceiptRow
+                    key={r.id}
+                    receipt={r}
+                    onOpen={() => setOpenReceiptId(r.id)}
+                    onDelete={canDelete ? () => askDelete(r) : undefined}
+                  />
+                ))
+              ) : (
+                <div className="py-16 text-center text-[14px] text-muted-2">{t('purchases.empty')}</div>
+              )}
+            </div>
             {listQuery.data && listQuery.data.totalPages > 1 && (
-              <div className="flex items-center justify-end gap-1.5 border-t border-hairline px-5 py-3">
+              <div className="flex flex-none items-center justify-end gap-1.5 border-t border-hairline px-5 py-3">
                 <button
                   type="button"
                   disabled={page <= 1}

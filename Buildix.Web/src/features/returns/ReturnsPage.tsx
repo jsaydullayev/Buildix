@@ -85,7 +85,12 @@ export default function ReturnsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[280px] flex-1">
@@ -121,8 +126,14 @@ export default function ReturnsPage() {
         </div>
 
         {/* Table */}
-        <Card className="min-w-0 overflow-x-auto">
-          <div className={cn('grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
+        {/*
+          Jadval QOLGAN balandlikni to'ldiradi: ustun nomlari joyida qoladi,
+          faqat qatorlar suriladi. Ilgari qator ko'p bo'lganda butun sahifa
+          surilardi va sarlavha yuqoriga chiqib ketardi; qator kam bo'lganda
+          esa karta ostida yarim ekran bo'sh joy qolardi.
+        */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={cn('grid flex-none items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('returns.cols.return')}</span>
             <span>{t('returns.cols.receipt')}</span>
             <span>{t('returns.cols.items')}</span>
@@ -131,15 +142,17 @@ export default function ReturnsPage() {
             <span className="text-right">{t('returns.cols.sum')}</span>
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
-            </div>
-          ) : listQuery.data && listQuery.data.items.length > 0 ? (
-            listQuery.data.items.map((r) => <ReturnRow key={r.id} r={r} lang={i18n.language} onOpen={() => setDetail(r)} />)
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('returns.empty')}</div>
-          )}
+          <div className="min-h-0 flex-1 overflow-auto">
+            {listQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
+              </div>
+            ) : listQuery.data && listQuery.data.items.length > 0 ? (
+              listQuery.data.items.map((r) => <ReturnRow key={r.id} r={r} lang={i18n.language} onOpen={() => setDetail(r)} />)
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('returns.empty')}</div>
+            )}
+          </div>
         </Card>
 
         <p className="text-[12px] text-muted-2">{t('returns.hint')}</p>

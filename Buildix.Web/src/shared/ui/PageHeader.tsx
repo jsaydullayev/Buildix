@@ -22,7 +22,7 @@ export function PageHeader({
     // Tor ekranda sarlavha va amallar bir qatorga sig'maydi — amallar pastga
     // tushadi. min-w-0: ichkaridagi keng element (masalan tab guruhi) sarlavha
     // panelini cho'zib, butun sahifani surib yubormasin.
-    <header className="flex flex-col gap-3 border-b border-border bg-surface px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8 lg:py-5">
+    <header className="flex flex-none flex-col gap-3 border-b border-border bg-surface px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8 lg:py-5">
       <div className="min-w-0">
         <h1 className="text-[20px] font-semibold tracking-[-0.2px]">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[12.5px] text-muted-2">{subtitle}</p>}

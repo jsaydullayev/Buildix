@@ -105,7 +105,12 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative max-w-md flex-1">
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-2" />
@@ -141,8 +146,14 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <Card className="min-w-0 overflow-x-auto">
-          <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
+        {/*
+          Jadval QOLGAN balandlikni to'ldiradi: ustun nomlari joyida qoladi,
+          faqat qatorlar suriladi. Ilgari qator ko'p bo'lganda butun sahifa
+          surilardi va sarlavha yuqoriga chiqib ketardi; qator kam bo'lganda
+          esa karta ostida yarim ekran bo'sh joy qolardi.
+        */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={cn('grid flex-none items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('customers.cols.name')}</span>
             <span>{t('customers.cols.phone')}</span>
             <span className="text-right">{t('customers.cols.purchases')}</span>
@@ -151,66 +162,68 @@ export default function CustomersPage() {
             <span />
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
-            </div>
-          ) : rows.length > 0 ? (
-            rows.map((c) => (
-              <div
-                key={c.id}
-                className={cn('group grid items-center gap-3 border-b border-hairline px-6 py-3 text-[13px] last:border-0 hover:bg-bg/40', GRID)}
-              >
-                <button type="button" onClick={() => setDetail(c)} className="flex min-w-0 items-center gap-3 text-left">
-                  <div className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary/10 text-[11px] font-semibold uppercase text-primary">
-                    {(c.fullName ?? c.phone).slice(0, 2)}
-                  </div>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate font-medium">{c.fullName ?? t('sales.walkIn')}</span>
-                      {c.isRegular && <Badge tone="success">{t('seller.clients.regular')}</Badge>}
-                    </span>
-                    <span className="truncate text-[11.5px] text-muted-2">
-                      {t(`customers.types.${c.customerType.toLowerCase()}` as never)} ·{' '}
-                      {c.lastPurchaseAt
-                        ? t('customers.lastBuy', { date: formatShortDate(c.lastPurchaseAt, i18n.language) })
-                        : t('customers.noBuys')}
-                    </span>
-                  </span>
-                </button>
-                <span className="text-muted-2 nums">{c.phone}</span>
-                <span className="text-right text-muted nums">{c.purchaseCount}</span>
-                <span className="text-right font-semibold nums">{formatSum(c.totalPurchased)}</span>
-                <span className={cn('text-right font-semibold nums', c.totalDebt > 0 ? 'text-warn-text' : 'text-muted-2')}>
-                  {c.totalDebt > 0 ? formatSum(c.totalDebt) : t('suppliers.noDebt')}
-                </span>
-                <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(c)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-primary"
-                      aria-label={t('common.save')}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => askDelete(c)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-danger"
-                      aria-label={t('warehouse.form.delete')}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {listQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
               </div>
-            ))
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('customers.empty')}</div>
-          )}
+            ) : rows.length > 0 ? (
+              rows.map((c) => (
+                <div
+                  key={c.id}
+                  className={cn('group grid items-center gap-3 border-b border-hairline px-6 py-3 text-[13px] last:border-0 hover:bg-bg/40', GRID)}
+                >
+                  <button type="button" onClick={() => setDetail(c)} className="flex min-w-0 items-center gap-3 text-left">
+                    <div className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary/10 text-[11px] font-semibold uppercase text-primary">
+                      {(c.fullName ?? c.phone).slice(0, 2)}
+                    </div>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-medium">{c.fullName ?? t('sales.walkIn')}</span>
+                        {c.isRegular && <Badge tone="success">{t('seller.clients.regular')}</Badge>}
+                      </span>
+                      <span className="truncate text-[11.5px] text-muted-2">
+                        {t(`customers.types.${c.customerType.toLowerCase()}` as never)} ·{' '}
+                        {c.lastPurchaseAt
+                          ? t('customers.lastBuy', { date: formatShortDate(c.lastPurchaseAt, i18n.language) })
+                          : t('customers.noBuys')}
+                      </span>
+                    </span>
+                  </button>
+                  <span className="text-muted-2 nums">{c.phone}</span>
+                  <span className="text-right text-muted nums">{c.purchaseCount}</span>
+                  <span className="text-right font-semibold nums">{formatSum(c.totalPurchased)}</span>
+                  <span className={cn('text-right font-semibold nums', c.totalDebt > 0 ? 'text-warn-text' : 'text-muted-2')}>
+                    {c.totalDebt > 0 ? formatSum(c.totalDebt) : t('suppliers.noDebt')}
+                  </span>
+                  <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => openEdit(c)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-primary"
+                        aria-label={t('common.save')}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => askDelete(c)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-2 hover:text-danger"
+                        aria-label={t('warehouse.form.delete')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('customers.empty')}</div>
+            )}
+          </div>
         </Card>
 
         {listQuery.data && listQuery.data.totalPages > 1 && (

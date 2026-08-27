@@ -123,7 +123,12 @@ export default function ProductsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[280px] flex-1">
@@ -162,10 +167,16 @@ export default function ProductsPage() {
         </div>
 
         {/* Table */}
-        <Card className="overflow-hidden">
+        {/*
+          Jadval QOLGAN balandlikni to'ldiradi: ustun nomlari joyida qoladi,
+          faqat qatorlar suriladi. Ilgari qator ko'p bo'lganda butun sahifa
+          surilardi va sarlavha yuqoriga chiqib ketardi; qator kam bo'lganda
+          esa karta ostida yarim ekran bo'sh joy qolardi.
+        */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div
             className={cn(
-              'grid items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2',
+              'grid flex-none items-center gap-4 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2',
               cols,
             )}
           >
@@ -186,27 +197,29 @@ export default function ProductsPage() {
             <span className="text-right" />
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
-            </div>
-          ) : rows.length > 0 ? (
-            rows.map((p) => (
-              <ProductRow
-                key={p.id}
-                product={p}
-                gridCols={cols}
-                canViewCost={canViewCost}
-                canEdit={canEdit}
-                onOpen={canEdit ? () => openEdit(p) : undefined}
-                selectable={canPrintLabels}
-                selected={selected.has(p.id)}
-                onToggle={() => toggle(p.id)}
-              />
-            ))
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
-          )}
+          <div className="min-h-0 flex-1 overflow-auto">
+            {listQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
+              </div>
+            ) : rows.length > 0 ? (
+              rows.map((p) => (
+                <ProductRow
+                  key={p.id}
+                  product={p}
+                  gridCols={cols}
+                  canViewCost={canViewCost}
+                  canEdit={canEdit}
+                  onOpen={canEdit ? () => openEdit(p) : undefined}
+                  selectable={canPrintLabels}
+                  selected={selected.has(p.id)}
+                  onToggle={() => toggle(p.id)}
+                />
+              ))
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('warehouse.empty')}</div>
+            )}
+          </div>
         </Card>
 
         <p className="text-[12px] text-muted-2">{t('products.hiddenNote')}</p>

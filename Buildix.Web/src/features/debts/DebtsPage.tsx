@@ -87,7 +87,12 @@ export default function DebtsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
+      {/*
+        `min-h-0` — jadval ekranga sig'ishi uchun SHART. Usiz flex elementi
+        o'z kontentidan kichrayolmaydi (standart `min-height: auto`) va
+        karta ekrandan oshib ketardi: sarlavha yana yuqoriga chiqib ketardi.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label={t('debts.stats.total')} value={formatSum(s?.totalDebt ?? 0)} suffix={t('common.currency')} />
           <StatCard
@@ -128,8 +133,14 @@ export default function DebtsPage() {
           </div>
         </div>
 
-        <Card className="min-w-0 overflow-x-auto">
-          <div className={cn('grid items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
+        {/*
+          Jadval QOLGAN balandlikni to'ldiradi: ustun nomlari joyida qoladi,
+          faqat qatorlar suriladi. Ilgari qator ko'p bo'lganda butun sahifa
+          surilardi va sarlavha yuqoriga chiqib ketardi; qator kam bo'lganda
+          esa karta ostida yarim ekran bo'sh joy qolardi.
+        */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={cn('grid flex-none items-center gap-3 border-b border-hairline bg-bg/40 px-6 py-3 text-[11.5px] font-semibold tracking-[0.4px] text-muted-2', GRID)}>
             <span>{t('debts.cols.customer')}</span>
             <span>{t('debts.cols.check')}</span>
             <span>{t('debts.cols.items')}</span>
@@ -138,99 +149,101 @@ export default function DebtsPage() {
             <span />
           </div>
 
-          {checksQuery.isLoading ? (
-            <div className="flex items-center justify-center py-20 text-primary">
-              <Spinner size={24} />
-            </div>
-          ) : checks.length > 0 ? (
-            checks.map((c) => {
-              const paid = Math.max(0, c.totalDebt - c.remainingDebt);
-              return (
-                <button
-                  key={c.debtId}
-                  type="button"
-                  onClick={() => setOpenCheck(c)}
-                  className={cn(
-                    'grid w-full items-center gap-3 border-b border-hairline px-6 py-3.5 text-left text-[13px] last:border-0 hover:bg-primary/[0.03]',
-                    GRID,
-                    c.isOverdue && 'bg-danger-soft/40',
-                  )}
-                >
-                  {/* Клиент */}
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary-soft text-[12px] font-semibold text-primary-hover">
-                      {initials(c.customerName ?? c.customerPhone)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate font-semibold">{c.customerName ?? c.customerPhone}</span>
-                        {c.customerDebtCount > 1 && (
-                          <span
-                            title={t('debts.multiTitle')}
-                            className="flex-none rounded-pill bg-primary/10 px-2 py-[1px] text-[10px] font-bold text-primary"
-                          >
-                            {t('debts.multi', { count: c.customerDebtCount })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="truncate text-[11.5px] text-muted-2 nums">{c.customerPhone}</div>
-                    </div>
-                  </div>
-
-                  {/* Чек */}
-                  <div className="min-w-0">
-                    <div className="font-semibold text-primary nums">{t('cash.desc.receipt', { n: c.saleNumber })}</div>
-                    <div className="text-[11.5px] text-muted-2 nums">{formatShortDate(c.createdAt, i18n.language)}</div>
-                  </div>
-
-                  {/* Товары */}
-                  <span className="truncate text-muted">
-                    {c.itemsSummary || t('purchases.itemsCount', { count: c.itemCount })}
-                  </span>
-
-                  {/* Срок */}
-                  <span className="nums">
-                    {c.dueDate ? (
-                      c.isOverdue ? (
-                        <span className="font-semibold text-danger">{t('debts.overdueTag')}</span>
-                      ) : (
-                        <span className="text-muted">{formatShortDate(c.dueDate, i18n.language)}</span>
-                      )
-                    ) : (
-                      <span className="text-muted-2">{t('debts.noDue')}</span>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {checksQuery.isLoading ? (
+              <div className="flex items-center justify-center py-20 text-primary">
+                <Spinner size={24} />
+              </div>
+            ) : checks.length > 0 ? (
+              checks.map((c) => {
+                const paid = Math.max(0, c.totalDebt - c.remainingDebt);
+                return (
+                  <button
+                    key={c.debtId}
+                    type="button"
+                    onClick={() => setOpenCheck(c)}
+                    className={cn(
+                      'grid w-full items-center gap-3 border-b border-hairline px-6 py-3.5 text-left text-[13px] last:border-0 hover:bg-primary/[0.03]',
+                      GRID,
+                      c.isOverdue && 'bg-danger-soft/40',
                     )}
-                  </span>
-
-                  {/* Остаток долга */}
-                  <div className="text-right">
-                    <div className={cn('font-bold nums', c.isOverdue ? 'text-danger' : 'text-text')}>
-                      {formatSum(c.remainingDebt)}
-                    </div>
-                    {paid > 0 ? (
-                      <div className="text-[11px] font-semibold text-success nums">
-                        {t('debts.paidOf', { paid: formatSum(paid), total: formatSum(c.totalDebt) })}
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-muted-2 nums">
-                        {t('debts.checkFor', { total: formatSum(c.totalDebt) })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action */}
-                  <span className="flex justify-end">
-                    {canManage && (
-                      <span className="rounded-input bg-success px-3 py-1.5 text-[12px] font-semibold text-white">
-                        {t('debts.pay')}
+                  >
+                    {/* Клиент */}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-pill bg-primary-soft text-[12px] font-semibold text-primary-hover">
+                        {initials(c.customerName ?? c.customerPhone)}
                       </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <div className="py-20 text-center text-[14px] text-muted-2">{t('debts.empty')}</div>
-          )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-semibold">{c.customerName ?? c.customerPhone}</span>
+                          {c.customerDebtCount > 1 && (
+                            <span
+                              title={t('debts.multiTitle')}
+                              className="flex-none rounded-pill bg-primary/10 px-2 py-[1px] text-[10px] font-bold text-primary"
+                            >
+                              {t('debts.multi', { count: c.customerDebtCount })}
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate text-[11.5px] text-muted-2 nums">{c.customerPhone}</div>
+                      </div>
+                    </div>
+
+                    {/* Чек */}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-primary nums">{t('cash.desc.receipt', { n: c.saleNumber })}</div>
+                      <div className="text-[11.5px] text-muted-2 nums">{formatShortDate(c.createdAt, i18n.language)}</div>
+                    </div>
+
+                    {/* Товары */}
+                    <span className="truncate text-muted">
+                      {c.itemsSummary || t('purchases.itemsCount', { count: c.itemCount })}
+                    </span>
+
+                    {/* Срок */}
+                    <span className="nums">
+                      {c.dueDate ? (
+                        c.isOverdue ? (
+                          <span className="font-semibold text-danger">{t('debts.overdueTag')}</span>
+                        ) : (
+                          <span className="text-muted">{formatShortDate(c.dueDate, i18n.language)}</span>
+                        )
+                      ) : (
+                        <span className="text-muted-2">{t('debts.noDue')}</span>
+                      )}
+                    </span>
+
+                    {/* Остаток долга */}
+                    <div className="text-right">
+                      <div className={cn('font-bold nums', c.isOverdue ? 'text-danger' : 'text-text')}>
+                        {formatSum(c.remainingDebt)}
+                      </div>
+                      {paid > 0 ? (
+                        <div className="text-[11px] font-semibold text-success nums">
+                          {t('debts.paidOf', { paid: formatSum(paid), total: formatSum(c.totalDebt) })}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-muted-2 nums">
+                          {t('debts.checkFor', { total: formatSum(c.totalDebt) })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action */}
+                    <span className="flex justify-end">
+                      {canManage && (
+                        <span className="rounded-input bg-success px-3 py-1.5 text-[12px] font-semibold text-white">
+                          {t('debts.pay')}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="py-20 text-center text-[14px] text-muted-2">{t('debts.empty')}</div>
+            )}
+          </div>
         </Card>
 
         <p className="flex items-start gap-2 px-1 text-[12.5px] text-muted-2">
