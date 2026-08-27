@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Buildix.Application.DTOs;
@@ -144,6 +144,26 @@ public class ProductsController : ApiControllerBase
         var label = new LabelData("BUILDIX — sinov yorlig'i", Ean13.NewInternal(), "TEST-001");
         var pdf = LabelPdfRenderer.Render([label], widthMm, heightMm);
         return File(pdf, "application/pdf", "buildix-test-label.pdf");
+    }
+
+    /// <summary>
+    /// Sinov yorlig'i — RASM bo'lib.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sinov yorlig'ining butun ma'nosi «printerdan TO'G'RI o'lchamda
+    /// chiqdimi» degan savolga javob berish. Shuning uchun u haqiqiy
+    /// yorliqlar bilan BIR XIL yo'ldan bosilishi shart: PDF yo'lida
+    /// brauzer uni masshtablab yuborardi va sinov yolg'on natija berardi —
+    /// printer soz bo'lsa ham qog'ozdan xato o'lcham chiqardi.</para>
+    /// </remarks>
+    [HttpGet("~/api/Products/labels/test/image")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public ActionResult<LabelImageDto> TestLabelImage(
+        [FromQuery] double widthMm = 58, [FromQuery] double heightMm = 40)
+    {
+        var label = new LabelData("BUILDIX — sinov yorlig'i", Ean13.NewInternal(), "TEST-001");
+        var png = LabelPdfRenderer.RenderPreviewPng(label, widthMm, heightMm);
+        return Ok(new LabelImageDto(label.ProductName, Convert.ToBase64String(png), 1));
     }
 
     [HttpPost("~/api/Products/labels")]

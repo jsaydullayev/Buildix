@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Printer, ScanLine, Check, X, AlertTriangle, Download, Usb, Tags } from 'lucide-react';
+import { Printer, ScanLine, Check, X, AlertTriangle, Usb, Tags } from 'lucide-react';
 import { PageHeader, Card, Button, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatShortDate, formatTime } from '@/shared/lib/format';
-import { downloadBlob } from '@/shared/lib/download';
-import { printPdfBlob } from '@/shared/lib/printPdf';
+import { printLabels } from '@/shared/lib/printLabels';
 import type { ApiError } from '@/shared/api/types';
 import { posApi } from '@/features/pos/api';
 import { devicesApi } from './api';
@@ -24,7 +23,6 @@ const SIZES = [
 /** Printer sinovining holati. */
 type PrintState =
   | { kind: 'idle' }
-  | { kind: 'blocked'; blob: Blob }      // brauzer yangi oynani bloklagan
   | { kind: 'sent' }                     // oyna ochildi, natijani foydalanuvchi aytadi
   | { kind: 'ok' }
   | { kind: 'failed' }
@@ -86,12 +84,12 @@ export default function DevicesPage() {
 
   const testPrint = useMutation({
     mutationFn: () => devicesApi.testLabel(size.w, size.h),
-    onSuccess: async (blob) => {
+    onSuccess: async (label) => {
       // Chop etish oynasi darhol ochiladi. Bloklangan bo'lsa sababini
       // aytamiz — aks holda ekranda hech narsa bo'lmaydi va foydalanuvchi
       // buni «printer ishlamadi» deb tushunadi.
-      const outcome = await printPdfBlob(blob, 'test-label.pdf');
-      if (outcome === 'downloaded') setPrint({ kind: 'blocked', blob });
+      const outcome = await printLabels([label], size.w, size.h);
+      if (outcome === 'failed') setPrint({ kind: 'error', message: t('labels.printFailed') });
       else setPrint({ kind: 'sent' });
     },
     onError: (e) =>
@@ -228,18 +226,6 @@ export default function DevicesPage() {
             )}
             {print.kind === 'error' && (
               <StatusLine tone="bad" text={print.message} />
-            )}
-            {print.kind === 'blocked' && (
-              <div className="flex flex-col gap-2 rounded-card border border-warn-amber/40 bg-warn-soft px-4 py-3">
-                <StatusLine tone="warn" text={t('devices.printer.popupBlocked')} />
-                <Button
-                  variant="secondary"
-                  className="self-start"
-                  onClick={() => downloadBlob(print.blob, 'buildix-test-label.pdf')}
-                >
-                  <Download size={15} /> {t('devices.printer.download')}
-                </Button>
-              </div>
             )}
             {print.kind === 'failed' && (
               <div className="rounded-card border border-danger/25 bg-danger-soft px-4 py-3">
