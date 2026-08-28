@@ -330,6 +330,25 @@ Manzilni faqat kirgan EGA oladi (`GET /api/Markets/desktop-app`, Owner
 huquqi), shuning uchun papka nomi sir bo'lib qolaveradi. Sozlanmagan bo'lsa
 sahifada tugma o'rniga «hali tayyor emas» chiqadi — bu xato emas.
 
+> **Ro'yxat papkadagi fayllarga mos bo'lishi SHART.** `vpk` chiqargan
+> `releases.win.json` da o'sha kompyuterda saqlanib qolgan HAMMA eski
+> versiya sanab o'tiladi. Serverga faqat yangisini ko'chirib, ro'yxatni
+> shundoq qoldirsangiz, yangilanish mavjud bo'lmagan faylga urinadi va
+> **jimgina** to'xtaydi: ilova eski versiyada qolaveradi, ekranda hech
+> qanday xato chiqmaydi.
+>
+> Amaliy qoida: serverda **joriy to'liq paket** va **oldingi to'liq paket**
+> turadi (oraliq delta shu ikkisi orasida ishlaydi), ro'yxatdan esa
+> ko'chirilmagan versiyalarning yozuvlari olib tashlanadi.
+>
+> Tekshirish — ro'yxatdagi har fayl joyidami:
+>
+> ```bash
+> cd /srv/buildix/deploy/updates/<MAXFIY>
+> python3 -c "import json;[print(a['FileName']) for a in json.load(open('releases.win.json'))['Assets']]" \
+>   | xargs -I{} sh -c 'test -f {} && echo "BOR          {}" || echo "YETISHMAYDI  {}"'
+> ```
+
 **O'rnatuvchi fayl nomi versiyasiz** (`Buildix-win-Setup.exe`) va u har
 chiqarishda almashadi. Shuning uchun nginx uni keshlamaydi: aks holda ega
 o'ttiz kun davomida eski o'rnatuvchini olardi va buni sezmasdi ham.
