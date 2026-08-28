@@ -266,6 +266,66 @@ public class EscPosReceiptTests
         Assert.True(Find(bytes, [0x1B, 0x20, 0x00]) >= 0, "belgi oralig'i nolga qo'yilmagan"); // ESC SP 0
     }
 
+    /// <summary>
+    /// Ega Sozlamalarda to'ldirgan rekvizitlar chekka CHIQADI.
+    /// </summary>
+    /// <remarks>
+    /// Manzil, telefon va «Chek tepasidagi/pastidagi matn» maydonlari
+    /// ancha vaqtdan beri bor edi, lekin chekka umuman yetib bormasdi:
+    /// ega ularni to'ldirar va qog'ozda hech qachon ko'rmasdi.
+    /// </remarks>
+    [Fact]
+    public void Dokon_rekvizitlari_chekda_chiqadi()
+    {
+        var data = Sale() with
+        {
+            MarketAddress = "Toshkent sh., Chilonzor 12",
+            MarketPhone = "+998 90 123-45-67",
+            ReceiptHeader = "Aksiya: 3 tadan 10% chegirma",
+            ReceiptFooter = "Qaytarish 14 kun ichida",
+        };
+
+        var all = string.Join("\n", Lines(EscPosReceipt.Build(data, "uz", 80)));
+
+        Assert.Contains("Chilonzor 12", all);
+        Assert.Contains("+998 90 123-45-67", all);
+        Assert.Contains("Aksiya", all);
+        Assert.Contains("Qaytarish 14 kun ichida", all);
+    }
+
+    /// <summary>
+    /// To'ldirilmagan maydon chekda BO'SH QATOR ham qoldirmaydi — rulon
+    /// tor va har bir qator qog'oz.
+    /// </summary>
+    [Fact]
+    public void Toldirilmagan_rekvizit_qator_egallamaydi()
+    {
+        var withNone = Lines(EscPosReceipt.Build(Sale(), "uz", 80));
+        var withAddress = Lines(EscPosReceipt.Build(
+            Sale() with { MarketAddress = "Chilonzor 12" }, "uz", 80));
+
+        Assert.Equal(withNone.Length + 1, withAddress.Length);
+    }
+
+    /// <summary>
+    /// Uzun manzil qatordan chiqib ketmaydi — printer uni o'zicha kesar
+    /// va manzil yarim qolardi.
+    /// </summary>
+    [Fact]
+    public void Uzun_manzil_qatorga_sigdiriladi()
+    {
+        var data = Sale() with
+        {
+            MarketAddress = "Toshkent shahri, Chilonzor tumani, "
+                          + "Bunyodkor shoh ko'chasi, 128-uy, 2-qavat",
+        };
+
+        var lines = Lines(EscPosReceipt.Build(data, "uz", 58));
+
+        Assert.All(lines, l => Assert.True(l.Length <= 32, $"qator {l.Length} belgidan iborat"));
+        Assert.Contains(lines, l => l.Contains("Bunyodkor"));
+    }
+
     /// <summary>Bayt ketma-ketligining o'rni; topilmasa −1.</summary>
     private static int Find(byte[] haystack, byte[] needle)
     {

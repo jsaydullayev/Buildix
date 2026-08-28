@@ -914,6 +914,24 @@ internal static class ReportPdfRenderer
                         col.Item().AlignCenter().Text(data.MarketDescription)
                             .FontSize(bodySize - 0.5f).FontColor(Black);
 
+                    // ── Do'kon rekvizitlari ──────────────────────────────
+                    // Manzil, telefon va egasi yozgan matn — sozlamalardan.
+                    // Mijoz chekni saqlab qo'yadi va qaytarish yoki kafolat
+                    // uchun do'konni aynan shundan topadi. Bo'sh maydon
+                    // qator ham egallamaydi: rulon tor.
+                    void Note(string? text)
+                    {
+                        if (string.IsNullOrWhiteSpace(text)) return;
+                        col.Item().AlignCenter().Text(text)
+                            .FontSize(bodySize - 0.5f).FontColor(Black);
+                    }
+
+                    Note(data.MarketAddress);
+                    Note(string.IsNullOrWhiteSpace(data.MarketPhone)
+                        ? null
+                        : L("Tel: ", "Тел: ") + data.MarketPhone);
+                    Note(data.ReceiptHeader);
+
                     col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
 
                     // ── Chek rekvizitlari ────────────────────────────────
@@ -992,6 +1010,8 @@ internal static class ReportPdfRenderer
 
                     col.Item().AlignCenter().Text(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"))
                         .SemiBold().FontColor(Black);
+                    // Egasi yozgan matn («Chek pastidagi matn»).
+                    Note(data.ReceiptFooter);
 
                     // Rulon kesilganda oxirgi qator qirqilib qolmasin.
                     col.Item().PaddingBottom(10);
@@ -1019,7 +1039,16 @@ internal static class ReportPdfRenderer
         // Subtotal == TotalAmount va Discount == 0, shuning uchun default
         // qiymatlar eski chaqiruvlarni buzmaydi.
         decimal SubtotalAmount = 0m,
-        decimal DiscountAmount = 0m
+        decimal DiscountAmount = 0m,
+        // ── Do'kon sozlamalari (MarketSettings) ──────────────────────────
+        // Ega ularni Sozlamalarda to'ldiradi va aynan CHEKDA ko'rinishini
+        // kutadi — «Chek tepasidagi matn» degan yozuv boshqa hech narsani
+        // anglatmaydi. Sukut bo'yicha null: bo'sh maydon chekda qator ham
+        // egallamaydi, rulon esa tor.
+        string? MarketAddress = null,
+        string? MarketPhone = null,
+        string? ReceiptHeader = null,
+        string? ReceiptFooter = null
     );
 
     internal record InvoiceItemData(

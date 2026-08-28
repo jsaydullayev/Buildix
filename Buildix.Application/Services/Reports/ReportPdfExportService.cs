@@ -23,13 +23,15 @@ public sealed class ReportPdfExportService(
     ICurrentMarketService currentMarketService,
     ITashkentClock clock,
     ILogger<ReportPdfExportService> logger,
-    ISalesReportService salesReportService)
+    ISalesReportService salesReportService,
+    IMarketSettingsService marketSettingsService)
     : ReportServiceBase(clock), IReportPdfExportService
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ICurrentMarketService _currentMarketService = currentMarketService;
     private readonly ILogger<ReportPdfExportService> _logger = logger;
     private readonly ISalesReportService _salesReportService = salesReportService;
+    private readonly IMarketSettingsService _marketSettingsService = marketSettingsService;
 
     public async Task<byte[]> ExportSalesListToPdfAsync(DateTime? startDate, DateTime? endDate, bool canViewCost = false, bool canViewProfit = false, string lang = "uz", CancellationToken cancellationToken = default)
     {
@@ -370,6 +372,12 @@ public sealed class ReportPdfExportService(
             ));
         }
 
+        // Do'kon rekvizitlari — manzil, telefon va egasi yozgan chek matnlari.
+        // Ular MARKET da emas, MarketSettings da yotadi: ega ularni Sozlamalar
+        // ekranida to'ldiradi. Ilgari chekka umuman yetib bormasdi va ega
+        // «Chek tepasidagi matn» ni yozib, uni qog'ozda hech qachon ko'rmasdi.
+        var settings = await _marketSettingsService.GetOrCreateAsync(marketId, cancellationToken);
+
         var invoiceData = new ReportPdfRenderer.InvoiceData(
             market.Name,
             market.Description ?? "",
@@ -386,7 +394,11 @@ public sealed class ReportPdfExportService(
             // Oraliq summa = chegirmagacha bo'lgan qatorlar yig'indisi;
             // TotalAmount esa allaqachon net (gross − chegirma).
             invoiceItems.Sum(i => i.Total),
-            sale.DiscountAmount
+            sale.DiscountAmount,
+            MarketAddress: settings.Address,
+            MarketPhone: settings.Phone,
+            ReceiptHeader: settings.ReceiptHeader,
+            ReceiptFooter: settings.ReceiptFooter
         );
 
         return invoiceData;

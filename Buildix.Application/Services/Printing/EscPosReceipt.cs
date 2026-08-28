@@ -113,6 +113,19 @@ internal static class EscPosReceipt
         if (!string.IsNullOrWhiteSpace(data.MarketDescription))
             Line(data.MarketDescription);
 
+        // ── Do'kon rekvizitlari ─────────────────────────────────────────
+        // Manzil va telefon — sozlamalardan. Mijoz chekni saqlab qo'yadi va
+        // qaytarish yoki kafolat uchun do'konni AYNAN shundan topadi.
+        // To'ldirilmagan maydon qator ham egallamaydi: rulon tor va bo'sh
+        // qatorlar chekni cho'zardi.
+        foreach (var part in Wrap(data.MarketAddress, cols)) Line(part);
+        if (!string.IsNullOrWhiteSpace(data.MarketPhone))
+            Line(L("Tel: ", "Тел: ") + Clean(data.MarketPhone));
+
+        // Egasi yozgan matn («Chek tepasidagi matn») — aksiya, ish vaqti,
+        // istalgan yozuv.
+        foreach (var part in Wrap(data.ReceiptHeader, cols)) Line(part);
+
         // Uzun chiziq: do'kon nomini chekning qolgan qismidan ajratadi.
         Raw(AlignLeft);
         Line(new string('=', cols));
@@ -167,6 +180,8 @@ internal static class EscPosReceipt
 
         Raw(AlignCenter);
         Line(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"));
+        // Egasi yozgan matn («Chek pastidagi matn»).
+        foreach (var part in Wrap(data.ReceiptFooter, cols)) Line(part);
         Raw(AlignLeft);
 
         Raw(BoldOff);
