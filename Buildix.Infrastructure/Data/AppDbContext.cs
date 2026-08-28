@@ -378,13 +378,29 @@ public class AppDbContext : DbContext, IAppDbContext
             // Username scope:
             //   - Tenant users (MarketId IS NOT NULL): unique per market.
             //   - Cross-tenant users (MarketId IS NULL, e.g. SuperAdmin): globally unique.
+            //
+            // O'CHIRILGAN xodimlar login'ni BAND QILMAYDI. Ular jismonan
+            // o'chirilmaydi (audit tarixi ularga ishora qiladi), lekin qator
+            // qolishi login'ni abadiy egallab turishi kerak degani emas:
+            // egasi ishdan bo'shagan kassirni o'chirib, o'rniga o'sha nom
+            // bilan yangisini yaratganda tizim uni rad etardi.
+            //
+            // Va u TUSHUNARSIZ rad etardi. Yaratishdan oldingi tekshiruv
+            // global filtr ostida ishlaydi, ya'ni o'chirilgan qatorni
+            // KO'RMAYDI: tekshiruv «bunday login yo'q» deb o'tkazar, baza esa
+            // yozishda indeksga urilib rad etardi. Ekranga esa «Serverda
+            // kutilmagan xatolik» chiqardi — egasi nima qilishini bilmasdi.
+            //
+            // Endi indeks shakli tekshiruv shakliga AYNAN mos: ikkalasi ham
+            // faqat tirik xodimlarni ko'radi. O'chirilgan xodim TelegramChatId
+            // ni ham xuddi shu sabab bilan bo'shatadi (DeleteUserAsync).
             b.HasIndex(x => new { x.MarketId, x.Username })
                 .IsUnique()
-                .HasFilter("\"MarketId\" IS NOT NULL")
+                .HasFilter("\"MarketId\" IS NOT NULL AND NOT \"IsDeleted\"")
                 .HasDatabaseName("IX_Users_MarketId_Username_Unique");
             b.HasIndex(x => x.Username)
                 .IsUnique()
-                .HasFilter("\"MarketId\" IS NULL")
+                .HasFilter("\"MarketId\" IS NULL AND NOT \"IsDeleted\"")
                 .HasDatabaseName("IX_Users_Username_GlobalUnique");
         });
 

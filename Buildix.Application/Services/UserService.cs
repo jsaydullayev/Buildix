@@ -186,7 +186,22 @@ public class UserService : IUserService
         };
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUsernameConflict(ex))
+        {
+            // Yuqoridagi tekshiruv bilan bir vaqtda boshqa birov AYNAN shu
+            // login bilan xodim yaratgan bo'lishi mumkin — tekshiruv va
+            // yozish orasida bo'shliq bor va uni yo'qotib bo'lmaydi.
+            //
+            // Busiz indeksning rad etishi umumiy 500 ga aylanardi va ekranga
+            // «Serverda kutilmagan xatolik yuz berdi» chiqardi: egasi na
+            // sababni bilardi, na nima qilishni. Endi u aniq xabar ko'radi
+            // va login'ni o'zgartiradi.
+            throw new DuplicateUsernameException(request.Username);
+        }
 
         var dto = MapToDto(user);
         await _auditLog.LogActionAsync(
@@ -724,6 +739,31 @@ public class UserService : IUserService
         user.MaxDiscountPercent,
         user.MaxDebtPerCheck
     );
+
+    /// <summary>Yozish login takrorlanganiga urildimi.</summary>
+    /// <remarks>
+    /// <para>Indeks NOMI bo'yicha aniqlanadi, xato matni bo'yicha emas:
+    /// PostgreSQL xabarlarni server tilida yozadi (do'kon serverlari rus
+    /// tilida turadi) va matnga tayanish o'sha mashinalarda jimgina
+    /// ishlamay qo'yardi — xato yana 500 ga aylanardi. Indeks nomi esa
+    /// tarjima qilinmaydi.</para>
+    ///
+    /// <para>Ma'lumotlar bazasi turiga bog'lanmaydi: <c>Npgsql</c> bu
+    /// qatlamdan ko'rinmaydi va sinovlar boshqa provayderda ishlaydi.</para>
+    /// </remarks>
+    private static bool IsUsernameConflict(DbUpdateException ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            if (e.Message.Contains("IX_Users_MarketId_Username_Unique", StringComparison.Ordinal)
+                || e.Message.Contains("IX_Users_Username_GlobalUnique", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static UserDto MapToDto(User user)
     {
