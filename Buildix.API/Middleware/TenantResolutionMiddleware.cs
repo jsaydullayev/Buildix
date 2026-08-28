@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Buildix.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Buildix.Infrastructure.Data;
@@ -28,7 +28,8 @@ public class TenantResolutionMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         AppDbContext dbContext,
-        IPlatformSettingsProvider platformSettings)
+        IPlatformSettingsProvider platformSettings,
+        Buildix.Application.Interfaces.ISubscriptionClock subscriptionClock)
     {
         // Skip tenant resolution for endpoints that don't operate on a single
         // tenant. The SuperAdmin console (`/api/_sa/...`) is cross-tenant by
@@ -128,8 +129,16 @@ public class TenantResolutionMiddleware
             if (market is not null)
             {
                 var settings = platformSettings.Current;
+                // Vaqt ATAYLAB `DateTime.UtcNow` dan emas. Do'kon dasturida
+                // obuna muddati lokal nusxada turadi va u faqat bulutdan
+                // tortilganda yangilanadi — internet uzilsa muzlab qoladi,
+                // soat esa yuraveradi. Natijada TO'LAGAN do'kon otsrochka
+                // tugagach savdo qila olmasdi, bir oydan keyin esa ilova
+                // umuman ochilmasdi. Endi bulut jim bo'lgan vaqt
+                // otsrochkani yemaydi (SubscriptionClock).
+                var asOf = await subscriptionClock.NowAsync(context.RequestAborted);
                 subscriptionState = market.EvaluateSubscription(
-                    DateTime.UtcNow, settings.GraceDays, settings.FullBlockAfterDays);
+                    asOf, settings.GraceDays, settings.FullBlockAfterDays);
                 context.Items[SubscriptionStateKey] = subscriptionState;
                 if (subscriptionState != Domain.Enums.SubscriptionState.Active)
                     context.Response.Headers["X-Subscription-State"] = subscriptionState.ToString();

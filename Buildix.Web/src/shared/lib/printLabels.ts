@@ -31,11 +31,33 @@ const LOAD_TIMEOUT_MS = 15_000;
 /** Chop etish oynasi yopilgach resurslarni bo'shatish kechikishi. */
 const CLEANUP_DELAY_MS = 60_000;
 
-/** Chop etiladigan hujjat — har yorliq alohida sahifada. */
+/**
+ * Chop etiladigan hujjat — har yorliq alohida sahifada.
+ *
+ * <p><b>Rasm bir marta yoziladi.</b> Ilgari har NUSXA uchun base64 satr
+ * qaytadan qo'yilardi. Priyomkadan keyin «Sement — 100 dona» yorlig'i
+ * bosilganda hujjat uch megabaytdan oshib ketardi va do'kon qobig'i uni
+ * ochib ham ulgurmasdi: chop etish jimgina brauzer oynasiga tushar, u yerda
+ * esa sukut bo'yicha A4 printer va «Masshtab: sukut» turardi — 58×40 mm
+ * yorliq A4 varaqqa cho'zilib bosilardi. Do'konda eng ko'p uchraydigan
+ * holat aynan shu edi.</p>
+ *
+ * <p>Endi har xil yorliq CSS sinfida bir marta e'lon qilinadi, sahifalar esa
+ * o'sha sinfga ishora qiladigan bo'sh bloklar. Yuz nusxa hujjat hajmini
+ * deyarli oshirmaydi.</p>
+ */
 export function buildLabelsHtml(labels: LabelImage[], widthMm: number, heightMm: number): string {
+  // Bir xil rasm bir necha tovarda uchrashi mumkin emas, lekin himoya arzon.
+  const unique = new Map<string, number>();
+  for (const l of labels) if (!unique.has(l.png)) unique.set(l.png, unique.size);
+
+  const classes = [...unique.entries()]
+    .map(([png, i]) => `.l${i}{background-image:url(data:image/png;base64,${png})}`)
+    .join('');
+
   const pages = labels
-    .flatMap((l) => Array.from({ length: Math.max(1, l.copies) }, () => l.png))
-    .map((png) => `<img src="data:image/png;base64,${png}" alt="">`)
+    .flatMap((l) => Array.from({ length: Math.max(1, l.copies) }, () => unique.get(l.png)!))
+    .map((i) => `<i class="l${i}"></i>`)
     .join('');
 
   return `<!doctype html>
@@ -44,16 +66,23 @@ export function buildLabelsHtml(labels: LabelImage[], widthMm: number, heightMm:
      uzatadi; chekka nol, ya'ni maket qirqilmaydi va siljimaydi. */
   @page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }
   html, body { margin: 0; padding: 0; }
-  /* Har rasm — bitta sahifa. Yorliq printeri sahifadan keyin qog'ozni uzadi,
-     shuning uchun nusxalar ham alohida sahifa bo'lishi kerak. */
-  img {
+  /* Fon rasmlari sukut bo'yicha CHOP ETILMAYDI — brauzer ularni siyoh
+     tejash uchun tashlab yuboradi. Yorliq esa aynan o'sha rasmning o'zi,
+     ya'ni bu yerda u majburan yoqiladi. Busiz qog'ozdan BO'SH yorliq
+     chiqardi. */
+  i {
     display: block;
     width: ${widthMm}mm;
     height: ${heightMm}mm;
+    background-size: ${widthMm}mm ${heightMm}mm;
+    background-repeat: no-repeat;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
     break-after: page;
     page-break-after: always;
   }
-  img:last-child { break-after: auto; page-break-after: auto; }
+  i:last-child { break-after: auto; page-break-after: auto; }
+  ${classes}
 </style></head><body>${pages}</body></html>`;
 }
 
@@ -108,7 +137,10 @@ export async function printLabels(
     doc.write(html);
     doc.close();
 
-    await imagesReady(doc, win);
+    // Rasmlar CSS fonida, ya'ni `doc.images` bo'sh bo'ladi. Ular chop
+    // etishdan OLDIN dekodlanishi kerak: aks holda birinchi sahifalar bo'sh
+    // chiqishi mumkin va omborchi buni faqat qog'ozdan bilardi.
+    await decodeAll(labels);
 
     win.focus();
     win.print();
@@ -179,28 +211,34 @@ function printViaDesktop(html: string, widthMm: number, heightMm: number): Promi
   });
 }
 
-/** Hujjatdagi barcha rasmlar yuklanishini kutadi (yoki muddat tugashini). */
-function imagesReady(doc: Document, win: Window): Promise<void> {
-  const images = [...doc.images];
-  const pending = images.filter((img) => !img.complete);
-  if (pending.length === 0) return Promise.resolve();
+/**
+ * Rasmlarni chop etishdan OLDIN dekodlaydi.
+ *
+ * <p>Yorliqlar CSS fonida turadi, ya'ni hujjatda <code>img</code> elementi
+ * yo'q va uning yuklanishini kutib bo'lmaydi. Buning o'rniga har xil rasm
+ * shu yerda bir marta dekodlanadi — brauzer keshi tayyor bo'lgach iframe
+ * darhol chiziladi.</p>
+ *
+ * <p>Muddat tugasa ham davom etamiz: yarim tayyor hujjatni chop etish
+ * umuman chop etmaslikdan yaxshiroq — omborchi natijani ko'rib qaror
+ * qiladi.</p>
+ */
+function decodeAll(labels: LabelImage[]): Promise<void> {
+  const unique = [...new Set(labels.map((l) => l.png))];
+  if (unique.length === 0) return Promise.resolve();
 
-  return new Promise((resolve) => {
-    let left = pending.length;
-    const done = () => {
-      left -= 1;
-      if (left <= 0) {
-        win.clearTimeout(timer);
-        resolve();
-      }
-    };
-    // Muddat tugasa ham davom etamiz: yarim yuklangan hujjatni chop etish
-    // umuman chop etmaslikdan yaxshiroq — omborchi natijani ko'rib qaror
-    // qiladi.
-    const timer = win.setTimeout(resolve, LOAD_TIMEOUT_MS);
-    for (const img of pending) {
-      img.addEventListener('load', done, { once: true });
-      img.addEventListener('error', done, { once: true });
-    }
-  });
+  const ready = unique.map(
+    (png) =>
+      new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = `data:image/png;base64,${png}`;
+      }),
+  );
+
+  return Promise.race([
+    Promise.all(ready).then(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, LOAD_TIMEOUT_MS)),
+  ]);
 }

@@ -1,4 +1,4 @@
-using Buildix.API;
+﻿using Buildix.API;
 using Buildix.API.Middleware;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Services;
@@ -676,6 +676,8 @@ try
     builder.Services.AddScoped<IShopPushService, ShopPushService>();
     builder.Services.AddScoped<ISyncPushService, SyncPushService>();
     builder.Services.AddScoped<ISyncFreshnessService, SyncFreshnessService>();
+    // Obuna soati — do'konda bulut bilan oxirgi aloqaga tayanadi.
+    builder.Services.AddScoped<ISubscriptionClock, SubscriptionClock>();
     builder.Services.AddScoped<IShopOfflineAlertService, ShopOfflineAlertService>();
     // Bot day summary — served both on demand (/kunlik in the webhook) and by the
     // nightly job below. Takes marketId explicitly: outside an HTTP request the

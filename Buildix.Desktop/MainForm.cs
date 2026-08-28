@@ -1,4 +1,4 @@
-using Microsoft.Web.WebView2.Core;
+﻿using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
 namespace Buildix.Desktop;
@@ -78,7 +78,18 @@ public sealed class MainForm : Form
             var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
             if (problem is not null)
             {
+                // Birinchi urinish yiqildi — lekin bu YAKUNIY javob emas.
+                //
+                // Ertalab do'konda ikkala kompyuter bitta uzatgichdan bir
+                // vaqtda yonadi. Server kassada PostgreSQL toza yopilmagani
+                // uchun tiklanish jurnalini o'qiydi va API bir daqiqagacha
+                // javob bermasligi mumkin. Ulanuvchi kassa esa to'rt soniyada
+                // so'raydi. Ilgari shu yerda TO'XTAB qolardi va ekranda
+                // «Server javob bermadi» yozuvi bilan abadiy turardi —
+                // server ko'tarilgandan keyin ham. Kassir ilovani qo'lda
+                // qayta ochishi kerak edi, buni esa unga hech kim aytmagan.
                 FailWithSetup(problem, serverUrl);
+                RetryUntilServerUp(serverUrl);
                 return;
             }
 
@@ -318,6 +329,49 @@ public sealed class MainForm : Form
         };
         Controls.Add(_setup);
         _setup.BringToFront();
+    }
+
+    /// <summary>
+    /// Server ko'tarilishini kutadi va o'zi ulanadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kassirdan hech narsa talab qilinmaydi: elektr uzilishidan keyin
+    /// ikkala kompyuter birga yonadi va server kassa kechroq tayyor bo'ladi.
+    /// Ilova shunchaki kutadi va tayyor bo'lgan zahoti ish ekraniga
+    /// o'tadi.</para>
+    ///
+    /// <para>Oraliq ATAYLAB kichik emas: server ko'tarilishi bir daqiqagacha
+    /// cho'zilishi mumkin va har soniyada so'rov yuborish uni yanada
+    /// sekinlashtirardi.</para>
+    /// </remarks>
+    private void RetryUntilServerUp(string serverUrl)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = 5000 };
+        timer.Tick += async (_, _) =>
+        {
+            if (IsDisposed) { timer.Stop(); timer.Dispose(); return; }
+
+            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
+            if (problem is not null) return;   // hali tayyor emas — kutamiz
+
+            timer.Stop();
+            timer.Dispose();
+
+            // Sozlama tugmasi endi keraksiz: ulanish tiklandi.
+            if (_setup is not null) { _setup.Hide(); }
+
+            try
+            {
+                await ShowInterfaceAsync(serverUrl);
+                WatchServer(serverUrl);
+            }
+            catch (Exception ex)
+            {
+                Fail("Interfeysni ochib bo'lmadi." + Environment.NewLine + Environment.NewLine + ex.Message);
+            }
+        };
+        timer.Start();
+        Disposed += (_, _) => timer.Dispose();
     }
 
     /// <summary>
