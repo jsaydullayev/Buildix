@@ -40,6 +40,43 @@ public class SyncState
     public DateTime? LastPushedAtUtc { get; set; }
 
     /// <summary>
+    /// Birinchi to'liq nusxa olish tugagan vaqt. <c>null</c> — hali
+    /// olinmagan.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega alohida bosqich kerak.</b> Oddiy tortish faqat market,
+    /// xodimlar va tovarlarning EGASI o'zgartiradigan maydonlarini olib
+    /// keladi — u «bulutda nima o'zgardi» degan savolga javob beradi.
+    /// Do'konning O'ZI esa bo'sh: savdolar, qoldiqlar, mijozlar, qarzlar
+    /// bulutda turadi va pastga tushadigan yo'l yo'q edi.</para>
+    ///
+    /// <para>Bu do'kon webda ishlab kelgan va keyin desktopga o'tgan holatda
+    /// ko'rinadi: ilova ochiladi, kirish o'tadi, lekin ekran bo'sh —
+    /// savdo ham, tovar ham yo'q. Kassir uchun bu «dastur ma'lumotni
+    /// yo'qotgan» bo'lib ko'rinadi.</para>
+    ///
+    /// <para>Nusxa olish TUGAGANDAN keyin do'kon o'z ma'lumotining egasi
+    /// bo'ladi va o'zgarishlarni yuqoriga yuboradi — shuning uchun u
+    /// aynan bir marta bajariladi.</para>
+    /// </remarks>
+    public DateTime? SeedCompletedAtUtc { get; set; }
+
+    /// <summary>
+    /// Nusxa olish qayerda to'xtaganini ko'rsatadi: hozir olinayotgan
+    /// jadval nomi. Tugagach <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// Uzilish do'konda NORMAL holat (internet, elektr), shuning uchun
+    /// nusxa qismlarga bo'lib olinadi va uzilgan joydan davom etadi. Aks
+    /// holda katta do'konda u hech qachon oxirigacha yetmasdi va har safar
+    /// noldan boshlanardi.
+    /// </remarks>
+    public string? SeedTable { get; set; }
+
+    /// <summary>Joriy jadvalda oxirgi olingan yozuvning kaliti.</summary>
+    public string? SeedAfter { get; set; }
+
+    /// <summary>
     /// Oxirgi yuborish xatosi. Muvaffaqiyatda tozalanadi.
     /// </summary>
     /// <remarks>

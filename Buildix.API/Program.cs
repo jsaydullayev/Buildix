@@ -662,6 +662,9 @@ try
     builder.Services.AddScoped<ITelegramLinkService, TelegramLinkService>();
     builder.Services.AddScoped<ITerminalPairingService, TerminalPairingService>();
     builder.Services.AddScoped<ISyncPullService, SyncPullService>();
+    // Do'konning birinchi to'ldirilishi — savdolar, qoldiqlar, mijozlar,
+    // qarzlar. Oddiy tortish buni bermaydi: u faqat o'zgarishlarni oladi.
+    builder.Services.AddScoped<ISyncSnapshotService, SyncSnapshotService>();
 
     // Do'kon nusxasining bulut sozlamasi. Qiymatlar QOBIQDAN muhit
     // o'zgaruvchisi orqali keladi: kalit API o'qiydigan sozlama faylida

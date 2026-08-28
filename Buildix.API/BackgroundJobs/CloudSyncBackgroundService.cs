@@ -67,13 +67,40 @@ public class CloudSyncBackgroundService : BackgroundService
                     _logger.LogWarning("Cloud pull unsuccessful: {Error}", pulled.Error);
                 }
 
+                // ── Birinchi to'liq nusxa ─────────────────────────────────
+                // Tortishdan KEYIN: do'kon o'z raqamini va xodimlarini faqat
+                // o'sha yerdan biladi, ularsiz kelgan savdolarni bog'lab
+                // bo'lmaydi.
+                //
+                // Aynan bir marta bajariladi. Usiz webda ishlab kelgan do'kon
+                // desktopga o'tganda BO'SH ekran ko'rardi: savdo ham, tovar
+                // ham yo'q — ular bulutda qolib ketardi va pastga tushadigan
+                // yo'l yo'q edi.
+                var seed = await sync.SeedAsync(stoppingToken);
+                if (!seed.Success)
+                    _logger.LogWarning("Cloud seed unsuccessful: {Error}", seed.Error);
+                else if (seed.Rows > 0)
+                    _logger.LogInformation(
+                        "Cloud seed: {Rows} qator, tugadi={Completed}", seed.Rows, seed.Completed);
+
                 // Yuborish TORTISHDAN KEYIN. Do'kon o'z market raqamini
                 // faqat tortishdan biladi va usiz nima yuborishni ham
                 // aniqlay olmaydi.
-                var push = scope.ServiceProvider.GetRequiredService<IShopPushService>();
-                var pushed = await push.PushAsync(stoppingToken);
-                if (!pushed.Success)
-                    _logger.LogWarning("Cloud push unsuccessful: {Error}", pushed.Error);
+                //
+                // Nusxa TUGAMAGUNCHA yubormaymiz: yarim to'ldirilgan do'kon
+                // bulutga o'zining chala holatini qaytarib, u yerdagi to'g'ri
+                // ma'lumotni bosib yuborishi mumkin edi.
+                //
+                // `continue` ISHLATILMAYDI: u quyidagi kutishni ham o'tkazib
+                // yuborardi va tsikl bulutni to'xtovsiz so'rovga ko'mib
+                // tashlardi.
+                if (seed.Completed)
+                {
+                    var push = scope.ServiceProvider.GetRequiredService<IShopPushService>();
+                    var pushed = await push.PushAsync(stoppingToken);
+                    if (!pushed.Success)
+                        _logger.LogWarning("Cloud push unsuccessful: {Error}", pushed.Error);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

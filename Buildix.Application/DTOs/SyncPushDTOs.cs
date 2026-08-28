@@ -29,6 +29,17 @@ public class SyncPushDto
     /// </remarks>
     public List<User> Users { get; set; } = new();
 
+    /// <summary>
+    /// Tovar guruhlari.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bu ro'yxat hozircha faqat PASTGA — bulutdan do'konga birinchi
+    /// nusxa olishda ishlatiladi (<see cref="SyncSnapshotDto"/>). Do'kon uni
+    /// yuqoriga yubormaydi: guruh raqami ikkala tomonda mustaqil o'sadi va
+    /// uni shu holicha yuborish begona guruhga tegib ketishi mumkin edi.</para>
+    /// </remarks>
+    public List<ProductCategory> ProductCategories { get; set; } = new();
+
     public List<Product> Products { get; set; } = new();
     public List<Customer> Customers { get; set; } = new();
     public List<Shift> Shifts { get; set; } = new();

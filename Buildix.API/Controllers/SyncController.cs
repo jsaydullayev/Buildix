@@ -120,4 +120,43 @@ public class SyncController : ControllerBase
 
         return Ok(await _pull.PullAsync(terminal.MarketId, from, ct));
     }
+
+    /// <summary>
+    /// Do'konning BIRINCHI to'ldirilishi: savdolar, qoldiqlar, mijozlar,
+    /// qarzlar va qolgan tarix.
+    ///
+    /// <para>Oddiy tortish buni bermaydi — u faqat «bulutda nima
+    /// o'zgardi» degan savolga javob beradi. Webda ishlab kelib, keyin
+    /// desktopga o'tgan do'kon o'sha sababdan BO'SH ekran ko'rardi:
+    /// ma'lumot bulutda turar, pastga tushadigan yo'l esa yo'q edi.</para>
+    ///
+    /// <para>Javob ATAYLAB qo'lda seriyalanadi — sabab
+    /// <see cref="Push"/> dagi bilan bir xil: global sozlamadagi
+    /// o'zgartirgich vaqtlarni Toshkent mintaqasiga suradi va
+    /// sinxronizatsiya kanalidagi sanalar 5 soatga siljib ketardi.</para>
+    /// </summary>
+    [HttpGet("snapshot")]
+    public async Task<IActionResult> Snapshot(
+        [FromServices] ISyncSnapshotService snapshot,
+        [FromQuery] string table,
+        [FromQuery] int after = 0,
+        [FromQuery] int take = 0,
+        CancellationToken ct = default)
+    {
+        var terminal = (ShopTerminal)HttpContext.Items[TerminalAuthorizeAttribute.TerminalItemKey]!;
+
+        SyncSnapshotDto result;
+        try
+        {
+            result = await snapshot.GetAsync(terminal.MarketId, table, after, take, ct);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // Noma'lum jadval — do'konning eskirgan nusxasi bo'lishi mumkin.
+            // 400 aniq javob: bo'sh 200 esa unga «tugadi» bo'lib ko'rinardi.
+            return BadRequest(new { message = $"Noma'lum jadval: {table}" });
+        }
+
+        return new JsonResult(result, EntityWireFormat.Options);
+    }
 }

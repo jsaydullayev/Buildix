@@ -10,6 +10,33 @@ public interface IShopSyncService
 
     /// <summary>Bulutdan o'zgarishlarni olib, lokal bazaga yozadi.</summary>
     Task<ShopSyncResult> PullAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Birinchi to'liq nusxani bulutdan oladi — savdolar, qoldiqlar,
+    /// mijozlar, qarzlar va qolgan tarix.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aynan bir marta bajariladi va tugagani bazada belgilanadi.
+    /// Uzilsa — qayerda to'xtagan bo'lsa, o'sha joydan davom etadi.</para>
+    ///
+    /// <para>Tortish (<see cref="PullAsync"/>) dan KEYIN chaqirilishi
+    /// shart: do'kon o'z raqamini va xodimlarini faqat o'sha yerdan
+    /// biladi, ularsiz esa kelgan savdolarni yozib bo'lmaydi.</para>
+    /// </remarks>
+    Task<ShopSeedResult> SeedAsync(CancellationToken ct = default);
+}
+
+/// <summary>Nusxa olish natijasi.</summary>
+/// <param name="Completed">Nusxa to'liq olindimi (yoki allaqachon bor edi).</param>
+/// <param name="Rows">Shu chaqiruvda yozilgan qatorlar soni.</param>
+public record ShopSeedResult(bool Success, bool Completed, int Rows, string? Error)
+{
+    public static ShopSeedResult Ok(bool completed, int rows) => new(true, completed, rows, null);
+
+    public static ShopSeedResult Failed(string error) => new(false, false, 0, error);
+
+    /// <summary>Bajarish shart emas edi — bu xato emas.</summary>
+    public static ShopSeedResult Skipped() => new(true, true, 0, null);
 }
 
 /// <summary>
