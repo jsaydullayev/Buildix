@@ -289,8 +289,32 @@ boradi: ularsiz toza Windows'da baza umuman ishga tushmasdi.
 #    odam yuklab oladi; autoindex o'chiq, ya'ni yo'lni bilmasdan topib
 #    bo'lmaydi.
 scp artifacts/*.nupkg artifacts/releases.win.json artifacts/RELEASES \
+    artifacts/Buildix-win-Setup.exe \
     server:/srv/buildix/updates/<MAXFIY>/
 ```
+
+O'rnatuvchi ham shu yerga qo'yiladi: do'kon egasi uni **panelning o'zidan**
+yuklab oladi (Sozlamalar → «Do'kon dasturi»). Buning uchun `.env` da manzil
+ko'rsatiladi:
+
+```dotenv
+DESKTOP_INSTALLER_URL=https://<domen>/updates/<MAXFIY>/Buildix-win-Setup.exe
+DESKTOP_VERSION=1.0.0
+```
+
+```bash
+docker compose up -d api        # manzil o'zgargach
+```
+
+Manzilni faqat kirgan EGA oladi (`GET /api/Markets/desktop-app`, Owner
+huquqi), shuning uchun papka nomi sir bo'lib qolaveradi. Sozlanmagan bo'lsa
+sahifada tugma o'rniga «hali tayyor emas» chiqadi — bu xato emas.
+
+**O'rnatuvchi fayl nomi versiyasiz** (`Buildix-win-Setup.exe`) va u har
+chiqarishda almashadi. Shuning uchun nginx uni keshlamaydi: aks holda ega
+o'ttiz kun davomida eski o'rnatuvchini olardi va buni sezmasdi ham.
+`.nupkg` fayllari esa nomida versiya bilan keladi va uzoq keshlanadi.
+
 
 ESKI PAKETLARNI O'CHIRMANG. Delta faqat oldingi versiya paketiga nisbatan
 qo'llanadi. 0.1.0 dagi do'kon bir necha oy yangilanmagan bo'lsa, unga
