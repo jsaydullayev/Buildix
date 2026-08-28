@@ -290,8 +290,17 @@ boradi: ularsiz toza Windows'da baza umuman ishga tushmasdi.
 #    bo'lmaydi.
 scp artifacts/*.nupkg artifacts/releases.win.json artifacts/RELEASES \
     artifacts/Buildix-win-Setup.exe \
-    server:/srv/buildix/updates/<MAXFIY>/
+    server:/srv/buildix/deploy/updates/<MAXFIY>/
 ```
+
+> **Papka yo'li `UPDATES_DIR` ga bog'liq.** Sukut bo'yicha u
+> `./deploy/updates`, ya'ni serverda `/srv/buildix/deploy/updates/`. Agar
+> `.env` da `UPDATES_DIR=/srv/buildix/updates` deb yozilgan bo'lsa — o'sha
+> yo'l. Noto'g'ri papkaga qo'yilsa fayl nginx'ga umuman ko'rinmaydi va
+> havola 404 qaytaradi; sababi esa hech qayerda yozilmaydi.
+>
+> Tekshirish: `docker compose exec web ls /srv/updates/`
+
 
 O'rnatuvchi ham shu yerga qo'yiladi: do'kon egasi uni **panelning o'zidan**
 yuklab oladi (Sozlamalar → «Do'kon dasturi»). Buning uchun `.env` da manzil
