@@ -20,7 +20,14 @@ namespace Buildix.Application.Services.Printing;
 /// <para><b>Ustunlar.</b> Termal printerda shrift qat'iy kenglikda:
 /// 58 mm rulonga 32 belgi, 80 mm ga 48 belgi sig'adi (Font A). Nom chapga,
 /// summa o'ngga tekislanadi va oradagi joy bo'shliq bilan to'ldiriladi —
-/// aks holda ular bir-biriga yopishib qolardi.</para>
+/// aks holda ular bir-biriga yopishib qolardi. Hisob AYNAN Font A va nol
+/// belgi oralig'iga tayanadi, shuning uchun ikkalasi ham chek boshida
+/// ochiq o'rnatiladi.</para>
+///
+/// <para><b>O'qilishi.</b> Butun chek qalin (bold) bosiladi: termal bosh
+/// arzon qog'ozga ingichka va och yozadi, do'kon yorug'ida esa bunday
+/// chekni o'qib bo'lmaydi. Do'kon nomi va JAMI ikki baravar kattalikda —
+/// ular qatorga ikki barobar kam belgi sig'adigan qilib hisoblanadi.</para>
 /// </summary>
 internal static class EscPosReceipt
 {
@@ -41,6 +48,24 @@ internal static class EscPosReceipt
     private static readonly byte[] BoldOff = [0x1B, 0x45, 0x00];     // ESC E 0
     private static readonly byte[] DoubleOn = [0x1D, 0x21, 0x11];    // GS ! — ikki baravar
     private static readonly byte[] DoubleOff = [0x1D, 0x21, 0x00];
+
+    /// <summary>
+    /// Font A (12×24 nuqta). <see cref="Columns"/> hisobi AYNAN shunga
+    /// tayanadi: Font B ensizroq (9 nuqta) va unda qatorga boshqacha
+    /// miqdorda belgi sig'adi — ustunlar siljib ketardi.
+    /// </summary>
+    private static readonly byte[] FontA = [0x1B, 0x4D, 0x00];       // ESC M 0
+
+    /// <summary>
+    /// Belgilar orasidagi QO'SHIMCHA joy — nol.
+    /// </summary>
+    /// <remarks>
+    /// Qo'shimcha joy qatorga sig'adigan belgilar sonini kamaytiradi va
+    /// ustunlar hisobini buzadi: 48 belgilik qator printerda ikkiga
+    /// bo'linib, summa keyingi qatorga tushib ketardi. Buni ochiq nolga
+    /// qo'yamiz — oldingi ish qoldirgan sozlama chekka o'tmasin.
+    /// </remarks>
+    private static readonly byte[] NoCharSpacing = [0x1B, 0x20, 0x00]; // ESC SP 0
 
     /// <summary>
     /// Kod sahifasi 17 = CP866 (kirill). Lotin belgilar 0–127 oralig'ida va
@@ -67,15 +92,24 @@ internal static class EscPosReceipt
         void Line(string text = "") => body.AddRange(enc.GetBytes(Clean(text) + "\n"));
 
         Raw(Init);
+        Raw(FontA);
+        Raw(NoCharSpacing);
         Raw(CodePage866);
 
+        // Butun chek QALIN bosiladi. Termal bosh arzon qog'ozga ingichka,
+        // och kulrang chiziq bilan yozadi — do'kon yorug'ida bunday chekni
+        // o'qib bo'lmasdi. Qalin rejimda printer har nuqtani ikki marta
+        // uradi va harflar to'q chiqadi.
+        Raw(BoldOn);
+
         // ── Do'kon nomi ─────────────────────────────────────────────────
+        // Ikki baravar kattalikda, ya'ni qatorga ikki barobar KAM belgi
+        // sig'adi — uzun nom shunga qarab bo'linadi. Aks holda printer uni
+        // o'zicha kesar va chek nomsiz boshlanardi.
         Raw(AlignCenter);
         Raw(DoubleOn);
-        Raw(BoldOn);
-        Line(data.MarketName);
+        foreach (var part in Wrap(data.MarketName, cols / 2)) Line(part);
         Raw(DoubleOff);
-        Raw(BoldOff);
         if (!string.IsNullOrWhiteSpace(data.MarketDescription))
             Line(data.MarketDescription);
 
@@ -117,9 +151,14 @@ internal static class EscPosReceipt
             Line(Pair(L("Chegirma", "Скидка"), "-" + Money(data.DiscountAmount), cols));
         }
 
-        Raw(BoldOn);
-        Line(Pair(L("JAMI", "ИТОГО"), Money(data.TotalAmount), cols));
-        Raw(BoldOff);
+        // JAMI — chekdagi eng muhim son va uni mijoz bir qarashda ko'rishi
+        // kerak. Ikki baravar kattalikda bosiladi, ya'ni qatorga ikki
+        // barobar KAM belgi sig'adi: ustunlar shunga qarab hisoblanmasa
+        // summa qatordan chiqib ketardi.
+        Raw(DoubleOn);
+        Line(Pair(L("JAMI", "ИТОГО"), Money(data.TotalAmount), cols / 2));
+        Raw(DoubleOff);
+
         Line(Pair(L("To'landi", "Оплачено"), Money(data.PaidAmount), cols));
         if (data.RemainingAmount > 0)
             Line(Pair(L("Qarz", "Долг"), Money(data.RemainingAmount), cols));
@@ -130,6 +169,7 @@ internal static class EscPosReceipt
         Line(L("Xaridingiz uchun rahmat!", "Спасибо за покупку!"));
         Raw(AlignLeft);
 
+        Raw(BoldOff);
         Raw(Cut);
         return [.. body];
     }

@@ -209,4 +209,73 @@ public class EscPosReceiptTests
         Assert.All(lines, l => Assert.True(l.Length <= 32, $"qator {l.Length} belgidan iborat"));
         Assert.Contains(lines, l => l.EndsWith("380 000"));
     }
+
+    /// <summary>
+    /// JAMI ikki baravar kattalikda bosiladi, ya'ni qatorga ikki barobar
+    /// KAM belgi sig'adi.
+    /// </summary>
+    /// <remarks>
+    /// To'liq en bo'yicha to'ldirilsa summa qog'ozdan chiqib ketardi —
+    /// ustunlar hisobi kattalik bilan birga o'zgarishi shart.
+    /// </remarks>
+    [Theory]
+    [InlineData(58, 16)]
+    [InlineData(80, 24)]
+    public void Jami_kattaligiga_yarasha_tekislanadi(int widthMm, int cols)
+    {
+        var lines = Lines(EscPosReceipt.Build(Sale(), "uz", widthMm));
+
+        var jami = Assert.Single(lines, l => l.StartsWith("JAMI"));
+        Assert.Equal(cols, jami.Length);
+        Assert.EndsWith("451 000", jami);
+    }
+
+    /// <summary>
+    /// Butun chek QALIN bosiladi — termal bosh ingichka va och yozadi va
+    /// do'kon yorug'ida chekni o'qib bo'lmasdi.
+    /// </summary>
+    [Fact]
+    public void Butun_chek_qalin_bosiladi()
+    {
+        var bytes = EscPosReceipt.Build(Sale(), "uz", 80);
+
+        var on = Find(bytes, [0x1B, 0x45, 0x01]);   // ESC E 1
+        var off = Find(bytes, [0x1B, 0x45, 0x00]);  // ESC E 0
+
+        Assert.True(on >= 0, "qalin rejim yoqilmagan");
+        // Do'kon nomidan OLDIN yoqiladi va faqat oxirida o'chadi.
+        Assert.True(on < Find(bytes, Encoding.GetEncoding(866).GetBytes("Taxtapul")));
+        Assert.True(off > on, "qalin rejim o'chirilmagan");
+    }
+
+    /// <summary>
+    /// Ustunlar hisobi Font A va NOL belgi oralig'iga tayanadi — ikkalasi
+    /// ham ochiq o'rnatiladi.
+    /// </summary>
+    /// <remarks>
+    /// Oldingi ish printerda boshqa shrift yoki belgi oralig'i qoldirgan
+    /// bo'lsa, qatorga sig'adigan belgilar soni o'zgarar va 48 belgilik
+    /// qator ikkiga bo'linib, summa keyingi qatorga tushib ketardi.
+    /// </remarks>
+    [Fact]
+    public void Shrift_va_belgi_oraligi_qulflanadi()
+    {
+        var bytes = EscPosReceipt.Build(Sale(), "uz", 80);
+
+        Assert.True(Find(bytes, [0x1B, 0x4D, 0x00]) >= 0, "Font A tanlanmagan");   // ESC M 0
+        Assert.True(Find(bytes, [0x1B, 0x20, 0x00]) >= 0, "belgi oralig'i nolga qo'yilmagan"); // ESC SP 0
+    }
+
+    /// <summary>Bayt ketma-ketligining o'rni; topilmasa −1.</summary>
+    private static int Find(byte[] haystack, byte[] needle)
+    {
+        for (var i = 0; i + needle.Length <= haystack.Length; i++)
+        {
+            var hit = true;
+            for (var j = 0; j < needle.Length && hit; j++)
+                hit = haystack[i + j] == needle[j];
+            if (hit) return i;
+        }
+        return -1;
+    }
 }
