@@ -109,6 +109,28 @@ public class MarketsController : ApiControllerBase
         }
     }
 
+    /// <summary>
+    /// Kassaga kerak bo'ladigan chop etish sozlamalari.
+    /// </summary>
+    /// <remarks>
+    /// <para>To'liq sozlamalar ekrani faqat EGAGA ochiq, lekin chek eni
+    /// kassirga ham kerak: chekni u bosadi. Ilgari en interfeysga QATTIQ
+    /// 80 deb yozilgan edi va 58 mm printerli do'konda chek qog'ozga
+    /// sig'masdi — drayver uni o'zicha siqib bosardi, har bir harf
+    /// alohida qatorga tushardi.</para>
+    ///
+    /// <para>Omma uchun ochiq yo'lga qo'yilmadi: do'kon sozlamasi kirgan
+    /// xodimga tegishli, tashrifchiga emas.</para>
+    /// </remarks>
+    [HttpGet("~/api/Markets/pos-settings")]
+    [Authorize]
+    public async Task<ActionResult<PosPrintSettingsDto>> PosSettings(CancellationToken cancellationToken)
+    {
+        var settings = await _marketSettingsService.GetOrCreateAsync(
+            _currentMarketService.GetCurrentMarketId(), cancellationToken);
+        return Ok(new PosPrintSettingsDto(settings.ReceiptWidthMm, settings.AutoPrintReceipt));
+    }
+
     // Owner only — the whole Настройки screen. Absolute routes so the paths
     // stay clean (GET/PUT /api/Markets/settings) under the [action] template.
     [HttpGet("~/api/Markets/settings")]

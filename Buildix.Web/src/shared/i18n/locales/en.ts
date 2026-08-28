@@ -858,6 +858,17 @@ export const en: TranslationSchema = {
       markup: 'Default markup',
       markupHint: 'Applied when adding a new product',
     },
+    receipt: {
+      title: 'Receipt',
+      subtitle: 'Roll size and printing',
+      width: 'Roll width',
+      widthHint: 'Must match the paper in the printer — otherwise the receipt does not fit and prints one letter per line.',
+      mm: 'mm',
+      autoPrint: 'Print the receipt automatically',
+      autoPrintHint: 'Right after the sale closes, with no print dialog.',
+      header: 'Receipt header text',
+      footer: 'Receipt footer text',
+    },
     notify: {
       title: 'Notifications',
       subtitle: 'What to send the owner on Telegram',

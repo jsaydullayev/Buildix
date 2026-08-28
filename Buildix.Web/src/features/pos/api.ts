@@ -231,6 +231,34 @@ export const posApi = {
     return data as Blob;
   },
 
+  /**
+   * Kassaga kerak bo'ladigan chop etish sozlamalari — chek eni (58/80 mm).
+   *
+   * <p>Ilgari en interfeysga QATTIQ 80 deb yozilgan edi: 58 mm printerli
+   * do'konda chek qog'ozga sig'masdi va drayver uni o'zicha siqib
+   * bosardi — har bir harf alohida qatorga tushardi.</p>
+   */
+  printSettings: async (): Promise<{ receiptWidthMm: number; autoPrintReceipt: boolean }> => {
+    const { data } = await apiClient.get('/Markets/pos-settings');
+    return data as { receiptWidthMm: number; autoPrintReceipt: boolean };
+  },
+
+  /**
+   * Chekning RASMI — do'kon dasturi uchun.
+   *
+   * <p>PDF ni WebView2 ichida bosib bo'lmaydi: chop etish brauzer
+   * oynasiga tushib ketardi va u yerda sukut bo'yicha A4 printer bilan
+   * «sahifaga moslash» turadi. Rasm esa qobiqqa aynan rulon enida
+   * beriladi va chop etish oynasi umuman ochilmaydi.</p>
+   */
+  receiptImage: async (saleId: string, lang: string, widthMm = 80): Promise<Blob> => {
+    const { data } = await apiClient.get(`/Sales/${saleId}/receipt/image`, {
+      params: { lang, width: widthMm },
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
   /** A4 faktura (ofis hujjati). Fetched through apiClient so the JWT is attached —
    *  a bare window.open would hit the endpoint unauthenticated. */
   invoicePdf: async (saleId: string, lang: string): Promise<Blob> => {

@@ -24,6 +24,8 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { printPdfBlob } from '@/shared/lib/printPdf';
+import { desktopBridge } from '@/shared/lib/desktopPrint';
+import { printReceiptImage } from '@/shared/lib/printReceipt';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
@@ -120,6 +122,15 @@ export default function PosPage() {
   // Chek header'i uchun: joriy smena raqami va do'kon nomi. Ikkalasi ham
   // bo'lmasa chek shusiz chiziladi — sotuvni bloklamaydi.
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
+  // Chek eni (58/80 mm) — do'kon sozlamasidan. Uzoq keshlanadi: u kuniga
+  // o'zgaradigan qiymat emas, lekin qattiq yozib qo'yilsa 58 mm printerli
+  // do'konda chek qog'ozga sig'masdi.
+  const printSettingsQuery = useQuery({
+    queryKey: ['pos-print-settings'],
+    queryFn: posApi.printSettings,
+    staleTime: 30 * 60_000,
+  });
+
   const marketQuery = useQuery({
     queryKey: ['public-market', subdomain],
     queryFn: () => publicMarketApi.getState(subdomain!),
@@ -548,13 +559,30 @@ export default function PosPage() {
 
   /** Chekni PDF ko'rinishida ochish. Sotuv allaqachon yakunlangan — chop etish
    *  muvaffaqiyatsiz bo'lsa ham pul harakati o'zgarmaydi, qayta urinsa bo'ladi. */
+  /**
+   * Chekni chop etadi.
+   *
+   * <p>Do'kon dasturida chek RASM bo'lib chek printeriga to'g'ridan-to'g'ri
+   * ketadi — chop etish oynasi ochilmaydi va o'lcham aynan rulon eniga
+   * teng. Ilgari bu yerda faqat PDF bor edi va u WebView2 ichida
+   * bosilmasdi: chop etish zaxira yo'lga tushib `blob:` havolasini tashqi
+   * dasturda ochishga urinardi, Windows esa «bu havolani ochadigan dastur
+   * yo'q» deb chiqarardi.</p>
+   *
+   * <p>Brauzerda (yoki chek printeri tanlanmagan bo'lsa) avvalgidek PDF
+   * yo'liga tushamiz — ish to'xtamaydi.</p>
+   */
   async function printReceipt(id: string) {
+    const widthMm = printSettingsQuery.data?.receiptWidthMm ?? 80;
     try {
-      const blob = await posApi.receiptPdf(id, i18n.language);
-      // Chek ham darhol chop etishga ketadi — kassir Ctrl+P qidirmasin.
+      if (desktopBridge('receipt')) {
+        const png = await posApi.receiptImage(id, i18n.language, widthMm);
+        if ((await printReceiptImage(png, widthMm)) === 'printed') return;
+      }
+      const blob = await posApi.receiptPdf(id, i18n.language, widthMm);
       await printPdfBlob(blob, `chek-${id}.pdf`);
-    } catch (e) {
-      setActionError((e as unknown as ApiError).message ?? t('common.somethingWrong'));
+    } catch {
+      /* best-effort: the sale is already finalised, printing can be retried */
     }
   }
 

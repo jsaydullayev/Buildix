@@ -216,6 +216,19 @@ public sealed class ReportPdfExportService(
         }
     }
 
+    public async Task<byte[]> GenerateThermalReceiptImageAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default)
+    {
+        var data = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);
+        try
+        {
+            return ReportPdfRenderer.RenderThermalReceiptPng(data, lang, widthMm);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Receipt image failed for sale {saleId}: {ex.Message}", ex);
+        }
+    }
+
     public async Task<byte[]> GenerateInvoicePdfAsync(Guid saleId, string lang = "uz", bool compact = false, CancellationToken cancellationToken = default)
     {
         var invoiceData = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);

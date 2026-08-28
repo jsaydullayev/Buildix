@@ -7,6 +7,14 @@ namespace Buildix.Application.DTOs;
 /// "HH:mm" or null; `defaultLanguage` is "ru"/"uz". One DTO backs both the
 /// GET response and the "Сохранить изменения" whole-form PUT.
 /// </summary>
+/// <summary>
+/// Kassa uchun chop etish sozlamalari — chek eni va avtomatik chop etish.
+/// To'liq sozlamalar ekrani egaga tegishli, bu esa har bir xodimga ochiq.
+/// </summary>
+public record PosPrintSettingsDto(
+    [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
+    [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt);
+
 public record MarketSettingsDto(
     // Магазин
     [property: JsonPropertyName("phone")] string? Phone,
@@ -27,6 +35,7 @@ public record MarketSettingsDto(
     [property: JsonPropertyName("receiptHeader")] string? ReceiptHeader,
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
+    [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
     // Локаль
     [property: JsonPropertyName("defaultLanguage")] string DefaultLanguage,
     [property: JsonPropertyName("firstDayOfWeek")] int FirstDayOfWeek,
@@ -62,6 +71,7 @@ public record UpdateMarketSettingsRequest(
     [property: JsonPropertyName("receiptHeader")] string? ReceiptHeader,
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
+    [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
     [property: JsonPropertyName("defaultLanguage")] string DefaultLanguage,
     [property: JsonPropertyName("firstDayOfWeek")] int FirstDayOfWeek,
     [property: JsonPropertyName("minStockAlertEnabled")] bool MinStockAlertEnabled,

@@ -165,6 +165,52 @@ export default function SettingsPage() {
           </div>
         </Section>
 
+        {/* Чек — rulon eni va avtomatik chop etish */}
+        <Section title={t('settings.receipt.title')} subtitle={t('settings.receipt.subtitle')}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[14px] font-medium">{t('settings.receipt.width')}</div>
+              <div className="mt-0.5 text-[12.5px] text-muted-2">{t('settings.receipt.widthHint')}</div>
+            </div>
+            {/* Faqat ikki qiymat: bular termal rulonlarning standart
+                o'lchamlari va boshqasini kiritish faqat xato bo'ladi —
+                noto'g'ri en bilan chek qog'ozga sig'masdi. */}
+            <div className="flex flex-none gap-2">
+              {[58, 80].map((mm) => (
+                <button
+                  key={mm}
+                  type="button"
+                  onClick={() => set('receiptWidthMm', mm)}
+                  className={cn(
+                    'rounded-btn border px-4 py-2 text-[13.5px] font-medium transition-colors nums',
+                    form.receiptWidthMm === mm
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-input-border text-muted hover:border-primary hover:text-primary',
+                  )}
+                >
+                  {mm} {t('settings.receipt.mm')}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ToggleRow
+            label={t('settings.receipt.autoPrint')}
+            hint={t('settings.receipt.autoPrintHint')}
+            checked={form.autoPrintReceipt}
+            onChange={(v) => set('autoPrintReceipt', v)}
+          />
+          <TextRow
+            label={t('settings.receipt.header')}
+            value={form.receiptHeader ?? ''}
+            onChange={(v) => set('receiptHeader', v)}
+          />
+          <TextRow
+            label={t('settings.receipt.footer')}
+            value={form.receiptFooter ?? ''}
+            onChange={(v) => set('receiptFooter', v)}
+          />
+        </Section>
+
         {/* Уведомления */}
         <Section title={t('settings.notify.title')} subtitle={t('settings.notify.subtitle')}>
           <ToggleRow label={t('settings.notify.daySummary')} checked={form.notifyDaySummary} onChange={(v) => set('notifyDaySummary', v)} />

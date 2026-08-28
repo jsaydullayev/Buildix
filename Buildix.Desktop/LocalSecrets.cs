@@ -211,6 +211,31 @@ public sealed class LocalSecrets
         Save();
     }
 
+    /// <summary>
+    /// Kassa chekining printeri (termal rulon).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega yorliq printeridan alohida.</b> Do'konda ikkita printer
+    /// bo'ladi: chek uchun rulonli va yorliq uchun etiket printeri. Bitta
+    /// sozlama bilan chek etiket printeriga tushardi — 58×40 mm yorliqqa
+    /// bosilgan chek esa hech narsaga yaramaydi.</para>
+    ///
+    /// <para>Bo'sh bo'lsa chek qobiq orqali bosilmaydi va sahifa odatdagi
+    /// chop etish oynasiga tushadi — ya'ni ish to'xtamaydi.</para>
+    /// </remarks>
+    public string? ReceiptPrinter =>
+        _root["ReceiptPrinter"] is JsonValue v && v.TryGetValue<string>(out var name)
+        && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : null;
+
+    public void SetReceiptPrinter(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) _root.Remove("ReceiptPrinter");
+        else _root["ReceiptPrinter"] = name.Trim();
+        Save();
+    }
+
     /// <summary>Kalit bo'yicha sirni oladi; bo'lmasa <paramref name="create"/> bilan yaratadi.</summary>
     public string GetOrCreate(string key, Func<string> create)
     {

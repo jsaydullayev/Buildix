@@ -32,6 +32,8 @@ import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
 import { bumpPending, mergePending, settlePending, type PendingLine, type PendingMap } from '@/features/pos/pending';
 import { useGlobalScanner } from '@/features/pos/useGlobalScanner';
 import { printPdfBlob } from '@/shared/lib/printPdf';
+import { desktopBridge } from '@/shared/lib/desktopPrint';
+import { printReceiptImage } from '@/shared/lib/printReceipt';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -197,6 +199,15 @@ export default function SellerPosPage() {
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
   // Do'kon nomi — chek header'i uchun (ochiq endpoint, uzoq kesh).
   const { subdomain } = useParams();
+  // Chek eni (58/80 mm) — do'kon sozlamasidan. Uzoq keshlanadi: u kuniga
+  // o'zgaradigan qiymat emas, lekin qattiq yozib qo'yilsa 58 mm printerli
+  // do'konda chek qog'ozga sig'masdi.
+  const printSettingsQuery = useQuery({
+    queryKey: ['pos-print-settings'],
+    queryFn: posApi.printSettings,
+    staleTime: 30 * 60_000,
+  });
+
   const marketQuery = useQuery({
     queryKey: ['public-market', subdomain],
     queryFn: () => publicMarketApi.getState(subdomain!),
@@ -761,10 +772,27 @@ export default function SellerPosPage() {
 
   const heldDrafts = (draftsQuery.data ?? []).filter((d) => d.id !== saleId && d.items.length > 0);
 
+  /**
+   * Chekni chop etadi.
+   *
+   * <p>Do'kon dasturida chek RASM bo'lib chek printeriga to'g'ridan-to'g'ri
+   * ketadi — chop etish oynasi ochilmaydi va o'lcham aynan rulon eniga
+   * teng. Ilgari bu yerda faqat PDF bor edi va u WebView2 ichida
+   * bosilmasdi: chop etish zaxira yo'lga tushib `blob:` havolasini tashqi
+   * dasturda ochishga urinardi, Windows esa «bu havolani ochadigan dastur
+   * yo'q» deb chiqarardi.</p>
+   *
+   * <p>Brauzerda (yoki chek printeri tanlanmagan bo'lsa) avvalgidek PDF
+   * yo'liga tushamiz — ish to'xtamaydi.</p>
+   */
   async function printReceipt(id: string) {
+    const widthMm = printSettingsQuery.data?.receiptWidthMm ?? 80;
     try {
-      const blob = await posApi.receiptPdf(id, i18n.language);
-      // Chek ham darhol chop etishga ketadi — kassir Ctrl+P qidirmasin.
+      if (desktopBridge('receipt')) {
+        const png = await posApi.receiptImage(id, i18n.language, widthMm);
+        if ((await printReceiptImage(png, widthMm)) === 'printed') return;
+      }
+      const blob = await posApi.receiptPdf(id, i18n.language, widthMm);
       await printPdfBlob(blob, `chek-${id}.pdf`);
     } catch {
       /* best-effort: the sale is already finalised, printing can be retried */

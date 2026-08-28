@@ -53,6 +53,21 @@ public class MarketSettings : IUpdateTracked
     public string? ReceiptFooter { get; set; }
     public bool AutoPrintReceipt { get; set; } = false;
 
+    /// <summary>
+    /// Chek rulonining eni, millimetrda. Faqat ikki standart qiymat: 58 yoki 80.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega sozlamada.</b> Ilgari eni interfeysga QATTIQ 80 deb
+    /// yozilgan edi. 58 mm printer o'rnatilgan do'konda chek qog'ozga
+    /// sig'masdi va drayver uni o'zicha siqib bosardi — har bir harf alohida
+    /// qatorga tushib, chek yarim metrga cho'zilardi. Sozlash imkoni yo'q
+    /// edi.</para>
+    ///
+    /// <para>Ikki qiymat bilan cheklangan: bular termal rulonlarning
+    /// standart o'lchamlari va boshqasini kiritish faqat xato bo'ladi.</para>
+    /// </remarks>
+    public int ReceiptWidthMm { get; set; } = 80;
+
     // ── Локаль (locale) ──────────────────────────────────────────────────
     public Language DefaultLanguage { get; set; } = Language.Russian;
     /// <summary>Hafta boshi: 1 = Dushanba (ISO), 7 = Yakshanba.</summary>

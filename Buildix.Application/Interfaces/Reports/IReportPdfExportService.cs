@@ -18,4 +18,10 @@ public interface IReportPdfExportService
     /// <summary>Kassa cheki — termal rulon (58/80 mm) uchun. A4 fakturadan
     /// farqli o'laroq XPrinter kabi printerlarga to'g'ridan-to'g'ri tushadi.</summary>
     Task<byte[]> GenerateThermalReceiptPdfAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Chekning rasmi (PNG) — do'kon dasturi uni chop etish oynasisiz,
+    /// to'g'ridan-to'g'ri sozlangan printerga yuboradi.
+    /// </summary>
+    Task<byte[]> GenerateThermalReceiptImageAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default);
 }

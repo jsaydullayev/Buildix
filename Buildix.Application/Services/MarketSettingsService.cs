@@ -48,6 +48,10 @@ public class MarketSettingsService : IMarketSettingsService
         s.ReceiptHeader = Trim(r.ReceiptHeader);
         s.ReceiptFooter = Trim(r.ReceiptFooter);
         s.AutoPrintReceipt = r.AutoPrintReceipt;
+        // Faqat ikki standart rulon eni. Boshqa qiymat kelsa 80 ga tushadi:
+        // yaroqsiz en bilan chek qog'ozga sig'masdi va drayver uni o'zicha
+        // siqib bosardi — har bir harf alohida qatorga tushardi.
+        s.ReceiptWidthMm = r.ReceiptWidthMm <= 58 ? 58 : 80;
         s.DefaultLanguage = ParseLanguage(r.DefaultLanguage);
         s.FirstDayOfWeek = r.FirstDayOfWeek is >= 1 and <= 7 ? r.FirstDayOfWeek : 1;
         s.MinStockAlertEnabled = r.MinStockAlertEnabled;
@@ -92,6 +96,7 @@ public class MarketSettingsService : IMarketSettingsService
         ReceiptHeader: s.ReceiptHeader,
         ReceiptFooter: s.ReceiptFooter,
         AutoPrintReceipt: s.AutoPrintReceipt,
+        ReceiptWidthMm: s.ReceiptWidthMm,
         DefaultLanguage: s.DefaultLanguage.ToCode(),
         FirstDayOfWeek: s.FirstDayOfWeek,
         MinStockAlertEnabled: s.MinStockAlertEnabled,

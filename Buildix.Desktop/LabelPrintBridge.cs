@@ -47,7 +47,8 @@ public sealed class LabelPrintBridge
         // Sahifa qobiq ichida ekanini SHU belgi bilan biladi. Brauzerda bu
         // yo'q va u odatdagi chop etish oynasidan foydalanadi.
         core.AddScriptToExecuteOnDocumentCreatedAsync(
-            "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, { canPrintLabels: true });");
+            "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, "
+            + "{ canPrintLabels: true, canPrintReceipts: true });");
 
         core.WebMessageReceived += async (_, e) =>
         {
@@ -75,11 +76,16 @@ public sealed class LabelPrintBridge
     /// <summary>Bosadi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda sabab.</summary>
     private async Task<string?> PrintAsync(PrintRequest request)
     {
-        if (_secrets.LabelPrinter is not { } printer)
-            return "Yorliq printeri tanlanmagan.";
+        // Chek va yorliq — ODATDA IKKI XIL printer: biri rulonli, ikkinchisi
+        // etiket. Bitta sozlama bilan chek etiket printeriga tushardi va
+        // 58x40 mm yorliqqa bosilgan chek hech narsaga yaramasdi.
+        var receipt = string.Equals(request.Target, "receipt", StringComparison.OrdinalIgnoreCase);
+        var printer = receipt ? _secrets.ReceiptPrinter : _secrets.LabelPrinter;
+        if (printer is null)
+            return receipt ? "Chek printeri tanlanmagan." : "Yorliq printeri tanlanmagan.";
 
         if (request.WidthMm <= 0 || request.HeightMm <= 0)
-            return "Yorliq o'lchami noto'g'ri.";
+            return receipt ? "Chek o'lchami noto'g'ri." : "Yorliq o'lchami noto'g'ri.";
 
         CoreWebView2Controller? controller = null;
         try
@@ -165,7 +171,9 @@ public sealed class LabelPrintBridge
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("html")] string Html,
         [property: JsonPropertyName("widthMm")] double WidthMm,
-        [property: JsonPropertyName("heightMm")] double HeightMm);
+        [property: JsonPropertyName("heightMm")] double HeightMm,
+        /// <summary>«label» (sukut) yoki «receipt» — qaysi printerga.</summary>
+        [property: JsonPropertyName("target")] string? Target = null);
 
     private sealed record PrintResult(
         [property: JsonPropertyName("kind")] string Kind,

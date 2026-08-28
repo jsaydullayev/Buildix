@@ -18,6 +18,8 @@ export interface MarketSettings {
   receiptHeader: string | null;
   receiptFooter: string | null;
   autoPrintReceipt: boolean;
+  /** Chek rulonining eni: 58 yoki 80 mm. */
+  receiptWidthMm: number;
   defaultLanguage: string; // "ru" | "uz"
   firstDayOfWeek: number;
   minStockAlertEnabled: boolean;

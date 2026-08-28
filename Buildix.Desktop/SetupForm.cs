@@ -47,6 +47,21 @@ public sealed class SetupForm : Form
         DropDownStyle = ComboBoxStyle.DropDownList,
     };
 
+    /// <summary>
+    /// Kassa cheki printeri — yorliqnikidan ALOHIDA.
+    /// </summary>
+    /// <remarks>
+    /// Ilgari chek umuman qobiq orqali bosilmasdi: u brauzerning chop etish
+    /// yo'liga tushar, u yerda esa sukut bo'yicha A4 printer va «sahifaga
+    /// moslash» turardi. 80 mm chek qog'ozga sig'masdi va har bir harf
+    /// alohida qatorga tushib, chek yarim metrga cho'zilardi.
+    /// </remarks>
+    private readonly ComboBox _receiptPrinter = new()
+    {
+        Width = 260,
+        DropDownStyle = ComboBoxStyle.DropDownList,
+    };
+
     private readonly Button _save = new() { Text = "Saqlash", Width = 110, DialogResult = DialogResult.OK };
 
     public SetupForm(LocalSecrets secrets)
@@ -58,7 +73,7 @@ public sealed class SetupForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(520, 430);
+        ClientSize = new Size(520, 520);
         Font = new Font("Segoe UI", 9.75F);
 
         var current = _secrets.ServerUrl;
@@ -74,6 +89,14 @@ public sealed class SetupForm : Form
         foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             _printer.Items.Add(name);
         _feed.Text = _secrets.UpdateFeedUrl ?? "";
+        _receiptPrinter.Items.Add(NoPrinter);
+        foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
+            _receiptPrinter.Items.Add(name);
+        _receiptPrinter.SelectedItem =
+            _secrets.ReceiptPrinter is { } savedReceipt && _receiptPrinter.Items.Contains(savedReceipt)
+                ? savedReceipt
+                : NoPrinter;
+
         _printer.SelectedItem = _secrets.LabelPrinter is { } saved && _printer.Items.Contains(saved)
             ? saved
             : NoPrinter;
@@ -83,7 +106,7 @@ public sealed class SetupForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 3,
-            RowCount = 11,
+            RowCount = 15,
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -141,6 +164,21 @@ public sealed class SetupForm : Form
         layout.Controls.Add(printerHint, 0, 8);
         layout.SetColumnSpan(printerHint, 3);
 
+        layout.Controls.Add(new Label
+        {
+            Text = "Chek printeri:", AutoSize = true, Margin = new Padding(0, 12, 6, 0),
+        }, 0, 9);
+        layout.Controls.Add(_receiptPrinter, 1, 9);
+        var receiptHint = new Label
+        {
+            AutoSize = false, Width = 470, Height = 30,
+            ForeColor = SystemColors.GrayText,
+            Text = "Kassa cheki uchun rulonli printer. Tanlansa — chek chop etish "
+                 + "oynasisiz, aynan rulon enida chiqadi.",
+        };
+        layout.Controls.Add(receiptHint, 0, 10);
+        layout.SetColumnSpan(receiptHint, 3);
+
         // ── Yangilanish manzili ────────────────────────────────────────────
         // Ilgari uni faqat desktop.json ni qo'lda tahrirlab qo'yish mumkin
         // edi. Texnik buni unutsa, do'kon HECH QACHON yangilanmasdi va buni
@@ -148,8 +186,8 @@ public sealed class SetupForm : Form
         layout.Controls.Add(new Label
         {
             Text = "Yangilanish:", AutoSize = true, Margin = new Padding(0, 6, 6, 0),
-        }, 0, 9);
-        layout.Controls.Add(_feed, 1, 9);
+        }, 0, 11);
+        layout.Controls.Add(_feed, 1, 11);
 
         var feedHint = new Label
         {
@@ -159,10 +197,10 @@ public sealed class SetupForm : Form
                  + "yangilanmaydi — bu ataylab: sinov do'konini alohida kanalga "
                  + "yo'naltirish mumkin.",
         };
-        layout.Controls.Add(feedHint, 0, 10);
+        layout.Controls.Add(feedHint, 0, 12);
         layout.SetColumnSpan(feedHint, 3);
 
-        layout.Controls.Add(_result, 0, 11);
+        layout.Controls.Add(_result, 0, 13);
         layout.SetColumnSpan(_result, 3);
 
         var buttons = new FlowLayoutPanel
@@ -174,7 +212,7 @@ public sealed class SetupForm : Form
         var cancel = new Button { Text = "Bekor qilish", Width = 110, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(_save);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 12);
+        layout.Controls.Add(buttons, 0, 14);
         layout.SetColumnSpan(buttons, 3);
 
         Controls.Add(layout);
@@ -207,6 +245,9 @@ public sealed class SetupForm : Form
 
         var printer = _printer.SelectedItem as string;
         _secrets.SetLabelPrinter(printer == NoPrinter ? null : printer);
+
+        var receiptPrinter = _receiptPrinter.SelectedItem as string;
+        _secrets.SetReceiptPrinter(receiptPrinter == NoPrinter ? null : receiptPrinter);
         _secrets.SetUpdateFeedUrl(_feed.Text);
     }
 

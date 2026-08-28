@@ -858,6 +858,17 @@ export const uz: TranslationSchema = {
       markup: 'Standart ustama',
       markupHint: 'Yangi tovar qo‘shishda qo‘yiladi',
     },
+    receipt: {
+      title: 'Chek',
+      subtitle: 'Rulon o’lchami va chop etish',
+      width: 'Rulon eni',
+      widthHint: 'Printerdagi qog’oz bilan mos bo’lishi shart — aks holda chek sig’maydi va har bir harf alohida qatorga tushadi.',
+      mm: 'mm',
+      autoPrint: 'Chek avtomatik chop etilsin',
+      autoPrintHint: 'Savdo yopilishi bilan, chop etish oynasisiz.',
+      header: 'Chek tepasidagi matn',
+      footer: 'Chek pastidagi matn',
+    },
     notify: {
       title: 'Bildirishnomalar',
       subtitle: 'Egaga Telegram’da nima yuborilsin',

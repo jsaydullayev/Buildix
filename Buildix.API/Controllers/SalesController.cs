@@ -620,6 +620,39 @@ public class SalesController : ApiControllerBase
     }
 
     /// <summary>
+    /// Chekning RASMI — do'kon dasturi uchun.
+    ///
+    /// <para>Qobiq uni chop etish oynasisiz, sozlangan printerga aynan
+    /// rulon enida yuboradi. PDF bu yo'lda ishlamaydi: uni WebView2 ichida
+    /// bosib bo'lmaydi va chop etish brauzer oynasiga tushib ketardi — u
+    /// yerda esa sukut bo'yicha A4 printer va «sahifaga moslash» turadi.
+    /// Natijada 80 mm chek qog'ozga sig'masdi.</para>
+    ///
+    /// <para>Balandlik qaytarilmaydi: chek uzunligi tarkibga qarab o'sadi
+    /// va uni rasmning o'zidan o'lchash aniqroq.</para>
+    /// </summary>
+    [HttpGet("{id}/receipt/image")]
+    [RequirePermission(PermissionKeys.SalesInvoice)]
+    public async Task<IActionResult> GetReceiptImage(Guid id, [FromQuery] string lang = "uz", [FromQuery] int width = 80, CancellationToken ct = default)
+    {
+        try
+        {
+            var png = await _reportPdfExportService.GenerateThermalReceiptImageAsync(id, lang, width, ct);
+            return File(png, "image/png");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Sale not found for receipt image: {SaleId}", id);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex) when (NotHandledGlobally(ex))
+        {
+            _logger.LogError(ex, "Error generating receipt image for sale {SaleId}", id);
+            return StatusCode(500, "Chek rasmini yaratishda xatolik yuz berdi");
+        }
+    }
+
+    /// <summary>
     /// Generate and download PDF invoice for a sale
     /// </summary>
     [HttpGet("{id}/invoice")]

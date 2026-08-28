@@ -839,6 +839,44 @@ internal static class ReportPdfRenderer
     /// keltiriladi). Standart 80 mm — XPrinter POS modellarining ko'pchiligi.</param>
     /// </summary>
     internal static byte[] RenderThermalReceiptPdf(InvoiceData data, string lang = "uz", int widthMm = 80)
+        => BuildThermalReceipt(data, lang, widthMm).GeneratePdf();
+
+    /// <summary>
+    /// Chekning RASMI — do'kon dasturi uni to'g'ridan-to'g'ri printerga
+    /// yuboradi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega rasm kerak.</b> PDF brauzerning chop etish oynasi orqali
+    /// bosilardi va u sukut bo'yicha A4 printerni tanlab «sahifaga moslash»
+    /// qilardi: 80 mm chek A4 ga cho'zilar yoki aksincha siqilib, har bir
+    /// harf alohida qatorga tushardi. Do'kon dasturida esa oyna umuman
+    /// ochilmasligi kerak.</para>
+    ///
+    /// <para>Rasm AYNAN shu hujjatdan chiqadi, ya'ni qog'ozdagi chek PDF
+    /// bilan bir xil. Alohida maket yozilganda ikkalasi vaqt o'tib
+    /// bir-biridan uzoqlashardi.</para>
+    ///
+    /// <para>Chek uzunligi tarkibga qarab o'sadi va uni oldindan bilib
+    /// bo'lmaydi — shuning uchun balandlik rasmning o'zidan o'lchanadi
+    /// (chaqiruvchi tomonda).</para>
+    /// </remarks>
+    internal static byte[] RenderThermalReceiptPng(InvoiceData data, string lang = "uz", int widthMm = 80)
+    {
+        var images = BuildThermalReceipt(data, lang, widthMm)
+            .GenerateImages(new ImageGenerationSettings
+            {
+                ImageFormat = ImageFormat.Png,
+                // 8x — termal printer nuqtalari yiriklashib ketmasin.
+                // 80 mm da bu ~1800 px.
+                RasterDpi = 8 * 72,
+            });
+        // Chek uzluksiz sahifa: bitta rasm. Bir nechtasi kelsa birinchisi
+        // olinadi — bu chek qirqilgani bilan barobar, lekin jimgina
+        // yo'qotishdan ko'ra ko'rinadigan xato yaxshiroq.
+        return images.First();
+    }
+
+    private static IDocument BuildThermalReceipt(InvoiceData data, string lang, int widthMm)
     {
         bool isRu = lang.Equals("ru", StringComparison.OrdinalIgnoreCase);
         string L(string uz, string ru) => isRu ? ru : uz;
@@ -959,7 +997,7 @@ internal static class ReportPdfRenderer
                     col.Item().PaddingBottom(10);
                 });
             });
-        }).GeneratePdf();
+        });
     }
 
     internal record InvoiceData(
