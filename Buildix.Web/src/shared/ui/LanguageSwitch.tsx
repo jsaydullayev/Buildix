@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/cn';
-import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
+import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, chooseLanguage, type AppLanguage } from '@/shared/i18n';
 
 /** UZ / RU / EN pill switcher (matches the login/landing design). */
 export function LanguageSwitch({
@@ -30,7 +30,10 @@ export function LanguageSwitch({
             type="button"
             onClick={() => {
               if (active) return;
-              void i18n.changeLanguage(lang);
+              // `chooseLanguage`, oddiy `changeLanguage` emas: tanlov
+              // ATAYLAB qilingan deb belgilanadi va kirishdan keyin
+              // hisobdagi sukut qiymati uni bosib ketmaydi.
+              chooseLanguage(lang);
               onChange?.(lang);
             }}
             className={cn(

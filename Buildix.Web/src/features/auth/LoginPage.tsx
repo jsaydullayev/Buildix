@@ -10,6 +10,8 @@ import { BrandLogo, Button, Input, LanguageSwitch } from '@/shared/ui';
 import { useAuth, useLogin } from '@/shared/auth/useAuth';
 import { useFirstAccessiblePath } from '@/shared/auth/useFirstAccessiblePath';
 import { consoleApi, publicMarketApi } from '@/shared/api/auth';
+import { accountApi } from '@/features/account/api';
+import { pickedLanguage } from '@/shared/i18n';
 import type { ApiError } from '@/shared/api/types';
 import { ROLES } from '@/shared/config/permissions';
 
@@ -94,6 +96,23 @@ export function LoginPage() {
   const onSubmit = handleSubmit(async (values) => {
     try {
       const data = await login.mutateAsync({ ...values, subdomain: subdomain ?? null });
+
+      // Kirish oynasida QO'L bilan tanlangan til foydalanuvchining o'z
+      // hisobiga yoziladi. Busiz tanlov faqat shu ochilishgacha yashardi:
+      // keyingi safar hisobdagi qiymat (tanlanmagan hisoblarda — «o'zbek»)
+      // uni yana bosib ketardi va kassir har kuni tilni qaytadan
+      // tanlashga majbur bo'lardi.
+      //
+      // Aynan HISOBGA yoziladi, kompyuterga emas: bitta kassaga bir necha
+      // xodim kiradi va biri tanlagan til boshqasiga o'tib qolmasligi
+      // kerak.
+      //
+      // Xatosi yutiladi — til sozlamasi tufayli kirish to'xtab qolmasligi
+      // kerak, ekranda esa tanlangan til allaqachon turibdi.
+      const chosen = pickedLanguage();
+      if (chosen && chosen !== data.language) {
+        void accountApi.updateProfile({ language: chosen }).catch(() => undefined);
+      }
 
       // SuperAdmin hech qaysi do'konga tegishli emas — uning uyi konsol.
       // Yashirin segmentni QO'LDA yozish shart emas: u autentifikatsiyadan
