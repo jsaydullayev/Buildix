@@ -1341,6 +1341,8 @@ export const ru = {
       receipt: 'Чек',
       shift: 'Смена',
       thanks: 'Спасибо за покупку!',
+      printProblem: 'Чек не напечатан:',
+      printFailed: 'не удалось связаться с принтером.',
     },
     payment: {
       title: 'Способ оплаты',

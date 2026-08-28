@@ -1339,6 +1339,8 @@ export const uz: TranslationSchema = {
       receipt: 'Chek',
       shift: 'Smena',
       thanks: 'Xaridingiz uchun rahmat!',
+      printProblem: 'Chek chiqmadi:',
+      printFailed: 'printerga ulanib bo‘lmadi.',
     },
     payment: {
       title: 'To‘lov usuli',

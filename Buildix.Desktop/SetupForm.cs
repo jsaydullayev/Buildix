@@ -51,16 +51,29 @@ public sealed class SetupForm : Form
     /// Kassa cheki printeri — yorliqnikidan ALOHIDA.
     /// </summary>
     /// <remarks>
-    /// Ilgari chek umuman qobiq orqali bosilmasdi: u brauzerning chop etish
-    /// yo'liga tushar, u yerda esa sukut bo'yicha A4 printer va «sahifaga
-    /// moslash» turardi. 80 mm chek qog'ozga sig'masdi va har bir harf
-    /// alohida qatorga tushib, chek yarim metrga cho'zilardi.
+    /// <para>Ilgari chek umuman qobiq orqali bosilmasdi: u brauzerning chop
+    /// etish yo'liga tushar, u yerda esa sukut bo'yicha A4 printer va
+    /// «sahifaga moslash» turardi. 80 mm chek qog'ozga sig'masdi va har bir
+    /// harf alohida qatorga tushib, chek yarim metrga cho'zilardi.</para>
+    ///
+    /// <para><b>Nega yozsa ham bo'ladi.</b> Ro'yxat Windows'ga QO'SHILGAN
+    /// printerlarni ko'rsatadi. Tarmoq printeri esa ko'p do'konda
+    /// qo'shilmagan — u shunchaki router orqali ulangan quti. Shu maydonga
+    /// uning IP manzilini yozish kifoya: chek unga 9100-port orqali
+    /// to'g'ridan-to'g'ri boradi.</para>
     /// </remarks>
     private readonly ComboBox _receiptPrinter = new()
     {
         Width = 260,
-        DropDownStyle = ComboBoxStyle.DropDownList,
+        // Yozib ham bo'ladi: tarmoq printeri ro'yxatda bo'lmaydi.
+        DropDownStyle = ComboBoxStyle.DropDown,
     };
+
+    /// <summary>
+    /// Sozlamani AYNAN shu yerda, texnik do'kondan chiqib ketmasdan
+    /// tekshirish uchun. Ilgari yagona yo'l haqiqiy savdo qilish edi.
+    /// </summary>
+    private readonly Button _testReceipt = new() { Text = "Sinov cheki", Width = 110 };
 
     private readonly Button _save = new() { Text = "Saqlash", Width = 110, DialogResult = DialogResult.OK };
 
@@ -92,10 +105,9 @@ public sealed class SetupForm : Form
         _receiptPrinter.Items.Add(NoPrinter);
         foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             _receiptPrinter.Items.Add(name);
-        _receiptPrinter.SelectedItem =
-            _secrets.ReceiptPrinter is { } savedReceipt && _receiptPrinter.Items.Contains(savedReceipt)
-                ? savedReceipt
-                : NoPrinter;
+        // Saqlangan qiymat IP manzil ham bo'lishi mumkin — u ro'yxatda
+        // yo'q, shuning uchun matn sifatida qo'yiladi.
+        _receiptPrinter.Text = _secrets.ReceiptPrinter ?? NoPrinter;
 
         _printer.SelectedItem = _secrets.LabelPrinter is { } saved && _printer.Items.Contains(saved)
             ? saved
@@ -169,12 +181,13 @@ public sealed class SetupForm : Form
             Text = "Chek printeri:", AutoSize = true, Margin = new Padding(0, 12, 6, 0),
         }, 0, 9);
         layout.Controls.Add(_receiptPrinter, 1, 9);
+        layout.Controls.Add(_testReceipt, 2, 9);
         var receiptHint = new Label
         {
             AutoSize = false, Width = 470, Height = 30,
             ForeColor = SystemColors.GrayText,
-            Text = "Kassa cheki uchun rulonli printer. Tanlansa — chek chop etish "
-                 + "oynasisiz, aynan rulon enida chiqadi.",
+            Text = "Rulonli printer: ro'yxatdan tanlang yoki tarmoq printerining IP "
+                 + "manzilini yozing (masalan 192.168.1.50). «Sinov cheki» darhol tekshiradi.",
         };
         layout.Controls.Add(receiptHint, 0, 10);
         layout.SetColumnSpan(receiptHint, 3);
@@ -221,6 +234,7 @@ public sealed class SetupForm : Form
 
         _server.CheckedChanged += (_, _) => SyncEnabled();
         _test.Click += async (_, _) => await TestAsync();
+        _testReceipt.Click += async (_, _) => await TestReceiptAsync();
         _firewall.Click += (_, _) => OpenFirewall();
         _save.Click += (_, _) => Persist();
         SyncEnabled();
@@ -246,9 +260,58 @@ public sealed class SetupForm : Form
         var printer = _printer.SelectedItem as string;
         _secrets.SetLabelPrinter(printer == NoPrinter ? null : printer);
 
-        var receiptPrinter = _receiptPrinter.SelectedItem as string;
-        _secrets.SetReceiptPrinter(receiptPrinter == NoPrinter ? null : receiptPrinter);
+        _secrets.SetReceiptPrinter(ReceiptTarget());
         _secrets.SetUpdateFeedUrl(_feed.Text);
+    }
+
+    /// <summary>
+    /// Maydondagi qiymat — printer nomi yoki IP manzil; «tanlanmagan» bo'lsa
+    /// <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>SelectedItem</c> EMAS: maydonga yozish mumkin va tarmoq printeri
+    /// ro'yxatda umuman bo'lmaydi — o'shanda tanlangan element <c>null</c>
+    /// bo'lib, texnik yozgan IP jimgina yo'qolardi.
+    /// </remarks>
+    private string? ReceiptTarget()
+    {
+        var text = _receiptPrinter.Text.Trim();
+        return text.Length == 0 || text == NoPrinter ? null : text;
+    }
+
+    /// <summary>
+    /// Tanlangan printerga qisqa sinov cheki yuboradi.
+    /// </summary>
+    /// <remarks>
+    /// Saqlanmagan qiymat bilan ishlaydi — texnik avval tekshirib, keyin
+    /// saqlaydi. Aks holda noto'g'ri manzil saqlanib qolar va uni faqat
+    /// keyingi savdoda bilish mumkin bo'lardi.
+    /// </remarks>
+    private async Task TestReceiptAsync()
+    {
+        var target = ReceiptTarget();
+        if (target is null)
+        {
+            Show(Color.Firebrick, "Avval printerni tanlang yoki IP manzilini yozing.");
+            return;
+        }
+
+        _testReceipt.Enabled = false;
+        Show(SystemColors.GrayText, "Chek yuborilmoqda…");
+        try
+        {
+            var problem = await ReceiptOutput.SendAsync(
+                target, ReceiptOutput.TestSlip(), CancellationToken.None);
+
+            if (problem is null)
+                Show(Color.SeaGreen, "Yuborildi. Qog'oz chiqqanini tekshiring.");
+            else
+                Show(Color.Firebrick, problem);
+        }
+        finally
+        {
+            _testReceipt.Enabled = true;
+        }
     }
 
     /// <summary>Ro'yxatdagi «tanlanmagan» qatori.</summary>

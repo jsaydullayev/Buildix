@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Check, Printer } from 'lucide-react';
+import { AlertTriangle, Check, Printer } from 'lucide-react';
 import { Modal, Button, Card } from '@/shared/ui';
 import { formatSum, formatQty, formatTime } from '@/shared/lib/format';
 import type { PosSale } from './api';
@@ -22,6 +22,7 @@ export function ReceiptModal({
   shiftNumber = 0,
   storeName = null,
   closeLabel,
+  problem = null,
   onClose,
   onPrint,
 }: {
@@ -30,6 +31,15 @@ export function ReceiptModal({
   storeName?: string | null;
   /** Yopish tugmasining yozuvi — qobiqqa qarab «Tugatish» yoki «Yangi sotuv». */
   closeLabel: string;
+  /**
+   * Chek chiqmagan bo'lsa sababi — qobiqdan kelgan matn («Chek printeri
+   * tanlanmagan», «192.168.1.50:9100 javob bermadi»).
+   *
+   * <p>Ilgari sabab faqat brauzer jurnaliga yozilardi. Kassir tugmani bosar,
+   * hech narsa bo'lmasdi va u buni dastur nosozligi deb hisoblardi — do'kon
+   * esa printerni sozlash kerakligini bilmasdi.</p>
+   */
+  problem?: string | null;
   onClose: () => void;
   onPrint: (id: string) => void;
 }) {
@@ -101,6 +111,14 @@ export function ReceiptModal({
               {t('pos.done.thanks')}
             </div>
           </Card>
+          {problem && (
+            <div className="flex items-start gap-2 rounded-lg bg-warn-soft px-3 py-2 text-[12.5px] text-warn-text">
+              <AlertTriangle size={15} className="mt-0.5 flex-none" />
+              <span>
+                {t('pos.done.printProblem')} {problem}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </Modal>

@@ -91,6 +91,9 @@ export default function PosPage() {
   const [done, setDone] = useState<PosSale | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Chek chiqmagan bo'lsa SABABI. Ilgari u faqat jurnalga yozilardi va
+  // kassir tugmani bosib hech narsa bo'lmaganini ko'rardi.
+  const [printProblem, setPrintProblem] = useState<string | null>(null);
 
   // Chek (Draft) YARATILMAYDI, toki birinchi mahsulot savatga tushmaguncha.
   // Ilgari u mount'da yaratilardi — kassir POS'ni ochib, hech narsa sotmasdan
@@ -578,20 +581,51 @@ export default function PosPage() {
    */
   async function printReceipt(id: string) {
     const widthMm = printSettingsQuery.data?.receiptWidthMm ?? 80;
+    setPrintProblem(null);
     try {
       if (desktopBridge('receipt')) {
         const escpos = await posApi.receiptEscPos(id, i18n.language, widthMm);
-        if (await printRawViaDesktop(await toBase64(escpos))) return;
+        const raw = await printRawViaDesktop(await toBase64(escpos));
+        if (raw.ok) return;
 
         const png = await posApi.receiptImage(id, i18n.language, widthMm);
         if ((await printReceiptImage(png, widthMm)) === 'printed') return;
+
+        // Qobiq ichida PDF yo'liga TUSHMAYMIZ. U `window.open` bilan
+        // `blob:` havolasini ochadi, qobiq esa uni tashqi dasturga uzatadi
+        // va Windows «bu havolani ochadigan dastur yo'q, Microsoft
+        // Store'dan qidiring» deb chiqaradi — chek o'rniga. Sababni
+        // ekranda ko'rsatish ancha foydali: u odatda «chek printeri
+        // tanlanmagan» bo'lib chiqadi va uni bir marta tuzatish kifoya.
+        setPrintProblem(raw.problem ?? t('pos.done.printFailed'));
+        return;
       }
       const blob = await posApi.receiptPdf(id, i18n.language, widthMm);
       await printPdfBlob(blob, `chek-${id}.pdf`);
     } catch {
-      /* best-effort: the sale is already finalised, printing can be retried */
+      // Sotuv allaqachon yakunlangan — chop etishni qayta urinib ko'rsa
+      // bo'ladi, lekin kassir buni BILISHI kerak.
+      setPrintProblem(t('pos.done.printFailed'));
     }
   }
+
+  // Sozlamadagi «Chek avtomatik chop etilsin» AYNAN shu yerda amalga
+  // oshadi. Sozlama Sozlamalar ekranida ancha vaqt turgan, lekin uni hech
+  // kim o'qimasdi: kassir har savdodan keyin tugmani qo'lda bosardi.
+  //
+  // Faqat qobiqda: sozlamaning va'dasi «chop etish oynasisiz» edi, brauzerda
+  // esa oynasiz chop etib bo'lmaydi va u navbat oldida kutilmaganda ochilardi.
+  const autoPrinted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!done || autoPrinted.current === done.id) return;
+    if (!printSettingsQuery.data?.autoPrintReceipt || !desktopBridge('receipt')) return;
+
+    autoPrinted.current = done.id;
+    void printReceipt(done.id);
+    // printReceipt har render'da qaytadan yaratiladi — bog'liqlikka qo'shilsa
+    // effekt cheksiz takrorlanardi. Chek `id` si bo'yicha bir marta bosiladi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, printSettingsQuery.data?.autoPrintReceipt]);
 
   // Aralashda kiritilgan ulushlar yig'indisi jami bilan AYNAN teng bo'lishi
   // shart — kam bo'lsa chek yopilmaydi, ko'p bo'lsa ortiqcha pul qayd bo'lardi.
@@ -1017,7 +1051,11 @@ export default function PosPage() {
         shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
         storeName={marketQuery.data?.marketName ?? null}
         closeLabel={t('pos.done.finish')}
-        onClose={() => setDone(null)}
+        problem={printProblem}
+        onClose={() => {
+          setDone(null);
+          setPrintProblem(null);
+        }}
         onPrint={printReceipt}
       />
 

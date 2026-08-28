@@ -1339,6 +1339,8 @@ export const en: TranslationSchema = {
       receipt: 'Receipt',
       shift: 'Shift',
       thanks: 'Thank you for your purchase!',
+      printProblem: 'Receipt not printed:',
+      printFailed: 'could not reach the printer.',
     },
     payment: {
       title: 'Payment method',

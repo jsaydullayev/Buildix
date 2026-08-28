@@ -84,6 +84,17 @@ export function printViaDesktop(
 }
 
 /**
+ * XOM chop etish natijasi.
+ *
+ * <p>Sabab BIRGA qaytadi. Ilgari faqat «bo'ldi / bo'lmadi» qaytardi va
+ * sabab <code>console.warn</code> ga ketardi — kassirga esa hech narsa
+ * ko'rinmasdi. «Chek printeri tanlanmagan» degan bir og'iz gapni aytish
+ * o'rniga dastur jimgina brauzer yo'liga tushar va Windows'ning
+ * «bu havolani ochadigan dastur yo'q» oynasi chiqardi.</p>
+ */
+export type RawPrintResult = { ok: boolean; problem?: string };
+
+/**
  * Tayyor baytlarni printerga XOM (RAW) holda yuboradi.
  *
  * <p>Termal printer o'z tilini (ESC/POS) tushunadi va chekni O'ZI
@@ -91,35 +102,44 @@ export function printViaDesktop(
  * va Windows drayveri uni QAYTA rasterlardi — kassir bir necha soniya
  * kutardi. Bu yerda baytlar to'g'ridan-to'g'ri printerga boradi va
  * qog'oz deyarli darhol chiqadi.</p>
+ *
+ * <p>Qobiq ichida printer USB bilan ham (Windows navbati), tarmoq orqali
+ * ham (TCP:9100) ulangan bo'lishi mumkin — bu yerdan farqi
+ * bilinmaydi.</p>
  */
-export function printRawViaDesktop(dataBase64: string): Promise<boolean> {
+export function printRawViaDesktop(dataBase64: string): Promise<RawPrintResult> {
   const w = window as unknown as {
     chrome?: { webview?: WebViewBridge };
     buildixDesktop?: { canPrintRaw?: boolean };
   };
   const bridge = w.buildixDesktop?.canPrintRaw && w.chrome?.webview ? w.chrome.webview : null;
-  if (!bridge) return Promise.resolve(false);
+  if (!bridge) return Promise.resolve({ ok: false });
 
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  return new Promise<boolean>((resolve) => {
+  return new Promise<RawPrintResult>((resolve) => {
     let settled = false;
-    const finish = (ok: boolean) => {
+    const finish = (result: RawPrintResult) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
       bridge.removeEventListener('message', onMessage);
-      resolve(ok);
+      resolve(result);
     };
 
     const onMessage = (e: { data: unknown }) => {
       const d = e.data as { kind?: string; id?: string; ok?: boolean; problem?: string } | null;
       if (!d || d.kind !== 'buildix.print-raw.result' || d.id !== id) return;
       if (!d.ok && d.problem) console.warn('[buildix] chek printeri:', d.problem);
-      finish(d.ok === true);
+      finish({ ok: d.ok === true, problem: d.problem });
     };
 
-    const timer = window.setTimeout(() => finish(false), TIMEOUT_MS);
+    // Javobsiz qolish ham SABAB: qobiq osilib qolgan bo'lsa kassir buni
+    // bilishi kerak, aks holda u tugmani qayta-qayta bosaveradi.
+    const timer = window.setTimeout(
+      () => finish({ ok: false, problem: 'Printer javob bermadi.' }),
+      TIMEOUT_MS,
+    );
     bridge.addEventListener('message', onMessage);
     bridge.postMessage({ kind: 'buildix.print-raw', id, dataBase64 });
   });

@@ -206,10 +206,11 @@ public sealed class MainForm : Form
 
         var core = _web.CoreWebView2;
 
-        // Yorliq printeri — sahifa chop etish oynasini ochmasdan bossin.
-        // Printer sozlanmagan bo'lsa ko'prik xato qaytaradi va sahifa
-        // odatdagi yo'lga tushadi, ya'ni ish to'xtamaydi.
-        new LabelPrintBridge(_secrets, env).Attach(core);
+        // Yorliq va chek printeri — sahifa chop etish oynasini ochmasdan
+        // bossin. KUTILADI: ko'prik sahifaga o'zini tanitmasdan turib
+        // manzil qo'yilsa, birinchi hujjat qobiqni ko'rmay qolar va chek
+        // brauzer yo'liga tushardi.
+        await new LabelPrintBridge(_secrets, env).AttachAsync(core);
 
         // Kassada kerak emas va tasodifan bosilishi mumkin bo'lgan narsalar.
         core.Settings.AreDefaultContextMenusEnabled = false;
@@ -284,8 +285,30 @@ public sealed class MainForm : Form
         });
     }
 
+    /// <summary>
+    /// Tashqi havolani tizim brauzerida ochadi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Faqat haqiqiy havolalar.</b> Sahifa ichida yaratilgan
+    /// <c>blob:</c> va <c>data:</c> manzillari brauzer XOTIRASIDA yashaydi
+    /// va undan tashqarida umuman mavjud emas. Ilgari ular ham shu yerga
+    /// tushar va Windows kassirga «bu 'blob' havolasini ochadigan dastur
+    /// yo'q, Microsoft Store'dan qidiring» degan oyna chiqarardi — chek
+    /// chiqarilayotgan payt, kassa oldida navbat turganda.</para>
+    ///
+    /// <para><c>file:</c> ham chiqarib tashlangan: sahifa ixtiyoriy faylni
+    /// ochtira olmasligi kerak.</para>
+    /// </remarks>
     private static void OpenExternally(string uri)
     {
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)) return;
+        if (parsed.Scheme != Uri.UriSchemeHttp
+            && parsed.Scheme != Uri.UriSchemeHttps
+            && parsed.Scheme != Uri.UriSchemeMailto)
+        {
+            return;
+        }
+
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });

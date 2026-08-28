@@ -47,11 +47,19 @@ public sealed class LabelPrintBridge
     /// <summary>
     /// Interfeys oynasiga ko'prikni ulaydi va uni sahifaga tanitadi.
     /// </summary>
-    public void Attach(CoreWebView2 core)
+    /// <remarks>
+    /// <para><b>Nega kutiladi.</b> Skript ro'yxatdan o'tkazish asinxron, va
+    /// chaqiruvchi darhol manzilni qo'yadi. Ilgari bu KUTILMASDI: ro'yxatga
+    /// olish sahifa yuklanishidan kechiksa, <c>window.buildixDesktop</c>
+    /// birinchi hujjatda umuman bo'lmasdi. O'shanda sahifa o'zini brauzerda
+    /// deb hisoblar va chekni chop etish oynasiga yuborardi — aynan qochmoqchi
+    /// bo'lgan xulq.</para>
+    /// </remarks>
+    public async Task AttachAsync(CoreWebView2 core)
     {
         // Sahifa qobiq ichida ekanini SHU belgi bilan biladi. Brauzerda bu
         // yo'q va u odatdagi chop etish oynasidan foydalanadi.
-        core.AddScriptToExecuteOnDocumentCreatedAsync(
+        await core.AddScriptToExecuteOnDocumentCreatedAsync(
             "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, "
             + "{ canPrintLabels: true, canPrintReceipts: true, canPrintRaw: true });");
 
@@ -73,7 +81,7 @@ public sealed class LabelPrintBridge
             // to'g'ridan-to'g'ri printerga boradi va qog'oz darhol chiqadi.
             if (request.Kind == RawKind)
             {
-                var rawProblem = PrintRaw(request);
+                var rawProblem = await PrintRawAsync(request);
                 core.PostWebMessageAsJson(JsonSerializer.Serialize(new PrintResult(
                     RawKind + ".result", request.Id, rawProblem is null, rawProblem)));
                 return;
@@ -91,10 +99,8 @@ public sealed class LabelPrintBridge
     }
 
     /// <summary>Tayyor baytlarni printerga yuboradi.</summary>
-    private string? PrintRaw(PrintRequest request)
+    private async Task<string?> PrintRawAsync(PrintRequest request)
     {
-        var printer = _secrets.ReceiptPrinter;
-        if (printer is null) return "Chek printeri tanlanmagan.";
         if (string.IsNullOrWhiteSpace(request.DataBase64)) return "Chek ma'lumoti bo'sh.";
 
         byte[] bytes;
@@ -107,8 +113,24 @@ public sealed class LabelPrintBridge
             return "Chek ma'lumoti buzilgan.";
         }
 
-        return RawPrinter.Send(printer, bytes);
+        var printer = ReceiptTarget();
+        if (printer is null)
+            return "Chek printeri tanlanmagan. Buildix.Desktop.exe --setup oynasida tanlang.";
+
+        return await ReceiptOutput.SendAsync(printer, bytes, CancellationToken.None);
     }
+
+    /// <summary>
+    /// Chek qayerga chiqadi: sozlamadagi printer, u yo'q bo'lsa — nomi
+    /// bo'yicha topilgani.
+    /// </summary>
+    /// <remarks>
+    /// Sozlamani o'tkazib yuborish oson va oqibati og'ir: chek qobiq orqali
+    /// umuman bosilmas, brauzer yo'liga tushar va kassir Windows'ning
+    /// «bu havolani ochadigan dastur yo'q» xatosini ko'rardi. Taxmin
+    /// ehtiyotkor — <see cref="ReceiptOutput.Guess"/> ga qarang.
+    /// </remarks>
+    private string? ReceiptTarget() => _secrets.ReceiptPrinter ?? ReceiptOutput.Guess();
 
     /// <summary>Bosadi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda sabab.</summary>
     private async Task<string?> PrintAsync(PrintRequest request)
@@ -117,9 +139,16 @@ public sealed class LabelPrintBridge
         // etiket. Bitta sozlama bilan chek etiket printeriga tushardi va
         // 58x40 mm yorliqqa bosilgan chek hech narsaga yaramasdi.
         var receipt = string.Equals(request.Target, "receipt", StringComparison.OrdinalIgnoreCase);
-        var printer = receipt ? _secrets.ReceiptPrinter : _secrets.LabelPrinter;
+        var printer = receipt ? ReceiptTarget() : _secrets.LabelPrinter;
         if (printer is null)
             return receipt ? "Chek printeri tanlanmagan." : "Yorliq printeri tanlanmagan.";
+
+        // Tarmoq printeriga (IP:9100) sahifa yo'li bilan bosib bo'lmaydi:
+        // WebView2 Windows NAVBATINI talab qiladi, IP manzil esa navbat
+        // emas. Bu yerda ochiq to'xtaymiz — aks holda drayver «printer
+        // topilmadi» deb, sababi butunlay boshqa xatoni qaytarardi.
+        if (receipt && ReceiptOutput.IsNetwork(printer, out _, out _))
+            return "Tarmoq printeriga faqat ESC/POS yo'li bilan chop etiladi.";
 
         if (request.WidthMm <= 0 || request.HeightMm <= 0)
             return receipt ? "Chek o'lchami noto'g'ri." : "Yorliq o'lchami noto'g'ri.";
