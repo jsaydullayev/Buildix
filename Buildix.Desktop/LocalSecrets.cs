@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Buildix.Desktop;
@@ -186,6 +186,23 @@ public sealed class LocalSecrets
         && !string.IsNullOrWhiteSpace(name)
             ? name
             : null;
+
+    /// <summary>
+    /// Yangilanish manzilini yozadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari uni faqat <c>desktop.json</c> ni QO'LDA tahrirlab qo'yish
+    /// mumkin edi. Texnik buni unutsa (yoki fayl administrator huquqini
+    /// talab qilgani uchun ocholmasa), o'sha do'kon HECH QACHON
+    /// yangilanmasdi — va hech qanday xato chiqmasdi, sarlavha o'zgarmasdi,
+    /// buni bilishning yagona yo'li yo'q edi.</para>
+    /// </remarks>
+    public void SetUpdateFeedUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) _root.Remove("UpdateFeedUrl");
+        else _root["UpdateFeedUrl"] = url.Trim().TrimEnd('/') + "/";
+        Save();
+    }
 
     public void SetLabelPrinter(string? name)
     {

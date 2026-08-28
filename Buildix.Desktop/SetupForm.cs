@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace Buildix.Desktop;
 
@@ -31,6 +31,7 @@ public sealed class SetupForm : Form
         Margin = new Padding(20, 0, 0, 0),
     };
     private readonly TextBox _address = new() { Width = 260 };
+    private readonly TextBox _feed = new() { Width = 260 };
     private readonly Label _result = new() { AutoSize = false, Width = 470, Height = 40 };
     private readonly Button _test = new() { Text = "Tekshirish", Width = 110 };
     private readonly Button _firewall = new() { Text = "Tarmoq ruxsatini ochish", Width = 190 };
@@ -72,6 +73,7 @@ public sealed class SetupForm : Form
         _printer.Items.Add(NoPrinter);
         foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             _printer.Items.Add(name);
+        _feed.Text = _secrets.UpdateFeedUrl ?? "";
         _printer.SelectedItem = _secrets.LabelPrinter is { } saved && _printer.Items.Contains(saved)
             ? saved
             : NoPrinter;
@@ -139,7 +141,28 @@ public sealed class SetupForm : Form
         layout.Controls.Add(printerHint, 0, 8);
         layout.SetColumnSpan(printerHint, 3);
 
-        layout.Controls.Add(_result, 0, 9);
+        // ── Yangilanish manzili ────────────────────────────────────────────
+        // Ilgari uni faqat desktop.json ni qo'lda tahrirlab qo'yish mumkin
+        // edi. Texnik buni unutsa, do'kon HECH QACHON yangilanmasdi va buni
+        // bilishning yo'li yo'q edi: xato chiqmaydi, sarlavha o'zgarmaydi.
+        layout.Controls.Add(new Label
+        {
+            Text = "Yangilanish:", AutoSize = true, Margin = new Padding(0, 6, 6, 0),
+        }, 0, 9);
+        layout.Controls.Add(_feed, 1, 9);
+
+        var feedHint = new Label
+        {
+            AutoSize = false, Height = 32, Width = 520,
+            ForeColor = SystemColors.GrayText,
+            Text = "Yangi versiyalar shu manzildan olinadi. Bo'sh qoldirilsa ilova "
+                 + "yangilanmaydi — bu ataylab: sinov do'konini alohida kanalga "
+                 + "yo'naltirish mumkin.",
+        };
+        layout.Controls.Add(feedHint, 0, 10);
+        layout.SetColumnSpan(feedHint, 3);
+
+        layout.Controls.Add(_result, 0, 11);
         layout.SetColumnSpan(_result, 3);
 
         var buttons = new FlowLayoutPanel
@@ -151,7 +174,7 @@ public sealed class SetupForm : Form
         var cancel = new Button { Text = "Bekor qilish", Width = 110, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(_save);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 10);
+        layout.Controls.Add(buttons, 0, 12);
         layout.SetColumnSpan(buttons, 3);
 
         Controls.Add(layout);
@@ -184,6 +207,7 @@ public sealed class SetupForm : Form
 
         var printer = _printer.SelectedItem as string;
         _secrets.SetLabelPrinter(printer == NoPrinter ? null : printer);
+        _secrets.SetUpdateFeedUrl(_feed.Text);
     }
 
     /// <summary>Ro'yxatdagi «tanlanmagan» qatori.</summary>

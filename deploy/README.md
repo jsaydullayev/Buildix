@@ -298,8 +298,21 @@ oraliq paketlar kerak bo'ladi.
 
 ### Har do'konda bir marta
 
-`%ProgramData%\Buildix\desktop.json` ichiga manzilni yozing (fayl
-administrator huquqini talab qiladi — ichida baza paroli bor):
+Manzil SOZLASH OYNASIDAN qo'yiladi — faylni qo'lda tahrirlash shart emas:
+
+```
+Buildix.Desktop.exe --setup
+```
+
+Oynadagi «Yangilanish» maydoniga manzilni yozing:
+`https://<domen>/updates/<MAXFIY>/`
+
+Manzil sozlanmagan bo'lsa ilova sarlavhasida «yangilanish manzili
+sozlanmagan» deb turadi — o'rnatishda uni unutib qoldirish jimgina o'tib
+ketmasligi uchun.
+
+Qo'lda tahrirlash ham mumkin (`%ProgramData%\Buildix\desktop.json`), lekin
+fayl administrator huquqini talab qiladi — ichida baza paroli bor:
 
 ```json
 {

@@ -261,6 +261,20 @@ public sealed class MainForm : Form
     /// </summary>
     private async Task CheckUpdateAsync()
     {
+        // Manzil sozlanmagan bo'lsa yangilanish umuman tekshirilmaydi va bu
+        // JIMGINA o'tib ketardi: xato chiqmasdi, sarlavha o'zgarmasdi. Texnik
+        // o'rnatishda uni yozishni unutsa, o'sha do'kon abadiy eski versiyada
+        // qolardi va buni bilishning yagona yo'li yo'q edi.
+        //
+        // Kassirga tegishli xabar emas, shuning uchun u ogohlantirish oynasi
+        // emas — sarlavhada turadi va sozlashni ochgan odam darhol ko'radi.
+        if (_secrets.UpdateFeedUrl is null)
+        {
+            if (!IsDisposed)
+                BeginInvoke(() => Text = "Buildix — yangilanish manzili sozlanmagan (--setup)");
+            return;
+        }
+
         await _updater.CheckAsync();
         if (_updater.PendingVersion is null || IsDisposed) return;
 
