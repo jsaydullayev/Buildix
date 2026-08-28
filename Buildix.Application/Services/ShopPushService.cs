@@ -165,6 +165,11 @@ public class ShopPushService : IShopPushService
         var payload = new SyncPushDto();
         var sent = new Dictionary<string, (DateTimeOffset Watermark, Guid LastId)>();
 
+        // Xodimlar ENG BIRINCHI: har sotuv o'z sotuvchisiga ishora qiladi va
+        // do'konda yaratilgan kassir bulutda bo'lmasa, sotuv tashqi kalitni
+        // buzib butun to'plamni rad ettirardi.
+        payload.Users = await CollectAsync(
+            _context.Users.Where(x => x.MarketId == marketId), states, sent, ct);
         payload.Products = await CollectAsync(
             _context.Products.Where(x => x.MarketId == marketId), states, sent, ct);
         payload.Customers = await CollectAsync(
@@ -180,6 +185,9 @@ public class ShopPushService : IShopPushService
                 .Any(sale => sale.Id == x.SaleId && sale.MarketId == marketId)), states, sent, ct);
         payload.Payments = await CollectAsync(
             _context.Payments.Where(x => x.MarketId == marketId), states, sent, ct);
+        // Qarzlar sotuvdan KEYIN — har biri o'z chekiga bog'langan.
+        payload.Debts = await CollectAsync(
+            _context.Debts.Where(x => x.MarketId == marketId), states, sent, ct);
 
         if (payload.IsEmpty) return ShopPushResult.Ok(0);
 

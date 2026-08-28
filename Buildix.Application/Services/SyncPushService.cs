@@ -1,4 +1,4 @@
-using Buildix.Application.Common;
+﻿using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Common;
@@ -50,6 +50,25 @@ public class SyncPushService : ISyncPushService
         {
             // Tartib SyncPushDto da izohlangan: havola qilinadigan yozuvlar
             // avval.
+            // Xodimlar birinchi: sotuv o'z sotuvchisiga ishora qiladi.
+            perTable["User"] = await UpsertAsync(_context.Users, payload.Users, marketId, ct);
+
+            // ── Kategoriya havolasi UZILADI ─────────────────────────────────
+            // `ProductCategories.Id` — butun son va u bulutda BARCHA do'konlar
+            // uchun umumiy ketma-ketlik. Do'kondagi «Sement» kategoriyasi u
+            // yerda Id=7 bo'lishi mumkin, bulutdagi Id=7 esa butunlay boshqa
+            // do'konning kategoriyasi. Kategoriyaning o'zi yuborilmaydi, ya'ni
+            // do'kon raqamini shundoq ko'chirish ikki oqibatdan birini berardi:
+            // yo tashqi kalit buzilib butun to'plam rad etilardi, yo tovar
+            // bulutda BEGONA kategoriyaga tushib, egasining hisoboti jimgina
+            // noto'g'ri bo'lardi.
+            //
+            // Kategoriyalarni to'g'ri sinxronlash alohida ish (do'kon bo'yicha
+            // barqaror kalit kerak). Unga qadar bulutda tovar kategoriyasiz
+            // qoladi — bu ma'lumot yo'qolishi emas: do'kon o'z kategoriyasini
+            // biladi va ekranda ko'rsatadi.
+            foreach (var product in payload.Products) product.CategoryId = null;
+
             perTable["Product"] = await UpsertAsync(_context.Products, payload.Products, marketId, ct);
             perTable["Customer"] = await UpsertAsync(_context.Customers, payload.Customers, marketId, ct);
             perTable["Shift"] = await UpsertAsync(_context.Shifts, payload.Shifts, marketId, ct);
@@ -66,8 +85,11 @@ public class SyncPushService : ISyncPushService
             var items = Split(payload.SaleItems, x => x.SaleId, parents, "SaleItem", marketId, deferred);
             var payments = Split(payload.Payments, x => x.SaleId, parents, "Payment", marketId, deferred);
 
+            var debts = Split(payload.Debts, x => x.SaleId, parents, "Debt", marketId, deferred);
+
             perTable["SaleItem"] = await UpsertAsync(_context.SaleItems, items, marketId, ct);
             perTable["Payment"] = await UpsertAsync(_context.Payments, payments, marketId, ct);
+            perTable["Debt"] = await UpsertAsync(_context.Debts, debts, marketId, ct);
 
             await _unitOfWork.SaveChangesAsync(ct);
             return true;
@@ -143,6 +165,7 @@ public class SyncPushService : ISyncPushService
 
         var referenced = payload.SaleItems.Select(x => x.SaleId)
             .Concat(payload.Payments.Select(x => x.SaleId))
+            .Concat(payload.Debts.Select(x => x.SaleId))
             .Where(id => !result.ContainsKey(id))
             .Distinct()
             .ToList();

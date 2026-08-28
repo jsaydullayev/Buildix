@@ -242,4 +242,94 @@ public class SyncPushTests
         Assert.Equal(DateTimeKind.Utc, back.CreatedAt.Kind);
         Assert.Equal(sale.CreatedAt, back.CreatedAt);
     }
+
+    // ── Ilgari umuman yuborilmagan jadvallar ──────────────────────────────
+    // Bulutga faqat oltita jadval ketardi. Qarzlar ular orasida yo'q edi:
+    // do'konda o'nlab mijozning millionlab so'm qarzi bo'lsa ham, egasining
+    // telefonidagi «Qarzlar» ekrani NOL ko'rsatardi.
+
+    /// <summary>Qarz o'z chekiga qo'shib yuborilsa — qabul qilinadi.</summary>
+    [Fact]
+    public async Task Qarz_chek_bilan_birga_qabul_qilinadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = 9, Phone = "+998901112233" };
+        var sale = new Sale { Id = Guid.NewGuid(), MarketId = 9, SellerId = Guid.NewGuid() };
+        var debt = new Debt
+        {
+            Id = Guid.NewGuid(), MarketId = 9, SaleId = sale.Id, CustomerId = customer.Id,
+            TotalDebt = 1_000_000, RemainingDebt = 400_000, Status = DebtStatus.Open,
+        };
+
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Customers = { customer }, Sales = { sale }, Debts = { debt },
+        });
+
+        Assert.True(result.Accepted >= 3);
+        var stored = await h.Db.Debts.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(400_000, stored.RemainingDebt);
+        Assert.Equal(9, stored.MarketId);
+    }
+
+    /// <summary>
+    /// Cheki hali yetib bormagan qarz TASHLANMASLIGI kerak — u kechiktiriladi
+    /// va keyingi urinishda o'tadi. Aks holda qarz abadiy yo'qolardi.
+    /// </summary>
+    [Fact]
+    public async Task Cheki_yetmagan_qarz_kechiktiriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var debt = new Debt
+        {
+            Id = Guid.NewGuid(), MarketId = 9, SaleId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(), TotalDebt = 500, RemainingDebt = 500,
+        };
+
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto { Debts = { debt } });
+
+        Assert.Empty(await h.Db.Debts.IgnoreQueryFilters().ToListAsync());
+        Assert.True(result.Deferred.ContainsKey("Debt"), "qarz kechiktirilmadi");
+    }
+
+    /// <summary>
+    /// Do'konda yaratilgan kassir bulutga o'tishi SHART. Ilgari xodimlar
+    /// yuborilmasdi va uning birinchi cheki tashqi kalitni buzib, butun
+    /// sinxronizatsiyani abadiy to'xtatardi.
+    /// </summary>
+    [Fact]
+    public async Task Dokonda_yaratilgan_xodim_bulutga_otadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var user = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 9, Username = "kassir", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto { Users = { user } });
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal("kassir", stored.Username);
+        Assert.Equal(9, stored.MarketId);
+    }
+
+    /// <summary>
+    /// Kategoriya raqami bulutda BOSHQA do'konnikiga tegishli bo'lishi mumkin
+    /// (u yerda ketma-ketlik hamma uchun umumiy). Shuning uchun havola
+    /// uziladi — tovar begona kategoriyaga tushib qolgandan ko'ra
+    /// kategoriyasiz qolgani yaxshi.
+    /// </summary>
+    [Fact]
+    public async Task Tovar_begona_kategoriyaga_boglanmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var product = NewProduct("Sement", 9);
+        product.CategoryId = 7;                      // do'konning O'Z raqami
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto { Products = { product } });
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().SingleAsync();
+        Assert.Null(stored.CategoryId);
+    }
 }

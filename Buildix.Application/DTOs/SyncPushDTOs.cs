@@ -1,4 +1,4 @@
-using Buildix.Domain.Entities;
+﻿using Buildix.Domain.Entities;
 
 namespace Buildix.Application.DTOs;
 
@@ -16,6 +16,19 @@ namespace Buildix.Application.DTOs;
 /// </summary>
 public class SyncPushDto
 {
+    /// <summary>
+    /// Do'konda yaratilgan xodimlar.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ular ENG BIRINCHI yuboriladi, chunki har sotuv o'z sotuvchisiga
+    /// ishora qiladi (<c>Sale.SellerId</c>). Ilgari xodimlar umuman
+    /// yuborilmasdi va do'konda yangi kassir qo'shilishi butun
+    /// sinxronizatsiyani o'ldirardi: uning birinchi cheki bulutda tashqi
+    /// kalitni buzar, tranzaksiya orqaga qaytar, keyingi daqiqada AYNAN
+    /// o'sha paket qayta yuborilar va yana yiqilardi — abadiy.</para>
+    /// </remarks>
+    public List<User> Users { get; set; } = new();
+
     public List<Product> Products { get; set; } = new();
     public List<Customer> Customers { get; set; } = new();
     public List<Shift> Shifts { get; set; } = new();
@@ -23,13 +36,27 @@ public class SyncPushDto
     public List<SaleItem> SaleItems { get; set; } = new();
     public List<Payment> Payments { get; set; } = new();
 
+    /// <summary>
+    /// Qarzlar — sotuvdan KEYIN, chunki har qarz o'z chekiga bog'langan.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari qarzlar umuman yuborilmasdi. Do'konda o'nlab mijozning
+    /// millionlab so'm qarzi bo'lsa ham, egasining telefonidagi «Qarzlar»
+    /// ekrani NOL ko'rsatardi va Telegram botining qarz hisoboti ham bo'sh
+    /// kelardi. Egasi qarz undirish bo'yicha qaror qabul qila olmasdi —
+    /// ekran unga muammo yo'q deb ko'rsatardi.</para>
+    /// </remarks>
+    public List<Debt> Debts { get; set; } = new();
+
     public bool IsEmpty =>
-        Products.Count == 0 && Customers.Count == 0 && Shifts.Count == 0
-        && Sales.Count == 0 && SaleItems.Count == 0 && Payments.Count == 0;
+        Users.Count == 0 && Products.Count == 0 && Customers.Count == 0 && Shifts.Count == 0
+        && Sales.Count == 0 && SaleItems.Count == 0 && Payments.Count == 0
+        && Debts.Count == 0;
 
     public int TotalRows =>
-        Products.Count + Customers.Count + Shifts.Count
-        + Sales.Count + SaleItems.Count + Payments.Count;
+        Users.Count + Products.Count + Customers.Count + Shifts.Count
+        + Sales.Count + SaleItems.Count + Payments.Count
+        + Debts.Count;
 }
 
 /// <summary>
