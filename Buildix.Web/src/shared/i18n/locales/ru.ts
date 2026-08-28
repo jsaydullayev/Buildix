@@ -160,6 +160,7 @@ export const ru = {
       shifts: 'Смены',
       shiftOpen: 'Смена открыта',
       shiftClosed: 'Смена закрыта',
+      openShift: 'Открыть смену',
       hoursShort: 'ч',
       minsShort: 'м',
       account: 'Аккаунт',

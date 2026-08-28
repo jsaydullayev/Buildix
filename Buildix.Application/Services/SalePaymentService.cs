@@ -223,9 +223,23 @@ public class SalePaymentService : ISalePaymentService
             var owed = sale.TotalAmount - sale.PaidAmount;
 
             if (totalTendered > 0 && owed <= 0)
-                return Result.Failure<PaymentDto>(sale.TotalAmount <= 0
-                    ? "Bu chek bo'yicha to'lanadigan summa yo'q."
+            {
+                if (sale.TotalAmount <= 0)
+                    return Result.Failure<PaymentDto>("Bu chek bo'yicha to'lanadigan summa yo'q.");
+
+                // Ortiqcha to'langan chek ALOHIDA aytiladi. Ilgari u ham
+                // «allaqachon to'liq to'langan» degan bir xil xabarga tushardi
+                // va kassir uni yangi chek deb o'ylardi: ekranda to'lanishi
+                // kerak bo'lgan summa turardi, tugma esa har safar shu xabarni
+                // qaytarardi. Sabab boshqa joyda — chegirma jamini to'langan
+                // summadan pastga tushirgan — va uni bu xabardan bilib
+                // bo'lmasdi.
+                return Result.Failure<PaymentDto>(owed < 0
+                    ? $"Chek ortiqcha to'langan: {MoneyText.Sum(sale.PaidAmount)} so'm to'langan, " +
+                      $"jami esa {MoneyText.Sum(sale.TotalAmount)} so'm. Chekni to'lovsiz yoping " +
+                      $"va {MoneyText.Sum(-owed)} so'mni qaytaring."
                     : "Bu savdo allaqachon to'liq to'langan.");
+            }
 
             // Ortiqcha to'lov hech qachon qabul qilinmaydi: aks holda PaidAmount
             // jamidan oshib ketardi va ortiqcha pul keyinroq mijozning soxta

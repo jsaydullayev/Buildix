@@ -1,6 +1,6 @@
 import { NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, LogOut } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { SELLER_NAV_ITEMS } from '@/shared/config/navigation';
@@ -54,6 +54,31 @@ export function SellerTopNav() {
   });
   const shift = currentShift.data;
   const shiftOpen = !!shift?.isOpen;
+
+  /**
+   * Smena YOPIQ bo'lganda belgi tugmaga aylanadi va uni shu yerning o'zida
+   * ochadi.
+   *
+   * <p><b>Nega sahifaga olib bormaydi.</b> Kassir ish boshlashda birinchi
+   * qiladigan ishi — smena ochish, va bu bitta harakat bo'lishi kerak.
+   * Ilgari belgi «Smenalar» sahifasiga olib borardi: kassir savdo
+   * ekranidan chiqib ketar, u yerda tugmani topib bosar, keyin qo'lda
+   * kassaga qaytardi. Kuniga takrorlanadigan uch qadam — birining
+   * o'rniga.</p>
+   *
+   * <p>Smena OCHIQ bo'lsa aksincha: belgi sahifaga olib boradi, chunki
+   * yopishdan oldin kassir yakunni — tushum, cheklar soni, kutilayotgan
+   * naqd — ko'rishi kerak. Uni bir bosishda yopish xavfli bo'lardi.</p>
+   */
+  const qc = useQueryClient();
+  const openShift = useMutation({
+    mutationFn: shiftsApi.open,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['shift-current'] });
+      // Kassa ekrani «smena yopiq» deb turgan bo'lishi mumkin.
+      void qc.invalidateQueries({ queryKey: ['pos-drafts'] });
+    },
+  });
   const shiftFor = shiftOpen
     ? duration(shift!.durationMinutes, t('seller.nav.hoursShort'), t('seller.nav.minsShort'))
     : '';
@@ -87,40 +112,41 @@ export function SellerTopNav() {
 
       {/* Right — shift, notifications, user, logout */}
       <div className="flex flex-none items-center gap-1.5 sm:gap-2.5">
-        <NavLink
-          to={`${base}/shifts`}
-          title={shiftOpen ? `${t('seller.nav.shiftOpen')} · ${shiftFor}` : t('seller.nav.shiftClosed')}
-          className={({ isActive }) =>
-            cn(
-              'flex items-center gap-2 rounded-pill px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-              isActive
-                ? 'bg-white/[0.14] text-white'
-                : 'text-white/70 hover:bg-white/[0.08] hover:text-white',
-            )
-          }
-        >
-          {/* A live dot beats an icon here: open/closed is the state the cashier
-              scans for, and it reads at a glance without stopping to parse text. */}
-          <span
+        {shiftOpen ? (
+          <NavLink
+            to={`${base}/shifts`}
+            title={`${t('seller.nav.shiftOpen')} · ${shiftFor}`}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2 rounded-pill px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+                isActive
+                  ? 'bg-white/[0.14] text-white'
+                  : 'text-white/70 hover:bg-white/[0.08] hover:text-white',
+              )
+            }
+          >
+            <span className="h-2 w-2 flex-none rounded-pill bg-success" />
+            <span className="font-semibold text-white nums">№{shift!.shiftNumber}</span>
+            {/* Davomiylik — foydali, lekin smena raqamidan kam muhim:
+                tor ekranda birinchi bo'lib yashiriladi. */}
+            <span className="hidden text-white/55 nums sm:inline">{shiftFor}</span>
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openShift.mutate()}
+            disabled={openShift.isPending}
+            title={t('seller.nav.openShift')}
             className={cn(
-              'h-2 w-2 flex-none rounded-pill',
-              shiftOpen ? 'bg-success' : 'bg-white/35',
+              'flex items-center gap-2 rounded-pill px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+              'text-white/70 hover:bg-white/[0.08] hover:text-white disabled:opacity-60',
             )}
-          />
-          {shiftOpen ? (
-            <>
-              <span className="font-semibold text-white nums">№{shift!.shiftNumber}</span>
-              {/* Davomiylik — foydali, lekin smena raqamidan kam muhim:
-                  tor ekranda birinchi bo'lib yashiriladi. */}
-              <span className="hidden text-white/55 nums sm:inline">{shiftFor}</span>
-            </>
-          ) : (
-            <>
-              <Clock size={14} />
-              <span className="hidden sm:inline">{t('seller.nav.shiftClosed')}</span>
-            </>
-          )}
-        </NavLink>
+          >
+            <span className="h-2 w-2 flex-none rounded-pill bg-white/35" />
+            <Clock size={14} />
+            <span className="hidden sm:inline">{t('seller.nav.openShift')}</span>
+          </button>
+        )}
 
         {/* A DROPDOWN, not a link. The bell used to navigate to the full
             notifications page, which tore the cashier out of a half-rung sale.

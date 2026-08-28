@@ -162,6 +162,7 @@ export const en: TranslationSchema = {
       shifts: 'Shifts',
       shiftOpen: 'Shift open',
       shiftClosed: 'Shift closed',
+      openShift: 'Open shift',
       hoursShort: 'h',
       minsShort: 'm',
       account: 'Account',

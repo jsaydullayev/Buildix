@@ -162,6 +162,7 @@ export const uz: TranslationSchema = {
       shifts: 'Smenalar',
       shiftOpen: 'Smena ochiq',
       shiftClosed: 'Smena yopiq',
+      openShift: 'Smena ochish',
       hoursShort: 's',
       minsShort: 'd',
       account: 'Akkaunt',

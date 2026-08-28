@@ -367,6 +367,28 @@ public class SaleService : ISaleService
             if (discountAmount > gross)
                 return Result.Failure<SaleDto>("Chegirma jami summadan oshib ketmasligi kerak");
 
+            // ── Chegirma TO'LANGAN summadan pastga tushira olmaydi ───────────
+            // Chegirma qarzdagi chekka ham qo'yiladi (bu ataylab: mijoz bilan
+            // kelishilgan chegirma ko'pincha keyin paydo bo'ladi). Lekin unda
+            // allaqachon to'lov bo'lgan bo'lishi mumkin va yangi jami o'sha
+            // summadan past bo'lsa, chek «ortiqcha to'langan» holatga tushadi.
+            //
+            // Bu holat QAYTMAS edi: undan keyin har qanday to'lov urinishi
+            // «Bu savdo allaqachon to'liq to'langan» degan tushunarsiz xabarga
+            // urilardi — kassir esa yangi chek ochyapman deb o'ylardi. Chek
+            // shu holatda abadiy qotib qolardi.
+            //
+            // Ortiqchani qaytarish alohida amal (qaytarish/kassa chiqimi),
+            // shuning uchun bu yerda chegirma shunchaki rad etiladi va kassir
+            // qancha qo'ya olishini ko'radi.
+            if (gross - discountAmount < sale.PaidAmount)
+            {
+                var maxDiscount = gross - sale.PaidAmount;
+                return Result.Failure<SaleDto>(
+                    $"Chek bo'yicha {MoneyText.Sum(sale.PaidAmount)} so'm allaqachon to'langan — " +
+                    $"chegirma {MoneyText.Sum(maxDiscount)} so'mdan oshmasligi kerak.");
+            }
+
             // Per-user chegirma limiti (%): kassir belgilangan foizdan ko'p
             // chegirma qo'ya olmaydi. Null = cheksiz (Owner/Admin va limitsizlar).
             var maxDiscountPct = await _context.Users

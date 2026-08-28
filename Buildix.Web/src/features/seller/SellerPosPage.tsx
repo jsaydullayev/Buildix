@@ -1554,6 +1554,27 @@ function CustomerPicker({
   );
 }
 
+/**
+ * Pul maydonining ko'rinishi: raqamlar uch xonadan ajratiladi.
+ *
+ * <p><b>Nega maydon matn, `number` emas.</b> Brauzer `type="number"` ga
+ * bo'shliq yozishga umuman yo'l qo'ymaydi, ya'ni ajratkichni ko'rsatib
+ * bo'lmaydi. Kassada esa summalar yetti xonali bo'ladi va ajratkichsiz
+ * «1000000» ni bir qarashda o'qib bo'lmaydi — noto'g'ri nol qo'shilgani
+ * faqat qaytim hisoblanganda bilinardi.</p>
+ */
+function groupSum(raw: string): string {
+  const cleaned = raw.replace(/[^\d.,]/g, '').replace(',', '.');
+  const [whole = '', frac] = cleaned.split('.');
+  const grouped = whole.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return frac === undefined ? grouped : `${grouped}.${frac}`;
+}
+
+/** Ko'rinishdagi matndan songa — ajratkichlar tashlanadi. */
+function sumOf(display: string): number {
+  return Number(display.replace(/\s/g, '')) || 0;
+}
+
 function CheckoutModal({
   open,
   onClose,
@@ -1591,21 +1612,34 @@ function CheckoutModal({
     }
   }, [open]);
 
-  const got = Number(received) || 0;
-  const change = got - total;
-  const paid = Number(paidNow) || 0;
-  const debtRest = Math.max(0, total - paid);
+  /**
+   * Hali to'lanmagan qismi.
+   *
+   * <p>Chek qayta ochilgan bo'lsa (qarzga qisman yopilgan va davom
+   * ettirilgan) jami bilan qoldiq bir xil emas. Kassir jamini olsa,
+   * mijozdan ortiqcha pul olingan bo'lardi.</p>
+   */
+  const outstanding = Math.max(0, total - (sale.paidAmount ?? 0));
+
+  const got = sumOf(received);
+  const change = got - outstanding;
+  const paid = sumOf(paidNow);
+  const debtRest = Math.max(0, outstanding - paid);
   const mixSum = mixSumOf(mixParts);
-  const mixRemainder = money(total - mixSum);
+  const mixRemainder = money(outstanding - mixSum);
 
   const canConfirm = useMemo(() => {
     if (total <= 0) return false;
+    // Qoldiq nolga teng — chek allaqachon qoplangan va uni PULSIZ yopish
+    // kerak. Busiz ortiqcha to'langan chek abadiy ochiq qolardi: tugma
+    // o'chiq turar, kassir esa nima qilishni bilmasdi.
+    if (outstanding === 0) return true;
     if (method === 'Debt') return !!customer && debtRest > 0;
-    if (method === 'Cash') return got >= total;
+    if (method === 'Cash') return got >= outstanding;
     // Chek to'liq yopilishi shart: qoldiq nolga tushmaguncha tasdiqlab bo'lmaydi.
     if (method === 'Mixed') return mixRemainder === 0 && mixSum > 0;
     return true;
-  }, [method, total, got, customer, debtRest, mixRemainder, mixSum]);
+  }, [method, total, outstanding, got, customer, debtRest, mixRemainder, mixSum]);
 
   const confirm = useMutation({
     mutationFn: async () => {
@@ -1622,9 +1656,17 @@ function CheckoutModal({
         // sale never passes through a "partially paid ⇒ debt" state.
         await posApi.checkout(sale.id, mixPayments(mixParts));
       } else {
-        // Never send more than the total — the server rejects over-payment, so
-        // the change stays a counter-side calculation.
-        await posApi.addPayment(sale.id, { paymentType: method, amount: total });
+        // QOLDIQ yuboriladi, jami emas.
+        //
+        // Chek qayta ochilgan bo'lishi mumkin va unda allaqachon to'lov
+        // bo'lgan bo'lishi mumkin (qarzga qisman yopilgan, keyin davom
+        // ettirilgan). Jamini yuborish o'shanda ortiqcha to'lov bo'lardi va
+        // server uni rad etardi — kassir esa nima uchun ekanini bilmasdi.
+        //
+        // Qoldiq nolga teng bo'lsa nol yuboriladi: bu chekni PULSIZ yopadi.
+        // Aynan shu ortiqcha to'langan chekni qutqaradigan yo'l — aks holda
+        // u abadiy ochiq qolar va har urinishda xato berardi.
+        await posApi.addPayment(sale.id, { paymentType: method, amount: outstanding });
       }
       return posApi.getSale(sale.id);
     },
@@ -1655,7 +1697,7 @@ function CheckoutModal({
         <div className="flex items-baseline justify-between rounded-input bg-bg px-4 py-3">
           <span className="text-[13px] text-muted">{t('seller.pos.toPay')}</span>
           <span className="text-[22px] font-bold text-primary nums">
-            {formatSum(total)} <span className="text-[12px] font-normal text-muted-2">{t('common.currency')}</span>
+            {formatSum(outstanding)} <span className="text-[12px] font-normal text-muted-2">{t('common.currency')}</span>
           </span>
         </div>
 
@@ -1681,18 +1723,18 @@ function CheckoutModal({
           <div className="flex flex-col gap-2">
             <label className="text-[13px] font-medium text-label">{t('seller.pos.received')}</label>
             <input
-              type="number"
-              step="any"
+              type="text"
+              inputMode="decimal"
               autoFocus
               placeholder="0"
               value={received}
-              onChange={(e) => setReceived(e.target.value)}
+              onChange={(e) => setReceived(groupSum(e.target.value))}
               className={inputCls}
             />
             <div className="flex flex-wrap gap-2">
-              <ChipSm label={t('seller.pos.noChange')} onClick={() => setReceived(String(total))} />
-              {cashChips(total).map((c) => (
-                <ChipSm key={c} label={formatSum(c)} onClick={() => setReceived(String(c))} />
+              <ChipSm label={t('seller.pos.noChange')} onClick={() => setReceived(groupSum(String(outstanding)))} />
+              {cashChips(outstanding).map((c) => (
+                <ChipSm key={c} label={formatSum(c)} onClick={() => setReceived(groupSum(String(c)))} />
               ))}
             </div>
             {got > 0 && (
@@ -1792,11 +1834,11 @@ function CheckoutModal({
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-medium text-label">{t('seller.pos.paidNow')}</label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0"
                     value={paidNow}
-                    onChange={(e) => setPaidNow(e.target.value)}
+                    onChange={(e) => setPaidNow(groupSum(e.target.value))}
                     className={inputCls}
                   />
                 </div>
