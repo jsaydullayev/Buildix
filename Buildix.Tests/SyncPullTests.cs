@@ -73,7 +73,7 @@ public class SyncPullTests
     }
 
     [Fact]
-    public async Task Ozgarmagan_bolsa_bosh_qaytadi()
+    public async Task Ozgarmagan_bolsa_xodim_qaytmaydi()
     {
         using var h = new TestHarness(marketId: null);
         var market = await NewMarketAsync(h, 5, "Do'kon");
@@ -82,8 +82,12 @@ public class SyncPullTests
         h.DbClock.Advance(TimeSpan.FromHours(1));
         var second = await NewService(h).PullAsync(market.Id, first.NextSince.AddTicks(1));
 
-        Assert.Null(second.Market);
         Assert.Empty(second.Users);
+        // Do'konning O'ZI esa har safar keladi — suv belgisidan qat'i nazar.
+        // Sabab SyncPullService da: bitta kichkina yozuvni tejashdan yutuq
+        // yo'q, evaziga esa uni bir marta o'tkazib yuborgan nusxa keyin
+        // hech qachon to'g'rilanmasdi.
+        Assert.NotNull(second.Market);
     }
 
     [Fact]
@@ -105,7 +109,31 @@ public class SyncPullTests
 
         Assert.Single(second.Users);
         Assert.Equal("kassir", second.Users[0].Username);
-        Assert.Null(second.Market);   // do'konning o'zi o'zgarmadi
+    }
+
+    /// <summary>
+    /// Do'konning manzildagi nomi YUBORILISHI shart.
+    ///
+    /// <para>Bu test haqiqiy nuqsondan keyin yozildi. Maydon tortish
+    /// tarkibiga umuman kirmagan edi, ya'ni do'kon nusxasida u bo'sh
+    /// qolardi. Oqibati kutilganidan uzoq: kirish MUVAFFAQIYATLI o'tardi
+    /// (server 200 qaytarardi, jurnalda «Login successful» yozilardi),
+    /// lekin interfeys ish ekraniga o'tolmasdi — o'tish aynan shu qiymat
+    /// bo'yicha bajariladi. Tashqaridan bu «Kirish tugmasi ishlamayapti»
+    /// bo'lib ko'rinardi va jurnalda buni tasdiqlaydigan birorta xato
+    /// yo'q edi.</para>
+    /// </summary>
+    [Fact]
+    public async Task Dokonning_manzildagi_nomi_yuboriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h, 5, "Do'kon");
+        market.Subdomain = "taxtapul";
+        await h.Db.SaveChangesAsync();
+
+        var pull = await NewService(h).PullAsync(market.Id, Beginning);
+
+        Assert.Equal("taxtapul", pull.Market!.Subdomain);
     }
 
     /// <summary>

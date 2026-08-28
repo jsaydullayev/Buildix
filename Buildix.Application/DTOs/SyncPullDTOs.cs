@@ -83,6 +83,16 @@ public record SyncProductDto(
 public record SyncMarketDto(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
+    /// <summary>
+    /// Do'konning manzildagi nomi (<c>/taxtapul/...</c>).
+    ///
+    /// <para><b>Nega u sinxronizatsiyada.</b> Kirishdan keyin interfeys
+    /// AYNAN shu qiymat bo'yicha ish ekraniga o'tadi. Do'kon nusxasida u
+    /// bo'sh bo'lsa, kirish muvaffaqiyatli o'tadi-yu, sahifa joyidan
+    /// qimirlamaydi: na o'tish, na xato — kassir «tugma ishlamayapti»
+    /// degandan boshqa hech narsa ko'rmaydi.</para>
+    /// </summary>
+    [property: JsonPropertyName("subdomain")] string? Subdomain,
     [property: JsonPropertyName("city")] string? City,
     [property: JsonPropertyName("plan")] string Plan,
     [property: JsonPropertyName("expiresAt")] DateTimeOffset? ExpiresAt,

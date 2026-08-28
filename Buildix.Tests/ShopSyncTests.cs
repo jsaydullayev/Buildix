@@ -74,8 +74,10 @@ public class ShopSyncTests
         Assert.True(result.Success, result.Error);
     }
 
-    private static SyncMarketDto NewMarket(int id = 9, string name = "Taxtapul") =>
-        new(id, name, "Toshkent", "Start", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero),
+    private static SyncMarketDto NewMarket(
+        int id = 9, string name = "Taxtapul", string? subdomain = "taxtapul") =>
+        new(id, name, subdomain, "Toshkent", "Start",
+            new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero),
             true, false, null, Guid.NewGuid(), new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero));
 
     private static SyncUserDto NewUser(string username, Role role = Role.Seller, bool deleted = false) =>
@@ -99,6 +101,11 @@ public class ShopSyncTests
         var market = await h.Db.Markets.IgnoreQueryFilters().SingleAsync();
         Assert.Equal(9, market.Id);
         Assert.Equal("Taxtapul", market.Name);
+        // «Ishlatishga yaroqli» degani AYNAN shuni ham o'z ichiga oladi:
+        // manzildagi nomsiz kirishdan keyin boradigan joy yo'q va do'kon
+        // dasturi kirish formasida turib qolardi. Nuqson shu yerda edi —
+        // maydon ko'chirilmasdi va buni birorta sinov ushlamasdi.
+        Assert.Equal("taxtapul", market.Subdomain);
 
         var user = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
         Assert.Equal("jamshid", user.Username);
@@ -119,6 +126,34 @@ public class ShopSyncTests
         await service.PullAsync();
 
         Assert.Equal(42, (await h.Db.Markets.IgnoreQueryFilters().SingleAsync()).Id);
+    }
+
+    /// <summary>
+    /// Manzildagi nomi BO'SH qolgan nusxa keyingi tortishda o'zini
+    /// tuzatadi.
+    ///
+    /// <para>Bu shunchaki nazariy holat emas: maydon sinxronizatsiyaga
+    /// kiritilgunga qadar o'rnatilgan har bir nusxa aynan shunday
+    /// qolgan — do'kon yozuvi bor, nomi esa yo'q. Bunday nusxada kirish
+    /// o'tadi, lekin ish ekraniga o'tib bo'lmaydi.</para>
+    ///
+    /// <para>O'zini tuzatishi bulut do'kon yozuvini HAR safar
+    /// yuborishiga bog'liq. Suv belgisi bilan yuborilganda bu ishlamasdi:
+    /// belgi allaqachon oldinda edi, ya'ni yozuv boshqa kelmasdi va
+    /// nusxani faqat bazani o'chirib qayta bog'lash qutqarardi.</para>
+    /// </summary>
+    [Fact]
+    public async Task Bosh_qolgan_manzil_nomi_keyingi_tortishda_tolanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+
+        // Eski nuqson qoldirgan holat.
+        await ApplyAsync(h, Payload(NewMarket(subdomain: null), NewUser("jamshid", Role.Owner)));
+        Assert.Null((await h.Db.Markets.IgnoreQueryFilters().SingleAsync()).Subdomain);
+
+        await ApplyAsync(h, Payload(NewMarket(subdomain: "taxtapul")));
+
+        Assert.Equal("taxtapul", (await h.Db.Markets.IgnoreQueryFilters().SingleAsync()).Subdomain);
     }
 
     [Fact]

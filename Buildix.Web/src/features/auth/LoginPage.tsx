@@ -115,7 +115,17 @@ export function LoginPage() {
       // Slug'siz (ildizdagi) login — do'kon xodimi ham shu yerdan kirishi
       // mumkin: uni o'z do'koniga yuboramiz, aks holda muvaffaqiyatli login
       // hech qayerga olib bormay, forma joyida turib qolardi.
-      if (!subdomain && data.subdomain) {
+      if (!subdomain) {
+        // Do'kon nomi bo'sh bo'lsa boradigan manzil YO'Q. Ilgari bu shart
+        // jimgina yolg'on bo'lib, funksiya hech narsa qilmasdan tugardi:
+        // server 200 qaytargan, sessiya saqlangan, lekin ekranda kirish
+        // formasi turaverardi. Do'kon dasturida aynan shu holat yuz berdi
+        // va tashqaridan u «Kirish tugmasi ishlamayapti» bo'lib ko'rindi —
+        // jurnalda esa muvaffaqiyatli kirish yozilgan edi.
+        if (!data.subdomain) {
+          setError('password', { message: t('auth.errors.marketMissing') });
+          return;
+        }
         navigate(`/${data.subdomain}`, { replace: true });
       }
     } catch (err) {

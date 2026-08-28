@@ -61,13 +61,26 @@ public class SyncPullService : ISyncPullService
             .OrderBy(u => u.UpdatedAt)
             .ToListAsync(ct);
 
+        // ── Do'kon HAR safar yuboriladi ──────────────────────────────────
+        // Qolgan jadvallardan farqli ravishda bu yerda suv belgisi
+        // QO'LLANMAYDI. Sabab: bu bitta kichkina yozuv va uni tejashdan
+        // hech qanday yutuq yo'q — trafik bir necha yuz bayt. Evaziga esa
+        // butun bir xatolar sinfi yo'qoladi.
+        //
+        // Suv belgisi bilan do'kon yozuvi FAQAT o'zgarganda kelardi, ya'ni
+        // uni bir marta o'tkazib yuborgan (yoki noto'g'ri qo'llagan) nusxa
+        // keyin HECH QACHON to'g'ri qiymatni ko'rmasdi: belgi allaqachon
+        // oldinga surilgan va bulut o'sha yozuvni boshqa yubormasdi. Aynan
+        // shu sabab bilan `Subdomain` bo'sh qolgan nusxa o'zini o'zi
+        // tuzata olmasdi — uni faqat bazani o'chirib qayta bog'lash
+        // qutqarardi.
         var market = await _context.Markets
             .IgnoreQueryFilters()
-            .Where(m => m.Id == marketId && m.UpdatedAt >= fromUtc)
+            .Where(m => m.Id == marketId)
             .FirstOrDefaultAsync(ct);
 
         var marketDto = market is null ? null : new SyncMarketDto(
-            market.Id, market.Name, market.City, market.Plan.ToString(),
+            market.Id, market.Name, market.Subdomain, market.City, market.Plan.ToString(),
             AsUtc(market.ExpiresAt), market.IsActive, market.IsBlocked,
             market.BlockedReason, market.OwnerId, AsUtc(market.UpdatedAt));
 

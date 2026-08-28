@@ -243,6 +243,12 @@ public class ShopSyncService : IShopSyncService
         }
 
         market.Name = dto.Name;
+        // Manzildagi nom. Ilgari u KO'CHIRILMASDI va do'kon bazasida bo'sh
+        // qolardi — kirish o'tar, lekin interfeys ish ekraniga o'tolmasdi,
+        // chunki o'tish aynan shu qiymat bo'yicha bajariladi. Xato hech
+        // qayerga yozilmasdi: kassir bosgan tugma shunchaki javob
+        // bermaydigandek ko'rinardi.
+        market.Subdomain = dto.Subdomain;
         market.City = dto.City;
         market.Plan = Enum.TryParse<PlanCode>(dto.Plan, out var plan) ? plan : market.Plan;
         market.ExpiresAt = dto.ExpiresAt?.UtcDateTime;

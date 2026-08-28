@@ -305,6 +305,7 @@ export const en: TranslationSchema = {
       invalidCredentials: 'Invalid login or password',
       generic: 'Sign-in failed. Please try again.',
       consoleNotConfigured: 'The console is not configured — contact the server administrator.',
+      marketMissing: 'This copy has no store data. Contact support.',
       tooManyAttempts: 'Too many attempts. Please try again later.',
     },
   },

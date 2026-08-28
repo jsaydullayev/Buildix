@@ -305,6 +305,7 @@ export const uz: TranslationSchema = {
       invalidCredentials: 'Login yoki parol noto‘g‘ri',
       generic: 'Kirib bo‘lmadi. Qayta urinib ko‘ring.',
       consoleNotConfigured: 'Konsol sozlanmagan — server administratoriga murojaat qiling.',
+      marketMissing: 'Bu nusxada do’kon topilmadi. Qo’llab-quvvatlashga murojaat qiling.',
       tooManyAttempts: 'Juda ko‘p urinish. Keyinroq urinib ko‘ring.',
     },
   },
