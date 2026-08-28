@@ -170,6 +170,8 @@ public class ShopPushService : IShopPushService
         // buzib butun to'plamni rad ettirardi.
         payload.Users = await CollectAsync(
             _context.Users.Where(x => x.MarketId == marketId), states, sent, ct);
+        payload.Suppliers = await CollectAsync(
+            _context.Suppliers.Where(x => x.MarketId == marketId), states, sent, ct);
         payload.Products = await CollectAsync(
             _context.Products.Where(x => x.MarketId == marketId), states, sent, ct);
         payload.Customers = await CollectAsync(
@@ -188,6 +190,26 @@ public class ShopPushService : IShopPushService
         // Qarzlar sotuvdan KEYIN — har biri o'z chekiga bog'langan.
         payload.Debts = await CollectAsync(
             _context.Debts.Where(x => x.MarketId == marketId), states, sent, ct);
+
+        // Qaytarishlar ham sotuvga bog'langan; qatorlari esa qaytarishga.
+        payload.SaleReturns = await CollectAsync(
+            _context.SaleReturns.Where(x => x.MarketId == marketId), states, sent, ct);
+        // SaleReturnItem da MarketId yo'q — filtr otasi orqali.
+        payload.SaleReturnItems = await CollectAsync(
+            _context.SaleReturnItems.Where(x => _context.SaleReturns
+                .Any(r => r.Id == x.SaleReturnId && r.MarketId == marketId)), states, sent, ct);
+
+        // Xaridlar: qabul → qator. Ikkalasi ham yetkazib beruvchiga ishora
+        // qilishi mumkin, shuning uchun u yuqorida yuborilgan.
+        payload.ZakupReceipts = await CollectAsync(
+            _context.ZakupReceipts.Where(x => x.MarketId == marketId), states, sent, ct);
+        payload.Zakups = await CollectAsync(
+            _context.Zakups.Where(x => x.MarketId == marketId), states, sent, ct);
+
+        payload.CashMovements = await CollectAsync(
+            _context.CashMovements.Where(x => x.MarketId == marketId), states, sent, ct);
+        payload.StockMovements = await CollectAsync(
+            _context.StockMovements.Where(x => x.MarketId == marketId), states, sent, ct);
 
         if (payload.IsEmpty) return ShopPushResult.Ok(0);
 

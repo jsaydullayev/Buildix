@@ -69,6 +69,7 @@ public class SyncPushService : ISyncPushService
             // biladi va ekranda ko'rsatadi.
             foreach (var product in payload.Products) product.CategoryId = null;
 
+            perTable["Supplier"] = await UpsertAsync(_context.Suppliers, payload.Suppliers, marketId, ct);
             perTable["Product"] = await UpsertAsync(_context.Products, payload.Products, marketId, ct);
             perTable["Customer"] = await UpsertAsync(_context.Customers, payload.Customers, marketId, ct);
             perTable["Shift"] = await UpsertAsync(_context.Shifts, payload.Shifts, marketId, ct);
@@ -86,10 +87,49 @@ public class SyncPushService : ISyncPushService
             var payments = Split(payload.Payments, x => x.SaleId, parents, "Payment", marketId, deferred);
 
             var debts = Split(payload.Debts, x => x.SaleId, parents, "Debt", marketId, deferred);
+            var returns = Split(payload.SaleReturns, x => x.SaleId, parents, "SaleReturn", marketId, deferred);
 
             perTable["SaleItem"] = await UpsertAsync(_context.SaleItems, items, marketId, ct);
             perTable["Payment"] = await UpsertAsync(_context.Payments, payments, marketId, ct);
             perTable["Debt"] = await UpsertAsync(_context.Debts, debts, marketId, ct);
+            perTable["SaleReturn"] = await UpsertAsync(_context.SaleReturns, returns, marketId, ct);
+
+            // Qaytarish qatorlari — otasi SHU to'plamda yoki bulutda bo'lishi
+            // kerak. Qabul qilingan qaytarishlar ro'yxati yuqorida
+            // aniqlangan, shuning uchun uni qayta hisoblamaymiz.
+            var returnParents = await ClassifyAsync(
+                _context.SaleReturns, returns.Select(r => r.Id),
+                payload.SaleReturnItems.Select(x => x.SaleReturnId),
+                r => r.MarketId, marketId, ct);
+            var returnItems = Split(
+                payload.SaleReturnItems, x => x.SaleReturnId, returnParents,
+                "SaleReturnItem", marketId, deferred);
+            perTable["SaleReturnItem"] = await UpsertAsync(
+                _context.SaleReturnItems, returnItems, marketId, ct);
+
+            // Xaridlar: qabul → qator. Qator o'z tovariga ham ishora qiladi,
+            // shuning uchun tovar ham tekshiriladi — u boshqa paketda kelib
+            // qolgan bo'lishi mumkin.
+            perTable["ZakupReceipt"] = await UpsertAsync(
+                _context.ZakupReceipts, payload.ZakupReceipts, marketId, ct);
+
+            var productParents = await ClassifyAsync(
+                _context.Products, payload.Products.Select(p => p.Id),
+                payload.Zakups.Select(z => z.ProductId).Concat(payload.StockMovements.Select(m => m.ProductId)),
+                p => p.MarketId, marketId, ct);
+
+            var zakups = Split(payload.Zakups, x => x.ProductId, productParents, "Zakup", marketId, deferred);
+            perTable["Zakup"] = await UpsertAsync(_context.Zakups, zakups, marketId, ct);
+
+            var stock = Split(
+                payload.StockMovements, x => x.ProductId, productParents,
+                "StockMovement", marketId, deferred);
+            perTable["StockMovement"] = await UpsertAsync(_context.StockMovements, stock, marketId, ct);
+
+            // Kassa harakatining majburiy tashqi kaliti yo'q (smena va xodim
+            // ixtiyoriy), shuning uchun u tekshiruvsiz o'tadi.
+            perTable["CashMovement"] = await UpsertAsync(
+                _context.CashMovements, payload.CashMovements, marketId, ct);
 
             await _unitOfWork.SaveChangesAsync(ct);
             return true;
@@ -182,6 +222,52 @@ public class SyncPushService : ISyncPushService
             result[sale.Id] = sale.MarketId == marketId ? Parent.Mine : Parent.Foreign;
 
         foreach (var id in referenced)
+            if (!result.ContainsKey(id)) result[id] = Parent.Unknown;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Havola qilinadigan yozuvlarni uch guruhga ajratadi: shu do'konniki,
+    /// begona, va hali yetib bormagan.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bu <c>ClassifyParentsAsync</c> ning umumiy shakli. Ilgari
+    /// kechiktirish FAQAT sotuv otasi uchun ishlardi va boshqa har qanday
+    /// tashqi kalit — masalan qaytarish qatorining otasi yoki xarid
+    /// qatorining tovari — paket chegarasi tufayli hali yetib bormagan
+    /// bo'lsa, butun to'plam rad etilardi. Do'kon esa aynan o'sha paketni
+    /// qayta yuborib, hech qachon o'ta olmasdi.</para>
+    /// </remarks>
+    private async Task<Dictionary<Guid, Parent>> ClassifyAsync<T>(
+        DbSet<T> table,
+        IEnumerable<Guid> incomingIds,
+        IEnumerable<Guid> referenced,
+        System.Linq.Expressions.Expression<Func<T, int>> marketOf,
+        int marketId,
+        CancellationToken ct)
+        where T : BaseEntity
+    {
+        var result = new Dictionary<Guid, Parent>();
+
+        // Shu to'plamda kelganlar ta'rifi bo'yicha shu do'konniki: yuqorida
+        // ularning MarketId si majburan almashtirilgan.
+        foreach (var id in incomingIds) result[id] = Parent.Mine;
+
+        var missing = referenced.Where(id => id != Guid.Empty && !result.ContainsKey(id))
+            .Distinct().ToList();
+        if (missing.Count == 0) return result;
+
+        var market = marketOf.Compile();
+        var known = await table
+            .IgnoreQueryFilters()
+            .Where(x => missing.Contains(x.Id))
+            .ToListAsync(ct);
+
+        foreach (var row in known)
+            result[row.Id] = market(row) == marketId ? Parent.Mine : Parent.Foreign;
+
+        foreach (var id in missing)
             if (!result.ContainsKey(id)) result[id] = Parent.Unknown;
 
         return result;

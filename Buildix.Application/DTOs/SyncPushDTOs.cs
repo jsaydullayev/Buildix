@@ -48,15 +48,39 @@ public class SyncPushDto
     /// </remarks>
     public List<Debt> Debts { get; set; } = new();
 
-    public bool IsEmpty =>
-        Users.Count == 0 && Products.Count == 0 && Customers.Count == 0 && Shifts.Count == 0
-        && Sales.Count == 0 && SaleItems.Count == 0 && Payments.Count == 0
-        && Debts.Count == 0;
+    /// <summary>Qaytarishlar va ularning qatorlari.</summary>
+    /// <remarks>
+    /// <para>Ilgari yuborilmasdi: bulutdagi sotuv summasi qaytarishni
+    /// hisobga olmasdi va egasining tushumi haqiqiydan KATTA ko'rinardi.</para>
+    /// </remarks>
+    public List<SaleReturn> SaleReturns { get; set; } = new();
+    public List<SaleReturnItem> SaleReturnItems { get; set; } = new();
+
+    /// <summary>Yetkazib beruvchilar, qabullar va xaridlar.</summary>
+    /// <remarks>
+    /// <para>Ilgari yuborilmasdi: bulutdagi kunlik hisobotda xarid summasi
+    /// doim NOL bo'lardi, ya'ni sof foyda ham noto'g'ri chiqardi.</para>
+    /// </remarks>
+    public List<Supplier> Suppliers { get; set; } = new();
+    public List<ZakupReceipt> ZakupReceipts { get; set; } = new();
+    public List<Zakup> Zakups { get; set; } = new();
+
+    /// <summary>Kassa harakatlari va ombor jurnali.</summary>
+    /// <remarks>
+    /// <para>Ilgari yuborilmasdi: bulutda kassa qoldig'i va tovar harakati
+    /// tarixi umuman ko'rinmasdi.</para>
+    /// </remarks>
+    public List<CashMovement> CashMovements { get; set; } = new();
+    public List<StockMovement> StockMovements { get; set; } = new();
+
+    public bool IsEmpty => TotalRows == 0;
 
     public int TotalRows =>
-        Users.Count + Products.Count + Customers.Count + Shifts.Count
+        Users.Count + Suppliers.Count + Products.Count + Customers.Count + Shifts.Count
         + Sales.Count + SaleItems.Count + Payments.Count
-        + Debts.Count;
+        + Debts.Count + SaleReturns.Count + SaleReturnItems.Count
+        + ZakupReceipts.Count + Zakups.Count
+        + CashMovements.Count + StockMovements.Count;
 }
 
 /// <summary>

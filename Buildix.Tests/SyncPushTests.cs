@@ -332,4 +332,116 @@ public class SyncPushTests
         var stored = await h.Db.Products.IgnoreQueryFilters().SingleAsync();
         Assert.Null(stored.CategoryId);
     }
+
+    // ── Umumlashtirilgan kechiktirish ─────────────────────────────────────
+    // Ilgari kechiktirish FAQAT sotuv otasi uchun ishlardi. Boshqa har qanday
+    // tashqi kalit — qaytarish qatorining otasi, xarid qatorining tovari —
+    // paket chegarasi tufayli hali yetib bormagan bo'lsa, BUTUN to'plam rad
+    // etilardi va do'kon aynan o'sha paketni qayta yuborib, hech qachon o'ta
+    // olmasdi.
+
+    /// <summary>Qaytarish o'z cheki bilan birga o'tadi.</summary>
+    [Fact]
+    public async Task Qaytarish_chek_bilan_birga_qabul_qilinadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var sale = new Sale { Id = Guid.NewGuid(), MarketId = 9, SellerId = Guid.NewGuid() };
+        var ret = new SaleReturn
+        {
+            Id = Guid.NewGuid(), MarketId = 9, SaleId = sale.Id, Number = 1,
+            TotalAmount = 5000,
+        };
+        var item = new SaleReturnItem
+        {
+            Id = Guid.NewGuid(), SaleReturnId = ret.Id, Quantity = 1, UnitPrice = 5000,
+        };
+
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Sales = { sale }, SaleReturns = { ret }, SaleReturnItems = { item },
+        });
+
+        Assert.True(result.Accepted >= 3);
+        Assert.Single(await h.Db.SaleReturns.IgnoreQueryFilters().ToListAsync());
+        Assert.Single(await h.Db.SaleReturnItems.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Otasi yetib bormagan qaytarish qatori TASHLANMAYDI — kechiktiriladi.
+    /// </summary>
+    [Fact]
+    public async Task Otasi_yetmagan_qaytarish_qatori_kechiktiriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var item = new SaleReturnItem
+        {
+            Id = Guid.NewGuid(), SaleReturnId = Guid.NewGuid(), Quantity = 1, UnitPrice = 100,
+        };
+
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto { SaleReturnItems = { item } });
+
+        Assert.Empty(await h.Db.SaleReturnItems.IgnoreQueryFilters().ToListAsync());
+        Assert.True(result.Deferred.ContainsKey("SaleReturnItem"));
+    }
+
+    /// <summary>
+    /// Tovari hali yetib bormagan xarid qatori ham kechiktiriladi — aks holda
+    /// tashqi kalit butun to'plamni rad ettirardi.
+    /// </summary>
+    [Fact]
+    public async Task Tovari_yetmagan_xarid_kechiktiriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var zakup = new Zakup
+        {
+            Id = Guid.NewGuid(), MarketId = 9, ProductId = Guid.NewGuid(),
+            CreatedByAdminId = Guid.NewGuid(), Quantity = 10, CostPrice = 1000,
+        };
+
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto { Zakups = { zakup } });
+
+        Assert.Empty(await h.Db.Zakups.IgnoreQueryFilters().ToListAsync());
+        Assert.True(result.Deferred.ContainsKey("Zakup"));
+    }
+
+    /// <summary>Xarid o'z tovari bilan birga kelsa — o'tadi.</summary>
+    [Fact]
+    public async Task Xarid_tovari_bilan_birga_qabul_qilinadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var product = NewProduct("Sement", 9);
+        var zakup = new Zakup
+        {
+            Id = Guid.NewGuid(), MarketId = 9, ProductId = product.Id,
+            CreatedByAdminId = Guid.NewGuid(), Quantity = 10, CostPrice = 1000,
+        };
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Products = { product }, Zakups = { zakup },
+        });
+
+        Assert.Single(await h.Db.Zakups.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Kassa harakatining majburiy tashqi kaliti yo'q — u tekshiruvsiz
+    /// o'tishi kerak, aks holda kassa qoldig'i bulutda hech qachon
+    /// ko'rinmasdi.
+    /// </summary>
+    [Fact]
+    public async Task Kassa_harakati_toqnashuvsiz_otadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var move = new CashMovement
+        {
+            Id = Guid.NewGuid(), MarketId = 9, Amount = 50_000,
+            Type = CashMovementType.Sale,
+        };
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto { CashMovements = { move } });
+
+        var stored = await h.Db.CashMovements.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(50_000, stored.Amount);
+    }
 }
