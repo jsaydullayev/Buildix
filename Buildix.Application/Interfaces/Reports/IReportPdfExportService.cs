@@ -24,4 +24,15 @@ public interface IReportPdfExportService
     /// to'g'ridan-to'g'ri sozlangan printerga yuboradi.
     /// </summary>
     Task<byte[]> GenerateThermalReceiptImageAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Chek termal printerning O'Z tilida (ESC/POS).
+    /// </summary>
+    /// <remarks>
+    /// Eng tez yo'l: rasterlash umuman yo'q, chizishni printer o'zi
+    /// bajaradi va oxirida qog'ozni QIRQADI. Rasm yo'lida kassir tugmani
+    /// bosgach bir necha soniya kutardi — bu yerda qog'oz deyarli darhol
+    /// chiqadi.
+    /// </remarks>
+    Task<byte[]> GenerateReceiptEscPosAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default);
 }

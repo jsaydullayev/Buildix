@@ -83,6 +83,54 @@ export function printViaDesktop(
   });
 }
 
+/**
+ * Tayyor baytlarni printerga XOM (RAW) holda yuboradi.
+ *
+ * <p>Termal printer o'z tilini (ESC/POS) tushunadi va chekni O'ZI
+ * chizadi. Rasm yo'lida esa chek serverda rasterlanar, qobiqqa berilar
+ * va Windows drayveri uni QAYTA rasterlardi — kassir bir necha soniya
+ * kutardi. Bu yerda baytlar to'g'ridan-to'g'ri printerga boradi va
+ * qog'oz deyarli darhol chiqadi.</p>
+ */
+export function printRawViaDesktop(dataBase64: string): Promise<boolean> {
+  const w = window as unknown as {
+    chrome?: { webview?: WebViewBridge };
+    buildixDesktop?: { canPrintRaw?: boolean };
+  };
+  const bridge = w.buildixDesktop?.canPrintRaw && w.chrome?.webview ? w.chrome.webview : null;
+  if (!bridge) return Promise.resolve(false);
+
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      bridge.removeEventListener('message', onMessage);
+      resolve(ok);
+    };
+
+    const onMessage = (e: { data: unknown }) => {
+      const d = e.data as { kind?: string; id?: string; ok?: boolean; problem?: string } | null;
+      if (!d || d.kind !== 'buildix.print-raw.result' || d.id !== id) return;
+      if (!d.ok && d.problem) console.warn('[buildix] chek printeri:', d.problem);
+      finish(d.ok === true);
+    };
+
+    const timer = window.setTimeout(() => finish(false), TIMEOUT_MS);
+    bridge.addEventListener('message', onMessage);
+    bridge.postMessage({ kind: 'buildix.print-raw', id, dataBase64 });
+  });
+}
+
+/** Blob'ni base64 ga (data-URL sarlavhasisiz) o'giradi. */
+export async function toBase64(blob: Blob): Promise<string> {
+  const url = await toDataUrl(blob);
+  return url.slice(url.indexOf(',') + 1);
+}
+
 /** Rasmning piksel o'lchamlari — balandlikni hisoblash uchun. */
 export function imageSize(dataUrl: string): Promise<{ width: number; height: number } | null> {
   return new Promise((resolve) => {

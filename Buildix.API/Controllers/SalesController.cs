@@ -620,6 +620,39 @@ public class SalesController : ApiControllerBase
     }
 
     /// <summary>
+    /// Chek termal printerning O'Z tilida (ESC/POS) — eng tez yo'l.
+    ///
+    /// <para>Rasm yo'lida chek serverda chiziladi, rasterlanadi, qobiqqa
+    /// beriladi va Windows drayveri uni QAYTA rasterlaydi — kassir bir
+    /// necha soniya kutadi. Bu yerda esa bir necha kilobayt matn va buyruq
+    /// ketadi: chizishni printer o'zi bajaradi va oxirida qog'ozni
+    /// qirqadi.</para>
+    ///
+    /// <para>Javob — baytlar oqimi. Uni qobiq printerga RAW ko'rinishida
+    /// yozadi; brauzerda bu yo'l umuman ishlatilmaydi.</para>
+    /// </summary>
+    [HttpGet("{id}/receipt/escpos")]
+    [RequirePermission(PermissionKeys.SalesInvoice)]
+    public async Task<IActionResult> GetReceiptEscPos(Guid id, [FromQuery] string lang = "uz", [FromQuery] int width = 80, CancellationToken ct = default)
+    {
+        try
+        {
+            var bytes = await _reportPdfExportService.GenerateReceiptEscPosAsync(id, lang, width, ct);
+            return File(bytes, "application/octet-stream");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Sale not found for receipt: {SaleId}", id);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex) when (NotHandledGlobally(ex))
+        {
+            _logger.LogError(ex, "Error building ESC/POS receipt for sale {SaleId}", id);
+            return StatusCode(500, "Chek tayyorlashda xatolik yuz berdi");
+        }
+    }
+
+    /// <summary>
     /// Chekning RASMI — do'kon dasturi uchun.
     ///
     /// <para>Qobiq uni chop etish oynasisiz, sozlangan printerga aynan

@@ -244,6 +244,22 @@ export const posApi = {
   },
 
   /**
+   * Chek termal printerning O'Z tilida (ESC/POS) — eng tez yo'l.
+   *
+   * <p>Rasterlash umuman yo'q: chizishni printer o'zi bajaradi va
+   * oxirida qog'ozni qirqadi. Rasm yo'lida chek serverda rasterlanar,
+   * qobiqqa berilar va drayver uni qayta rasterlardi — kassir bir necha
+   * soniya kutardi.</p>
+   */
+  receiptEscPos: async (saleId: string, lang: string, widthMm = 80): Promise<Blob> => {
+    const { data } = await apiClient.get(`/Sales/${saleId}/receipt/escpos`, {
+      params: { lang, width: widthMm },
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
+  /**
    * Chekning RASMI — do'kon dasturi uchun.
    *
    * <p>PDF ni WebView2 ichida bosib bo'lmaydi: chop etish brauzer

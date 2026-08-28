@@ -229,6 +229,12 @@ public sealed class ReportPdfExportService(
         }
     }
 
+    public async Task<byte[]> GenerateReceiptEscPosAsync(Guid saleId, string lang = "uz", int widthMm = 80, CancellationToken cancellationToken = default)
+    {
+        var data = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);
+        return Printing.EscPosReceipt.Build(data, lang, widthMm);
+    }
+
     public async Task<byte[]> GenerateInvoicePdfAsync(Guid saleId, string lang = "uz", bool compact = false, CancellationToken cancellationToken = default)
     {
         var invoiceData = await BuildInvoiceDataAsync(saleId, lang, cancellationToken);

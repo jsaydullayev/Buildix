@@ -24,7 +24,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { printPdfBlob } from '@/shared/lib/printPdf';
-import { desktopBridge } from '@/shared/lib/desktopPrint';
+import { desktopBridge, printRawViaDesktop, toBase64 } from '@/shared/lib/desktopPrint';
 import { printReceiptImage } from '@/shared/lib/printReceipt';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
@@ -560,22 +560,29 @@ export default function PosPage() {
   /** Chekni PDF ko'rinishida ochish. Sotuv allaqachon yakunlangan — chop etish
    *  muvaffaqiyatsiz bo'lsa ham pul harakati o'zgarmaydi, qayta urinsa bo'ladi. */
   /**
-   * Chekni chop etadi.
+   * Chekni chop etadi — eng tez yo'ldan boshlab.
    *
-   * <p>Do'kon dasturida chek RASM bo'lib chek printeriga to'g'ridan-to'g'ri
-   * ketadi — chop etish oynasi ochilmaydi va o'lcham aynan rulon eniga
-   * teng. Ilgari bu yerda faqat PDF bor edi va u WebView2 ichida
-   * bosilmasdi: chop etish zaxira yo'lga tushib `blob:` havolasini tashqi
-   * dasturda ochishga urinardi, Windows esa «bu havolani ochadigan dastur
-   * yo'q» deb chiqarardi.</p>
+   * <p>1. <b>ESC/POS</b>: bir necha kilobayt matn va buyruq printerga XOM
+   * holda ketadi. Chizishni printer o'zi bajaradi va qog'ozni qirqadi —
+   * qog'oz deyarli darhol chiqadi.</p>
    *
-   * <p>Brauzerda (yoki chek printeri tanlanmagan bo'lsa) avvalgidek PDF
-   * yo'liga tushamiz — ish to'xtamaydi.</p>
+   * <p>2. <b>Rasm</b>: printer ESC/POS ni tushunmasa yoki XOM yo'l
+   * yiqilsa. Sekinroq (server rasterlaydi, drayver qayta rasterlaydi),
+   * lekin o'lcham baribir aniq.</p>
+   *
+   * <p>3. <b>PDF</b>: brauzerda yoki chek printeri tanlanmaganda —
+   * odatdagi chop etish oynasi.</p>
+   *
+   * <p>Har uchala yo'l ham bir xil hujjatdan chiqadi, ya'ni chek
+   * ko'rinishi yo'lga qarab o'zgarmaydi.</p>
    */
   async function printReceipt(id: string) {
     const widthMm = printSettingsQuery.data?.receiptWidthMm ?? 80;
     try {
       if (desktopBridge('receipt')) {
+        const escpos = await posApi.receiptEscPos(id, i18n.language, widthMm);
+        if (await printRawViaDesktop(await toBase64(escpos))) return;
+
         const png = await posApi.receiptImage(id, i18n.language, widthMm);
         if ((await printReceiptImage(png, widthMm)) === 'printed') return;
       }

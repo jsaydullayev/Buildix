@@ -30,6 +30,11 @@ public sealed class LabelPrintBridge
     /// <summary>Sahifa yuboradigan xabar turi.</summary>
     private const string RequestKind = "buildix.print-labels";
 
+    /// <summary>
+    /// Tayyor baytlarni printerga XOM holda yuborish (ESC/POS chek).
+    /// </summary>
+    private const string RawKind = "buildix.print-raw";
+
     private readonly LocalSecrets _secrets;
     private readonly CoreWebView2Environment _environment;
 
@@ -48,7 +53,7 @@ public sealed class LabelPrintBridge
         // yo'q va u odatdagi chop etish oynasidan foydalanadi.
         core.AddScriptToExecuteOnDocumentCreatedAsync(
             "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, "
-            + "{ canPrintLabels: true, canPrintReceipts: true });");
+            + "{ canPrintLabels: true, canPrintReceipts: true, canPrintRaw: true });");
 
         core.WebMessageReceived += async (_, e) =>
         {
@@ -62,7 +67,19 @@ public sealed class LabelPrintBridge
                 return;   // Bizga tegishli bo'lmagan xabar.
             }
 
-            if (request is null || request.Kind != RequestKind) return;
+            if (request is null) return;
+
+            // XOM yo'l — ESC/POS chek. Rasterlash umuman yo'q: baytlar
+            // to'g'ridan-to'g'ri printerga boradi va qog'oz darhol chiqadi.
+            if (request.Kind == RawKind)
+            {
+                var rawProblem = PrintRaw(request);
+                core.PostWebMessageAsJson(JsonSerializer.Serialize(new PrintResult(
+                    RawKind + ".result", request.Id, rawProblem is null, rawProblem)));
+                return;
+            }
+
+            if (request.Kind != RequestKind) return;
 
             var problem = await PrintAsync(request);
             // Natija sahifaga qaytadi: muvaffaqiyatsiz bo'lsa u o'zi oyna
@@ -71,6 +88,26 @@ public sealed class LabelPrintBridge
             core.PostWebMessageAsJson(JsonSerializer.Serialize(new PrintResult(
                 RequestKind + ".result", request.Id, problem is null, problem)));
         };
+    }
+
+    /// <summary>Tayyor baytlarni printerga yuboradi.</summary>
+    private string? PrintRaw(PrintRequest request)
+    {
+        var printer = _secrets.ReceiptPrinter;
+        if (printer is null) return "Chek printeri tanlanmagan.";
+        if (string.IsNullOrWhiteSpace(request.DataBase64)) return "Chek ma'lumoti bo'sh.";
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(request.DataBase64);
+        }
+        catch (FormatException)
+        {
+            return "Chek ma'lumoti buzilgan.";
+        }
+
+        return RawPrinter.Send(printer, bytes);
     }
 
     /// <summary>Bosadi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda sabab.</summary>
@@ -86,6 +123,10 @@ public sealed class LabelPrintBridge
 
         if (request.WidthMm <= 0 || request.HeightMm <= 0)
             return receipt ? "Chek o'lchami noto'g'ri." : "Yorliq o'lchami noto'g'ri.";
+
+        // Sahifa yo'li HTML talab qiladi; XOM yo'lda u bo'lmaydi va bu
+        // yerga umuman kelmasligi kerak.
+        if (string.IsNullOrEmpty(request.Html)) return "Chop etiladigan sahifa bo'sh.";
 
         CoreWebView2Controller? controller = null;
         try
@@ -169,9 +210,11 @@ public sealed class LabelPrintBridge
     private sealed record PrintRequest(
         [property: JsonPropertyName("kind")] string Kind,
         [property: JsonPropertyName("id")] string Id,
-        [property: JsonPropertyName("html")] string Html,
+        [property: JsonPropertyName("html")] string? Html,
         [property: JsonPropertyName("widthMm")] double WidthMm,
         [property: JsonPropertyName("heightMm")] double HeightMm,
+        /// <summary>XOM yo'l uchun: base64 dagi tayyor baytlar.</summary>
+        [property: JsonPropertyName("dataBase64")] string? DataBase64 = null,
         /// <summary>«label» (sukut) yoki «receipt» — qaysi printerga.</summary>
         [property: JsonPropertyName("target")] string? Target = null);
 
