@@ -46,7 +46,7 @@ export async function printReceiptImage(
 /**
  * Chop etiladigan hujjat — bitta rasm, aynan sahifa o'lchamida.
  */
-export function buildReceiptHtml(dataUrl: string, widthMm: number, heightMm: number): string {
+function buildReceiptHtml(dataUrl: string, widthMm: number, heightMm: number): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>chek</title><style>
   /* Sahifa o'lchami AYNAN rulon eni va chek uzunligi. Brauzer shu qiymatni

@@ -12,11 +12,11 @@ namespace Buildix.Desktop;
 /// bosgach bir necha soniya kutadi. RAW rejimida baytlar to'g'ridan-to'g'ri
 /// printerga boradi va qog'oz deyarli darhol chiqadi.</para>
 ///
-/// <para><b>Nega TCP:9100 emas.</b> Uni ham qo'shsa bo'lardi, lekin u
-/// FAQAT tarmoq printerida ishlaydi: USB bilan ulangan printerda IP
-/// umuman yo'q. Windows navbati esa ikkalasini ham qamraydi — USB,
-/// tarmoq, umumiy (shared) printer bir xil ishlaydi va printer allaqachon
-/// NOMI bo'yicha tanlangan.</para>
+/// <para><b>Nega TCP:9100 yetmaydi.</b> U faqat tarmoq printerida
+/// ishlaydi: USB bilan ulangan printerda IP umuman yo'q. Windows navbati
+/// esa uni NOMI bo'yicha topadi. Ikkinchi yo'l
+/// <see cref="ReceiptOutput"/> da — qaysi biri kerakligini sozlamadagi
+/// matnning o'zi aytadi.</para>
 /// </summary>
 internal static class RawPrinter
 {

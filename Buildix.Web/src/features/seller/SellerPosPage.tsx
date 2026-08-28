@@ -31,9 +31,7 @@ import { shiftsApi } from '@/features/shifts/api';
 import { posApi, type PosCustomer, type PosSale } from '@/features/pos/api';
 import { bumpPending, mergePending, settlePending, type PendingLine, type PendingMap } from '@/features/pos/pending';
 import { useGlobalScanner } from '@/features/pos/useGlobalScanner';
-import { printPdfBlob } from '@/shared/lib/printPdf';
-import { desktopBridge, printRawViaDesktop, toBase64 } from '@/shared/lib/desktopPrint';
-import { printReceiptImage } from '@/shared/lib/printReceipt';
+import { useReceiptPrinting } from '@/features/pos/useReceiptPrinting';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -120,7 +118,7 @@ function normalisePhone(raw: string): string {
  * instead of being re-fetched on every click.
  */
 export default function SellerPosPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const confirm = useConfirm();
   const qc = useQueryClient();
   const { hasPermission, hasRole } = useAuth();
@@ -143,9 +141,10 @@ export default function SellerPosPage() {
   const [done, setDone] = useState<PosSale | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  // Chek chiqmagan bo'lsa SABABI. Ilgari u faqat jurnalga yozilardi va
-  // kassir tugmani bosib hech narsa bo'lmaganini ko'rardi.
-  const [printProblem, setPrintProblem] = useState<string | null>(null);
+  // Chek chop etish — yo'llar, chek eni va avtomatik bosish shu yerda.
+  // Owner/Admin kassasi ham AYNAN shuni ishlatadi: chek qaysi kassadan
+  // bosilganiga qarab farq qilmasligi kerak.
+  const { print: printReceipt, problem: printProblem } = useReceiptPrinting(done);
   // Blank, not '0', so the field shows a faint placeholder instead of a zero
   // the cashier has to delete first.
   const [discountInput, setDiscountInput] = useState('');
@@ -202,15 +201,6 @@ export default function SellerPosPage() {
   const shiftQuery = useQuery({ queryKey: ['shift-current'], queryFn: shiftsApi.current });
   // Do'kon nomi — chek header'i uchun (ochiq endpoint, uzoq kesh).
   const { subdomain } = useParams();
-  // Chek eni (58/80 mm) — do'kon sozlamasidan. Uzoq keshlanadi: u kuniga
-  // o'zgaradigan qiymat emas, lekin qattiq yozib qo'yilsa 58 mm printerli
-  // do'konda chek qog'ozga sig'masdi.
-  const printSettingsQuery = useQuery({
-    queryKey: ['pos-print-settings'],
-    queryFn: posApi.printSettings,
-    staleTime: 30 * 60_000,
-  });
-
   const marketQuery = useQuery({
     queryKey: ['public-market', subdomain],
     queryFn: () => publicMarketApi.getState(subdomain!),
@@ -775,71 +765,6 @@ export default function SellerPosPage() {
 
   const heldDrafts = (draftsQuery.data ?? []).filter((d) => d.id !== saleId && d.items.length > 0);
 
-  /**
-   * Chekni chop etadi — eng tez yo'ldan boshlab.
-   *
-   * <p>1. <b>ESC/POS</b>: bir necha kilobayt matn va buyruq printerga XOM
-   * holda ketadi. Chizishni printer o'zi bajaradi va qog'ozni qirqadi —
-   * qog'oz deyarli darhol chiqadi.</p>
-   *
-   * <p>2. <b>Rasm</b>: printer ESC/POS ni tushunmasa yoki XOM yo'l
-   * yiqilsa. Sekinroq (server rasterlaydi, drayver qayta rasterlaydi),
-   * lekin o'lcham baribir aniq.</p>
-   *
-   * <p>3. <b>PDF</b>: brauzerda yoki chek printeri tanlanmaganda —
-   * odatdagi chop etish oynasi.</p>
-   *
-   * <p>Har uchala yo'l ham bir xil hujjatdan chiqadi, ya'ni chek
-   * ko'rinishi yo'lga qarab o'zgarmaydi.</p>
-   */
-  async function printReceipt(id: string) {
-    const widthMm = printSettingsQuery.data?.receiptWidthMm ?? 80;
-    setPrintProblem(null);
-    try {
-      if (desktopBridge('receipt')) {
-        const escpos = await posApi.receiptEscPos(id, i18n.language, widthMm);
-        const raw = await printRawViaDesktop(await toBase64(escpos));
-        if (raw.ok) return;
-
-        const png = await posApi.receiptImage(id, i18n.language, widthMm);
-        if ((await printReceiptImage(png, widthMm)) === 'printed') return;
-
-        // Qobiq ichida PDF yo'liga TUSHMAYMIZ. U `window.open` bilan
-        // `blob:` havolasini ochadi, qobiq esa uni tashqi dasturga uzatadi
-        // va Windows «bu havolani ochadigan dastur yo'q, Microsoft
-        // Store'dan qidiring» deb chiqaradi — chek o'rniga. Sababni
-        // ekranda ko'rsatish ancha foydali: u odatda «chek printeri
-        // tanlanmagan» bo'lib chiqadi va uni bir marta tuzatish kifoya.
-        setPrintProblem(raw.problem ?? t('pos.done.printFailed'));
-        return;
-      }
-      const blob = await posApi.receiptPdf(id, i18n.language, widthMm);
-      await printPdfBlob(blob, `chek-${id}.pdf`);
-    } catch {
-      // Sotuv allaqachon yakunlangan — chop etishni qayta urinib ko'rsa
-      // bo'ladi, lekin kassir buni BILISHI kerak.
-      setPrintProblem(t('pos.done.printFailed'));
-    }
-  }
-
-  // Sozlamadagi «Chek avtomatik chop etilsin» AYNAN shu yerda amalga
-  // oshadi. Sozlama Sozlamalar ekranida ancha vaqt turgan, lekin uni hech
-  // kim o'qimasdi: kassir har savdodan keyin tugmani qo'lda bosardi.
-  //
-  // Faqat qobiqda: sozlamaning va'dasi «chop etish oynasisiz» edi, brauzerda
-  // esa oynasiz chop etib bo'lmaydi va u navbat oldida kutilmaganda ochilardi.
-  const autoPrinted = useRef<string | null>(null);
-  useEffect(() => {
-    if (!done || autoPrinted.current === done.id) return;
-    if (!printSettingsQuery.data?.autoPrintReceipt || !desktopBridge('receipt')) return;
-
-    autoPrinted.current = done.id;
-    void printReceipt(done.id);
-    // printReceipt har render'da qaytadan yaratiladi — bog'liqlikka qo'shilsa
-    // effekt cheksiz takrorlanardi. Chek `id` si bo'yicha bir marta bosiladi.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done, printSettingsQuery.data?.autoPrintReceipt]);
-
   // ── shift blocked ───────────────────────────────────────────────
   if (startError) {
     return (
@@ -1265,10 +1190,7 @@ export default function SellerPosPage() {
         storeName={marketQuery.data?.marketName ?? null}
         closeLabel={t('seller.pos.newSale')}
         problem={printProblem}
-        onClose={() => {
-          setDone(null);
-          setPrintProblem(null);
-        }}
+        onClose={() => setDone(null)}
         onPrint={printReceipt}
       />
     </div>

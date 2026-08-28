@@ -5,9 +5,14 @@ using Microsoft.Web.WebView2.Core;
 namespace Buildix.Desktop;
 
 /// <summary>
-/// Yorliqlarni printerga TO'G'RIDAN-TO'G'RI chiqaradi — chop etish oynasisiz.
+/// Yorliq va chekni printerga TO'G'RIDAN-TO'G'RI chiqaradi — chop etish
+/// oynasisiz.
 /// </summary>
 /// <remarks>
+/// <para><b>Ikki yo'l.</b> Yorliq (va zaxira sifatida chek rasmi) sahifadan
+/// chiziladi; chekning o'zi esa tayyor ESC/POS baytlari bo'lib, XOM holda
+/// printerga o'tadi va u yerda hech qanday rasterlash bo'lmaydi.</para>
+///
 /// <para><b>Muammo.</b> Yorliq brauzerning chop etish oynasi orqali bosilardi.
 /// U sukut bo'yicha «sahifaga moslash» qiladi va sukutdagi printerni tanlaydi:
 /// 58×40 mm maket Windows'dagi A4 qog'ozga cho'zilib ketardi, omborchi esa har
