@@ -1,4 +1,4 @@
-using Buildix.Application.DTOs;
+﻿using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -77,15 +77,30 @@ public class SyncPullService : ISyncPullService
             u.Language.ToString(), u.MaxDebtPerCheck, u.MaxDiscountPercent,
             AsUtc(u.UpdatedAt))).ToList();
 
+        // ── Tovarlar: FAQAT egasi boshqaradigan maydonlar ────────────────
+        // Qoldiq ATAYLAB olinmaydi — sabab SyncProductDto izohida.
+        var products = await _context.Products
+            .IgnoreQueryFilters()
+            .Where(p => p.MarketId == marketId && p.UpdatedAt >= fromUtc)
+            .OrderBy(p => p.UpdatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        var productDtos = products.Select(p => new SyncProductDto(
+            p.Id, p.Name, p.CostPrice, p.SalePrice, p.MinSalePrice, p.MinThreshold,
+            p.Sku, p.Barcode, p.IsHidden, p.IsDeleted, AsUtc(p.UpdatedAt))).ToList();
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
         // qolar, lekin u javobga tushmagan bo'lardi.
-        var stamps = userDtos.Select(u => u.UpdatedAt).ToList();
+        var stamps = userDtos.Select(u => u.UpdatedAt)
+            .Concat(productDtos.Select(p => p.UpdatedAt))
+            .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
         var nextSince = stamps.Count > 0 ? stamps.Max() : since;
 
-        return new SyncPullDto(now, nextSince, marketDto, userDtos);
+        return new SyncPullDto(now, nextSince, marketDto, userDtos, productDtos);
     }
 
     /// <summary>

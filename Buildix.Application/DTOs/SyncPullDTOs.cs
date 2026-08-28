@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Buildix.Application.DTOs;
 
@@ -31,7 +31,53 @@ public record SyncPullDto(
     [property: JsonPropertyName("nextSince")] DateTimeOffset NextSince,
 
     [property: JsonPropertyName("market")] SyncMarketDto? Market,
-    [property: JsonPropertyName("users")] IReadOnlyList<SyncUserDto> Users);
+    [property: JsonPropertyName("users")] IReadOnlyList<SyncUserDto> Users,
+
+    /// <summary>
+    /// Egasi masofadan o'zgartirgan tovar maydonlari.
+    /// </summary>
+    /// <remarks>
+    /// <para>QOLDIQ bu yerda YO'Q va bo'lishi ham mumkin emas. Qoldiqni
+    /// faqat do'kon biladi: tovar u yerda jismonan turadi va u yerda
+    /// sotiladi. Bulutdagi son esa oxirgi yuborishdagi nusxa — uni do'konga
+    /// qaytarish o'sha payt sotilgan tovarni «tirilitib» yuborardi va
+    /// kassir omborda yo'q narsani sotishga urinardi.</para>
+    ///
+    /// <para>Egasi masofadan narxni o'zgartira oladi — bu eng ko'p
+    /// so'raladigan amal. Ilgari o'zgarish do'konga HECH QACHON yetib
+    /// bormasdi: kassa eski narxda sotaverar, ertasiga esa do'kon o'sha
+    /// tovarni yuborib, bulutdagi yangi narxni jimgina eskisiga
+    /// almashtirardi.</para>
+    /// </remarks>
+    ///
+    /// <para>Sukut bo'yicha BO'SH: eski do'kon nusxasi bu maydonni umuman
+    /// bilmaydi va uni talab qilish o'sha do'konlarning tortishini
+    /// yiqitardi.</para>
+    [property: JsonPropertyName("products")] IReadOnlyList<SyncProductDto>? Products = null)
+{
+    /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
+}
+
+/// <summary>
+/// Tovarning EGASI boshqaradigan maydonlari.
+///
+/// <para>Ro'yxat ataylab qisqa: bu yerda faqat masofadan o'zgartirilishi
+/// mantiqiy bo'lgan narsalar. Har qo'shilgan maydon ikki tomondan
+/// yozilishi mumkin bo'lgan yana bitta joy demakdir.</para>
+/// </summary>
+public record SyncProductDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("costPrice")] decimal CostPrice,
+    [property: JsonPropertyName("salePrice")] decimal SalePrice,
+    [property: JsonPropertyName("minSalePrice")] decimal MinSalePrice,
+    [property: JsonPropertyName("minThreshold")] decimal MinThreshold,
+    [property: JsonPropertyName("sku")] string? Sku,
+    [property: JsonPropertyName("barcode")] string? Barcode,
+    [property: JsonPropertyName("isHidden")] bool IsHidden,
+    [property: JsonPropertyName("isDeleted")] bool IsDeleted,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>
 public record SyncMarketDto(

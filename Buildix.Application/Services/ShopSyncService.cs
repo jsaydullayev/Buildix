@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Entities;
@@ -139,6 +139,9 @@ public class ShopSyncService : IShopSyncService
             //    ham do'konga begona xodim yozilib qolmasligi kerak.
             foreach (var user in touched) user.MarketId = marketId;
 
+            // 4. Tovarlarning EGASI boshqaradigan maydonlari.
+            var productCount = await ApplyProductsAsync(payload.ProductsOrEmpty, marketId, ct);
+
             state ??= NewState(marketId);
             state.PullWatermark = payload.NextSince;
             state.LastPulledAtUtc = _clock.GetUtcNow().UtcDateTime;
@@ -147,11 +150,70 @@ public class ShopSyncService : IShopSyncService
             await _unitOfWork.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Cloud pull applied: market={MarketChanged} users={UserCount} watermark={Watermark:O}",
-                payload.Market is not null, payload.Users.Count, payload.NextSince);
+                "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} watermark={Watermark:O}",
+                payload.Market is not null, payload.Users.Count, productCount, payload.NextSince);
 
             return ShopSyncResult.Ok(payload.Market is not null, payload.Users.Count);
         });
+    }
+
+    /// <summary>
+    /// Egasi masofadan o'zgartirgan tovar maydonlarini qo'llaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>QOLDIQ HECH QACHON o'zgarmaydi.</b> Tovar do'konda jismonan
+    /// turadi va u yerda sotiladi — qoldiqni faqat do'kon biladi. Bulutdagi
+    /// son oxirgi yuborishdagi nusxa va uni qaytarish o'sha payt sotilgan
+    /// tovarni «tiriltirib» yuborardi: kassir omborda yo'q narsani sotishga
+    /// urinardi va buni faqat mijoz oldida bilardi.</para>
+    ///
+    /// <para><b>Yangi tovar YARATILMAYDI.</b> Bu yerda faqat mavjudlari
+    /// yangilanadi. Bulutda tovar yaratish oqimi yo'q — u do'konda tug'iladi
+    /// va push bilan yuqoriga chiqadi. Noma'lum id kelsa, bu bulutdagi
+    /// nosozlik yoki boshqa do'konning yozuvi bo'lishi mumkin.</para>
+    ///
+    /// <para><b>Nega vaqt solishtiriladi.</b> Do'kon o'z tovarini yuborgach,
+    /// bulut unga O'Z vaqtini qo'yadi va keyingi tortishda o'sha yozuv
+    /// qaytib keladi. Qiymatlar bir xil bo'lsa EF hech narsani o'zgargan deb
+    /// belgilamaydi va halqa shu yerda uziladi. Lekin do'konda o'sha payt
+    /// YANGIROQ o'zgarish bo'lgan bo'lsa, uni eski nusxa bilan bosib
+    /// yuborish mumkin emas.</para>
+    /// </remarks>
+    private async Task<int> ApplyProductsAsync(
+        IReadOnlyList<SyncProductDto> incoming, int marketId, CancellationToken ct)
+    {
+        if (incoming.Count == 0) return 0;
+
+        var ids = incoming.Select(p => p.Id).ToList();
+        var local = await _context.Products
+            .IgnoreQueryFilters()
+            .Where(p => ids.Contains(p.Id) && p.MarketId == marketId)
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        var applied = 0;
+        foreach (var dto in incoming)
+        {
+            if (!local.TryGetValue(dto.Id, out var product)) continue;
+
+            // Do'kondagi yozuv yangiroq bo'lsa — tegmaymiz.
+            var cloudTime = dto.UpdatedAt.UtcDateTime;
+            if (DateTime.SpecifyKind(product.UpdatedAt, DateTimeKind.Utc) > cloudTime) continue;
+
+            product.Name = dto.Name;
+            product.CostPrice = dto.CostPrice;
+            product.SalePrice = dto.SalePrice;
+            product.MinSalePrice = dto.MinSalePrice;
+            product.MinThreshold = dto.MinThreshold;
+            product.Sku = dto.Sku;
+            product.Barcode = dto.Barcode;
+            product.IsHidden = dto.IsHidden;
+            product.IsDeleted = dto.IsDeleted;
+            // Quantity ATAYLAB yo'q.
+
+            applied++;
+        }
+
+        return applied;
     }
 
     /// <summary>2000-yil: Npgsql eng kichik sanani '-infinity' ga aylantiradi.</summary>

@@ -59,6 +59,21 @@ public class ShopSyncTests
         return new SyncPullDto(stamp, stamp, market, users);
     }
 
+    /// <summary>Faqat tovarlar keladigan javob — market va xodimsiz.</summary>
+    private static SyncPullDto WithProducts(params SyncProductDto[] products)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], products);
+    }
+
+    /// <summary>Javobni do'kon bazasiga qo'llaydi.</summary>
+    private static async Task ApplyAsync(TestHarness h, SyncPullDto payload)
+    {
+        var (service, _) = NewService(h, _ => Json(payload));
+        var result = await service.PullAsync();
+        Assert.True(result.Success, result.Error);
+    }
+
     private static SyncMarketDto NewMarket(int id = 9, string name = "Taxtapul") =>
         new(id, name, "Toshkent", "Start", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero),
             true, false, null, Guid.NewGuid(), new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero));
@@ -246,4 +261,109 @@ public class ShopSyncTests
 
         Assert.Null((await h.Db.SyncStates.SingleAsync()).LastError);
     }
+
+    // ── Egasi masofadan o'zgartirgan narx ─────────────────────────────────
+    // Ilgari bulutdagi o'zgarish do'konga HECH QACHON yetib bormasdi: kassa
+    // eski narxda sotaverar, ertasiga esa do'kon o'sha tovarni yuborib,
+    // bulutdagi yangi narxni jimgina eskisiga almashtirardi.
+
+    /// <summary>Egasi narxni o'zgartirsa — do'konga yetib boradi.</summary>
+    [Fact]
+    public async Task Bulutdagi_narx_dokonga_yetib_boradi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Products.Add(new Product
+        {
+            Id = id, MarketId = 7, Name = "Sement", Quantity = 500,
+            CostPrice = 40_000, SalePrice = 52_000, MinSalePrice = 50_000,
+            MinThreshold = 10,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Bulutdagi o'zgarish do'kondagidan KEYIN bo'lgan.
+        await ApplyAsync(h, WithProducts(NewProduct(h, id, 58_000, afterHours: 1)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
+        Assert.Equal(58_000, stored.SalePrice);
+    }
+
+    /// <summary>
+    /// ENG MUHIM chegara: QOLDIQ hech qachon bulutdan qaytmaydi. Bulutdagi
+    /// son oxirgi yuborishdagi nusxa va uni qaytarish o'sha payt sotilgan
+    /// tovarni «tiriltirib» yuborardi.
+    /// </summary>
+    [Fact]
+    public async Task Qoldiq_bulutdan_qaytarilmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Products.Add(new Product
+        {
+            Id = id, MarketId = 7, Name = "Sement", Quantity = 3,   // deyarli tugagan
+            CostPrice = 40_000, SalePrice = 52_000, MinSalePrice = 50_000,
+            MinThreshold = 10,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithProducts(NewProduct(h, id, 58_000, afterHours: 1)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
+        Assert.Equal(3, stored.Quantity);
+        Assert.Equal(58_000, stored.SalePrice);   // narx esa o'tdi
+    }
+
+    /// <summary>Do'kondagi yozuv yangiroq bo'lsa — eski nusxa bosib ketmaydi.</summary>
+    [Fact]
+    public async Task Dokondagi_yangiroq_ozgarish_saqlanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Products.Add(new Product
+        {
+            Id = id, MarketId = 7, Name = "Sement", Quantity = 500,
+            CostPrice = 40_000, SalePrice = 60_000, MinSalePrice = 50_000,
+            MinThreshold = 10,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Bulutdan ESKI nusxa keladi — do'kondagi o'zgarishdan oldingi.
+        await ApplyAsync(h, WithProducts(NewProduct(h, id, 52_000, afterHours: -3)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
+        Assert.Equal(60_000, stored.SalePrice);
+    }
+
+    /// <summary>
+    /// Noma'lum tovar YARATILMAYDI: bulutda tovar yaratish oqimi yo'q, u
+    /// do'konda tug'iladi. Noma'lum id — nosozlik belgisi.
+    /// </summary>
+    [Fact]
+    public async Task Nomalum_tovar_yaratilmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithProducts(NewProduct(h, Guid.NewGuid(), 1000, afterHours: 1)));
+
+        Assert.Empty(await h.Db.Products.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Bulutdan kelgan tovar. Vaqt SINOV SOATIGA nisbatan beriladi: lokal
+    /// `UpdatedAt` ni `SaveChanges` aynan o'sha soat bilan bosadi, ya'ni
+    /// haqiqiy vaqtga tayanish taqqoslashni ma'nosiz qilardi.
+    /// </summary>
+    private static SyncProductDto NewProduct(
+        TestHarness h, Guid id, decimal salePrice, double afterHours) =>
+        new(id, "Sement", 40_000, salePrice, 50_000, 10, null, null, false, false,
+            h.DbClock.GetUtcNow().AddHours(afterHours));
 }
