@@ -36,7 +36,26 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
-$stage = Join-Path $env:TEMP "buildix-desktop-stage"
+
+# --- Vaqtinchalik papka CHIQISH diskida --------------------------------------
+# Ilgari tizimning %TEMP% i ishlatilardi, ya'ni yig'ish har doim C: ga
+# tayanardi. Chiqish esa boshqa diskda bo'lishi mumkin va odatda shunday
+# bo'ladi. Yig'ish paytida bir necha gigabayt kerak: nashr papkasi (~410 MB),
+# ustiga Velopack delta uchun IKKITA to'liq paketni (har biri ~170 MB) ochadi.
+#
+# C: to'lganda bu tushunarsiz yiqilardi — vpk ning xatosi «diskda joy yo'q»
+# desa ham, u qaysi disk ekanini aytmasdi va chiqish papkasida joy
+# yetarli bo'lgani uchun sabab boshqa yerdan qidirilardi.
+$OutputDir = if (Test-Path $OutputDir) { (Resolve-Path $OutputDir).Path }
+             else { (New-Item -ItemType Directory -Force $OutputDir).FullName }
+$build = Join-Path $OutputDir '.build'
+$stage = Join-Path $build 'stage'
+New-Item -ItemType Directory -Force $build | Out-Null
+
+# Velopack o'z oraliq fayllarini %TEMP% ga yozadi va uni sozlash imkoni yo'q —
+# shuning uchun o'zgaruvchining o'zi shu seans uchun ko'chiriladi.
+$env:TEMP = $build
+$env:TMP = $build
 
 # PowerShell 5.1 tashqi buyruq stderr ga yozgan har bir qatorni xato deb
 # hisoblaydi. $ErrorActionPreference='Stop' bilan birga bu npm ning oddiy
