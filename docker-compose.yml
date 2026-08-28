@@ -74,10 +74,21 @@ services:
       # olish tugmasi o'rniga «hali tayyor emas» yoziladi. Manzilni faqat
       # kirgan EGA ko'radi, shuning uchun uni sir papkaga qo'yish mumkin.
       Desktop__InstallerUrl: ${DESKTOP_INSTALLER_URL:-}
+      # Chiqarilgan versiya paketlar papkasidan o'qiladi. Quyidagi qiymat —
+      # faqat ZAXIRA: papka ulanmagan yoki fayl o'qilmagan holat uchun.
+      # Odatda uni to'ldirish shart emas va to'ldirmaslik xavfsizroq —
+      # bo'sh qiymat sahifada versiyasiz ko'rinadi, eskirgan qiymat esa
+      # YOLG'ON versiya ko'rsatadi va buni hech kim sezmaydi.
       Desktop__Version: ${DESKTOP_VERSION:-}
+      Desktop__UpdatesRoot: /srv/updates
     volumes:
       # Product images persist across deploys in a named volume.
       - uploads:/app/wwwroot/uploads
+      # Do'kon paketlari — FAQAT `releases.win.json` ni o'qish uchun: sahifada
+      # ko'rsatiladigan versiya o'sha fayldan olinadi. Fayllarni tarqatish
+      # nginx ning ishi (pastdagi `web`), API ularga hech qachon tegmaydi —
+      # shuning uchun faqat o'qish.
+      - ${UPDATES_DIR:-./deploy/updates}:/srv/updates:ro
     # No ports published — reached only via the web/nginx reverse proxy.
     # The HEALTHCHECK is baked into the image (curl → /health, which pings the DB).
 

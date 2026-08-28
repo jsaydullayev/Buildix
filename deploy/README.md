@@ -308,12 +308,23 @@ ko'rsatiladi:
 
 ```dotenv
 DESKTOP_INSTALLER_URL=https://<domen>/updates/<MAXFIY>/Buildix-win-Setup.exe
-DESKTOP_VERSION=1.0.0
 ```
 
 ```bash
 docker compose up -d api        # manzil o'zgargach
 ```
+
+**Versiya raqami qo'lda yozilmaydi.** Sahifadagi «versiya 1.0.3» yozuvi
+`releases.win.json` dan o'qiladi — o'rnatuvchi bilan yonma-yon yotgan va
+yangilanish mexanizmi ham qaraydigan o'sha ro'yxatdan. Ya'ni papkaga yangi
+paket ko'chirilishi bilan sahifadagi raqam o'zi yangilanadi va **har
+chiqarishda ikkinchi joyni yangilash kerak emas**.
+
+`DESKTOP_VERSION` kaliti faqat zaxira bo'lib qoldi (papka ulanmagan yoki
+fayl o'qilmagan holat uchun) — odatda uni bo'sh qoldiring. To'ldirilgan va
+eskirgan qiymat sahifada yolg'on raqam ko'rsatadi, buni esa hech kim
+sezmaydi: tugma ishlaydi, fayl yuklanadi, faqat yonidagi raqam noto'g'ri
+bo'ladi. Ilgari aynan shu ikki manba bir-biridan ajralib ketardi.
 
 Manzilni faqat kirgan EGA oladi (`GET /api/Markets/desktop-app`, Owner
 huquqi), shuning uchun papka nomi sir bo'lib qolaveradi. Sozlanmagan bo'lsa

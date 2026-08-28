@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Interfaces;
@@ -59,13 +60,54 @@ public class MarketsController : ApiControllerBase
     /// <para>Sozlanmagan bo'lsa <c>url</c> bo'sh qaytadi — sahifa tugma
     /// o'rniga «hali tayyor emas» deb yozadi. Bu xato emas: yangi
     /// o'rnatilgan serverda paket hali qo'yilmagan bo'lishi normal.</para>
+    ///
+    /// <para><b>Versiya qo'lda yozilmaydi.</b> U o'rnatuvchi bilan yonma-yon
+    /// yotgan <c>releases.win.json</c> dan o'qiladi — yangilanish mexanizmi
+    /// ham aynan o'sha faylga qaraydi. Ilgari raqam <c>.env</c> da alohida
+    /// turardi va papkadagi paket bilan ajralib qolishi mumkin edi: sahifa
+    /// egaga bir raqamni ko'rsatar, yuklab olingan fayl esa boshqasi
+    /// bo'lardi va bu hech qanday belgi bermasdi.</para>
     /// </summary>
     [HttpGet("~/api/Markets/desktop-app")]
     [Authorize(Policy = "OwnerOnly")]
     public ActionResult<DesktopAppDto> DesktopApp([FromServices] IConfiguration configuration)
-        => Ok(new DesktopAppDto(
-            configuration["Desktop:InstallerUrl"]?.Trim() ?? string.Empty,
-            configuration["Desktop:Version"]?.Trim()));
+    {
+        var url = configuration["Desktop:InstallerUrl"]?.Trim() ?? string.Empty;
+        return Ok(new DesktopAppDto(url, ResolveVersion(configuration, url)));
+    }
+
+    /// <summary>
+    /// Chiqarilgan versiya. Fayl o'qilmasa — sozlamadagi qiymat.
+    /// </summary>
+    /// <remarks>
+    /// Zaxira ATAYLAB qoldirilgan: paketlar boshqa yo'l bilan tarqatiladigan
+    /// (yoki umuman ulanmagan) o'rnatmalarda fayl bo'lmasligi mumkin va
+    /// o'shanda sahifa versiyasiz qolishi kerak emas.
+    /// </remarks>
+    private static string? ResolveVersion(IConfiguration configuration, string installerUrl)
+    {
+        var configured = configuration["Desktop:Version"]?.Trim();
+        var folder = DesktopRelease.FolderFromUrl(installerUrl);
+        if (folder is null) return configured;
+
+        var root = configuration["Desktop:UpdatesRoot"]?.Trim();
+        if (string.IsNullOrWhiteSpace(root)) return configured;
+
+        try
+        {
+            var path = Path.Combine(root, folder, "releases.win.json");
+            if (!System.IO.File.Exists(path)) return configured;
+            return DesktopRelease.VersionFromReleases(System.IO.File.ReadAllText(path)) ?? configured;
+        }
+        catch (IOException)
+        {
+            return configured;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return configured;
+        }
+    }
 
     // Owner only — the whole Настройки screen. Absolute routes so the paths
     // stay clean (GET/PUT /api/Markets/settings) under the [action] template.
