@@ -1139,6 +1139,7 @@ export const uz: TranslationSchema = {
       now: 'hozir',
     },
     history: {
+      clear: 'Tozalash',
       title: 'So‘nggi kirishlar',
       subtitle: 'Hisobga kirishlar tarixi',
       cols: { time: 'VAQT', device: 'QURILMA', status: 'HOLAT' },

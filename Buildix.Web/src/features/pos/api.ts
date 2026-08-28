@@ -87,6 +87,15 @@ export interface CreateCustomerBody {
 
 export type { Product };
 
+/** Kirgan har bir xodimga ochiq do'kon sozlamalari. */
+export interface PosPrintSettings {
+  /** Chek rulonining eni: 58 yoki 80 mm. */
+  receiptWidthMm: number;
+  autoPrintReceipt: boolean;
+  /** Harakatsizlikda chiqarish, daqiqada. 0 — chiqarilmaydi. */
+  inactivityLogoutMinutes: number;
+}
+
 export const posApi = {
   /** Create a fresh Draft sale (seller taken from JWT). */
   createDraft: async (customerId: string | null = null): Promise<PosSale> => {
@@ -238,9 +247,9 @@ export const posApi = {
    * do'konda chek qog'ozga sig'masdi va drayver uni o'zicha siqib
    * bosardi — har bir harf alohida qatorga tushardi.</p>
    */
-  printSettings: async (): Promise<{ receiptWidthMm: number; autoPrintReceipt: boolean }> => {
+  printSettings: async (): Promise<PosPrintSettings> => {
     const { data } = await apiClient.get('/Markets/pos-settings');
-    return data as { receiptWidthMm: number; autoPrintReceipt: boolean };
+    return data as PosPrintSettings;
   },
 
   /**

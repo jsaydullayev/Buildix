@@ -32,6 +32,37 @@ public class AuditLogService : IAuditLogService, IAuditLogQueryService
         _context = context;
     }
 
+    /// <summary>
+    /// Audit yozuvi shu do'konda yoqilganmi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sozlamalardagi «Audit jurnali» tugmasi HECH NARSAGA ta'sir
+    /// qilmasdi: qiymat saqlanar, formaga qaytar, lekin uni hech kim
+    /// o'qimasdi. Ega uni o'chirib qo'yib, yozuvlar baribir to'planib
+    /// borayotganini bilmasdi.</para>
+    ///
+    /// <para>So'rov davomida bir marta o'qiladi: audit har bir amalda
+    /// yoziladi va har safar bazaga qo'shimcha so'rov yuborish sezilarli
+    /// yuk bo'lardi.</para>
+    /// </remarks>
+    private bool? _enabled;
+
+    private async Task<bool> IsEnabledAsync(CancellationToken ct)
+    {
+        if (_enabled is { } known) return known;
+
+        var marketId = _currentMarketService.TryGetCurrentMarketId();
+        // Do'kon aniqlanmagan (kirish urinishi, platforma amali) — YOZAMIZ.
+        // Sozlama do'konga tegishli va uni bilmasdan o'chirib bo'lmaydi.
+        if (marketId is null) return (_enabled = true).Value;
+
+        _enabled = await _context.MarketSettings
+            .Where(x => x.MarketId == marketId)
+            .Select(x => (bool?)x.AuditEnabled)
+            .FirstOrDefaultAsync(ct) ?? true;   // sozlama hali yo'q — yoqiq
+        return _enabled.Value;
+    }
+
     public async Task LogActionAsync(
         string entityType,
         Guid entityId,
@@ -42,6 +73,8 @@ public class AuditLogService : IAuditLogService, IAuditLogQueryService
     {
         try
         {
+            if (!await IsEnabledAsync(cancellationToken)) return;
+
             var auditLog = BuildAuditLog(entityType, entityId, action, userId, payload);
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -73,7 +106,7 @@ public class AuditLogService : IAuditLogService, IAuditLogQueryService
     /// For the post-transaction audit pattern (fire-and-forget), keep using
     /// <see cref="LogActionAsync"/> so the audit error swallowing applies.
     /// </summary>
-    public Task EnqueueActionAsync(
+    public async Task EnqueueActionAsync(
         string entityType,
         Guid entityId,
         string action,
@@ -81,8 +114,10 @@ public class AuditLogService : IAuditLogService, IAuditLogQueryService
         object? payload = null,
         CancellationToken cancellationToken = default)
     {
+        if (!await IsEnabledAsync(cancellationToken)) return;
+
         var auditLog = BuildAuditLog(entityType, entityId, action, userId, payload);
-        return _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
+        await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
     }
 
     private AuditLog BuildAuditLog(string entityType, Guid entityId, string action, Guid userId, object? payload) =>

@@ -13,7 +13,9 @@ namespace Buildix.Application.DTOs;
 /// </summary>
 public record PosPrintSettingsDto(
     [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
-    [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt);
+    [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
+    /// <summary>Harakatsizlikda chiqarish, daqiqada. 0 — chiqarilmaydi.</summary>
+    [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes);
 
 public record MarketSettingsDto(
     // Магазин

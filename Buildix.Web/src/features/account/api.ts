@@ -74,6 +74,12 @@ export const accountApi = {
     return data;
   },
 
+  /** «So'nggi kirishlar» ro'yxatini tozalaydi (faqat o'ziniki). */
+  clearLoginHistory: async (): Promise<number> => {
+    const { data } = await apiClient.post<{ cleared: number }>('/Auth/ClearLoginHistory');
+    return data.cleared;
+  },
+
   revokeOthers: async (refreshToken: string): Promise<number> => {
     const { data } = await apiClient.post<{ revoked: number }>('/Auth/RevokeOtherSessions', {
       refreshToken,

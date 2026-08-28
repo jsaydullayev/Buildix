@@ -23,4 +23,15 @@ public interface IAuthService
 
     /// <summary>Account "Последние входы" — the caller's recent sign-in attempts.</summary>
     Task<IReadOnlyList<DTOs.LoginHistoryDto>> GetLoginHistoryAsync(Guid userId, int limit = 20, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Foydalanuvchining O'Z kirishlar tarixini tozalaydi; o'chirilgan
+    /// qatorlar sonini qaytaradi.
+    /// </summary>
+    /// <remarks>
+    /// Faqat CHAQIRUVCHINING o'z qatorlari — bu tarix uning shaxsiy
+    /// ma'lumoti va boshqa xodimniki begona. Audit jurnaliga aloqasi yo'q:
+    /// u alohida va o'zgartirilmaydi.
+    /// </remarks>
+    Task<int> ClearLoginHistoryAsync(Guid userId, CancellationToken cancellationToken = default);
 }

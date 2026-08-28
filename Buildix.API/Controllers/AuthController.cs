@@ -172,4 +172,24 @@ public class AuthController : ControllerBase
         if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
         return Ok(await _authService.GetLoginHistoryAsync(userId, limit, ct));
     }
+
+    /// <summary>
+    /// «So'nggi kirishlar» ro'yxatini tozalaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Faqat CHAQIRUVCHINING o'z qatorlari o'chiriladi. Tarix vaqt
+    /// o'tib uzayib boradi va sahifani cho'zib yuboradi; uni tozalashning
+    /// hech qanday yo'li yo'q edi.</para>
+    ///
+    /// <para>Audit jurnaliga tegmaydi: xodimlarning amallari o'sha yerda
+    /// yoziladi va u ataylab o'zgartirilmaydigan qilingan.</para>
+    /// </remarks>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> ClearLoginHistory(CancellationToken ct = default)
+    {
+        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
+        return Ok(new { cleared = await _authService.ClearLoginHistoryAsync(userId, ct) });
+    }
 }

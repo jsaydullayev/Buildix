@@ -1139,6 +1139,7 @@ export const en: TranslationSchema = {
       now: 'now',
     },
     history: {
+      clear: 'Clear',
       title: 'Recent sign-ins',
       subtitle: 'Account login history',
       cols: { time: 'TIME', device: 'DEVICE', status: 'STATUS' },

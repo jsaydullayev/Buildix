@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock, Send } from 'lucide-react';
+import { Monitor, Smartphone, Check, CreditCard, PackageX, Clock, Send, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwitch, PasswordInput } from '@/shared/ui';
 import type { AppLanguage } from '@/shared/i18n';
@@ -54,6 +54,10 @@ export default function AccountPage() {
   });
   const sessionsQuery = useQuery({ queryKey: ['sessions'], queryFn: accountApi.sessions });
   const historyQuery = useQuery({ queryKey: ['login-history'], queryFn: accountApi.loginHistory });
+  const clearHistory = useMutation({
+    mutationFn: accountApi.clearLoginHistory,
+    onSuccess: () => qc.setQueryData(['login-history'], []),
+  });
   // «Мои результаты · <oy>» — kassirning shu oylik shaxsiy natijasi (self-service).
   const resultsQuery = useQuery({
     queryKey: ['my-shifts', 'month'],
@@ -472,9 +476,22 @@ export default function AccountPage() {
 
         {/* Login history */}
         <Card className="p-4 sm:p-6">
-          <div className="mb-4">
-            <h2 className="text-[16px] font-semibold">{t('account.history.title')}</h2>
-            <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.history.subtitle')}</p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[16px] font-semibold">{t('account.history.title')}</h2>
+              <p className="mt-0.5 text-[12.5px] text-muted-2">{t('account.history.subtitle')}</p>
+            </div>
+            {(historyQuery.data ?? []).length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={clearHistory.isPending}
+                onClick={() => clearHistory.mutate()}
+              >
+                <Trash2 size={14} />
+                {t('account.history.clear')}
+              </Button>
+            )}
           </div>
           {historyQuery.isLoading ? (
             <div className="flex justify-center py-8 text-primary">
@@ -483,7 +500,10 @@ export default function AccountPage() {
           ) : (historyQuery.data ?? []).length === 0 ? (
             <p className="py-6 text-center text-[13px] text-muted-2">{t('account.history.empty')}</p>
           ) : (
-            <div className="flex flex-col">
+            // Ro'yxat KARTA ICHIDA suriladi. Ilgari u sahifani cho'zib
+            // yuborardi: har kirish yangi qator qo'shadi va bir necha
+            // kundan keyin sahifaning yarmini shu ro'yxat egallardi.
+            <div className="flex max-h-[320px] flex-col overflow-y-auto pr-1">
               {(historyQuery.data ?? []).map((h) => (
                 // Telefonda uch ustun bir qatorga sig'maydi: sana va qurilma
                 // tepada, holat ostida. sm dan boshlab avvalgi bir qatorli

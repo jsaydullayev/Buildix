@@ -128,7 +128,8 @@ public class MarketsController : ApiControllerBase
     {
         var settings = await _marketSettingsService.GetOrCreateAsync(
             _currentMarketService.GetCurrentMarketId(), cancellationToken);
-        return Ok(new PosPrintSettingsDto(settings.ReceiptWidthMm, settings.AutoPrintReceipt));
+        return Ok(new PosPrintSettingsDto(
+            settings.ReceiptWidthMm, settings.AutoPrintReceipt, settings.InactivityLogoutMinutes));
     }
 
     // Owner only — the whole Настройки screen. Absolute routes so the paths

@@ -22,6 +22,8 @@ public class UserService : IUserService
     private readonly IAuditLogService _auditLog;
     private readonly ITelegramLinkService _telegramLink;
     private readonly ITelegramNotifier _telegramNotifier;
+    /// <summary>Do'kon sozlamalari — yangi xodimning standart tili shundan.</summary>
+    private readonly IMarketSettingsService _settings;
 
     public UserService(
         IUnitOfWork unitOfWork,
@@ -35,7 +37,8 @@ public class UserService : IUserService
         // uchun bekor qilingan access tokenlar to'liq TTL davomida ishlayverardi.
         // Endi bunday konfiguratsiya startupda DI xatosi bilan darhol yiqiladi.
         IUserTokenEpochStore tokenEpochStore,
-        IAuditLogService auditLog)
+        IAuditLogService auditLog,
+        IMarketSettingsService settings)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -44,6 +47,7 @@ public class UserService : IUserService
         _telegramNotifier = telegramNotifier;
         _tokenEpochStore = tokenEpochStore;
         _auditLog = auditLog;
+        _settings = settings;
     }
 
     /// <summary>
@@ -180,7 +184,14 @@ public class UserService : IUserService
             // Klient "uz"/"ru"/"en" kodini yuboradi. Ilgari bu yerda
             // Enum.TryParse ishlatilgan edi — u faqat enum NOMINI ("Uzbek")
             // tushunadi, shuning uchun "ru" jimgina Uzbek'ga tushib ketardi.
-            Language = LanguageCodes.FromCode(request.Language) ?? Language.Uzbek,
+            // Til KO'RSATILMAGAN bo'lsa do'konning standart tili olinadi.
+            // Ilgari bu yerda qat'iy «Uzbek» turardi va sozlamalardagi
+            // «Do'konning standart tili» hech narsaga ta'sir qilmasdi: ega
+            // uni RU ga qo'ysa ham har yangi xodim o'zbekcha interfeys
+            // bilan boshlardi.
+            Language = LanguageCodes.FromCode(request.Language)
+                       ?? (await _settings.GetOrCreateAsync(currentMarketId.Value, cancellationToken))
+                           .DefaultLanguage,
             IsActive = true,
             MarketId = currentMarketId.Value
         };

@@ -210,6 +210,18 @@ public partial class AuthService : IAuthService
         return rows.Select(h => new DTOs.LoginHistoryDto(h.Id, h.DeviceInfo, h.IpAddress, h.CreatedAt, h.Success)).ToList();
     }
 
+    public async Task<int> ClearLoginHistoryAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var rows = await _context.LoginHistories
+            .Where(h => h.UserId == userId)
+            .ToListAsync(cancellationToken);
+        if (rows.Count == 0) return 0;
+
+        _context.LoginHistories.RemoveRange(rows);
+        await _context.SaveChangesAsync(cancellationToken);
+        return rows.Count;
+    }
+
     public async Task<int> RevokeOtherSessionsAsync(Guid userId, string currentRefreshToken, CancellationToken cancellationToken = default)
     {
         var currentHash = Buildix.Domain.Security.RefreshTokenHasher.Hash(currentRefreshToken);

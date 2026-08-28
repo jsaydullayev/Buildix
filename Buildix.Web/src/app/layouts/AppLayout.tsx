@@ -1,4 +1,5 @@
 import { Suspense, useState } from 'react';
+import { useInactivityLogout } from '@/shared/auth/useInactivityLogout';
 import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +17,10 @@ import { SyncFreshnessBanner } from '@/shared/sync/SyncFreshnessBanner';
  * uning o'rniga ingichka mobil sarlavha chiqadi.</p>
  */
 export function AppLayout() {
+  // Harakatsizlikda avto-chiqish — do'kon sozlamasidan. Nol bo'lsa (sukut)
+  // hech narsa qilmaydi.
+  useInactivityLogout();
+
   const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
 

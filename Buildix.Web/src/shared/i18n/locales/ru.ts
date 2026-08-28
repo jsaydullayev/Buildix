@@ -1141,6 +1141,7 @@ export const ru = {
       now: 'сейчас',
     },
     history: {
+      clear: 'Очистить',
       title: 'Последние входы',
       subtitle: 'История входов в аккаунт',
       cols: { time: 'ВРЕМЯ', device: 'УСТРОЙСТВО', status: 'СТАТУС' },
