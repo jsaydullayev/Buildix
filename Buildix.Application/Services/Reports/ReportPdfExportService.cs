@@ -328,17 +328,37 @@ public sealed class ReportPdfExportService(
         }
         var productDict = products;
 
-        // Determine payment type
-        var primaryPayment = sale.Payments.FirstOrDefault(p => p.Amount > 0);
-        var paymentTypeEnum = primaryPayment?.PaymentType ?? PaymentType.Cash;
-        string paymentTypeUz = isRu
-            ? paymentTypeEnum switch
+        // ── To'lov turlari ───────────────────────────────────────────────
+        // Chekda ular AYNAN qanday to'langan bo'lsa shunday ko'rinishi kerak.
+        //
+        // Ilgari bu yerda faqat BIRINCHI to'lov olinardi. Aralash to'lovda
+        // («Miks») chekda «Naqd» turar, summaning yarmi kartadan tushgan
+        // bo'lsa ham — mijoz ham, ega ham chekdan haqiqatni bila olmasdi.
+        // To'lovi umuman yo'q qarz chekida esa bo'sh qiymat o'rniga «Naqd»
+        // yozilardi: chek to'langandek ko'rinar, aslida qarz edi.
+        string PayName(PaymentType type) => isRu
+            ? type switch
             {
                 PaymentType.Cash => "Наличные",
                 PaymentType.Transfer => "Перевод / Счёт",
-                _ => paymentTypeEnum.ToString(), // Terminal / Click — already fine
+                _ => type.ToString(), // Terminal / Click — already fine
             }
-            : paymentTypeEnum.ToUzbek();
+            : type.ToUzbek();
+
+        // Bir xil tur bir necha marta to'langan bo'lishi mumkin (qisman
+        // to'lov, keyin qolgani) — chekda ular bitta qator bo'lib chiqadi.
+        var payments = sale.Payments
+            .Where(p => p.Amount > 0)
+            .GroupBy(p => p.PaymentType)
+            .Select(g => new InvoicePaymentData(PayName(g.Key), g.Sum(x => x.Amount)))
+            .ToList();
+
+        var paymentTypeUz = payments.Count switch
+        {
+            0 => L("Qarz", "Долг"),
+            1 => payments[0].Label,
+            _ => L("Aralash", "Смешанная"),
+        };
 
         // Create invoice data
         var invoiceItems = new List<InvoiceItemData>();
@@ -403,7 +423,8 @@ public sealed class ReportPdfExportService(
             MarketAddress: settings.Address,
             MarketPhone: settings.Phone,
             ReceiptHeader: settings.ReceiptHeader,
-            ReceiptFooter: settings.ReceiptFooter
+            ReceiptFooter: settings.ReceiptFooter,
+            Payments: payments
         );
 
         return invoiceData;

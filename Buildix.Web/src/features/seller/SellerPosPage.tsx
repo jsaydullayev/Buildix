@@ -45,13 +45,32 @@ import {
 import { ReceiptModal } from '@/features/pos/ReceiptModal';
 import { ExternalItemModal } from '@/features/pos/ExternalItemModal';
 
-type Method = 'Cash' | 'Terminal' | 'Mixed' | 'Debt';
+type Method = 'Cash' | 'Terminal' | 'Transfer' | 'Mixed' | 'Debt';
+
+/**
+ * To'lov turlari — bir qatorda uchtasi.
+ *
+ * <p>«O'tkazma» egaga ochiq kassada ancha vaqtdan beri bor edi, sotuvchida
+ * esa yo'q: pul hisobga o'tkazilgan chekni kassir «Karta» deb yopishga
+ * majbur bo'lar va hisobotdagi to'lov turlari haqiqatga mos kelmasdi.</p>
+ */
 const METHODS: { key: string; value: Method }[] = [
   { key: 'cash', value: 'Cash' },
   { key: 'card', value: 'Terminal' },
+  { key: 'transfer', value: 'Transfer' },
+];
+
+/** Aralash va Qarzga — alohida qatorda, kengroq tugmalar. */
+const WIDE_METHODS: { key: string; value: Method }[] = [
   { key: 'mixed', value: 'Mixed' },
   { key: 'debt', value: 'Debt' },
 ];
+
+/**
+ * Server tomonda YOPILGAN chek holatlari — bunday chekka to'lov qo'shib
+ * bo'lmaydi (<c>ApplyTenders</c> uni rad etadi).
+ */
+const SETTLED = new Set(['Paid', 'Closed']);
 
 /** Catalogue page size. Grows by this step each «Показать ещё» (server caps at 200). */
 const PAGE_STEP = 40;
@@ -1104,8 +1123,25 @@ export default function SellerPosPage() {
             </span>
           </div>
 
-          <div className="mb-3 grid grid-cols-4 gap-2">
+          <div className="mb-2 grid grid-cols-3 gap-2">
             {METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMethod(m.value)}
+                className={cn(
+                  'h-10 rounded-input border text-[13px] font-medium transition-colors',
+                  method === m.value
+                    ? 'border-primary bg-primary-soft text-primary-hover'
+                    : 'border-input-border bg-surface text-muted hover:text-text',
+                )}
+              >
+                {t(`pos.payment.${m.key}` as never)}
+              </button>
+            ))}
+          </div>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            {WIDE_METHODS.map((m) => (
               <button
                 key={m.value}
                 type="button"
@@ -1638,7 +1674,24 @@ function CheckoutModal({
 
   const confirm = useMutation({
     mutationFn: async () => {
-      if (method === 'Debt') {
+      // To'lanadigan qoldiq YO'Q — chek allaqachon qoplangan.
+      //
+      // Bunga ikki yo'l bilan kelinadi: butun summa chegirmaga ketgan, yoki
+      // to'lov serverga o'tib ketgan-u javob kelmagan va kassir tugmani
+      // qaytadan bosgan. Ikkala holatda ham «Qarzga» tanlangan bo'lsa
+      // `markDebt` serverdan DOIMO «already fully paid» qaytaradi: kassir
+      // qizil yozuvni ko'rar, chek esa ochiq qolardi va uni yopishning
+      // hech qanday yo'li yo'q edi.
+      //
+      // Qoldiq nolga teng bo'lsa tanlangan tugma ahamiyatsiz — to'lanadigan
+      // narsa yo'q va chek shunchaki yopiladi.
+      if (outstanding === 0) {
+        // Server chekni yopib bo'lgan bo'lsa unga umuman tegmaymiz:
+        // yopilgan chekka nol to'lov qo'shish ham rad etiladi.
+        if (!SETTLED.has(sale.status)) {
+          await posApi.addPayment(sale.id, { paymentType: 'Cash', amount: 0 });
+        }
+      } else if (method === 'Debt') {
         // A partial down-payment creates the Debt (with its due date) in one
         // call; with nothing paid now the whole sale is marked as debt.
         if (paid > 0) {
@@ -1696,22 +1749,41 @@ function CheckoutModal({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {METHODS.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => setMethod(m.value)}
-              className={cn(
-                'h-11 rounded-input border text-[13px] font-medium transition-colors',
-                method === m.value
-                  ? 'border-primary bg-primary-soft text-primary-hover'
-                  : 'border-input-border bg-surface text-muted hover:text-text',
-              )}
-            >
-              {t(`pos.payment.${m.key}` as never)}
-            </button>
-          ))}
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            {METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMethod(m.value)}
+                className={cn(
+                  'h-11 rounded-input border text-[13px] font-medium transition-colors',
+                  method === m.value
+                    ? 'border-primary bg-primary-soft text-primary-hover'
+                    : 'border-input-border bg-surface text-muted hover:text-text',
+                )}
+              >
+                {t(`pos.payment.${m.key}` as never)}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {WIDE_METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMethod(m.value)}
+                className={cn(
+                  'h-11 rounded-input border text-[13px] font-medium transition-colors',
+                  method === m.value
+                    ? 'border-primary bg-primary-soft text-primary-hover'
+                    : 'border-input-border bg-surface text-muted hover:text-text',
+                )}
+              >
+                {t(`pos.payment.${m.key}` as never)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {method === 'Cash' && (

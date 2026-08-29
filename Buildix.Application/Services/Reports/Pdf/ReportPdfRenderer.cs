@@ -958,7 +958,21 @@ internal static class ReportPdfRenderer
                         && customerName != "Без клиента";
                     if (namedCustomer)
                         Meta(L("Mijoz", "Клиент"), customerName!);
-                    Meta(L("To'lov", "Оплата"), data.PaymentType);
+
+                    // Aralash to'lovda har bir tur o'z summasi bilan alohida
+                    // qatorda: bitta qatorga sig'dirilgan ro'yxat tor rulonda
+                    // kesilib qolardi.
+                    var payments = data.Payments ?? [];
+                    if (payments.Count > 1)
+                    {
+                        col.Item().Text(L("To'lov", "Оплата") + ":").FontColor(Black);
+                        foreach (var p in payments)
+                            Meta("   " + p.Label, Money(p.Amount));
+                    }
+                    else
+                    {
+                        Meta(L("To'lov", "Оплата"), data.PaymentType);
+                    }
 
                     col.Item().PaddingVertical(4).LineHorizontal(0.7f).LineColor(Black);
 
@@ -1069,8 +1083,24 @@ internal static class ReportPdfRenderer
         string? MarketAddress = null,
         string? MarketPhone = null,
         string? ReceiptHeader = null,
-        string? ReceiptFooter = null
+        string? ReceiptFooter = null,
+        /// <summary>
+        /// To'langan turlar va summalari — chekda AYNAN shu ko'rinishda
+        /// chiqadi.
+        /// </summary>
+        /// <remarks>
+        /// <para><see cref="PaymentType"/> bitta satr va aralash to'lovni
+        /// ifodalay olmaydi: yarmi naqd, yarmi kartadan bo'lgan chekda u
+        /// faqat bittasini ko'rsatardi. Bu ro'yxat esa har bir turni o'z
+        /// summasi bilan beradi.</para>
+        ///
+        /// <para>Bo'sh ro'yxat — hech narsa to'lanmagan, ya'ni qarz.</para>
+        /// </remarks>
+        List<InvoicePaymentData>? Payments = null
     );
+
+    /// <summary>Chekdagi bitta to'lov qatori.</summary>
+    internal record InvoicePaymentData(string Label, decimal Amount);
 
     internal record InvoiceItemData(
         string ProductName,

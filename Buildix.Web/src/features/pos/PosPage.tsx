@@ -512,7 +512,17 @@ export default function PosPage() {
       if (!sale) return null;
       const id = saleId!;
       if (method === 'Debt') {
-        await posApi.markDebt(saleId!);
+        // Chek allaqachon qoplangan bo'lsa `markDebt` serverdan DOIMO
+        // «already fully paid» qaytaradi va chek ochiq qolardi. Bunday
+        // chekda to'lanadigan narsa yo'q — u shunchaki yopiladi.
+        // Server uni yopib bo'lgan bo'lsa unga umuman tegmaymiz.
+        if (sale.totalAmount > 0 && sale.paidAmount >= sale.totalAmount) {
+          if (sale.status !== 'Paid' && sale.status !== 'Closed') {
+            await posApi.addPayment(id, { paymentType: 'Cash', amount: 0 });
+          }
+        } else {
+          await posApi.markDebt(id);
+        }
       } else if (method === 'Mixed') {
         // Barcha ulushlar BITTA so'rovda: server ularni atomar qo'llaydi, shuning
         // uchun chek "qisman to'langan ⇒ qarz" holatidan o'tib ketmaydi.

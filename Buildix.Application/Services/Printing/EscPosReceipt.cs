@@ -143,7 +143,23 @@ internal static class EscPosReceipt
         // chekka chiqsa foydasiz qator bo'lardi — rulon esa tor.
         if (HasCustomer(data.CustomerName))
             Line(Pair(L("Mijoz", "Клиент"), data.CustomerName, cols));
-        Line(Pair(L("To'lov", "Оплата"), data.PaymentType, cols));
+
+        // ── To'lov ──────────────────────────────────────────────────────
+        // Aralash to'lovda har bir tur O'Z SUMMASI bilan alohida qatorda
+        // chiqadi. Bitta qatorga sig'dirilsa («Naqd 500 000, Karta 402
+        // 000») u 32 belgilik rulonda kesilib qolardi, mijoz esa qaysi
+        // puldan qancha ketganini chekdan bila olmasdi.
+        var payments = data.Payments ?? [];
+        if (payments.Count > 1)
+        {
+            Line(L("To'lov", "Оплата") + ":");
+            foreach (var p in payments)
+                Line(Pair("  " + p.Label, Money(p.Amount), cols));
+        }
+        else
+        {
+            Line(Pair(L("To'lov", "Оплата"), data.PaymentType, cols));
+        }
 
         Line(new string('-', cols));
 

@@ -268,6 +268,53 @@ public class EscPosReceiptTests
     }
 
     /// <summary>
+    /// Aralash to'lovda HAR BIR tur o'z summasi bilan chiqadi.
+    /// </summary>
+    /// <remarks>
+    /// Ilgari chekka faqat birinchi to'lov bosilardi: summaning yarmi
+    /// kartadan tushgan bo'lsa ham chekda «Naqd» turar va mijoz ham, ega
+    /// ham qaysi puldan qancha ketganini bila olmasdi.
+    /// </remarks>
+    [Fact]
+    public void Aralash_tolovda_har_bir_tur_alohida_chiqadi()
+    {
+        var data = Sale() with
+        {
+            PaymentType = "Aralash",
+            Payments =
+            [
+                new ReportPdfRenderer.InvoicePaymentData("Naqd", 300_000),
+                new ReportPdfRenderer.InvoicePaymentData("Karta", 151_000),
+            ],
+        };
+
+        var lines = Lines(EscPosReceipt.Build(data, "uz", 80));
+
+        var naqd = Assert.Single(lines, l => l.TrimStart().StartsWith("Naqd"));
+        Assert.EndsWith("300 000", naqd);
+        var karta = Assert.Single(lines, l => l.TrimStart().StartsWith("Karta"));
+        Assert.EndsWith("151 000", karta);
+    }
+
+    /// <summary>
+    /// Bitta to'lov bo'lsa u avvalgidek bitta qatorda qoladi — tor rulonda
+    /// ortiqcha qator qog'oz yeydi.
+    /// </summary>
+    [Fact]
+    public void Bitta_tolov_bitta_qatorda_qoladi()
+    {
+        var data = Sale() with
+        {
+            Payments = [new ReportPdfRenderer.InvoicePaymentData("Naqd", 451_000)],
+        };
+
+        var lines = Lines(EscPosReceipt.Build(data, "uz", 80));
+
+        var row = Assert.Single(lines, l => l.StartsWith("To'lov"));
+        Assert.EndsWith("Naqd", row);
+    }
+
+    /// <summary>
     /// Chekda QAYTARISH uchun kerak bo'ladigan raqam turadi.
     /// </summary>
     /// <remarks>
