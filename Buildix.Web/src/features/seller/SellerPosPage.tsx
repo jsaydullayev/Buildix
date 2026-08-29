@@ -1652,6 +1652,20 @@ function CheckoutModal({
    */
   const outstanding = Math.max(0, total - (sale.paidAmount ?? 0));
 
+  /**
+   * Mijozning AVANSIDAN shu chekka o'tkazilgan summa.
+   *
+   * <p>Avans mijoz chekka biriktirilishi bilan avtomatik hisobga olinadi
+   * (<c>SaleCreditApplier</c>) — kassirdan hech narsa so'ralmaydi. Ekranda esa
+   * bu HECH QAYERDA ko'rinmasdi: kassir «Qarzga» tanlar, «To'lanadi 0 so'm»
+   * ni ko'rar va nima uchun ekanini tushunmasdi. Avans butun summani qoplasa
+   * chek to'langan bo'lib yopilar, qarz esa umuman yaratilmasdi — kassir uni
+   * «Qarzlar» ro'yxatidan qidirib topa olmasdi.</p>
+   */
+  const creditApplied = (sale.payments ?? [])
+    .filter((p) => p.paymentType === 'Credit')
+    .reduce((sum, p) => sum + p.amount, 0);
+
   const got = sumOf(received);
   const change = got - outstanding;
   const paid = sumOf(paidNow);
@@ -1748,6 +1762,15 @@ function CheckoutModal({
             {formatSum(outstanding)} <span className="text-[12px] font-normal text-muted-2">{t('common.currency')}</span>
           </span>
         </div>
+
+        {creditApplied > 0 && (
+          <div className="flex items-baseline justify-between rounded-input bg-warn-soft px-4 py-2 text-[13px] text-warn-text">
+            <span>{t('pos.creditApplied')}</span>
+            <span className="font-semibold nums">
+              {formatSum(creditApplied)} {t('common.currency')}
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-3 gap-2">

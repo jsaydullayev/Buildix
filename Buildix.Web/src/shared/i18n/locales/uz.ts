@@ -1287,6 +1287,7 @@ export const uz: TranslationSchema = {
   },
   pos: {
     title: 'Yangi sotuv',
+    creditApplied: 'Mijoz avansidan hisobga olindi',
     back: 'Sotuvlarga',
     park: 'Keyinga qoldirish',
     held: 'Kutayotgan cheklar',

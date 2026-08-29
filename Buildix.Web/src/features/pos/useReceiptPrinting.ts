@@ -38,6 +38,8 @@ import { posApi, type PosSale } from './api';
  * chiqadi va uni bir marta tuzatish kifoya.</p>
  *
  * @param done Yakunlangan sotuv — avtomatik chop etish shundan boshlanadi.
+ *   <c>null</c> berilsa faqat qo'lda chop etish qoladi: sotuv kartochkasidan
+ *   eski chekni qayta bosish aynan shunday ishlaydi.
  */
 export function useReceiptPrinting(done: PosSale | null) {
   const { t, i18n } = useTranslation();
@@ -85,14 +87,16 @@ export function useReceiptPrinting(done: PosSale | null) {
   //
   // Faqat qobiqda: sozlamaning va'dasi «chop etish oynasisiz» edi, brauzerda
   // esa oynasiz chop etib bo'lmaydi va u navbat oldida kutilmaganda ochilardi.
+  // Oyna yopildi — keyingi chek uchun sabab ham tozalanadi. ALOHIDA effekt:
+  // avtomatik chop etish sozlama yuklangach qayta ishga tushadi va tozalash
+  // o'sha yerda tursa, kassir endigina ko'rgan xato sababi g'oyib bo'lardi.
+  useEffect(() => {
+    if (!done) setProblem(null);
+  }, [done]);
+
   const printedFor = useRef<string | null>(null);
   useEffect(() => {
-    // Oyna yopildi — keyingi chek uchun sabab ham tozalanadi.
-    if (!done) {
-      setProblem(null);
-      return;
-    }
-    if (printedFor.current === done.id) return;
+    if (!done || printedFor.current === done.id) return;
     if (!settingsQuery.data?.autoPrintReceipt || !desktopBridge('receipt')) return;
 
     printedFor.current = done.id;

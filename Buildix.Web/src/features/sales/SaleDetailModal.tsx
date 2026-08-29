@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { FileDown, Ban, Undo2 } from 'lucide-react';
+import { AlertTriangle, FileDown, Ban, Printer, Undo2 } from 'lucide-react';
 import { Modal, Button, Badge, useConfirm } from '@/shared/ui';
+import { useReceiptPrinting } from '@/features/pos/useReceiptPrinting';
 import { formatSum, formatQty, formatShortDate, formatTime } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { downloadBlob } from '@/shared/lib/download';
@@ -50,7 +51,21 @@ export function SaleDetailModal({
   const confirm = useConfirm();
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  /**
+   * Chekni QAYTA chop etish.
+   *
+   * <p>Ilgari chekni faqat sotuv yakunlangan paytdagi oynadan bosish mumkin
+   * edi. Kassir uni yopib yuborsa yoki qog'oz tugab qolsa, chek boshqa
+   * chiqmasdi — mijozga esa aynan shu qog'oz kerak: qaytarish chek raqami
+   * bilan rasmiylashtiriladi.</p>
+   *
+   * <p><c>null</c> beriladi — bu yerda avtomatik chop etish kerak emas,
+   * faqat tugma.</p>
+   */
+  const { print: printReceipt, problem: printProblem } = useReceiptPrinting(null);
 
   const detailQuery = useQuery({
     queryKey: ['sale-detail', listRow?.id],
@@ -108,6 +123,15 @@ export function SaleDetailModal({
     }
   }
 
+  async function printNow(id: string) {
+    setPrinting(true);
+    try {
+      await printReceipt(id);
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   async function askCancel() {
     if (await confirm({ title: t('sales.detail.cancelConfirm', { number: sale!.saleNumber }), tone: 'danger', confirmLabel: t('sales.detail.cancel') }))
       cancel.mutate();
@@ -138,15 +162,29 @@ export function SaleDetailModal({
             </Button>
           )}
           {hasPermission(PERMISSIONS.sales.invoice) && (
-            <Button loading={downloading} onClick={() => void downloadInvoice(sale.id, sale.saleNumber)}>
-              <FileDown size={15} />
-              {t('sales.detail.invoice')}
-            </Button>
+            <>
+              <Button variant="secondary" loading={printing} onClick={() => void printNow(sale.id)}>
+                <Printer size={15} />
+                {t('pos.done.print')}
+              </Button>
+              <Button loading={downloading} onClick={() => void downloadInvoice(sale.id, sale.saleNumber)}>
+                <FileDown size={15} />
+                {t('sales.detail.invoice')}
+              </Button>
+            </>
           )}
         </>
       }
     >
       <div className="flex flex-col gap-5">
+        {printProblem && (
+          <div className="flex items-start gap-2 rounded-lg bg-warn-soft px-3 py-2 text-[12.5px] text-warn-text">
+            <AlertTriangle size={15} className="mt-0.5 flex-none" />
+            <span>
+              {t('pos.done.printProblem')} {printProblem}
+            </span>
+          </div>
+        )}
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px]">
           <Meta label={t('sales.detail.customer')} value={sale.customerName ?? t('sales.walkIn')} />

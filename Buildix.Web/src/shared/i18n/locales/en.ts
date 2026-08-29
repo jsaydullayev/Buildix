@@ -1287,6 +1287,7 @@ export const en: TranslationSchema = {
   },
   pos: {
     title: 'New sale',
+    creditApplied: 'Credited from the customer advance',
     back: 'To sales',
     park: 'Park',
     held: 'Parked receipts',
