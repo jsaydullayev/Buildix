@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 
 namespace Buildix.Desktop;
@@ -62,6 +63,22 @@ public sealed class PostgresHost : IAsyncDisposable
     public async Task<string?> StartAsync(
         Func<string, string> secret, bool secretsAreNew, CancellationToken ct)
     {
+        // Administrator huquqi — bazani UMUMAN ishga tushirib bo'lmaydigan
+        // holat. Buni eng boshida aytamiz: aks holda ilova uch daqiqa kutar,
+        // so'ng «elektr uzilgan bo'lsa kuting» degan xabar chiqarardi va
+        // kutish hech qachon yordam bermasdi.
+        if (IsElevated())
+        {
+            return "Buildix administrator huquqi bilan ishga tushirilgan."
+                + NL2 + "Ma'lumotlar bazasi bunday rejimda ishlamaydi — bu PostgreSQL ning "
+                + "xavfsizlik qoidasi va uni chetlab o'tib bo'lmaydi."
+                + NL2 + "Ilovani yoping va oddiy tarzda oching: ish stolidagi belgini ikki marta "
+                + "bosing. Sichqonchaning o'ng tugmasidagi «Запуск от имени администратора» "
+                + "bandini TANLAMANG."
+                + NL2 + "O'rnatuvchi administrator nomidan ochilgan bo'lsa ham shu holat "
+                + "yuzaga keladi — ilova undan huquqni meros qilib oladi.";
+        }
+
         _password = secret("Database:Password");
         _port = ApiHost.FindFreePort(5433);   // 5432 — tizimdagi Postgres band qilishi mumkin
 
@@ -133,12 +150,7 @@ public sealed class PostgresHost : IAsyncDisposable
         // 3 daqiqa: elektr uzilgandan keyin tiklanish katta bazada bir necha
         // daqiqa davom etishi mumkin va uni yarim yo'lda to'xtatish mumkin emas.
         if (!await WaitReadyAsync(TimeSpan.FromMinutes(3), ct))
-            return "Ma'lumotlar bazasi belgilangan vaqtda tayyor bo'lmadi."
-                + Environment.NewLine + Environment.NewLine
-                + "Agar elektr yaqinda uzilgan bo'lsa, baza o'zini tiklayotgan bo'lishi "
-                + "mumkin — bir necha daqiqadan keyin qaytadan urinib ko'ring."
-                + Environment.NewLine + Environment.NewLine
-                + "Batafsil: " + DbLogPath;
+            return NotReadyMessage();
 
         // Baza HAR SAFAR tekshiriladi, faqat birinchi ishga tushishda emas.
         // Ilgari `firstRun` bayrog'iga tayanardi: initdb muvaffaqiyatli
@@ -148,6 +160,105 @@ public sealed class PostgresHost : IAsyncDisposable
         // qolardi — yagona chora pgdata ni o'chirish, ya'ni hamma narsani
         // yo'qotish edi.
         return await EnsureDatabaseAsync(ct);
+    }
+
+    private static readonly string NL2 = Environment.NewLine + Environment.NewLine;
+
+    /// <summary>Baza jurnaliga bizning izohimizni yozadi.</summary>
+    /// <remarks>
+    /// Yopish yo'lidagi nosozlik faqat shu yerda ko'rinadi: u ekranga
+    /// chiqmaydi (ilova allaqachon yopilyapti), lekin keyingi ochilishdagi
+    /// tiklanishning sababi aynan shu bo'ladi.
+    /// </remarks>
+    private void Note(string text)
+    {
+        try { _log?.WriteLine("[buildix] " + text); }
+        catch (Exception) { /* jurnal yozilmasa ham yopish davom etadi */ }
+    }
+
+    /// <summary>
+    /// Jarayon administrator huquqi bilan ishlayaptimi.
+    /// </summary>
+    /// <remarks>
+    /// <para>PostgreSQL Windows'da elevatsiyalangan jarayonda ishlashdan ochiq
+    /// bosh tortadi («Execution of PostgreSQL by a user with administrative
+    /// permissions is not permitted») va darhol yopiladi. Tekshiruv aynan
+    /// PostgreSQL nikiga mos: UAC yoqilgan oddiy administrator hisobida
+    /// elevatsiyasiz jarayon uchun bu <c>false</c> qaytaradi va baza
+    /// muammosiz ishlaydi.</para>
+    /// </remarks>
+    private static bool IsElevated()
+    {
+        try
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+        }
+        catch (Exception)
+        {
+            // Aniqlab bo'lmadi — to'sib qo'ymaymiz, baza o'zi aytadi.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Baza ko'tarilmadi — SABABI bilan birga.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari har qanday holatda bitta matn chiqardi: «elektr uzilgan
+    /// bo'lsa kuting». Jarayon esa allaqachon yopilgan bo'lishi mumkin va
+    /// o'shanda kutishning foydasi yo'q edi — do'kon soatlab kutar, haqiqiy
+    /// sabab esa <c>db.log</c> da yotardi va uni hech kim ochmasdi.</para>
+    ///
+    /// <para>Endi sababning o'zi EKRANDA: yo'lni ko'rsatishning o'zi
+    /// yetarli emas ekan — do'kondagi odam faylni ochib, ichidan kerakli
+    /// qatorni topmaydi.</para>
+    /// </remarks>
+    private string NotReadyMessage()
+    {
+        var died = _process is { HasExited: true };
+
+        var head = died
+            ? $"Ma'lumotlar bazasi ishga tushmadi (jarayon {_process!.ExitCode} kodi bilan yopildi)."
+            : "Ma'lumotlar bazasi belgilangan vaqtda tayyor bo'lmadi.";
+
+        var hint = died
+            ? "Sabab quyida. Uni tuzatmaguncha qayta urinishning foydasi yo'q."
+            : "Agar elektr yaqinda uzilgan bo'lsa, baza o'zini tiklayotgan bo'lishi "
+              + "mumkin — bir necha daqiqadan keyin qaytadan urinib ko'ring.";
+
+        return head + NL2 + hint + NL2 + LogTail() + "Batafsil: " + DbLogPath;
+    }
+
+    /// <summary>Jurnalning oxirgi qatorlari — xabar ichida ko'rsatiladi.</summary>
+    /// <remarks>
+    /// Fayl baza tomonidan OCHIQ ushlab turilgan bo'lishi mumkin, shuning
+    /// uchun u birgalikda o'qishga ruxsat berib ochiladi.
+    /// </remarks>
+    private static string LogTail(int lines = 6)
+    {
+        try
+        {
+            if (!File.Exists(DbLogPath)) return string.Empty;
+
+            using var stream = new FileStream(
+                DbLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+
+            var tail = reader.ReadToEnd()
+                .Split('\n')
+                .Select(l => l.TrimEnd('\r').TrimEnd())
+                .Where(l => l.Length > 0)
+                .TakeLast(lines);
+
+            var text = string.Join(Environment.NewLine, tail).Trim();
+            return text.Length == 0 ? string.Empty : text + NL2;
+        }
+        catch (Exception)
+        {
+            // Jurnalni o'qiy olmaslik xabarni bermaslikka sabab bo'lmasin.
+            return string.Empty;
+        }
     }
 
     /// <summary>Birinchi ishga tushish: bo'sh ma'lumotlar katalogini yaratadi.</summary>
@@ -381,16 +492,32 @@ public sealed class PostgresHost : IAsyncDisposable
         // Toza to'xtatish: ma'lumot diskka yozilsin. Ulgurmasa — Job Object
         // uni baribir yopadi, lekin unda keyingi ishga tushish sekinroq
         // bo'ladi (tiklash jurnali o'qiladi).
+        //
+        // BU YERDAN ISTISNO CHIQMASLIGI SHART. Ilgari `pg_ctl` ni ishga
+        // tushirib bo'lmasa (fayl yo'q, antivirus to'sdi) istisno
+        // `Program.Main` ga chiqar, ilova o'sha zahoti tugar va Job Object
+        // bazani MAJBURAN yopardi. Jurnalda bu «terminated by exception
+        // 0x40010004» bo'lib qolar, baza toza yopilmagan sanalar va keyingi
+        // har bir ochilish tiklash jurnalini o'qishdan boshlanardi.
         try
         {
-            await RunAsync(Bin("pg_ctl"), $"-D \"{DataDir}\" -m fast stop", CancellationToken.None);
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var (code, err, _) = await RunAsync(
+                Bin("pg_ctl"), $"-D \"{DataDir}\" -m fast stop", CancellationToken.None);
+
+            // Natija ilgari umuman o'qilmasdi: pg_ctl yiqilsa ham hech kim
+            // bilmasdi. Sabab jurnalga tushsin — keyingi ochilishdagi
+            // tiklanishning izohi aynan shu qator bo'ladi.
+            if (code != 0) Note($"pg_ctl stop -> {code}: {err.Trim()}");
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             await _process.WaitForExitAsync(timeout.Token);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            try { _process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            Note("to'xtatib bo'lmadi: " + ex.Message);
+            try { _process.Kill(entireProcessTree: true); } catch (Exception) { }
         }
+
         _process.Dispose();
         _log?.Dispose();
     }
