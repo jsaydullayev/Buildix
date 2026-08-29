@@ -819,8 +819,6 @@ export const uz: TranslationSchema = {
     saved: 'O‘zgarishlar saqlandi',
     language: {
       title: 'Interfeys tili',
-      subtitle: 'Faqat sizning hisobingiz uchun',
-      label: 'Til',
       hint: 'Darhol qo‘llanadi va hisobingizda saqlanadi',
       saveError: 'Til saqlanmadi — qayta urinib ko‘ring',
     },
@@ -828,7 +826,6 @@ export const uz: TranslationSchema = {
       title: 'Do‘kon',
       phone: 'Telefon',
       address: 'Manzil',
-      hours: 'Ish vaqti',
     },
     cash: {
       title: 'Kassa va smenalar',
@@ -850,13 +847,8 @@ export const uz: TranslationSchema = {
       late: 'Kechikish chegarasi',
     },
     stock: {
-      title: 'Ombor va narxlar',
-      minAlert: 'Minimal qoldiq haqida ogohlantirish',
-      minAlertHint: 'Panel va xaridda signal',
       belowCost: 'Kelish narxidan past sotishni taqiqlash',
       belowCostHint: 'Kassir zararga sotolmaydi',
-      markup: 'Standart ustama',
-      markupHint: 'Yangi tovar qo‘shishda qo‘yiladi',
     },
     receipt: {
       title: 'Chek',

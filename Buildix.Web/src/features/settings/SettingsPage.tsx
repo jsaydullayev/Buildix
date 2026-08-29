@@ -70,52 +70,20 @@ export default function SettingsPage() {
         }
       />
 
-      <div className="grid flex-1 grid-cols-2 items-start gap-[18px] p-4 sm:p-6 lg:p-8">
-        {/* Язык интерфейса */}
-        <Section title={t('settings.language.title')} subtitle={t('settings.language.subtitle')}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-[14px] font-medium">{t('settings.language.label')}</div>
-              <div className="mt-0.5 text-[12.5px] text-muted-2">
-                {langMutation.isError ? (
-                  <span className="text-danger">{t('settings.language.saveError')}</span>
-                ) : (
-                  t('settings.language.hint')
-                )}
-              </div>
-            </div>
-            <LanguageSwitch onChange={(lang) => langMutation.mutate(lang)} />
-          </div>
-        </Section>
-
+      {/*
+        Kartalar USTUNLARGA joylashadi, katakchalarga emas.
+        Ilgari bu `grid-cols-2` edi: qator balandligi eng baland karta
+        bo'yicha olinar va uning yonidagi past karta ostida katta bo'sh joy
+        qolardi — bitta qatorli «Interfeys tili» kartasi yonidagi «Do'kon»
+        kartasi shunga misol edi. Ustunlarda esa har bir karta oldingisining
+        ostiga TEGIB turadi, bo'sh joy umuman qolmaydi va sahifa sezilarli
+        qisqaradi.
+      */}
+      <div className="flex-1 columns-1 gap-[18px] p-4 sm:p-6 lg:columns-2 lg:p-8">
         {/* Магазин */}
         <Section title={t('settings.store.title')}>
           <TextRow label={t('settings.store.phone')} value={form.phone ?? ''} onChange={(v) => set('phone', v)} />
           <TextRow label={t('settings.store.address')} value={form.address ?? ''} onChange={(v) => set('address', v)} />
-          <TextRow label={t('settings.store.hours')} value={form.workingHours ?? ''} onChange={(v) => set('workingHours', v)} />
-        </Section>
-
-        {/* Склад и цены */}
-        <Section title={t('settings.stock.title')}>
-          <ToggleRow
-            label={t('settings.stock.minAlert')}
-            hint={t('settings.stock.minAlertHint')}
-            checked={form.minStockAlertEnabled}
-            onChange={(v) => set('minStockAlertEnabled', v)}
-          />
-          <ToggleRow
-            label={t('settings.stock.belowCost')}
-            hint={t('settings.stock.belowCostHint')}
-            checked={form.blockSaleBelowCost}
-            onChange={(v) => set('blockSaleBelowCost', v)}
-          />
-          <NumberRow
-            label={t('settings.stock.markup')}
-            hint={t('settings.stock.markupHint')}
-            value={form.defaultMarkupPct}
-            onChange={(v) => set('defaultMarkupPct', v)}
-            suffix="%"
-          />
         </Section>
 
         {/* Касса и смены */}
@@ -125,6 +93,16 @@ export default function SettingsPage() {
             hint={t('settings.cash.onlyShiftHint')}
             checked={form.salesOnlyWhenShiftOpen}
             onChange={(v) => set('salesOnlyWhenShiftOpen', v)}
+          />
+          {/* «Ombor va narxlar» kartasidan KO'CHDI. U kartada ishlaydigan
+              yagona sozlama shu edi va bitta almashtirgich uchun alohida
+              karta ochish sahifani bekorga cho'zardi. Mazmunan ham shu
+              yerga tegishli: bu kassirning sotuv qoidasi. */}
+          <ToggleRow
+            label={t('settings.stock.belowCost')}
+            hint={t('settings.stock.belowCostHint')}
+            checked={form.blockSaleBelowCost}
+            onChange={(v) => set('blockSaleBelowCost', v)}
           />
           <ToggleRow
             label={t('settings.cash.approval')}
@@ -221,8 +199,31 @@ export default function SettingsPage() {
           <p className="pt-2 text-[12.5px] text-muted-2">{t('settings.notify.telegramHint')}</p>
         </Section>
 
-        {/* Система — do'kon standart tili (yangi xodim uchun), audit, avto-logout */}
+        {/* Система — tillar, audit, avto-logout */}
         <Section title={t('settings.system.title')} subtitle={t('settings.system.subtitle')}>
+          {/*
+            Ikkala til SHU YERDA, yonma-yon. Ilgari ular ikki xil kartada
+            turardi va ekranda bir xil ko'rinardi — bir xil uchta tugma,
+            bir-biridan uzoqda. Ega qaysi biri nimani o'zgartirishini
+            faqat izohni o'qib bilardi; yonma-yon turganda esa farq
+            ko'rinib turadi.
+
+            Sozlamalar EMAS: interfeys tili — hisobning shaxsiy sozlamasi
+            va bosilishi bilan yoziladi, «Saqlash» tugmasiga bog'liq emas.
+          */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[14px] font-medium">{t('settings.language.title')}</div>
+              <div className="mt-0.5 text-[12.5px] text-muted-2">
+                {langMutation.isError ? (
+                  <span className="text-danger">{t('settings.language.saveError')}</span>
+                ) : (
+                  t('settings.language.hint')
+                )}
+              </div>
+            </div>
+            <LanguageSwitch onChange={(lang) => langMutation.mutate(lang)} />
+          </div>
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="text-[14px] font-medium">{t('settings.system.defaultLanguage')}</div>
@@ -320,7 +321,10 @@ function DesktopSection() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <Card className="p-4 sm:p-6">
+    // `break-inside-avoid` — karta ustunlar orasida IKKIGA bo'linmasin;
+    // pastki chekka esa ustunlar ichidagi oraliqni beradi (ustun maketida
+    // `gap` faqat ustunlar ORASIGA qo'llanadi).
+    <Card className="mb-[18px] break-inside-avoid p-4 sm:p-6">
       <div className="mb-5">
         <h2 className="text-[16px] font-semibold">{title}</h2>
         {subtitle && <p className="mt-0.5 text-[12.5px] text-muted-2">{subtitle}</p>}

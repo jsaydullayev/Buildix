@@ -819,8 +819,6 @@ export const en: TranslationSchema = {
     saved: 'Changes saved',
     language: {
       title: 'Interface language',
-      subtitle: 'Applies to your account only',
-      label: 'Language',
       hint: 'Applied immediately and saved to your account',
       saveError: 'Could not save the language — please try again',
     },
@@ -828,7 +826,6 @@ export const en: TranslationSchema = {
       title: 'Store',
       phone: 'Phone',
       address: 'Address',
-      hours: 'Working hours',
     },
     cash: {
       title: 'Cash & shifts',
@@ -850,13 +847,8 @@ export const en: TranslationSchema = {
       late: 'Late threshold',
     },
     stock: {
-      title: 'Warehouse & pricing',
-      minAlert: 'Warn on minimum stock',
-      minAlertHint: 'Signal on the dashboard and in purchases',
       belowCost: 'Block selling below cost price',
       belowCostHint: 'The cashier cannot sell at a loss',
-      markup: 'Default markup',
-      markupHint: 'Applied when adding a new product',
     },
     receipt: {
       title: 'Receipt',
