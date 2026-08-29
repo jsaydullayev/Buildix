@@ -63,22 +63,6 @@ public sealed class PostgresHost : IAsyncDisposable
     public async Task<string?> StartAsync(
         Func<string, string> secret, bool secretsAreNew, CancellationToken ct)
     {
-        // Administrator huquqi — bazani UMUMAN ishga tushirib bo'lmaydigan
-        // holat. Buni eng boshida aytamiz: aks holda ilova uch daqiqa kutar,
-        // so'ng «elektr uzilgan bo'lsa kuting» degan xabar chiqarardi va
-        // kutish hech qachon yordam bermasdi.
-        if (IsElevated())
-        {
-            return "Buildix administrator huquqi bilan ishga tushirilgan."
-                + NL2 + "Ma'lumotlar bazasi bunday rejimda ishlamaydi — bu PostgreSQL ning "
-                + "xavfsizlik qoidasi va uni chetlab o'tib bo'lmaydi."
-                + NL2 + "Ilovani yoping va oddiy tarzda oching: ish stolidagi belgini ikki marta "
-                + "bosing. Sichqonchaning o'ng tugmasidagi «Запуск от имени администратора» "
-                + "bandini TANLAMANG."
-                + NL2 + "O'rnatuvchi administrator nomidan ochilgan bo'lsa ham shu holat "
-                + "yuzaga keladi — ilova undan huquqni meros qilib oladi.";
-        }
-
         _password = secret("Database:Password");
         _port = ApiHost.FindFreePort(5433);   // 5432 — tizimdagi Postgres band qilishi mumkin
 
@@ -102,6 +86,23 @@ public sealed class PostgresHost : IAsyncDisposable
             var error = await InitialiseAsync(ct);
             if (error is not null) return error;
         }
+
+        // ── Administrator huquqi bilan ochilgan holat ────────────────────
+        // PostgreSQL elevatsiyalangan jarayonda ishlashdan OCHIQ bosh
+        // tortadi va darhol yopiladi. Bu uning xavfsizlik qoidasi.
+        //
+        // Do'kon kompyuterlarida bundan qochib bo'lmasligi mumkin: ko'p
+        // joyda yagona hisob «Администратор» bo'ladi yoki UAC butunlay
+        // o'chirilgan — o'shanda HAR QANDAY jarayon administrator
+        // huquqi bilan ishlaydi va ilovani «oddiy» ochishning iloji yo'q.
+        //
+        // `pg_ctl` aynan shu holat uchun mo'ljallangan: u administrator
+        // guruhini TOKENDAN chiqarib tashlab, serverni cheklangan huquq
+        // bilan ishga tushiradi. Shuning uchun elevatsiyada faqat shu yo'l
+        // qoladi. Oddiy holatda esa avvalgi to'g'ridan-to'g'ri yo'l saqlanadi:
+        // u ishlab turgan har bir do'konda sinovdan o'tgan va serverning
+        // chiqishini jonli ravishda jurnalga oqizadi.
+        if (IsElevated()) return await StartViaCtlAsync(ct);
 
         _process = Process.Start(new ProcessStartInfo
         {
@@ -172,7 +173,13 @@ public sealed class PostgresHost : IAsyncDisposable
     /// </remarks>
     private void Note(string text)
     {
-        try { _log?.WriteLine("[buildix] " + text); }
+        try
+        {
+            // `pg_ctl` yo'lida jurnalni server o'zi yozadi va bizda oqim
+            // yo'q — o'shanda faylga to'g'ridan-to'g'ri qo'shamiz.
+            if (_log is not null) _log.WriteLine("[buildix] " + text);
+            else File.AppendAllText(DbLogPath, "[buildix] " + text + Environment.NewLine);
+        }
         catch (Exception) { /* jurnal yozilmasa ham yopish davom etadi */ }
     }
 
@@ -258,6 +265,82 @@ public sealed class PostgresHost : IAsyncDisposable
         {
             // Jurnalni o'qiy olmaslik xabarni bermaslikka sabab bo'lmasin.
             return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Bazani <c>pg_ctl</c> orqali ko'taradi — administrator huquqi bilan
+    /// ochilgan ilova uchun YAGONA yo'l.
+    /// </summary>
+    /// <remarks>
+    /// <para><c>pg_ctl</c> serverni o'zi ishga tushirmaydi: avval joriy
+    /// tokendan administrator guruhini chiqarib tashlaydi va postmaster'ni
+    /// o'sha cheklangan token bilan yaratadi. Natijada server o'zining
+    /// «administrator huquqi bilan ishlash mumkin emas» tekshiruvidan
+    /// o'tadi.</para>
+    ///
+    /// <para><b>Nima yo'qotiladi.</b> Server endi bizning bevosita bolamiz
+    /// emas, ya'ni uning chiqishini quvurdan o'qib bo'lmaydi. Shuning uchun
+    /// jurnal <c>-l</c> bilan to'g'ridan-to'g'ri faylga yoziladi, jarayon
+    /// esa <c>postmaster.pid</c> dan topib olinadi va Job Object ga
+    /// bog'lanadi — ilova qulaganda baza orqada qolib ketmasligi kerak.</para>
+    /// </remarks>
+    private async Task<string?> StartViaCtlAsync(CancellationToken ct)
+    {
+        // Jurnal pg_ctl tomonidan yoziladi, ya'ni uni biz ochib ushlab
+        // turmaymiz — faqat eskisini chetga suramiz.
+        var logPath = SecretFile.RotateLog(DbLogPath);
+
+        var (code, err, _) = await RunAsync(
+            Bin("pg_ctl"),
+            $"-D \"{DataDir}\" -l \"{logPath}\" -w -t 120 " +
+            $"-o \"-p {_port} -c listen_addresses=127.0.0.1 -c lc_messages=C\" start",
+            ct);
+
+        if (code != 0)
+        {
+            var reason = err.Trim();
+            return "Ma'lumotlar bazasi ishga tushmadi."
+                + NL2 + (reason.Length > 0 ? reason + NL2 : string.Empty)
+                + LogTail()
+                + "Ilova administrator huquqi bilan ishlayapti. Uni oddiy foydalanuvchi "
+                + "sifatida ochib ko'ring — o'ng tugmadagi «Запуск от имени администратора» "
+                + "bandini tanlamang."
+                + NL2 + "Batafsil: " + DbLogPath;
+        }
+
+        // Jarayonni topib, Job Object ga bog'laymiz: usiz ilova qulaganda
+        // baza orqada qolar va keyingi ochilishda port band bo'lardi.
+        _process = FindPostmaster();
+        if (_process is not null) _job.Attach(_process);
+        return null;
+    }
+
+    /// <summary>
+    /// Ishlab turgan postmaster jarayoni — <c>postmaster.pid</c> dagi
+    /// birinchi qatordan.
+    /// </summary>
+    private static Process? FindPostmaster()
+    {
+        try
+        {
+            var pidFile = Path.Combine(DataDir, "postmaster.pid");
+            if (!File.Exists(pidFile)) return null;
+
+            // Fayl server tomonidan ochiq ushlab turiladi.
+            using var stream = new FileStream(
+                pidFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+
+            return int.TryParse(reader.ReadLine()?.Trim(), out var pid)
+                ? Process.GetProcessById(pid)
+                : null;
+        }
+        catch (Exception)
+        {
+            // Topa olmaslik ishga tushishni to'xtatmaydi — faqat qulash
+            // paytidagi kafolat yo'qoladi.
+            return null;
         }
     }
 
@@ -482,7 +565,14 @@ public sealed class PostgresHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_process is not { HasExited: false })
+        // `pg_ctl` yo'lida server bizning bevosita bolamiz emas va uning
+        // handle'i topilmagan bo'lishi mumkin. Bunday holatda ham to'xtatish
+        // SHART: aks holda baza toza yopilmaydi va keyingi har bir ochilish
+        // tiklash jurnalini o'qishdan boshlanadi.
+        var running = _process is { HasExited: false }
+            || File.Exists(Path.Combine(DataDir, "postmaster.pid"));
+
+        if (!running)
         {
             _process?.Dispose();
             _log?.Dispose();
@@ -501,24 +591,31 @@ public sealed class PostgresHost : IAsyncDisposable
         // har bir ochilish tiklash jurnalini o'qishdan boshlanardi.
         try
         {
+            // `-w` — to'xtash TUGAGUNCHA kutiladi. Busiz pg_ctl so'rovni
+            // yuborib qaytar, ilova esa darhol tugar va Job Object bazani
+            // yozib ulgurmasdan o'ldirardi.
             var (code, err, _) = await RunAsync(
-                Bin("pg_ctl"), $"-D \"{DataDir}\" -m fast stop", CancellationToken.None);
+                Bin("pg_ctl"), $"-D \"{DataDir}\" -m fast -w -t 30 stop", CancellationToken.None);
 
             // Natija ilgari umuman o'qilmasdi: pg_ctl yiqilsa ham hech kim
             // bilmasdi. Sabab jurnalga tushsin — keyingi ochilishdagi
             // tiklanishning izohi aynan shu qator bo'ladi.
             if (code != 0) Note($"pg_ctl stop -> {code}: {err.Trim()}");
 
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            await _process.WaitForExitAsync(timeout.Token);
+            if (_process is { HasExited: false })
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                await _process.WaitForExitAsync(timeout.Token);
+            }
         }
         catch (Exception ex)
         {
             Note("to'xtatib bo'lmadi: " + ex.Message);
-            try { _process.Kill(entireProcessTree: true); } catch (Exception) { }
+            // `pg_ctl` yo'lida jarayon handle'i bo'lmasligi mumkin.
+            try { _process?.Kill(entireProcessTree: true); } catch (Exception) { }
         }
 
-        _process.Dispose();
+        _process?.Dispose();
         _log?.Dispose();
     }
 }
