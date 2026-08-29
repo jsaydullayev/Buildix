@@ -291,7 +291,7 @@ public sealed class PostgresHost : IAsyncDisposable
         // turmaymiz — faqat eskisini chetga suramiz.
         var logPath = SecretFile.RotateLog(DbLogPath);
 
-        var (code, err, _) = await RunAsync(
+        var code = await RunDetachedAsync(
             Bin("pg_ctl"),
             $"-D \"{DataDir}\" -l \"{logPath}\" -w -t 120 " +
             $"-o \"-p {_port} -c listen_addresses=127.0.0.1 -c lc_messages=C\" start",
@@ -299,10 +299,9 @@ public sealed class PostgresHost : IAsyncDisposable
 
         if (code != 0)
         {
-            var reason = err.Trim();
             return "Ma'lumotlar bazasi ishga tushmadi."
-                + NL2 + (reason.Length > 0 ? reason + NL2 : string.Empty)
-                + LogTail()
+                + $" (pg_ctl {code} kodi bilan qaytdi)"
+                + NL2 + LogTail()
                 + "Ilova administrator huquqi bilan ishlayapti. Uni oddiy foydalanuvchi "
                 + "sifatida ochib ko'ring — o'ng tugmadagi «Запуск от имени администратора» "
                 + "bandini tanlamang."
@@ -311,8 +310,14 @@ public sealed class PostgresHost : IAsyncDisposable
 
         // Jarayonni topib, Job Object ga bog'laymiz: usiz ilova qulaganda
         // baza orqada qolar va keyingi ochilishda port band bo'lardi.
+        // Bog'lay olmaslik ishga tushishni TO'XTATMAYDI — baza allaqachon
+        // ko'tarilgan va uni shu sababli yopish mantiqsiz bo'lardi.
         _process = FindPostmaster();
-        if (_process is not null) _job.Attach(_process);
+        if (_process is not null)
+        {
+            try { _job.Attach(_process); }
+            catch (Exception ex) { Note("job'ga bog'lab bo'lmadi: " + ex.Message); }
+        }
         return null;
     }
 
@@ -437,6 +442,42 @@ public sealed class PostgresHost : IAsyncDisposable
             await Task.Delay(500, ct);
         }
         return false;
+    }
+
+    /// <summary>
+    /// Orqasida UZOQ YASHAYDIGAN bola qoldiradigan buyruqni ishga tushiradi.
+    /// Chiqishi o'qilmaydi — faqat chiqish kodi qaytadi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega quvursiz.</b> <c>pg_ctl start</c> serverni yaratib,
+    /// o'zi darhol tugaydi. Server esa pg_ctl dan meros qolgan HAMMA
+    /// merosxo'r handle'larni — jumladan biz ochgan quvurlarni — o'zida
+    /// ushlab qoladi. Quvurning yozuvchi uchi yopilmagani uchun unda EOF
+    /// hech qachon kelmaydi va <c>ReadToEnd</c> abadiy kutadi.</para>
+    ///
+    /// <para>Amalda bu shunday ko'rinardi: baza muvaffaqiyatli ko'tariladi
+    /// va jurnalda «database system is ready to accept connections» turadi,
+    /// ilova esa «Ma'lumotlar bazasi ishga tushmoqda…» yozuvida abadiy
+    /// qotib qoladi.</para>
+    ///
+    /// <para>Nosozlik sababi baribir yo'qolmaydi: server o'z xabarlarini
+    /// <c>-l</c> bilan ko'rsatilgan faylga yozadi va u
+    /// <see cref="LogTail"/> orqali xabarga qo'shiladi.</para>
+    /// </remarks>
+    private static async Task<int> RunDetachedAsync(string exe, string args, CancellationToken ct)
+    {
+        using var p = Process.Start(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = args,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            // RedirectStandard* ATAYLAB yo'q — yuqoridagi izohga qarang.
+        });
+        if (p is null) return -1;
+
+        await p.WaitForExitAsync(ct);
+        return p.ExitCode;
     }
 
     private static async Task<(int Code, string Error, string Output)> RunAsync(
