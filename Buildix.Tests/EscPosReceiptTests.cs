@@ -24,6 +24,7 @@ public class EscPosReceiptTests
         SellerName: "Jaxongir",
         CustomerName: customer,
         InvoiceNumber: Guid.Parse("9bbb1800-0000-4000-8000-000000000000"),
+        SaleNumber: 21,
         Date: new DateTime(2026, 8, 28, 22, 3, 0, DateTimeKind.Utc),
         PaymentType: "Naqd",
         Items:
@@ -264,6 +265,27 @@ public class EscPosReceiptTests
 
         Assert.True(Find(bytes, [0x1B, 0x4D, 0x00]) >= 0, "Font A tanlanmagan");   // ESC M 0
         Assert.True(Find(bytes, [0x1B, 0x20, 0x00]) >= 0, "belgi oralig'i nolga qo'yilmagan"); // ESC SP 0
+    }
+
+    /// <summary>
+    /// Chekda QAYTARISH uchun kerak bo'ladigan raqam turadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Qaytarish oynasi sotuvni chek raqami bo'yicha qidiradi va
+    /// <c>SaleQueryService</c> uni <c>SaleNumber</c> bilan solishtiradi.
+    /// Ilgari chekka sotuv identifikatorining qisqartmasi («#9BBB18»)
+    /// bosilardi: u hech qanday qidiruvga tushmasdi va kassir qo'lida
+    /// chek turib, sotuvni topa olmasdi.</para>
+    /// </remarks>
+    [Fact]
+    public void Chekda_qaytarish_uchun_raqam_bor()
+    {
+        var lines = Lines(EscPosReceipt.Build(Sale(), "uz", 80));
+
+        var row = Assert.Single(lines, l => l.StartsWith("Chek"));
+        Assert.EndsWith("№21", row);
+        // Qidiruvga tushmaydigan qisqartma qaytib kelmasin.
+        Assert.DoesNotContain("9BBB18", string.Join("\n", lines));
     }
 
     /// <summary>

@@ -131,8 +131,11 @@ internal static class EscPosReceipt
         Line(new string('=', cols));
 
         // ── Rekvizitlar ─────────────────────────────────────────────────
-        var shortId = data.InvoiceNumber.ToString("N")[..6].ToUpperInvariant();
-        Line(Pair(L("Chek", "Чек"), $"#{shortId}", cols));
+        // Chek raqami — QAYTARISH shu raqam bo'yicha topiladi. Ilgari bu
+        // yerda sotuv identifikatorining qisqartmasi («#9BBB18») turardi:
+        // u hech qanday qidiruvga tushmasdi va kassir qo'lida chek bilan
+        // sotuvni topa olmasdi.
+        Line(Pair(L("Chek", "Чек"), $"№{data.SaleNumber}", cols));
         Line(Pair(L("Sana", "Дата"), data.Date.ToString("dd.MM.yyyy HH:mm"), cols));
         Line(Pair(L("Sotuvchi", "Продавец"), data.SellerName, cols));
         // Mijoz YO'Q bo'lsa qator umuman bosilmaydi. Ma'lumot to'plami bu

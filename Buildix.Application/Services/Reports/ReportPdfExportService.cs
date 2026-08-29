@@ -384,7 +384,12 @@ public sealed class ReportPdfExportService(
             sellerName,
             customerName,
             sale.Id,
-            sale.CreatedAt,
+            sale.SaleNumber,
+            // Baza UTC saqlaydi. Chek va faktura — mijoz o'qiydigan hujjat,
+            // ya'ni vaqt do'kon soati bo'yicha (Toshkent, GMT+5) bo'lishi
+            // kerak. Ilgari UTC o'z holicha bosilar va qog'ozda haqiqiy
+            // vaqtdan besh soat orqadagi soat turardi.
+            _clock.ToLocal(sale.CreatedAt),
             paymentTypeUz,
             invoiceItems,
             sale.TotalAmount,

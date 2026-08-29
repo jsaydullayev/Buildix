@@ -893,7 +893,6 @@ internal static class ReportPdfRenderer
         float titleSize = narrow ? 11f : 13f;
         float totalSize = narrow ? 11f : 13f;
 
-        var shortId = data.InvoiceNumber.ToString("N")[..6].ToUpperInvariant();
         string Money(decimal v) => $"{v:N0}";
         string Qty(decimal v) => v == decimal.Truncate(v) ? $"{v:N0}" : $"{v:N3}".TrimEnd('0').TrimEnd(',', '.');
 
@@ -944,7 +943,10 @@ internal static class ReportPdfRenderer
                         });
                     }
 
-                    Meta(L("Chek", "Чек"), $"№{shortId}");
+                    // Qaytarish SHU raqam bo'yicha topiladi — sotuv
+                    // identifikatorining qisqartmasi hech qanday qidiruvga
+                    // tushmasdi.
+                    Meta(L("Chek", "Чек"), $"№{data.SaleNumber}");
                     Meta(L("Sana", "Дата"), data.Date.ToString("dd.MM.yyyy HH:mm"));
                     Meta(L("Sotuvchi", "Продавец"), data.SellerName);
                     // Chakana sotuvda mijoz qatori umuman chiqmaydi: A4 fakturada
@@ -1026,6 +1028,25 @@ internal static class ReportPdfRenderer
         string SellerName,
         string CustomerName,
         Guid InvoiceNumber,
+        /// <summary>
+        /// Chekning KO'RINADIGAN raqami — «Chek №21».
+        /// </summary>
+        /// <remarks>
+        /// <para>Qaytarish aynan shu raqam bo'yicha topiladi
+        /// (<c>SaleQueryService</c> uni <c>SaleNumber</c> bilan solishtiradi).
+        /// Ilgari chekka <see cref="InvoiceNumber"/> ning qisqartmasi
+        /// («#9BBB18») bosilardi — u hech qanday qidiruvga tushmasdi va
+        /// kassir qo'lida chek turib, sotuvni topa olmasdi.</para>
+        /// </remarks>
+        int SaleNumber,
+        /// <summary>
+        /// Sotuv vaqti — TOSHKENT bo'yicha (GMT+5), UTC emas.
+        /// </summary>
+        /// <remarks>
+        /// Baza UTC saqlaydi va chekka o'sha holicha bosilardi: qog'ozda
+        /// haqiqiy vaqtdan besh soat orqada turgan soat chiqar, mijoz esa
+        /// xaridni qachon qilganini tekshira olmasdi.
+        /// </remarks>
         DateTime Date,
         string PaymentType,
         List<InvoiceItemData> Items,

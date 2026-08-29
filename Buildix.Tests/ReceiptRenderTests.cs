@@ -20,6 +20,7 @@ public class ReceiptRenderTests
         SellerName: "Jaxongir",
         CustomerName: "Xoshim",
         InvoiceNumber: Guid.NewGuid(),
+        SaleNumber: 21,
         Date: new DateTime(2026, 8, 28, 1, 6, 0, DateTimeKind.Utc),
         PaymentType: "Naqd",
         Items:

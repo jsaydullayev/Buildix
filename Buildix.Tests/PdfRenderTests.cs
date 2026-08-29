@@ -33,6 +33,7 @@ public class PdfRenderTests
         SellerName: "Aziz Karimov",
         CustomerName: "Sardor Umarov",
         InvoiceNumber: Guid.Parse("8f14e45f-ea2b-4c1f-9d3a-77b0c1e2d3f4"),
+        SaleNumber: 137,
         Date: new DateTime(2026, 7, 25, 14, 30, 0),
         PaymentType: "Naqd",
         Items:
