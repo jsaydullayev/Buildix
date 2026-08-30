@@ -453,9 +453,19 @@ public sealed class SetupForm : Form
             process?.WaitForExit();
 
             if (process is { ExitCode: 0 })
-                Show(Color.SeaGreen, $"{DefaultPort}-port do'kon tarmog'i uchun ochildi.");
+            {
+                // Qoida faqat XUSUSIY profil uchun. Windows do'kon tarmog'ini
+                // «Ommaviy» deb belgilagan bo'lsa u umuman ishlamaydi va
+                // 2-kassa ulanolmaydi — tashqaridan bu tarmoq nosozligiga
+                // o'xshab ko'rinadi va uni do'konda topish juda qiyin.
+                Show(Color.SeaGreen,
+                    $"{DefaultPort}-port ochildi. 2-kassa ulanolmasa — Windows'da "
+                    + "do'kon tarmog'i «Частная» (xususiy) deb belgilanganini tekshiring.");
+            }
             else
+            {
                 Show(Color.Firebrick, "Qoida qo'shilmadi. Administrator huquqi kerak.");
+            }
         }
         catch (Exception ex)
         {

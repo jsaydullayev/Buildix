@@ -151,9 +151,25 @@ public sealed class MainForm : Form
         _api.CloudUrl = _secrets.CloudUrl;
         _api.TerminalKey = _secrets.TerminalKey;
 
+        _api.AllowLan = _secrets.AllowLan;
+
+        // Tarmoqqa ochilgan kassada port QAT'IY: boshqa kassalar unga aynan
+        // shu raqam bilan ulanadi. Band bo'lsa buni ochiq aytamiz — jimgina
+        // boshqa portga o'tish 2-kassani ulanolmas holga keltirar va sabab
+        // hech qayerda ko'rinmasdi.
+        if (_api.AllowLan && !ApiHost.IsPortFree(_api.Port, lan: true))
+        {
+            Fail($"{_api.Port}-port band.\n\n"
+                 + "Boshqa kassalar shu kompyuterga AYNAN shu port orqali ulanadi, "
+                 + "shuning uchun uni almashtirib bo'lmaydi.\n\n"
+                 + "Portni band qilgan dasturni yoping. Yoki bu kompyuterga boshqa "
+                 + "kassalar ulanmasa, sozlashda «Boshqa kassalar shu kompyuterga "
+                 + "ulanadi» bandini o'chiring (Buildix.Desktop.exe --setup).");
+            return;
+        }
+
         try
         {
-            _api.AllowLan = _secrets.AllowLan;
             _api.Start();
         }
         catch (Exception ex)

@@ -33,6 +33,9 @@ public sealed class ApiHost : IAsyncDisposable
 
     public string BaseUrl => $"http://127.0.0.1:{_port}";
 
+    /// <summary>API tinglayotgan port — boshqa kassalar aynan shunga ulanadi.</summary>
+    public int Port => _port;
+
     /// <summary>
     /// API ni lokal tarmoqqa ochish (2- va 3-kassa uchun). Qiymat
     /// kompyuterning o'z sozlamasidan keladi, nashr faylidan emas — nashr
@@ -155,22 +158,32 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>Band bo'lmagan port topadi — ikkinchi nusxa yoki boshqa dastur to'sib qo'ymasin.</summary>
     public static int FindFreePort(int preferred)
     {
-        if (IsFree(preferred)) return preferred;
+        if (IsPortFree(preferred)) return preferred;
         for (var p = preferred + 1; p < preferred + 50; p++)
-            if (IsFree(p)) return p;
+            if (IsPortFree(p)) return p;
         throw new InvalidOperationException("Bo'sh port topilmadi.");
+    }
 
-        static bool IsFree(int port)
+    /// <summary>
+    /// Port bo'shmi.
+    /// </summary>
+    /// <param name="lan">
+    /// Tarmoqqa ochilgan kassa uchun <c>true</c>: tekshiruv HAMMA
+    /// interfeysda bajariladi. Port loopback'da bo'sh, tashqi interfeysda
+    /// esa band bo'lishi mumkin — o'shanda API ishga tushmas, sabab esa
+    /// «bo'sh port topildi» degan xulosaga zid bo'lardi.
+    /// </param>
+    public static bool IsPortFree(int port, bool lan = false)
+    {
+        try
         {
-            try
-            {
-                using var l = new TcpListener(System.Net.IPAddress.Loopback, port);
-                l.Start();
-                l.Stop();
-                return true;
-            }
-            catch (SocketException) { return false; }
+            using var l = new TcpListener(
+                lan ? System.Net.IPAddress.Any : System.Net.IPAddress.Loopback, port);
+            l.Start();
+            l.Stop();
+            return true;
         }
+        catch (SocketException) { return false; }
     }
 
     public async ValueTask DisposeAsync()

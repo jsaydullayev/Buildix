@@ -59,11 +59,27 @@ internal static class Program
         // Bitta Job Object ikkala bola jarayonni ham ushlab turadi: ilova
         // qanday tugasa ham baza va API orqada qolmaydi.
         using var job = new SafeJob();
-        var port = ApiHost.FindFreePort(PreferredPort);
 
         try
         {
             var secrets = new LocalSecrets();
+
+            // ── Port ──────────────────────────────────────────────────────
+            // Tarmoqqa ochilgan kassada port QAT'IY 5088. Boshqa kassalar
+            // unga aynan shu raqam bilan ulanadi, brandmauer teshigi ham shu
+            // raqamga qo'yiladi va sozlash oynasi ham shu raqamni ko'rsatadi.
+            //
+            // Ilgari port band bo'lsa JIMGINA keyingisiga o'tardi (5089,
+            // 5090…). O'shanda ko'rsatilgan manzil ham, brandmauer qoidasi
+            // ham noto'g'ri bo'lib qolar va 2-kassa ulanolmasdi — sabab esa
+            // hech qayerda ko'rinmasdi, texnik tarmoqni ayblab vaqt
+            // yo'qotardi. Band bo'lsa endi ochiq aytiladi (MainForm).
+            //
+            // Ulanuvchi kassada va bitta kassali do'konda port faqat shu
+            // kompyuterning o'zi uchun, ya'ni siljishi zararsiz.
+            var port = secrets.ServerUrl is null && secrets.AllowLan
+                ? PreferredPort
+                : ApiHost.FindFreePort(PreferredPort);
             var api = new ApiHost(port, job);
             var db = new PostgresHost(job);
 
