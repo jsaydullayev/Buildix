@@ -975,14 +975,39 @@ try
         });
     }
 
+    // Do'kon rejimida javobga do'konning KIMLIGI ham qo'shiladi.
+    //
+    // Ulanuvchi kassa manzilga qarab ulanadi, manzil esa boshqa kompyuterga
+    // o'tib qolishi mumkin: router IP ni DHCP bilan tarqatadi. Bitta tarmoqda
+    // ikkita Buildix bo'lsa — bozordagi qo'shni do'kon yoki xato sozlangan
+    // ikkinchi server — kassa jimgina BEGONA bazaga ulanib ketardi va
+    // savdolar o'sha do'konga yozilardi. Belgi shu xatoni ulanishdan OLDIN
+    // ushlaydi.
+    //
+    // Bulutda bu ma'lumot qaytarilmaydi: u yerda `/health` ochiq internetda
+    // turadi va do'kon nomini ko'rsatishning hech qanday sababi yo'q.
+    var healthShopId = builder.Configuration.GetValue<string>("Desktop:ShopId");
+    var healthDesktop = builder.Configuration.GetValue<bool>("Desktop:Enabled");
+
     app.MapGet("/health", async (AppDbContext db, ILogger<Program> logger) =>
     {
         try
         {
             var canConnect = await db.Database.CanConnectAsync();
-            return canConnect
-                ? Results.Ok(new { status = "healthy" })
-                : Results.Json(new { status = "unhealthy" }, statusCode: 503);
+            if (!canConnect) return Results.Json(new { status = "unhealthy" }, statusCode: 503);
+
+            if (!healthDesktop) return Results.Ok(new { status = "healthy" });
+
+            // Nom faqat ko'rsatish uchun — texnik «to'g'ri do'konmi?» degan
+            // savolga bir qarashda javob olsin. Tenglik esa belgi bo'yicha
+            // tekshiriladi: ikki do'kon bir xil nomli bo'lishi mumkin.
+            var shopName = await db.Markets
+                .AsNoTracking()
+                .OrderBy(m => m.Id)
+                .Select(m => m.Name)
+                .FirstOrDefaultAsync();
+
+            return Results.Ok(new { status = "healthy", shopId = healthShopId, shopName });
         }
         catch (Exception ex)
         {

@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text.Json;
 
 namespace Buildix.Desktop;
 
@@ -13,36 +14,103 @@ namespace Buildix.Desktop;
 ///
 /// <para><b>Nega /health.</b> U yagona autentifikatsiyasiz uchraydigan yo'l
 /// va bazaga ham tegib ko'radi — ya'ni «server ko'tarilgan, lekin bazasi
-/// yiqilgan» holatni ham ushlaydi.</para>
+/// yiqilgan» holatni ham ushlaydi. Javobda do'konning kimligi ham keladi.</para>
 /// </summary>
 public static class ServerProbe
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(4) };
 
-    /// <summary>Hammasi joyida bo'lsa <c>null</c>, aks holda tushunarli xato matni.</summary>
-    public static async Task<string?> CheckAsync(string baseUrl, CancellationToken ct)
+    /// <summary>
+    /// Tekshiruv natijasi.
+    /// </summary>
+    /// <param name="Problem">Hammasi joyida bo'lsa <c>null</c>.</param>
+    /// <param name="ShopId">Javob bergan do'konning takrorlanmas belgisi.</param>
+    /// <param name="ShopName">Do'kon nomi — faqat ko'rsatish uchun.</param>
+    public sealed record Result(string? Problem, string? ShopId = null, string? ShopName = null);
+
+    /// <summary>Hammasi joyida bo'lsa <c>Problem</c> <c>null</c>.</summary>
+    public static async Task<Result> ProbeAsync(string baseUrl, CancellationToken ct)
     {
         try
         {
             var response = await Http.GetAsync($"{baseUrl.TrimEnd('/')}/health", ct);
-            if (response.IsSuccessStatusCode) return null;
+            if (response.IsSuccessStatusCode)
+            {
+                var (id, name) = await ReadShopAsync(response, ct);
+                return new Result(null, id, name);
+            }
 
             // 400 — deyarli har doim AllowedHosts: server lokal tarmoqqa
             // ochilmagan. Buni alohida aytish kerak, aks holda texnik
             // manzilni qayta-qayta tekshirib vaqt yo'qotadi.
             if ((int)response.StatusCode == 400)
-                return "Server ulanishni rad etdi. Server kassada tarmoq rejimi yoqilmagan.";
+                return new Result("Server ulanishni rad etdi. Server kassada tarmoq rejimi yoqilmagan.");
 
-            return $"Server javob berdi, lekin xato bilan ({(int)response.StatusCode}).";
+            return new Result($"Server javob berdi, lekin xato bilan ({(int)response.StatusCode}).");
         }
         catch (TaskCanceledException)
         {
-            return "Server javob bermadi. Kompyuter o'chiq yoki tarmoqda yo'q.";
+            return new Result("Server javob bermadi. Kompyuter o'chiq yoki tarmoqda yo'q.");
         }
         catch (HttpRequestException ex)
         {
-            return "Ulanib bo'lmadi: " + Explain(ex);
+            return new Result("Ulanib bo'lmadi: " + Explain(ex));
         }
+    }
+
+    /// <summary>Faqat holat kerak bo'lganda — qisqa yo'l.</summary>
+    public static async Task<string?> CheckAsync(string baseUrl, CancellationToken ct) =>
+        (await ProbeAsync(baseUrl, ct)).Problem;
+
+    /// <summary>
+    /// Javob bergan server AYNAN o'sha do'konmi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Belgi hali saqlanmagan bo'lsa (eski sozlama) tekshiruv
+    /// o'tkazilmaydi — aks holda yangilanishdan keyin ishlab turgan
+    /// kassalar to'xtab qolardi. Belgi birinchi muvaffaqiyatli ulanishda
+    /// yoziladi.</para>
+    /// </remarks>
+    public static string? ShopMismatch(string? expectedShopId, Result probe)
+    {
+        if (string.IsNullOrWhiteSpace(expectedShopId)) return null;
+        if (probe.Problem is not null) return null;
+        // Eski versiyadagi server belgini qaytarmaydi — uni xato deb
+        // hisoblash ishlab turgan do'konni to'xtatib qo'yardi.
+        if (string.IsNullOrWhiteSpace(probe.ShopId)) return null;
+        if (string.Equals(probe.ShopId, expectedShopId, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var name = string.IsNullOrWhiteSpace(probe.ShopName) ? "boshqa do'kon" : $"«{probe.ShopName}»";
+        return "Bu manzilda BOSHQA do'kon turibdi — " + name + "."
+            + Environment.NewLine + Environment.NewLine
+            + "Ulanish to'xtatildi: aks holda savdolar va qoldiqlar begona do'konning "
+            + "bazasiga yozilardi."
+            + Environment.NewLine + Environment.NewLine
+            + "Odatda sababi — server kassaning manzili o'zgargan (routerdan yangi IP olgan) "
+            + "va eski manzil boshqa kompyuterga o'tgan. Sozlashda yangi manzilni kiriting.";
+    }
+
+    private static async Task<(string? Id, string? Name)> ReadShopAsync(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            var root = doc.RootElement;
+            return (Text(root, "shopId"), Text(root, "shopName"));
+        }
+        catch (Exception)
+        {
+            // Javobni o'qib bo'lmasligi ULANISHNI to'xtatmaydi: server
+            // javob bergan, demak u tirik. Eski versiyada bu maydonlar
+            // umuman yo'q.
+            return (null, null);
+        }
+
+        static string? Text(JsonElement root, string name) =>
+            root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+                ? v.GetString()
+                : null;
     }
 
     private static string Explain(HttpRequestException ex) => ex.InnerException switch

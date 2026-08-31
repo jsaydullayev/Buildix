@@ -249,10 +249,25 @@ public sealed class SetupForm : Form
         _firewall.Enabled = !isClient;
     }
 
+    /// <summary>
+    /// «Tekshirish» paytida javob bergan do'konning belgisi.
+    /// </summary>
+    /// <remarks>
+    /// Saqlanadi va har ochilishda solishtiriladi: manzil boshqa
+    /// kompyuterga o'tib qolsa, kassa begona bazaga ulanmaydi.
+    /// Tekshirilmagan bo'lsa <c>null</c> — o'shanda belgi birinchi
+    /// muvaffaqiyatli ulanishda yoziladi, ish esa to'xtamaydi.
+    /// </remarks>
+    private string? _probedShopId;
+
     private void Persist()
     {
         var isClient = _client.Checked;
         _secrets.SetServerUrl(isClient ? Normalize(_address.Text) ?? _address.Text : null);
+        // Server rejimida bu belgi keraksiz — u faqat ULANUVCHI kassaga
+        // tegishli. Eski qiymat qolib ketsa, rol almashtirilganda noto'g'ri
+        // solishtirishga sabab bo'lardi.
+        _secrets.SetServerShopId(isClient ? _probedShopId : null);
         // Ulanuvchi kassa hech qachon tarmoqqa ochilmaydi: unda API umuman
         // ishga tushmaydi va yoqilgan bayroq faqat chalkashtirardi.
         _secrets.SetAllowLan(!isClient && _lan.Checked);
@@ -386,11 +401,23 @@ public sealed class SetupForm : Form
         Show(SystemColors.GrayText, "Tekshirilmoqda…");
         try
         {
-            var error = await ServerProbe.CheckAsync(address, CancellationToken.None);
-            if (error is null)
-                Show(Color.SeaGreen, "Server javob berdi. Saqlash mumkin.");
-            else
-                Show(Color.Firebrick, error);
+            var probe = await ServerProbe.ProbeAsync(address, CancellationToken.None);
+            if (probe.Problem is not null)
+            {
+                _probedShopId = null;
+                Show(Color.Firebrick, probe.Problem);
+                return;
+            }
+
+            // Do'kon NOMI ko'rsatiladi. Bitta tarmoqda ikkita Buildix
+            // bo'lishi mumkin (bozordagi qo'shni do'kon, xato sozlangan
+            // ikkinchi server) va manzilning o'zi qaysi do'kon ekanini
+            // aytmaydi — texnik buni faqat savdo boshlangandan keyin,
+            // begona qoldiqlarni ko'rib bilardi.
+            _probedShopId = probe.ShopId;
+            Show(Color.SeaGreen, string.IsNullOrWhiteSpace(probe.ShopName)
+                ? "Server javob berdi. Saqlash mumkin."
+                : $"Server javob berdi: «{probe.ShopName}». Do'kon to'g'ri bo'lsa saqlang.");
         }
         finally
         {

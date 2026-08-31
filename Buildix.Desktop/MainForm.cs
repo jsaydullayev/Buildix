@@ -75,7 +75,27 @@ public sealed class MainForm : Form
         if (_secrets.ServerUrl is { } serverUrl)
         {
             _status.Text = "Server kassaga ulanmoqda…";
-            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
+            var probe = await ServerProbe.ProbeAsync(serverUrl, CancellationToken.None);
+
+            // Manzilda BOSHQA do'kon turgan bo'lsa ulanmaymiz. Router IP ni
+            // qayta tarqatganda eski manzil boshqa kompyuterga o'tishi
+            // mumkin; bitta tarmoqda ikkinchi Buildix bo'lsa kassa jimgina
+            // begona bazaga ulanib ketardi va savdolar o'sha do'konga
+            // yozilardi. Bu — qaytarib bo'lmaydigan zarar, shuning uchun
+            // ulanishdan OLDIN to'xtatiladi.
+            if (ServerProbe.ShopMismatch(_secrets.ServerShopId, probe) is { } mismatch)
+            {
+                FailWithSetup(mismatch, serverUrl);
+                return;
+            }
+
+            // Belgi hali yozilmagan bo'lsa — sozlashda «Tekshirish» bosilmagan
+            // yoki sozlama eski versiyadan qolgan — birinchi muvaffaqiyatli
+            // ulanishda yozib qo'yamiz. Shundan keyin manzil boshqa
+            // kompyuterga o'tsa, kassa buni darhol sezadi.
+            RememberShop(probe);
+
+            var problem = probe.Problem;
             if (problem is not null)
             {
                 // Birinchi urinish yiqildi — lekin bu YAKUNIY javob emas.
@@ -150,6 +170,9 @@ public sealed class MainForm : Form
         }
         _api.CloudUrl = _secrets.CloudUrl;
         _api.TerminalKey = _secrets.TerminalKey;
+        // Ulanuvchi kassalar shu belgi bilan «to'g'ri do'konmi?» degan
+        // savolga javob oladi.
+        _api.ShopId = _secrets.ShopId;
 
         _api.AllowLan = _secrets.AllowLan;
 
@@ -315,6 +338,24 @@ public sealed class MainForm : Form
     /// <para><c>file:</c> ham chiqarib tashlangan: sahifa ixtiyoriy faylni
     /// ochtira olmasligi kerak.</para>
     /// </remarks>
+    /// <summary>
+    /// Do'kon belgisini birinchi muvaffaqiyatli ulanishda yozib qo'yadi.
+    /// </summary>
+    /// <remarks>
+    /// Mavjud belgi HECH QACHON ustiga yozilmaydi: aks holda begona serverga
+    /// ulanish uni jimgina «to'g'ri» deb qayd etar va butun himoya ma'nosiz
+    /// bo'lardi. Mos kelmaslik allaqachon yuqorida to'xtatilgan.
+    /// </remarks>
+    private void RememberShop(ServerProbe.Result probe)
+    {
+        if (_secrets.ServerShopId is not null) return;
+        if (probe.Problem is not null) return;
+        if (string.IsNullOrWhiteSpace(probe.ShopId)) return;
+
+        try { _secrets.SetServerShopId(probe.ShopId); }
+        catch (Exception) { /* yozib bo'lmasa ish to'xtamaydi */ }
+    }
+
     private static void OpenExternally(string uri)
     {
         if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)) return;
@@ -404,8 +445,21 @@ public sealed class MainForm : Form
         {
             if (IsDisposed) { timer.Stop(); timer.Dispose(); return; }
 
-            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
-            if (problem is not null) return;   // hali tayyor emas — kutamiz
+            var probe = await ServerProbe.ProbeAsync(serverUrl, CancellationToken.None);
+            if (probe.Problem is not null) return;   // hali tayyor emas — kutamiz
+
+            // Kutish paytida manzil BOSHQA kompyuterga o'tgan bo'lishi
+            // mumkin — aynan shu holat routerni qayta yoqqandan keyin yuz
+            // beradi. Begona bazaga ulanib ketmaymiz.
+            if (ServerProbe.ShopMismatch(_secrets.ServerShopId, probe) is { } wrongShop)
+            {
+                timer.Stop();
+                timer.Dispose();
+                FailWithSetup(wrongShop, serverUrl);
+                return;
+            }
+
+            RememberShop(probe);
 
             timer.Stop();
             timer.Dispose();

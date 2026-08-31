@@ -56,6 +56,12 @@ public sealed class ApiHost : IAsyncDisposable
     public string? CloudUrl { get; set; }
     public string? TerminalKey { get; set; }
 
+    /// <summary>
+    /// Do'konning takrorlanmas belgisi — <c>/health</c> uni qaytaradi va
+    /// ulanuvchi kassa shu bilan do'konni taniydi.
+    /// </summary>
+    public string? ShopId { get; set; }
+
     public void Start()
     {
         var psi = new ProcessStartInfo
@@ -71,6 +77,10 @@ public sealed class ApiHost : IAsyncDisposable
         // qayta loopback'ga qamab qo'yardi.
         psi.Environment["ASPNETCORE_URLS"] = AllowLan ? $"http://0.0.0.0:{_port}" : BaseUrl;
         psi.Environment["Desktop__AllowLan"] = AllowLan ? "true" : "false";
+        // Do'konning takrorlanmas belgisi — ulanuvchi kassa aynan shu bilan
+        // «to'g'ri do'konga ulandimmi?» degan savolga javob oladi.
+        if (!string.IsNullOrWhiteSpace(ShopId))
+            psi.Environment["Desktop__ShopId"] = ShopId;
         // Ulanish satri muhit o'zgaruvchisi orqali: fayldagi sozlamada parol
         // ochiq yotmasin va uni tasodifan nusxalab yuborish imkoni bo'lmasin.
         if (!string.IsNullOrWhiteSpace(ConnectionString))

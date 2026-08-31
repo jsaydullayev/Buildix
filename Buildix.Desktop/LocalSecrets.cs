@@ -149,6 +149,44 @@ public sealed class LocalSecrets
     }
 
     /// <summary>
+    /// Shu O'RNATISHNING takrorlanmas belgisi — do'konni tanish uchun.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega kerak.</b> Ulanuvchi kassa manzilga qarab ulanadi,
+    /// manzil esa BOSHQA kompyuterga o'tib qolishi mumkin: router IP ni DHCP
+    /// bilan tarqatadi va qayta yoqilganda uni boshqasiga berishi mumkin.
+    /// Bitta tarmoqda ikkita Buildix bo'lsa (masalan bozordagi qo'shni
+    /// do'kon yoki xato sozlangan ikkinchi server) kassa jimgina BOSHQA
+    /// do'konning bazasiga ulanib ketardi — savdolar, qoldiqlar va qarzlar
+    /// begona do'konga yozilardi va buni darhol sezish imkoni yo'q edi.</para>
+    ///
+    /// <para><b>Nega market'ning raqami emas.</b> U har bazada 1 dan
+    /// boshlanadi, ya'ni ikki xil do'konda bir xil bo'lishi deyarli aniq.
+    /// Bu qiymat esa faqat shu o'rnatishga tegishli.</para>
+    ///
+    /// <para>Maxfiy emas: u hech narsani ochmaydi va faqat «bu o'sha
+    /// kompyutermi?» degan savolga javob beradi.</para>
+    /// </remarks>
+    public string ShopId => GetOrCreate("ShopId", () => Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    /// Ulanuvchi kassa qaysi do'konga biriktirilgani. Ulanish paytida
+    /// serverdan olinadi va har ochilishda QAYTA tekshiriladi.
+    /// </summary>
+    public string? ServerShopId =>
+        _root["ServerShopId"] is JsonValue v && v.TryGetValue<string>(out var id)
+        && !string.IsNullOrWhiteSpace(id)
+            ? id
+            : null;
+
+    public void SetServerShopId(string? shopId)
+    {
+        if (string.IsNullOrWhiteSpace(shopId)) _root.Remove("ServerShopId");
+        else _root["ServerShopId"] = shopId.Trim();
+        Save();
+    }
+
+    /// <summary>
     /// API ni lokal tarmoqqa ochish. Sukut bo'yicha YOPIQ — bitta kassali
     /// do'konda uni ochish keraksiz xavf.
     ///
