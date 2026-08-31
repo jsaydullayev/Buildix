@@ -53,7 +53,7 @@ export default function PurchasesPage() {
     queryFn: () => purchasesApi.summary(monthStart),
   });
   const suppliersQuery = useQuery({ queryKey: ['suppliers'], queryFn: purchasesApi.suppliers });
-  const reorderQuery = useQuery({ queryKey: ['reorder'], queryFn: () => purchasesApi.reorderSuggestions(6) });
+  const reorderQuery = useQuery({ queryKey: ['reorder', 6], queryFn: () => purchasesApi.reorderSuggestions(6) });
   const listQuery = useQuery({
     queryKey: ['receipts', page, delivery, debouncedSearch],
     queryFn: () =>

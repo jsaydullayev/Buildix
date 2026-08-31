@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, FileDown, Ban, Printer, Undo2 } from 'lucide-react';
 import { Modal, Button, Badge, useConfirm } from '@/shared/ui';
@@ -12,6 +12,26 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import type { ApiError } from '@/shared/api/types';
 import { salesApi, type Sale, type SalePayment, type SaleItem } from './api';
+
+/**
+ * Chek bekor qilinganda yoki qaytarilganda YANGILANADIGAN ro'yxatlar.
+ *
+ * <p>Ilgari faqat <code>['sales']</code> va <code>['today-sales']</code>
+ * yangilanardi. Kartochka esa uchta qobiqda ochiladi: admin «Sotuvlar»,
+ * «Panel» va sotuvchining «Sotuvlarim». Sotuvchi chekni bekor qilgach o'z
+ * ro'yxatida uni HAMON ko'rib turardi — sahifani qo'lda yangilamaguncha.
+ * Panel ham eski kunlik summani ko'rsatardi.</p>
+ *
+ * <p>Ro'yxat ATAYLAB aniq: `invalidateQueries()` ni argumentsiz chaqirish
+ * butun keshni, jumladan katalogni ham, qayta tortardi.</p>
+ */
+const SALE_LIST_KEYS = ['sales', 'seller-sales', 'today-sales', 'dash-today', 'dash-daily-sales'];
+
+function invalidateSaleLists(qc: QueryClient) {
+  void qc.invalidateQueries({
+    predicate: (q) => SALE_LIST_KEYS.includes(q.queryKey[0] as string),
+  });
+}
 
 /** Statuses whose money/stock can still be reversed. */
 const REVERSIBLE = new Set(['Paid', 'Debt', 'Closed']);
@@ -87,8 +107,7 @@ export function SaleDetailModal({
     mutationFn: () => salesApi.cancel(sale!.id),
     onSuccess: () => {
       setActionError(null);
-      void qc.invalidateQueries({ queryKey: ['sales'] });
-      void qc.invalidateQueries({ queryKey: ['today-sales'] });
+      invalidateSaleLists(qc);
       onClose();
     },
     onError: onErr,

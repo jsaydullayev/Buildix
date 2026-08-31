@@ -395,6 +395,48 @@ public class EscPosReceiptTests
         Assert.Contains(lines, l => l.Contains("Bunyodkor"));
     }
 
+    /// <summary>
+    /// Uzun ism QIRQILMAYDI — u keyingi qatorga o'tadi.
+    /// </summary>
+    /// <remarks>
+    /// Ilgari ism qatorga sig'dirilishi uchun BOSHIDAN kesilardi:
+    /// «Abdurahmonov Jasurbek» 32 belgilik rulonda «rahmonov Jasurbek»
+    /// bo'lib chiqar va chekda kim sotganini aniqlab bo'lmasdi.
+    /// </remarks>
+    [Fact]
+    public void Uzun_ism_qirqilmaydi()
+    {
+        var data = Sale() with { SellerName = "Abdurahmonov Jasurbek Baxtiyorovich" };
+
+        var lines = Lines(EscPosReceipt.Build(data, "uz", 32));
+        var all = string.Join(" ", lines);
+
+        Assert.All(lines, l => Assert.True(l.Length <= 32, $"qator {l.Length} belgidan iborat"));
+        Assert.Contains("Abdurahmonov", all);
+        Assert.Contains("Baxtiyorovich", all);
+    }
+
+    /// <summary>
+    /// Miqdor va summa BIR XIL ajratgich bilan yoziladi.
+    /// </summary>
+    /// <remarks>
+    /// Ilgari miqdorda vergul qolardi va bitta qatorda ikki xil format
+    /// chiqardi: «1,000 x 8 500».
+    /// </remarks>
+    [Fact]
+    public void Miqdor_va_summa_bir_xil_ajratgich()
+    {
+        var data = Sale() with
+        {
+            Items = [new ReportPdfRenderer.InvoiceItemData("sement", 1_000, 8_500, 8_500_000, null, false)],
+        };
+
+        var all = string.Join("\n", Lines(EscPosReceipt.Build(data, "uz", 80)));
+
+        Assert.Contains("1 000 x 8 500", all);
+        Assert.DoesNotContain(",", all);
+    }
+
     /// <summary>Bayt ketma-ketligining o'rni; topilmasa −1.</summary>
     private static int Find(byte[] haystack, byte[] needle)
     {

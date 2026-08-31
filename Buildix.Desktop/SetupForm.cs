@@ -267,7 +267,12 @@ public sealed class SetupForm : Form
         // Server rejimida bu belgi keraksiz — u faqat ULANUVCHI kassaga
         // tegishli. Eski qiymat qolib ketsa, rol almashtirilganda noto'g'ri
         // solishtirishga sabab bo'lardi.
-        _secrets.SetServerShopId(isClient ? _probedShopId : null);
+        //
+        // Ulanuvchi rejimida esa MAVJUD belgi saqlanadi: texnik oynani
+        // «Tekshirish» bosmasdan yopsa (masalan faqat printerni almashtirdi),
+        // `_probedShopId` null bo'lar va belgi jimgina o'chib ketardi —
+        // himoya esa aynan o'sha belgiga tayanadi.
+        _secrets.SetServerShopId(isClient ? _probedShopId ?? _secrets.ServerShopId : null);
         // Ulanuvchi kassa hech qachon tarmoqqa ochilmaydi: unda API umuman
         // ishga tushmaydi va yoqilgan bayroq faqat chalkashtirardi.
         _secrets.SetAllowLan(!isClient && _lan.Checked);

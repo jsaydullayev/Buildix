@@ -566,9 +566,23 @@ public class CustomerService : ICustomerService
     }
 
     /// <summary>
-    /// Gets customer's available credit from negative payments (refunds)
-    /// This is used to auto-apply credits to new sales
+    /// Mijozning do'konda QOLGAN puli (avans) — keyingi xaridiga o'tkaziladi.
     /// </summary>
+    /// <remarks>
+    /// <para><b>Faqat Credit turidagi manfiy qatorlar.</b> Ilgari bu yerda
+    /// HAR QANDAY manfiy to'lov avans deb sanalardi. Qaytarish esa pulni
+    /// jismonan chiqaradi: <c>SaleReturnService</c> manfiy qator yozadi VA
+    /// naqd bo'lsa kassa qoldig'ini kamaytiradi, terminal/o'tkazmada esa
+    /// pulni bank qaytaradi. Ya'ni mijoz pulini allaqachon olgan bo'lardi,
+    /// keyin o'sha summa unga avans bo'lib QAYTA paydo bo'lar va u ikkinchi
+    /// marta xarid qilardi — do'kon bir pulni ikki marta to'lardi.</para>
+    ///
+    /// <para>Hozircha «avansga qaytarish» usuli yo'q (qaytarish oynasida
+    /// faqat Naqd/Karta/O'tkazma bor), shuning uchun avans amalda nolga
+    /// teng. Bu ATAYLAB: pul chiqib ketgan bo'lsa, do'konda qolmagan.
+    /// Usul qo'shilganda u manfiy <c>Credit</c> qatori yozadi va bu hisob
+    /// hech qanday o'zgarishsiz to'g'ri ishlaydi.</para>
+    /// </remarks>
     public async Task<decimal> GetAvailableCreditAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
@@ -581,17 +595,17 @@ public class CustomerService : ICustomerService
         if (saleIds.Count == 0)
             return 0;
 
-        // Refunds (negative payments) add to credit; Credit-typed payments consume it.
-        // Net credit = |sum(negative)| - sum(PaymentType.Credit)
-        var refundTotal = await _context.Payments
-            .Where(p => saleIds.Contains(p.SaleId) && p.MarketId == marketId && p.Amount < 0)
-            .SumAsync(p => p.Amount, cancellationToken);
+        // Avans — FAQAT Credit turidagi qatorlar. Manfiylari uni to'ldiradi
+        // (do'konda qolgan pul), musbatlari sarflaydi (keyingi xaridga
+        // o'tkazilgan). Bitta so'rov: ikkitasi bir xil jadvalni ikki marta
+        // skanerlardi.
+        var net = await _context.Payments
+            .Where(p => saleIds.Contains(p.SaleId)
+                        && p.MarketId == marketId
+                        && p.PaymentType == PaymentType.Credit)
+            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
 
-        var creditConsumed = await _context.Payments
-            .Where(p => saleIds.Contains(p.SaleId) && p.MarketId == marketId && p.PaymentType == PaymentType.Credit)
-            .SumAsync(p => p.Amount, cancellationToken);
-
-        var net = Math.Abs(refundTotal) - creditConsumed;
-        return net > 0 ? net : 0;
+        // Manfiy yig'indi = qolgan avans. Musbat bo'lsa hammasi sarflangan.
+        return net < 0 ? -net : 0m;
     }
 }

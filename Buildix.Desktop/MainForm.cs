@@ -503,7 +503,20 @@ public sealed class MainForm : Form
         {
             if (IsDisposed) { timer.Stop(); return; }
 
-            var problem = await ServerProbe.CheckAsync(serverUrl, CancellationToken.None);
+            var probe = await ServerProbe.ProbeAsync(serverUrl, CancellationToken.None);
+            var problem = probe.Problem;
+
+            // Uzilish paytida manzil BOSHQA kompyuterga o'tgan bo'lishi mumkin:
+            // router qayta yoqilganda IP shunday almashadi. Belgini bu yerda ham
+            // tekshirmasak, kassa jimgina begona bazaga ulanib ketardi — ish
+            // vaqtida, kassir hech narsa sezmasdan.
+            if (ServerProbe.ShopMismatch(_secrets.ServerShopId, probe) is { } wrongShop)
+            {
+                timer.Stop();
+                timer.Dispose();
+                FailWithSetup(wrongShop, serverUrl);
+                return;
+            }
 
             if (problem is not null && !offline)
             {

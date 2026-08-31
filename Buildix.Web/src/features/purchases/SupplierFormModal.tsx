@@ -55,7 +55,6 @@ export function SupplierFormModal({
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['suppliers'] });
-      void qc.invalidateQueries({ queryKey: ['suppliers-all'] });
       onClose();
     },
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),

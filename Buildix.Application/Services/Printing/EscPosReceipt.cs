@@ -137,12 +137,19 @@ internal static class EscPosReceipt
         // sotuvni topa olmasdi.
         Line(Pair(L("Chek", "Чек"), $"№{data.SaleNumber}", cols));
         Line(Pair(L("Sana", "Дата"), data.Date.ToString("dd.MM.yyyy HH:mm"), cols));
-        Line(Pair(L("Sotuvchi", "Продавец"), data.SellerName, cols));
+        // Ism SIG'DIRILADI, qirqilmaydi. `Pair` uzun o'ng qismni qatorga
+        // sig'dirish uchun uni BOSHIDAN kesardi — «Abdurahmonov Jasurbek»
+        // 32 belgilik rulonda «rahmonov Jasurbek» bo'lib chiqar va chekda
+        // kim sotganini aniqlab bo'lmasdi. Sonlar uchun Pair to'g'ri
+        // (summa hech qachon uzun emas), ismlar uchun esa yo'q.
+        foreach (var part in Wrap(L("Sotuvchi: ", "Продавец: ") + data.SellerName, cols))
+            Line(part);
         // Mijoz YO'Q bo'lsa qator umuman bosilmaydi. Ma'lumot to'plami bu
         // holatda «Mijoz ko'rsatilmagan» degan o'rinbosar matn beradi va u
         // chekka chiqsa foydasiz qator bo'lardi — rulon esa tor.
         if (HasCustomer(data.CustomerName))
-            Line(Pair(L("Mijoz", "Клиент"), data.CustomerName, cols));
+            foreach (var part in Wrap(L("Mijoz: ", "Клиент: ") + data.CustomerName, cols))
+                Line(part);
 
         // ── To'lov ──────────────────────────────────────────────────────
         // Aralash to'lovda har bir tur O'Z SUMMASI bilan alohida qatorda
@@ -297,8 +304,14 @@ internal static class EscPosReceipt
     private static string Money(decimal v) =>
         v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', ' ');
 
+    /// <summary>Miqdorni yozadi: 1000 → «1 000», 2.5 → «2.5».</summary>
+    /// <remarks>
+    /// Minglik ajratgichi summanikidek BO'SHLIQ. Ilgari bu yerda vergul
+    /// qolardi va bitta qatorda ikki xil format chiqardi:
+    /// «1,000 x 8 500». Chekdagi sonlar bir xil o'qilishi kerak.
+    /// </remarks>
     private static string Qty(decimal v) =>
         v == decimal.Truncate(v)
-            ? v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture)
+            ? Money(v)
             : v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 }

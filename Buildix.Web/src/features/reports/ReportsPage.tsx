@@ -102,13 +102,20 @@ export default function ReportsPage() {
   const previous = useMemo(() => prevRange(range), [range]);
   const stringPeriod = STRING_PERIOD[period];
 
+  // Kalitda SANA emas, davr turi turadi.
+  //
+  // Ilgari kalit `range.end` ni o'z ichiga olardi, u esa `new Date()` dan
+  // MILLISEKUND aniqligida keladi. Ya'ni har mount'da yangi kalit tug'ilar
+  // va kesh HECH QACHON ishlamasdi: «Hisobotlar» sahifasiga har kirganda
+  // ikkala og'ir so'rov qaytadan bajarilardi. Sana endi queryFn ichida —
+  // u kalitga ta'sir qilmaydi.
   const periodQuery = useQuery({
-    queryKey: ['reports-period', range.start, range.end],
+    queryKey: ['reports-period', period],
     queryFn: () => reportsApi.period(range.start, range.end),
     placeholderData: keepPreviousData,
   });
   const prevQuery = useQuery({
-    queryKey: ['reports-period-prev', previous.start, previous.end],
+    queryKey: ['reports-period-prev', period],
     queryFn: () => reportsApi.period(previous.start, previous.end),
     placeholderData: keepPreviousData,
   });

@@ -315,6 +315,89 @@ public class SyncPushTests
     }
 
     /// <summary>
+    /// Rolsiz kelgan xodim SuperAdmin bo'lib QOLMAYDI.
+    /// </summary>
+    /// <remarks>
+    /// <para><c>Role</c> sanog'ida <c>SuperAdmin = 0</c>, ya'ni JSON'da
+    /// <c>role</c> maydoni bo'lmasa CLR sukut qiymati aynan SuperAdmin
+    /// bo'ladi. Bunday to'plam qabul qilinsa, do'kon xodimi platforma
+    /// adminiga aylanardi: SuperAdmin uchun tenant filtri o'chadi va har
+    /// bir huquq tekshiruvi chetlab o'tiladi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Rolsiz_xodim_SuperAdmin_bolib_otmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var user = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 9, Username = "hujum", FullName = "Hujum",
+            PasswordHash = "x", IsActive = true,
+            // Role ATAYLAB berilmagan — default(Role) == SuperAdmin.
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => NewService(h).AcceptAsync(9, new SyncPushDto { Users = { user } }));
+
+        Assert.Empty(await h.Db.Users.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Do'kon YANGI ega yarata olmaydi — egalar bulutda tug'iladi.
+    /// </summary>
+    /// <remarks>
+    /// To'plam rad etilmaydi: unda savdolar ham bo'lishi mumkin va ularni
+    /// yo'qotish qimmatroq. Rol pastroqqa tushiriladi.
+    /// </remarks>
+    [Fact]
+    public async Task Notanish_Owner_Admin_darajasiga_tushiriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var user = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 9, Username = "yangi", FullName = "Yangi",
+            PasswordHash = "x", Role = Role.Owner, IsActive = true,
+        };
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto { Users = { user } });
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(Role.Admin, stored.Role);
+    }
+
+    /// <summary>
+    /// Do'konning O'Z egasi o'zgarganda push rad ETILMAYDI — aks holda
+    /// egasi ismini o'zgartirishi bilan sinxronizatsiya abadiy to'xtardi.
+    /// </summary>
+    [Fact]
+    public async Task Mavjud_ega_ozgarishi_qabul_qilinadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Users.Add(new User
+        {
+            Id = id, MarketId = 9, Username = "ega", FullName = "Eski ism",
+            PasswordHash = "x", Role = Role.Owner, IsActive = true,
+        });
+        await h.Db.SaveChangesAsync();
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Users =
+            {
+                new User
+                {
+                    Id = id, MarketId = 9, Username = "ega", FullName = "Yangi ism",
+                    PasswordHash = "x", Role = Role.Owner, IsActive = true,
+                },
+            },
+        });
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal("Yangi ism", stored.FullName);
+        Assert.Equal(Role.Owner, stored.Role);
+    }
+
+    /// <summary>
     /// Kategoriya raqami bulutda BOSHQA do'konnikiga tegishli bo'lishi mumkin
     /// (u yerda ketma-ketlik hamma uchun umumiy). Shuning uchun havola
     /// uziladi — tovar begona kategoriyaga tushib qolgandan ko'ra

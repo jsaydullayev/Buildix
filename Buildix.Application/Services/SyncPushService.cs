@@ -3,6 +3,7 @@ using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Domain.Common;
 using Buildix.Domain.Entities;
+using Buildix.Domain.Enums;
 using Buildix.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -48,9 +49,7 @@ public class SyncPushService : ISyncPushService
         // hisobot jimgina noto'g'ri ko'rsatardi.
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            // Tartib SyncPushDto da izohlangan: havola qilinadigan yozuvlar
-            // avval.
-            // Xodimlar birinchi: sotuv o'z sotuvchisiga ishora qiladi.
+            await GuardRolesAsync(payload.Users, ct);
             perTable["User"] = await UpsertAsync(_context.Users, payload.Users, marketId, ct);
 
             // ── Kategoriya havolasi UZILADI ─────────────────────────────────
@@ -75,7 +74,6 @@ public class SyncPushService : ISyncPushService
             perTable["Shift"] = await UpsertAsync(_context.Shifts, payload.Shifts, marketId, ct);
             perTable["Sale"] = await UpsertAsync(_context.Sales, payload.Sales, marketId, ct);
 
-            // ── Bola yozuvlar: otasi SHU do'konniki bo'lishi shart ──────────
             // SaleItem da MarketId YO'Q — u marketga faqat o'z sotuvi orqali
             // tegishli, ya'ni uni majburan almashtirib bo'lmaydi. Tekshiruvsiz
             // do'kon QO'SHNI do'konning sotuviga qator yoki to'lov qo'shib
@@ -155,6 +153,66 @@ public class SyncPushService : ISyncPushService
     /// o'zgargan» bo'lib ko'rinar va uni tortadigan boshqa mijozlar
     /// o'tkazib yuborardi.</para>
     /// </summary>
+    /// <summary>
+    /// Do'kon yubora oladigan ROLLARNI chegaralaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nimadan himoya qiladi.</b> <see cref="Role"/> sanog'ida
+    /// <c>SuperAdmin = 0</c>, ya'ni JSON'da <c>role</c> maydoni BO'LMASA
+    /// qiymat jimgina SuperAdmin bo'lib qoladi — bu CLR ning sukut
+    /// qiymati. Do'kon kompyuteridagi kalit bilan yuborilgan bunday
+    /// to'plam do'kon xodimini platforma adminiga aylantirardi: SuperAdmin
+    /// uchun tenant filtri butunlay o'chadi va har bir huquq tekshiruvi
+    /// chetlab o'tiladi. Ya'ni bitta do'kon boshqa do'konlarning
+    /// ma'lumotini ko'ra olardi.</para>
+    ///
+    /// <para><b>Nega SuperAdmin butun to'plamni rad etadi.</b> Do'kon
+    /// bazasida SuperAdmin HECH QACHON bo'lmaydi — u marketga bog'lanmagan
+    /// platforma hisobi. Demak bunday qator yo hujum, yo buzilgan
+    /// to'plam; ikkalasida ham qabul qilib bo'lmaydi.</para>
+    ///
+    /// <para><b>Nega Owner rad etilmaydi.</b> Do'konning O'Z egasi uning
+    /// bazasida bor va u o'z ma'lumotini (ism, telefon, parol) do'konda
+    /// o'zgartirishi mumkin — o'shanda qator push bilan qaytadi. Uni rad
+    /// etish sinxronizatsiyani butunlay to'xtatib qo'yardi. Shuning uchun
+    /// bulutda ALLAQACHON egasi bo'lgan qator o'tadi, YANGI egani yaratish
+    /// esa o'tmaydi: egalar bulutda, ro'yxatdan o'tishda tug'iladi.</para>
+    /// </remarks>
+    private async Task GuardRolesAsync(List<User> users, CancellationToken ct)
+    {
+        if (users.Count == 0) return;
+
+        foreach (var user in users)
+        {
+            if (user.Role != Role.SuperAdmin) continue;
+
+            _logger.LogWarning(
+                "Sync push rejected: user {UserId} arrived with SuperAdmin role", user.Id);
+            throw new InvalidOperationException(
+                "Xodimning roli noto'g'ri: do'kon SuperAdmin yubora olmaydi.");
+        }
+
+        var ownerIds = users.Where(u => u.Role == Role.Owner).Select(u => u.Id).ToList();
+        if (ownerIds.Count == 0) return;
+
+        var knownOwners = await _context.Users
+            .IgnoreQueryFilters()
+            .Where(u => ownerIds.Contains(u.Id) && u.Role == Role.Owner)
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+
+        foreach (var user in users)
+        {
+            if (user.Role != Role.Owner || knownOwners.Contains(user.Id)) continue;
+
+            // Yangi ega — do'kondan kelmaydi. Pastroq rolga tushiramiz:
+            // to'plamni rad etish qolgan barcha savdolarni ham yo'qotardi.
+            _logger.LogWarning(
+                "Sync push: user {UserId} claimed Owner role; demoted to Admin", user.Id);
+            user.Role = Role.Admin;
+        }
+    }
+
     private async Task<int> UpsertAsync<T>(
         DbSet<T> table, List<T> incoming, int marketId, CancellationToken ct)
         where T : BaseEntity

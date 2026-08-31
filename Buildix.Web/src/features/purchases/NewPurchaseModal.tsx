@@ -57,10 +57,13 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
   const [error, setError] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search);
 
+  // Sahifa ham AYNAN shu ro'yxatni ['suppliers'] kaliti bilan oladi.
+  // Ilgari bu yerda ['suppliers-all'] turardi: bir xil so'rov ikki xil
+  // keshda yotar va modal ochilganda GET /Suppliers ikkinchi marta
+  // ketardi.
   const suppliersQuery = useQuery({
-    queryKey: ['suppliers-all'],
+    queryKey: ['suppliers'],
     queryFn: purchasesApi.suppliers,
-    enabled: open,
   });
   const productsQuery = useQuery({
     queryKey: ['purchase-products', debouncedSearch],
@@ -68,8 +71,12 @@ export function NewPurchaseModal({ open, onClose }: { open: boolean; onClose: ()
     enabled: open,
   });
   // Quick-add: low-stock products one click away (design Card4). Not yet in the cart.
+  // Limit KALITGA kiradi. Ilgari sahifa (6 ta) va modal (8 ta) bitta
+  // ['reorder'] kalitini bo'lishardi: react-query ikkinchi queryFn ni
+  // e'tiborsiz qoldirar va modal sahifaning 6 talik javobini ko'rsatar,
+  // yoki aksincha — qaysi biri oldin mount bo'lganiga qarab.
   const reorderQuery = useQuery({
-    queryKey: ['reorder'],
+    queryKey: ['reorder', 8],
     queryFn: () => purchasesApi.reorderSuggestions(8),
     enabled: open,
   });
