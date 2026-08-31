@@ -118,7 +118,7 @@ public sealed class LabelPrintBridge
             return "Chek ma'lumoti buzilgan.";
         }
 
-        var printer = ReceiptTarget();
+        var printer = await ReceiptTargetAsync();
         if (printer is null)
             return "Chek printeri tanlanmagan. Buildix.Desktop.exe --setup oynasida tanlang.";
 
@@ -136,6 +136,19 @@ public sealed class LabelPrintBridge
     /// ehtiyotkor — <see cref="ReceiptOutput.Guess"/> ga qarang.
     /// </remarks>
     private string? ReceiptTarget() => _secrets.ReceiptPrinter ?? ReceiptOutput.Guess();
+
+    /// <summary>
+    /// Printerni UI oqimini bloklamasdan aniqlaydi.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ReceiptOutput.Guess"/> Windows'dagi printerlar ro'yxatini
+    /// o'qiydi — o'chiq tarmoq printeri bo'lsa bu chaqiruv sekin
+    /// tugaydi. U UI oqimida bajarilsa oyna muzlab qolardi.
+    /// </remarks>
+    private Task<string?> ReceiptTargetAsync() =>
+        _secrets.ReceiptPrinter is { } configured
+            ? Task.FromResult<string?>(configured)
+            : Task.Run(() => ReceiptOutput.Guess());
 
     /// <summary>Bosadi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda sabab.</summary>
     private async Task<string?> PrintAsync(PrintRequest request)

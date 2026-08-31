@@ -241,6 +241,14 @@ export default function PosPage() {
 
   // M-5: after any cart mutation, also refresh the product grid so displayed
   // stock (and the out-of-stock disable) reflects the sold quantities.
+  //
+  // FAQAT qoldiqni o'zgartiradigan amallarda chaqiriladi. Narx tuzatish
+  // katalogga tegmaydi va u `refresh()` bilan kifoyalanadi.
+  //
+  // Sotuvchi kassasi buni yanada tejamli qiladi: u qoldiqni keshda O'ZI
+  // to'g'rilaydi (`bumpStock`) va katalogni umuman qayta so'ramaydi. Bu
+  // yerda ham shunday qilish mumkin, lekin uchala mutatsiyani optimistik
+  // yangilanishga o'tkazish kerak — alohida ish.
   const refreshAll = () => {
     void qc.invalidateQueries({ queryKey: ['pos-sale', saleId] });
     void qc.invalidateQueries({ queryKey: ['pos-products'] });
@@ -470,7 +478,9 @@ export default function PosPage() {
     mutationFn: (p: { itemId: string; price: number }) => posApi.updateItemPrice(p.itemId, p.price),
     onSuccess: () => {
       setActionError(null);
-      refreshAll();
+      // FAQAT chek — narx qoldiqqa tegmaydi. Ilgari bu yerda `refreshAll`
+      // turardi va har narx tuzatishida butun katalog qaytadan tortilardi.
+      refresh();
     },
     onError: (e) => setActionError((e as unknown as ApiError).message ?? ''),
   });

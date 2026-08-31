@@ -49,9 +49,15 @@ internal static class ReceiptOutput
         if (string.IsNullOrWhiteSpace(target)) return "Chek printeri tanlanmagan.";
         if (data.Length == 0) return "Chek ma'lumoti bo'sh.";
 
-        return IsNetwork(target, out var host, out var port)
-            ? await SendOverTcpAsync(host, port, data, ct)
-            : RawPrinter.Send(target, data);
+        if (IsNetwork(target, out var host, out var port))
+            return await SendOverTcpAsync(host, port, data, ct);
+
+        // Windows navbati BLOKLAYDI: `WritePrinter` drayver baytlarni qabul
+        // qilguncha kutadi va sekin USB printerda bu bir necha soniya
+        // bo'lishi mumkin. Chaqiruv esa WebView2 ning xabar hodisasidan
+        // keladi, ya'ni UI oqimida — o'sha paytda butun oyna muzlab
+        // qolardi: kassir chek chiqguncha hech narsa bosa olmasdi.
+        return await Task.Run(() => RawPrinter.Send(target, data), ct);
     }
 
     /// <summary>
