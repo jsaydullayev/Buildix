@@ -337,13 +337,13 @@ public class ShiftService : IShiftService
 
     private async Task<IReadOnlyList<ShiftDto>> MapManyAsync(List<Shift> shifts, CancellationToken cancellationToken)
     {
-        var result = new List<ShiftDto>(shifts.Count);
-        foreach (var s in shifts)
-        {
-            var fin = await ComputeFinancialsAsync(s, s.ClosedAt ?? DateTime.UtcNow, cancellationToken);
-            result.Add(ToDto(s, fin));
-        }
-        return result;
+        if (shifts.Count == 0) return [];
+
+        var now = DateTime.UtcNow;
+        var financials = await ComputeFinancialsAsync(
+            shifts.Select(s => (s, s.ClosedAt ?? now)).ToList(), cancellationToken);
+
+        return shifts.Select(s => ToDto(s, financials[s.Id])).ToList();
     }
 
     private record ShiftFinancials(
@@ -352,100 +352,166 @@ public class ShiftService : IShiftService
         decimal TerminalIn, decimal ClickIn, int TerminalCount, int ClickCount,
         decimal ExternalPayouts);
 
-    /// <summary>Aggregates the money that moved through the drawer during a shift window.</summary>
-    private async Task<ShiftFinancials> ComputeFinancialsAsync(Shift s, DateTime windowEnd, CancellationToken cancellationToken)
+    /// <summary>
+    /// Bitta smenaning moliyasi. Guruhli hisobning ustiga qurilgan, ya'ni
+    /// mantiq YAGONA joyda turadi.
+    /// </summary>
+    private async Task<ShiftFinancials> ComputeFinancialsAsync(
+        Shift s, DateTime windowEnd, CancellationToken cancellationToken)
+        => (await ComputeFinancialsAsync([(s, windowEnd)], cancellationToken))[s.Id];
+
+    /// <summary>
+    /// Bir nechta smenaning moliyasini TO'RTTA so'rovda hisoblaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nimadan qutuladi.</b> Ilgari har bir smena uchun o'n beshta
+    /// ketma-ket so'rov bajarilardi va ular halqa ichida edi. «Smenalar»
+    /// ro'yxati ellikta smenani ko'rsatsa — 750 ta so'rov. Panel esa shu
+    /// ro'yxatni HAR DAQIQADA qayta so'raydi (faqat «nechta sotuvchi
+    /// smenada» degan raqam uchun), ya'ni ochiq turgan panel bazani
+    /// daqiqasiga 750 marta bezovta qilardi.</para>
+    ///
+    /// <para><b>Nega xotirada guruhlanadi.</b> Smena oynasi (sotuvchi +
+    /// vaqt oralig'i) oddiy kalit emas — uni SQL join'ga aylantirish uchun
+    /// xom so'rov kerak bo'lardi va u faqat PostgreSQL'da ishlardi
+    /// (sinovlar esa xotiradagi provayderda ketadi). Shuning uchun bazadan
+    /// faqat kerakli USTUNLAR tortiladi va taqsimlash shu yerda bajariladi:
+    /// qatorlar kichik va ular baribir yig'ilishi kerak edi.</para>
+    ///
+    /// <para>Hisob-kitob qoidalari o'zgarmagan — izohlar ilgari har bir
+    /// so'rov yonida turgan edi.</para>
+    /// </remarks>
+    private async Task<Dictionary<Guid, ShiftFinancials>> ComputeFinancialsAsync(
+        IReadOnlyList<(Shift Shift, DateTime WindowEnd)> windows, CancellationToken cancellationToken)
     {
-        var marketId = s.MarketId;
-        var start = s.OpenedAt;
-        var seller = s.UserId;
+        var markets = windows.Select(w => w.Shift.MarketId).Distinct().ToList();
+        var sellers = windows.Select(w => w.Shift.UserId).Distinct().ToList();
+        var from = windows.Min(w => w.Shift.OpenedAt);
+        var to = windows.Max(w => w.WindowEnd);
 
-        // H-11: attribute to THIS shift's cashier only. Without the seller filter,
-        // two cashiers with concurrent open shifts on one market each counted the
-        // other's sales/payments → phantom discrepancy + ~2x market totals.
-        //
-        // The cashier is whoever COLLECTED the money: CollectedByUserId is stamped
-        // when a debt is paid off later (possibly by a different cashier), and is
-        // NULL for the ordinary at-checkout case — then the sale's own seller took
-        // it. Without this, cash collected by B on A's sale sat in B's drawer but
-        // was counted into A's shift.
-        var payments = _db.Payments.AsNoTracking()
-            .Where(p => p.Sale != null && p.Sale.MarketId == marketId
-                && (p.CollectedByUserId == seller || (p.CollectedByUserId == null && p.Sale.SellerId == seller))
-                && p.CreatedAt >= start && p.CreatedAt <= windowEnd);
+        // ── To'lovlar ────────────────────────────────────────────────────
+        // H-11: pul KIM YIG'GANiga qarab taqsimlanadi. CollectedByUserId
+        // qarz keyinroq to'langanda qo'yiladi (boshqa kassir bo'lishi
+        // mumkin) va odatdagi kassadagi to'lovda NULL bo'ladi — o'shanda
+        // sotuvning o'z sotuvchisi olgan. Busiz B yig'gan pul A ning
+        // smenasiga tushardi.
+        var payments = await _db.Payments.AsNoTracking()
+            .Where(p => p.Sale != null && markets.Contains(p.Sale.MarketId)
+                && p.CreatedAt >= from && p.CreatedAt <= to
+                && sellers.Contains(p.CollectedByUserId ?? p.Sale.SellerId))
+            .Select(p => new PaymentRow(
+                p.CollectedByUserId ?? p.Sale!.SellerId, p.SaleId, p.PaymentType, p.Amount, p.CreatedAt))
+            .ToListAsync(cancellationToken);
 
-        // NOTE: these sums stay NET (refunds are negative payments) because
-        // ExpectedCash is what should physically be in the drawer — a refund
-        // takes cash back out. The return figures below are display-only.
-        var cashIn = await payments.Where(p => p.PaymentType == PaymentType.Cash)
-            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
-        var cardIn = await payments.Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit)
-            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        // ── Naqd yechish ─────────────────────────────────────────────────
+        // H-10: oyna EFFEKTIV chiqish vaqti bo'yicha — tasdiq talab
+        // qiladigan so'rov kassadan tasdiqlanganda chiqadi (ApprovedAt),
+        // so'ralganda emas.
+        var withdrawals = await _db.CashWithdrawals.AsNoTracking()
+            .Where(w => markets.Contains(w.MarketId) && w.UserId != null && sellers.Contains(w.UserId.Value) && w.WithdrawType == "cash"
+                && (w.ApprovalStatus == WithdrawalApprovalStatus.NotRequired
+                    || w.ApprovalStatus == WithdrawalApprovalStatus.Approved)
+                && (w.ApprovedAt ?? w.WithdrawalDate) >= from
+                && (w.ApprovedAt ?? w.WithdrawalDate) <= to)
+            .Select(w => new MovementRow(w.UserId!.Value, w.Amount, w.ApprovedAt ?? w.WithdrawalDate))
+            .ToListAsync(cancellationToken);
 
-        // Click split out of the cashless bucket. CardIn deliberately stays the
-        // FULL cashless total (Terminal + Transfer + Click) — the Flutter client
-        // reads it as "Картой" and must keep reconciling; ClickIn/TerminalIn are
-        // an additive breakdown of it, so TerminalIn + ClickIn == CardIn.
-        var clickIn = await payments.Where(p => p.PaymentType == PaymentType.Click)
-            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        var sales = await _db.Sales.AsNoTracking()
+            .Where(x => markets.Contains(x.MarketId) && sellers.Contains(x.SellerId)
+                && x.CreatedAt >= from && x.CreatedAt <= to
+                && x.Status != SaleStatus.Draft && x.Status != SaleStatus.Cancelled && !x.IsOpeningBalance)
+            .Select(x => new SaleRow(
+                x.Id, x.SellerId, x.CreatedAt, x.TotalAmount, x.PaidAmount, x.Status))
+            .ToListAsync(cancellationToken);
+
+        // Qo'shni do'kondan olingan tovar puli — sotuvning O'ZIDAN, kassa
+        // jurnalidan emas (jurnal hisob-kitob manbai emas). `sales`
+        // allaqachon Draft/Cancelled ni chiqarib tashlagan.
+        var saleIds = sales.Select(x => x.Id).ToList();
+        var externalBySale = saleIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : (await _db.SaleItems.AsNoTracking()
+                .Where(si => si.IsExternal && saleIds.Contains(si.SaleId))
+                .GroupBy(si => si.SaleId)
+                .Select(g => new ExternalRow(g.Key, g.Sum(si => si.ExternalCostPrice * si.Quantity)))
+                .ToListAsync(cancellationToken))
+              .ToDictionary(x => x.SaleId, x => x.Cost);
+
+        var result = new Dictionary<Guid, ShiftFinancials>(windows.Count);
+        foreach (var (shift, windowEnd) in windows)
+            result[shift.Id] = Fold(shift, windowEnd, payments, withdrawals, sales, externalBySale);
+        return result;
+    }
+
+    private readonly record struct PaymentRow(
+        Guid Seller, Guid SaleId, PaymentType Type, decimal Amount, DateTime At);
+
+    private readonly record struct MovementRow(Guid Seller, decimal Amount, DateTime At);
+
+    private readonly record struct SaleRow(
+        Guid Id, Guid Seller, DateTime At, decimal Total, decimal Paid, SaleStatus Status);
+
+    private readonly record struct ExternalRow(Guid SaleId, decimal Cost);
+
+    /// <summary>Bitta smena oynasiga tushgan qatorlarni yig'adi.</summary>
+    private static ShiftFinancials Fold(
+        Shift s, DateTime windowEnd,
+        List<PaymentRow> allPayments, List<MovementRow> allWithdrawals,
+        List<SaleRow> allSales, Dictionary<Guid, decimal> externalBySale)
+    {
+        bool InWindow(DateTime at) => at >= s.OpenedAt && at <= windowEnd;
+
+        var mine = allPayments.Where(p => p.Seller == s.UserId && InWindow(p.At)).ToList();
+
+        // Yig'indilar NET qoladi (qaytarish — manfiy to'lov), chunki
+        // ExpectedCash — kassada JISMONAN turishi kerak bo'lgan pul.
+        // Quyidagi qaytarish raqamlari esa faqat ko'rsatish uchun.
+        var cashIn = mine.Where(p => p.Type == PaymentType.Cash).Sum(p => p.Amount);
+
+        // Naqdsiz — Click ham shu ichida. CardIn ATAYLAB to'liq naqdsiz
+        // yig'indi bo'lib qoladi (Flutter mijozi uni «Karta» deb o'qiydi),
+        // TerminalIn/ClickIn esa uning ichki bo'linishi.
+        var cardIn = mine
+            .Where(p => p.Type != PaymentType.Cash && p.Type != PaymentType.Credit)
+            .Sum(p => p.Amount);
+        var clickIn = mine.Where(p => p.Type == PaymentType.Click).Sum(p => p.Amount);
         var terminalIn = cardIn - clickIn;
 
-        // Receipt counts per tender (positive movements only — a refund is not a
-        // new receipt), and the refunds themselves for the "Возвратов" tile.
-        var cashCount = await payments
-            .Where(p => p.PaymentType == PaymentType.Cash && p.Amount > 0)
-            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
-        var cardCount = await payments
-            .Where(p => p.PaymentType != PaymentType.Cash && p.PaymentType != PaymentType.Credit && p.Amount > 0)
-            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
-        // Counted separately rather than subtracted: one mixed receipt can carry
-        // both a Terminal and a Click line, so it belongs to both counts.
-        var clickCount = await payments
-            .Where(p => p.PaymentType == PaymentType.Click && p.Amount > 0)
-            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
-        var terminalCount = await payments
-            .Where(p => (p.PaymentType == PaymentType.Terminal || p.PaymentType == PaymentType.Transfer) && p.Amount > 0)
-            .Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+        // Chek soni tur bo'yicha — faqat MUSBAT harakatlar (qaytarish yangi
+        // chek emas). Aralash chek ham Terminal, ham Click qatoriga ega
+        // bo'lishi mumkin, shuning uchun ular alohida sanaladi.
+        int Checks(Func<PaymentRow, bool> match) =>
+            mine.Where(p => p.Amount > 0 && match(p)).Select(p => p.SaleId).Distinct().Count();
 
-        var refunds = payments.Where(p => p.Amount < 0);
-        var returnAmount = -(await refunds.SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m);
-        var returnCount = await refunds.Select(p => p.SaleId).Distinct().CountAsync(cancellationToken);
+        var cashCount = Checks(p => p.Type == PaymentType.Cash);
+        var cardCount = Checks(p => p.Type != PaymentType.Cash && p.Type != PaymentType.Credit);
+        var clickCount = Checks(p => p.Type == PaymentType.Click);
+        var terminalCount = Checks(p => p.Type is PaymentType.Terminal or PaymentType.Transfer);
 
-        // H-10 + H-11: this cashier's own cash withdrawals, windowed by EFFECTIVE
-        // cash-out time — an owner-approved request debits the till at approval
-        // (ApprovedAt), not when it was requested (WithdrawalDate). NotRequired
-        // rows have ApprovedAt = null → fall back to WithdrawalDate (immediate).
-        var withdrawals = await _db.CashWithdrawals.AsNoTracking()
-            .Where(w => w.MarketId == marketId && w.UserId == seller && w.WithdrawType == "cash"
-                && (w.ApprovalStatus == WithdrawalApprovalStatus.NotRequired || w.ApprovalStatus == WithdrawalApprovalStatus.Approved)
-                && (w.ApprovedAt ?? w.WithdrawalDate) >= start
-                && (w.ApprovedAt ?? w.WithdrawalDate) <= windowEnd)
-            .SumAsync(w => (decimal?)w.Amount, cancellationToken) ?? 0m;
+        var refunds = mine.Where(p => p.Amount < 0).ToList();
+        var returnAmount = -refunds.Sum(p => p.Amount);
+        var returnCount = refunds.Select(p => p.SaleId).Distinct().Count();
 
-        var salesInWindow = _db.Sales.AsNoTracking()
-            .Where(x => x.MarketId == marketId && x.SellerId == seller
-                && x.CreatedAt >= start && x.CreatedAt <= windowEnd
-                && x.Status != SaleStatus.Draft && x.Status != SaleStatus.Cancelled && !x.IsOpeningBalance);
-        var revenue = await salesInWindow.SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
-        var checkCount = await salesInWindow.CountAsync(cancellationToken);
+        var withdrawals = allWithdrawals
+            .Where(w => w.Seller == s.UserId && InWindow(w.At))
+            .Sum(w => w.Amount);
 
-        // Credit still outstanding from this shift's sales. Reads current status,
-        // so a debt sale later paid off in full stops counting here — "what this
-        // shift put on the tab and is still owed", which is what the drawer view
-        // needs. Cash collected against it lands in the collecting shift instead.
-        var debtSales = salesInWindow.Where(x => x.Status == SaleStatus.Debt);
-        var debtIn = await debtSales.SumAsync(x => (decimal?)(x.TotalAmount - x.PaidAmount), cancellationToken) ?? 0m;
-        var debtCount = await debtSales.CountAsync(cancellationToken);
+        var salesInWindow = allSales
+            .Where(x => x.Seller == s.UserId && InWindow(x.At))
+            .ToList();
 
-        // Qo'shni do'kondan olingan tovarlar uchun kassadan chiqqan pul. Sotuvning
-        // O'ZIDAN hisoblanadi, CashMovement'dan emas: jurnal — faqat ro'yxat,
-        // hisob-kitob manbai emas (CashLedger shartnomasi). Bu ayni paytda
-        // bekor qilingan sotuvni ham avtomatik chiqarib tashlaydi — `salesInWindow`
-        // Cancelled/Draft'ni allaqachon filtrlaydi, ya'ni yozuv/qaytarish
-        // simmetriyasini bu yerda takrorlash shart emas.
-        var saleIdsInWindow = salesInWindow.Select(x => x.Id);
-        var externalPayouts = await _db.SaleItems.AsNoTracking()
-            .Where(si => si.IsExternal && saleIdsInWindow.Contains(si.SaleId))
-            .SumAsync(si => (decimal?)(si.ExternalCostPrice * si.Quantity), cancellationToken) ?? 0m;
+        var revenue = salesInWindow.Sum(x => x.Total);
+        var checkCount = salesInWindow.Count;
+
+        // Shu smena tabga yozgan va HALI qaytmagan qarz. Joriy holat
+        // o'qiladi, ya'ni keyinroq to'liq to'langan qarz bu yerda
+        // sanalmaydi — undan yig'ilgan naqd yig'gan smenaga tushadi.
+        var debtSales = salesInWindow.Where(x => x.Status == SaleStatus.Debt).ToList();
+        var debtIn = debtSales.Sum(x => x.Total - x.Paid);
+        var debtCount = debtSales.Count;
+
+        var externalPayouts = salesInWindow
+            .Sum(x => externalBySale.TryGetValue(x.Id, out var cost) ? cost : 0m);
 
         var expected = s.OpeningCash + cashIn - withdrawals - externalPayouts;
         return new ShiftFinancials(
