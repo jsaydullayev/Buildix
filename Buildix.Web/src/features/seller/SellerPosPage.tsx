@@ -474,7 +474,16 @@ export default function SellerPosPage() {
   });
 
   const attachCustomer = useMutation({
-    mutationFn: (c: PosCustomer | null) => posApi.attachCustomer(saleId!, c?.id ?? null),
+    // Chek LAZY yaratiladi, ya'ni `saleId` `createDraft` javobidan keyin
+    // paydo bo'ladi. Kassir shu «uchish» paytida mijozni tanlasa, so'rov
+    // UMUMAN yuborilmasdi — ekranda mijoz turar, serverda esa yo'q edi.
+    // Cheki umuman yo'q bo'lsa yaratilmaydi: mijoz mahalliy holatda qoladi
+    // va `ensureSale` uni `createDraft` ga o'zi uzatadi.
+    mutationFn: async (c: PosCustomer | null) => {
+      const id = saleId ?? (draftRef.current ? (await draftRef.current).id : null);
+      if (!id) return null;
+      return posApi.attachCustomer(id, c?.id ?? null);
+    },
     onSuccess: () => void refreshSale(),
   });
 
@@ -532,9 +541,7 @@ export default function SellerPosPage() {
   function pickCustomer(c: PosCustomer | null) {
     setCustomer(c);
     setCustOpen(false);
-    // Only push to the server once a Draft exists; otherwise it rides along on
-    // createDraft when the first product is added.
-    if (saleId) attachCustomer.mutate(c);
+    attachCustomer.mutate(c);
   }
 
   /**

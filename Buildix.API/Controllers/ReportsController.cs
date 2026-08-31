@@ -44,6 +44,33 @@ public class ReportsController(
     // only while granted (default Admin lacks it); Seller never.
     private bool CanViewProfit() => HasPermission(PermissionKeys.DataProfit);
 
+    /// <summary>
+    /// Hisobot oralig'ining eng kattasi (kun). Ekran eng ko'pi bilan bir yil
+    /// so'raydi — bundan kattasi faqat qo'lda yozilgan URL bo'ladi.
+    /// </summary>
+    private const int MaxReportDays = 366;
+
+    /// <summary>
+    /// Oraliq to'g'ri bo'lsa <c>null</c>, aks holda tayyor 400 javobi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Davr to'g'ridan-to'g'ri so'rovga tushadi va sotuvlar o'z
+    /// to'lovlari bilan birga o'qiladi. Cheksiz oraliq («2000–2100») butun
+    /// tarixni bitta so'rovda tortardi: bitta URL bilan serverni tiz
+    /// cho'ktirish mumkin edi, ekran esa bunday oraliqni hech qachon
+    /// so'ramaydi.</para>
+    /// </remarks>
+    private ActionResult? ValidateRange(DateTime start, DateTime end)
+    {
+        if (start > end)
+            return BadRequest("Start date cannot be after end date");
+
+        if ((end.Date - start.Date).TotalDays > MaxReportDays)
+            return BadRequest($"Hisobot oralig'i {MaxReportDays} kundan oshmasin.");
+
+        return null;
+    }
+
     // ── Reports (ISalesReportService) ────────────────────────────────────────
 
     /// <summary>Get daily sales report.</summary>
@@ -71,8 +98,7 @@ public class ReportsController(
         [FromQuery] DateTime start,
         [FromQuery] DateTime end)
     {
-        if (start > end)
-            return BadRequest("Start date cannot be after end date");
+        if (ValidateRange(start, end) is { } invalid) return invalid;
 
         var utcStart = DateTime.SpecifyKind(start.Date, DateTimeKind.Utc);
         var utcEnd = DateTime.SpecifyKind(end.Date, DateTimeKind.Utc);
@@ -252,8 +278,7 @@ public class ReportsController(
         [FromQuery] DateTime end,
         [FromQuery] string lang = "uz")
     {
-        if (start > end)
-            return BadRequest("Start date cannot be after end date");
+        if (ValidateRange(start, end) is { } invalid) return invalid;
 
         var utcStart = DateTime.SpecifyKind(start.Date, DateTimeKind.Utc);
         var utcEnd = DateTime.SpecifyKind(end.Date, DateTimeKind.Utc);

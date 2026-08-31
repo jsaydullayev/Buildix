@@ -493,7 +493,20 @@ export default function PosPage() {
     onSuccess: refresh,
   });
   const attachCustomer = useMutation({
-    mutationFn: (c: PosCustomer | null) => posApi.attachCustomer(saleId!, c?.id ?? null),
+    // Chek LAZY yaratiladi: birinchi tovar qo'shilganda `createDraft` ketadi
+    // va `saleId` faqat javob kelgandan keyin paydo bo'ladi. Kassir shu
+    // «uchish» paytida mijozni tanlasa, ilgari so'rov UMUMAN yuborilmasdi —
+    // ekranda mijoz turar, serverda esa yo'q edi va «Qarzga» yakunlash
+    // tushunarsiz xatoga urilardi. Endi uchayotgan chek kutiladi.
+    //
+    // Cheki umuman yo'q bo'lsa yaratilmaydi: bo'sh savatga chek raqami
+    // sarflanmasin. Mijoz mahalliy holatda qoladi va `ensureSale` uni
+    // `createDraft` ga o'zi uzatadi.
+    mutationFn: async (c: PosCustomer | null) => {
+      const id = saleId ?? (draftRef.current ? (await draftRef.current).id : null);
+      if (!id) return null;
+      return posApi.attachCustomer(id, c?.id ?? null);
+    },
     onSuccess: refresh,
   });
 
@@ -749,7 +762,7 @@ export default function PosPage() {
                   type="button"
                   onClick={() => {
                     setCustomer(null);
-                    if (saleId) attachCustomer.mutate(null);
+                    attachCustomer.mutate(null);
                   }}
                   className="text-muted-2 hover:text-danger"
                 >
@@ -1018,7 +1031,7 @@ export default function PosPage() {
           onClose={() => setCustOpen(false)}
           onPick={(c) => {
             setCustomer(c);
-            if (saleId) attachCustomer.mutate(c);
+            attachCustomer.mutate(c);
             setCustOpen(false);
           }}
         />
