@@ -7,11 +7,8 @@ import { BrandLogo } from '@/shared/ui';
 import { NAV_SECTIONS } from '@/shared/config/navigation';
 import { ROLES } from '@/shared/config/permissions';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
+import { initials } from '@/shared/lib/format';
 
-function initials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-}
 
 /**
  * Yon menyu.

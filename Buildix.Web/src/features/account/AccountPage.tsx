@@ -7,16 +7,12 @@ import { PageHeader, Button, Card, Badge, Spinner, StatCard, Toggle, LanguageSwi
 import type { AppLanguage } from '@/shared/i18n';
 import { cn } from '@/shared/lib/cn';
 import type { ApiError } from '@/shared/api/types';
-import { formatRelative, formatShortDate, formatTime, formatSum } from '@/shared/lib/format';
+import { formatRelative, formatShortDate, formatTime, formatSum, initials } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useSessionStore } from '@/shared/auth/sessionStore';
 import { shiftsApi } from '@/features/shifts/api';
 import { accountApi, type Session } from './api';
 
-function initials(name: string) {
-  const p = name.trim().split(/\s+/);
-  return (p[0]?.[0] ?? '') + (p[1]?.[0] ?? '');
-}
 
 export default function AccountPage() {
   const { t, i18n } = useTranslation();

@@ -1,6 +1,8 @@
 export { Button } from './Button';
 export { Card, CardBody } from './Card';
 export { Input } from './Input';
+export { Field } from './Field';
+export { Chip } from './Chip';
 export { PasswordInput } from './PasswordInput';
 export { Badge } from './Badge';
 export { Spinner } from './Spinner';

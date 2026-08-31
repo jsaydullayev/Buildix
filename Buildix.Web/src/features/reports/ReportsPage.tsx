@@ -20,7 +20,7 @@ import {
 import { Download, AlertTriangle } from 'lucide-react';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
+import { formatSum, formatQty, formatShortDate, initials } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
 import {
@@ -69,14 +69,6 @@ function formatPercent(ratio: number, digits = 0): string {
   return `${(ratio * 100).toFixed(digits).replace('.', ',')}%`;
 }
 
-function initials(fullName: string): string {
-  return fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
-}
 
 /** Map a backend paymentType to the shared sales.payment.* label + badge tone. */
 function paymentMeta(paymentType: string): { key: string; tone: 'success' | 'info' | 'warn' } {

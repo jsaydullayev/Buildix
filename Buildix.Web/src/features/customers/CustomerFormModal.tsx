@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Modal, Button, Toggle } from '@/shared/ui';
+import { Modal, Button, Toggle, Field } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import type { ApiError } from '@/shared/api/types';
 import { customersApi, type Customer } from './api';
@@ -138,11 +138,3 @@ export function CustomerFormModal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[13px] font-medium text-label">{label}</label>
-      {children}
-    </div>
-  );
-}

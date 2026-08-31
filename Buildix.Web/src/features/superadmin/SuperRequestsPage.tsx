@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Phone, Search, Info } from 'lucide-react';
 import { PageHeader, Card, Badge, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatRelative } from '@/shared/lib/format';
+import { formatRelative, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { superAdminApi, type SaRequestRow, type SaRequestStatus } from './api';
@@ -27,16 +27,6 @@ const TAB_MATCH: Record<Tab, SaRequestStatus[]> = {
 
 const GRID = 'min-w-[880px] grid-cols-[minmax(0,1.6fr)_170px_150px_130px_minmax(0,300px)]';
 
-function initials(name: string) {
-  return name
-    .replace(/[«»№"]/g, '')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
 
 export default function SuperRequestsPage() {
   const { segment = '' } = useParams();

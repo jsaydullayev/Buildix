@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatQty, formatFullDate, formatShortDate, formatWeekday, formatTime } from '@/shared/lib/format';
+import { formatSum, formatQty, formatFullDate, formatShortDate, formatWeekday, formatTime, initials } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
@@ -764,10 +764,6 @@ function SellerAccessCard({ sellers, loading, to }: { sellers: Employee[]; loadi
   );
 }
 
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
-}
 
 function LowStockCard({ items, loading, onOrder }: { items: ReorderSuggestion[]; loading: boolean; onOrder?: () => void }) {
   const { t } = useTranslation();

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Search } from 'lucide-react';
 import { PageHeader, Card, Badge, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatShortDate } from '@/shared/lib/format';
+import { formatShortDate, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { superAdminApi, type SaStoreRow } from './api';
@@ -23,16 +23,6 @@ const MATCH: Record<Filter, SaStoreRow['status'][]> = {
 
 const GRID = 'min-w-[940px] grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_110px_130px_80px_120px_130px]';
 
-function initials(name: string) {
-  return name
-    .replace(/[«»№"]/g, '')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
 
 export default function SuperStoresPage() {
   const { segment = '' } = useParams();

@@ -7,11 +7,6 @@ export interface LoginRequest {
   subdomain?: string | null;
 }
 
-export interface RefreshTokenRequest {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface AuthResponse {
   userId: string;
   username: string;

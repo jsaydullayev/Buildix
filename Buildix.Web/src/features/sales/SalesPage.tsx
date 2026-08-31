@@ -4,7 +4,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { startOfDay, subDays } from 'date-fns';
 import { Plus, Search, FileDown } from 'lucide-react';
-import { PageHeader, Button, Card, StatCard, Badge, Spinner } from '@/shared/ui';
+import { PageHeader, Button, Card, StatCard, Badge, Spinner, Chip } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatTime } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
@@ -317,20 +317,6 @@ function SaleRow({ sale, onOpen }: { sale: Sale; onOpen: () => void }) {
   );
 }
 
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
-        active ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 function Pager({
   page,

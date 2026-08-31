@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, Download } from 'lucide-react';
 import { PageHeader, Card, StatCard, Spinner, Button } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatShortDate } from '@/shared/lib/format';
+import { formatSum, formatShortDate, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
@@ -15,15 +15,6 @@ import { DebtCheckModal } from './DebtCheckModal';
 const DUE_FILTERS = ['all', 'overdue', 'today', 'upcoming'] as const;
 type DueFilter = (typeof DUE_FILTERS)[number];
 
-/** avatar initials from a customer name / phone. */
-function initials(s: string): string {
-  return s
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('') || '#';
-}
 
 const GRID = 'min-w-[860px] grid-cols-[minmax(0,1.7fr)_100px_minmax(0,1fr)_120px_180px_140px]';
 

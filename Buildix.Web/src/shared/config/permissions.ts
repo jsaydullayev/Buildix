@@ -48,8 +48,6 @@ export const PERMISSIONS = {
   },
 } as const;
 
-export type PermissionKey = string;
-
 export const ROLES = {
   SuperAdmin: 'SuperAdmin',
   Owner: 'Owner',

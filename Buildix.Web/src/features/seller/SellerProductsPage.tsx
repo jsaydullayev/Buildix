@@ -3,7 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X, ShoppingCart } from 'lucide-react';
-import { PageHeader, Card, Badge, Spinner, Button } from '@/shared/ui';
+import { PageHeader, Card, Badge, Spinner, Button, Chip } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty, formatShortDate } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -211,17 +211,3 @@ function DrawerRow({ label, value, valueClass, last }: { label: string; value: s
   );
 }
 
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
-        active ? 'bg-primary text-white' : 'border border-input-border bg-surface text-muted hover:text-text',
-      )}
-    >
-      {label}
-    </button>
-  );
-}

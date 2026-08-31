@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AuthResponse, AccessBlock } from '@/shared/api/types';
-import { ROLES } from '@/shared/config/permissions';
 
 interface SessionState {
   session: AuthResponse | null;
@@ -58,11 +57,3 @@ export const sessionApi = {
   setAccessBlock: (block: AccessBlock | null) =>
     useSessionStore.getState().setAccessBlock(block),
 };
-
-/** Whether the given permission key is granted for the current session. */
-export function sessionHasPermission(key: string): boolean {
-  const session = useSessionStore.getState().session;
-  if (!session) return false;
-  if (session.role === ROLES.Owner || session.role === ROLES.SuperAdmin) return true;
-  return session.permissions.includes(key);
-}

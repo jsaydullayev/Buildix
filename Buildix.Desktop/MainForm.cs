@@ -325,20 +325,6 @@ public sealed class MainForm : Form
     }
 
     /// <summary>
-    /// Tashqi havolani tizim brauzerida ochadi.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Faqat haqiqiy havolalar.</b> Sahifa ichida yaratilgan
-    /// <c>blob:</c> va <c>data:</c> manzillari brauzer XOTIRASIDA yashaydi
-    /// va undan tashqarida umuman mavjud emas. Ilgari ular ham shu yerga
-    /// tushar va Windows kassirga «bu 'blob' havolasini ochadigan dastur
-    /// yo'q, Microsoft Store'dan qidiring» degan oyna chiqarardi — chek
-    /// chiqarilayotgan payt, kassa oldida navbat turganda.</para>
-    ///
-    /// <para><c>file:</c> ham chiqarib tashlangan: sahifa ixtiyoriy faylni
-    /// ochtira olmasligi kerak.</para>
-    /// </remarks>
-    /// <summary>
     /// Do'kon belgisini birinchi muvaffaqiyatli ulanishda yozib qo'yadi.
     /// </summary>
     /// <remarks>
@@ -356,6 +342,20 @@ public sealed class MainForm : Form
         catch (Exception) { /* yozib bo'lmasa ish to'xtamaydi */ }
     }
 
+    /// <summary>
+    /// Tashqi havolani tizim brauzerida ochadi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Faqat haqiqiy havolalar.</b> Sahifa ichida yaratilgan
+    /// <c>blob:</c> va <c>data:</c> manzillari brauzer XOTIRASIDA yashaydi
+    /// va undan tashqarida umuman mavjud emas. Ilgari ular ham shu yerga
+    /// tushar va Windows kassirga «bu 'blob' havolasini ochadigan dastur
+    /// yo'q, Microsoft Store'dan qidiring» degan oyna chiqarardi — chek
+    /// chiqarilayotgan payt, kassa oldida navbat turganda.</para>
+    ///
+    /// <para><c>file:</c> ham chiqarib tashlangan: sahifa ixtiyoriy faylni
+    /// ochtira olmasligi kerak.</para>
+    /// </remarks>
     private static void OpenExternally(string uri)
     {
         if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)) return;

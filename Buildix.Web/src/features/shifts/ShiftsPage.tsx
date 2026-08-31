@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Lock, Unlock, Check, Banknote, ChevronRight } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatTime, formatShortDate, formatRelative } from '@/shared/lib/format';
+import { formatSum, formatTime, formatShortDate, formatRelative, initials } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import { employeesApi } from '@/features/employees/api';
@@ -496,10 +496,6 @@ function AttendanceCard({
   );
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
 
 function AttendanceRowView({ row: a, planHours }: { row: AttendanceRow; planHours: number }) {
   const { t } = useTranslation();

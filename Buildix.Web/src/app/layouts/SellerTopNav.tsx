@@ -7,11 +7,8 @@ import { SELLER_NAV_ITEMS } from '@/shared/config/navigation';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { shiftsApi } from '@/features/shifts/api';
 import { useAuth, useLogout } from '@/shared/auth/useAuth';
+import { initials } from '@/shared/lib/format';
 
-function initials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-}
 
 /**
  * "6 s 32 d" — the shift pill is narrow, so hours/minutes stay abbreviated.

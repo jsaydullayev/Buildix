@@ -96,3 +96,24 @@ export function formatTime(value: string | Date): string {
 export function formatRelative(value: string | Date, lang = 'ru'): string {
   return formatDistanceToNowStrict(toDate(value), { locale: resolveLocale(lang), addSuffix: false });
 }
+
+/**
+ * Avatar uchun bosh harflar: «Jamshid Karimov» → «JK».
+ *
+ * <p>Bu funksiya o'n uchta faylda alohida-alohida yozilgan edi va ular
+ * bir-biriga MOS KELMASDI: bir joyda harflar katta, boshqasida asl
+ * holida qolar, uchinchisida bo'sh nom uchun «#» qaytarardi. Ya'ni bitta
+ * odamning bosh harflari qaysi ekranda ko'rilishiga qarab boshqacha
+ * chiqardi.</p>
+ *
+ * <p>Katta harf tanlandi: bosh harflar dumaloq avatar ichida turadi va
+ * kichik harf u yerda tasodifiy ko'rinadi.</p>
+ */
+export function initials(name: string | null | undefined): string {
+  return (name ?? '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? '')
+    .join('');
+}

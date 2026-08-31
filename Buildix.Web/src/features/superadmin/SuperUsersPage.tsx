@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, Info } from 'lucide-react';
 import { PageHeader, Card, Badge, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatRelative } from '@/shared/lib/format';
+import { formatRelative, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ApiError } from '@/shared/api/types';
 import { superAdminApi, type SaRole, type SaUserRow } from './api';
@@ -21,15 +21,6 @@ const ROLE_TONE: Record<SaRole, 'info' | 'warn' | 'neutral'> = {
   Seller: 'neutral',
 };
 
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
 
 export default function SuperUsersPage() {
   const { segment = '' } = useParams();

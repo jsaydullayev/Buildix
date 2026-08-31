@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { PageHeader, Card, StatCard, Badge, Spinner, Button } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatShortDate, formatTime } from '@/shared/lib/format';
+import { formatSum, formatShortDate, formatTime, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
@@ -15,10 +15,6 @@ const DUE_FILTERS = ['all', 'overdue', 'today', 'upcoming'] as const;
 type DueFilter = (typeof DUE_FILTERS)[number];
 const METHOD_KEY: Record<string, string> = { Cash: 'cash', Terminal: 'card', Transfer: 'transfer', Click: 'click' };
 
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
-}
 
 /** Seller debt collection: view debtors and accept payments into the shift's till. */
 export default function SellerDebtsPage() {

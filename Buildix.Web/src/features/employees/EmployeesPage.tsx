@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader, Button, Card, Badge, Spinner, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatRelative } from '@/shared/lib/format';
+import { formatSum, formatRelative, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
@@ -19,10 +19,6 @@ const ROLE_TONE: Record<string, 'info' | 'warn' | 'neutral'> = { Owner: 'warn', 
 function isOnline(lastActiveAt: string | null): boolean {
   if (!lastActiveAt) return false;
   return Date.now() - new Date(lastActiveAt).getTime() < 5 * 60 * 1000;
-}
-function initials(name: string) {
-  const p = name.trim().split(/\s+/);
-  return (p[0]?.[0] ?? '') + (p[1]?.[0] ?? '');
 }
 const TASHKENT_TZ = 'Asia/Tashkent';
 const tashkentDay = (d: string | Date) => new Intl.DateTimeFormat('en-CA', { timeZone: TASHKENT_TZ }).format(new Date(d));

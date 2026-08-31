@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, Plus, UserPlus } from 'lucide-react';
 import { PageHeader, Card, Badge, Spinner, Button, Modal } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
-import { formatSum, formatShortDate } from '@/shared/lib/format';
+import { formatSum, formatShortDate, initials } from '@/shared/lib/format';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PERMISSIONS } from '@/shared/config/permissions';
@@ -16,10 +16,6 @@ const GRID = 'min-w-[700px] grid-cols-[2fr_1.2fr_1.3fr_1fr_0.9fr]';
 const FILTERS = ['all', 'withDebt', 'regular'] as const;
 type Filter = (typeof FILTERS)[number];
 
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
-}
 
 /** Seller client directory: view customers + debt, add a new one (name/phone/type). */
 export default function SellerClientsPage() {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Modal, Button, PasswordInput } from '@/shared/ui';
+import { Modal, Button, PasswordInput, Field } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { employeesApi } from './api';
 import type { ApiError } from '@/shared/api/types';
@@ -91,11 +91,3 @@ export function AddEmployeeModal({ open, onClose }: { open: boolean; onClose: ()
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[13px] font-medium text-label">{label}</label>
-      {children}
-    </div>
-  );
-}
