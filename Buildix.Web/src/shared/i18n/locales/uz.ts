@@ -813,6 +813,18 @@ export const uz: TranslationSchema = {
       r4: 'Farq qayd etiladi va egasiga ko‘rinadi',
     },
   },
+  desktop: {
+    title: 'Do‘kon dasturi',
+    subtitle: 'Internetsiz ham ishlaydigan kassa — do‘kon kompyuteriga o‘rnatiladi',
+    step1: 'Faylni yuklab olib, do‘kon kompyuterida ishga tushiring.',
+    step2: 'Dastur ochilganda quyidagi manzilni kiriting va do‘kon EGASINING login-parolini yozing.',
+    step3: 'Shundan keyin kassirlar o‘z login-paroli bilan kiraveradi.',
+    urlLabel: 'Dasturga kiritiladigan manzil',
+    download: 'Yuklab olish (Windows)',
+    version: 'versiya {{version}}',
+    notReady: 'Dastur hali yuklashga tayyor emas. Qo‘llab-quvvatlash xizmatiga murojaat qiling.',
+  },
+
   settings: {
     title: 'Sozlamalar',
     subtitle: 'Do‘kon, kassa va tizim parametrlari',
@@ -879,16 +891,6 @@ export const uz: TranslationSchema = {
       minutes: 'daq',
       audit: 'Audit jurnali',
       auditHint: 'Xodimlar amallarini yozib borish',
-    },
-    desktop: {
-      title: 'Do‘kon dasturi',
-      subtitle: 'Internetsiz ham ishlaydigan kassa — do‘kon kompyuteriga o‘rnatiladi',
-      step1: 'Faylni yuklab olib, do‘kon kompyuterida ishga tushiring.',
-      step2: 'Dastur ochilgach shu login va parolingiz bilan kiring — do‘kon ma’lumotlari o‘zi tortiladi.',
-      step3: 'Shundan keyin kassirlar o‘z login-paroli bilan kiraveradi.',
-      download: 'Yuklab olish (Windows)',
-      version: 'versiya {{version}}',
-      notReady: 'Dastur hali yuklashga tayyor emas. Qo‘llab-quvvatlash xizmatiga murojaat qiling.',
     },
   },
   employees: {

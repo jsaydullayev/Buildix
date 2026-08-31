@@ -130,11 +130,37 @@ public sealed class LocalSecrets
             ? key
             : null;
 
+    /// <summary>
+    /// Bu kompyuter qaysi do'konga bog'langani — <c>buildix.uz/taxtapul</c>
+    /// dagi <c>taxtapul</c>.
+    /// </summary>
+    /// <remarks>
+    /// Saqlanadi, chunki bog'lash oynasi qayta ochilganda manzilni to'liq
+    /// ko'rsatishi kerak: egasi uni qaytadan izlab yurmasin.
+    /// </remarks>
+    public string? MarketSubdomain =>
+        _root["MarketSubdomain"] is JsonValue v && v.TryGetValue<string>(out var slug)
+        && !string.IsNullOrWhiteSpace(slug)
+            ? slug
+            : null;
+
+    /// <summary>
+    /// Do'konning to'liq veb-manzili — bog'lash oynasini to'ldirish uchun.
+    /// </summary>
+    public string MarketUrl => MarketSubdomain is { } slug
+        ? $"{CloudUrl ?? DefaultCloudUrl}/{slug}"
+        : CloudUrl ?? DefaultCloudUrl;
+
+    /// <summary>Hali hech narsa bog'lanmaganda ko'rsatiladigan manzil.</summary>
+    public const string DefaultCloudUrl = "https://buildix.uz";
+
     /// <summary>Bog'lanish natijasini saqlaydi.</summary>
-    public void SetCloudPairing(string url, string terminalKey)
+    public void SetCloudPairing(string url, string terminalKey, string? subdomain)
     {
         _root["CloudUrl"] = url.Trim().TrimEnd('/');
         _root["TerminalKey"] = terminalKey;
+        if (string.IsNullOrWhiteSpace(subdomain)) _root.Remove("MarketSubdomain");
+        else _root["MarketSubdomain"] = subdomain.Trim().ToLowerInvariant();
         Save();
     }
 

@@ -63,6 +63,7 @@ const SellerClientsPage = lazy(() => import('@/features/seller/SellerClientsPage
 const SellerPosPage = lazy(() => import('@/features/seller/SellerPosPage'));
 const SellerSuppliesPage = lazy(() => import('@/features/seller/SellerSuppliesPage'));
 const SellerNotificationsPage = lazy(() => import('@/features/seller/SellerNotificationsPage'));
+const DesktopDownloadPage = lazy(() => import('@/features/desktop/DesktopDownloadPage'));
 
 const publicElement = (node: ReactNode) => <Suspense fallback={<FullscreenLoader />}>{node}</Suspense>;
 
@@ -101,6 +102,23 @@ export const router = createBrowserRouter([
       { path: 'users', element: <SuperUsersPage /> },
       { path: 'settings', element: <SuperSettingsPage /> },
     ],
+  },
+  {
+    // Do'kon dasturini yuklab olish — do'konning O'Z manzili.
+    //
+    // Maketsiz va TEKIS marshrut, `/:subdomain/pos` kabi: sahifani do'konning
+    // istagan xodimi ochadi (admin ham, sotuvchi ham), ularning maketlari esa
+    // har xil. `/:subdomain` blokiga bola qilib qo'yilsa AppLayout ostiga
+    // tushar va sotuvchiga notanish ekran ko'rinardi.
+    //
+    // Obuna tekshiruvi ATAYLAB yo'q: yangi kassani o'rnatish — do'konni ishga
+    // tushirish qadami va uni to'lov holatiga bog'lash faqat xalaqit berardi.
+    path: '/:subdomain/desktop',
+    element: (
+      <RequireAuth>
+        <RequireTenant>{publicElement(<DesktopDownloadPage />)}</RequireTenant>
+      </RequireAuth>
+    ),
   },
   {
     // Full-screen POS checkout — outside AppLayout (no sidebar).

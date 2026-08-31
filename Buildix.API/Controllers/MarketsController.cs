@@ -55,7 +55,15 @@ public class MarketsController : ApiControllerBase
     /// nginx'da ro'yxat ko'rsatish o'chirilgan — ya'ni manzilni bilmasdan
     /// topib bo'lmaydi. Uni sahifaga qattiq yozib qo'ysak, o'sha sirning
     /// ma'nosi qolmasdi: manzil har bir tashrifchining brauzeriga
-    /// tushardi. Shu yerda esa uni faqat kirgan EGA oladi.</para>
+    /// tushardi. Shu yerda esa uni faqat KIRGAN foydalanuvchi oladi.</para>
+    ///
+    /// <para><b>Nega faqat ega emas.</b> Yangi kassani odatda do'konda
+    /// turgan odam o'rnatadi va u har doim ham egasi bo'lmaydi. Ilgari
+    /// manzilni faqat Owner ola olardi, ya'ni egasi telefon orqali havolani
+    /// aytib berishga majbur bo'lardi. Xavf ortmaydi: kompyuterni
+    /// FAOLLASHTIRISH baribir faqat ega login-paroli bilan ishlaydi —
+    /// buni <c>TerminalPairingController.Activate</c> shart qilib
+    /// qo'ygan.</para>
     ///
     /// <para>Sozlanmagan bo'lsa <c>url</c> bo'sh qaytadi — sahifa tugma
     /// o'rniga «hali tayyor emas» deb yozadi. Bu xato emas: yangi
@@ -69,7 +77,7 @@ public class MarketsController : ApiControllerBase
     /// bo'lardi va bu hech qanday belgi bermasdi.</para>
     /// </summary>
     [HttpGet("~/api/Markets/desktop-app")]
-    [Authorize(Policy = "OwnerOnly")]
+    [Authorize]
     public ActionResult<DesktopAppDto> DesktopApp([FromServices] IConfiguration configuration)
     {
         var url = configuration["Desktop:InstallerUrl"]?.Trim() ?? string.Empty;

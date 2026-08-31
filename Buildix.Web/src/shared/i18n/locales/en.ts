@@ -813,6 +813,18 @@ export const en: TranslationSchema = {
       r4: 'Variance is recorded and visible to the owner',
     },
   },
+  desktop: {
+    title: 'Store app',
+    subtitle: 'The register works offline too — installed on the store computer',
+    step1: 'Download the file and run it on the store computer.',
+    step2: 'On first launch enter the address below, then the store OWNER login and password.',
+    step3: 'After that cashiers sign in with their own accounts.',
+    urlLabel: 'Address to enter in the app',
+    download: 'Download (Windows)',
+    version: 'version {{version}}',
+    notReady: 'The app is not available for download yet. Please contact support.',
+  },
+
   settings: {
     title: 'Settings',
     subtitle: 'Store, cash register and system parameters',
@@ -879,16 +891,6 @@ export const en: TranslationSchema = {
       minutes: 'min',
       audit: 'Audit log',
       auditHint: 'Record employee actions',
-    },
-    desktop: {
-      title: 'Shop application',
-      subtitle: 'A till that keeps working without internet — installed on the shop computer',
-      step1: 'Download the file and run it on the shop computer.',
-      step2: 'Once it opens, sign in with this same login and password — the shop data pulls itself down.',
-      step3: 'From then on cashiers sign in with their own logins.',
-      download: 'Download (Windows)',
-      version: 'version {{version}}',
-      notReady: 'The application is not available for download yet. Please contact support.',
     },
   },
   employees: {

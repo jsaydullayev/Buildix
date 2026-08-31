@@ -43,7 +43,7 @@ public sealed class PairingForm : Form
     public PairingForm(LocalSecrets secrets)
     {
         _secrets = secrets;
-        _cloud.Text = secrets.CloudUrl ?? "https://buildix.uz";
+        _cloud.Text = secrets.MarketUrl;
 
         Text = "Buildix — do'konni bog'lash";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -57,10 +57,11 @@ public sealed class PairingForm : Form
         {
             AutoSize = false,
             Width = 490,
-            Height = 60,
+            Height = 76,
             Text = "Bu kompyuter hali bulutga bog'lanmagan, shuning uchun do'kon "
                  + "xodimlari hali yo'q va tizimga kirib bo'lmaydi.\r\n\r\n"
-                 + "Do'kon EGASINING login va paroli bilan kiring.",
+                 + "O'z do'koningizning manzilini yozing va do'kon EGASINING "
+                 + "login-paroli bilan kiring.",
         };
 
         BuildLoginRows();
@@ -75,7 +76,7 @@ public sealed class PairingForm : Form
             AutoSize = true,
         };
         layout.Controls.Add(intro, 0, 0);
-        layout.Controls.Add(Row("Bulut manzili:", _cloud), 0, 1);
+        layout.Controls.Add(Row("Do'kon manzili:", _cloud), 0, 1);
         layout.Controls.Add(_loginRows, 0, 2);
         layout.Controls.Add(_codeRows, 0, 3);
         // Kassa nomi ikkala yo'lda ham kerak, shuning uchun u almashadigan
@@ -150,13 +151,26 @@ public sealed class PairingForm : Form
 
     private async Task PairAsync()
     {
-        var url = _cloud.Text.Trim().TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(url))
+        var address = MarketAddress.Parse(_cloud.Text);
+        if (address is null)
         {
-            Show(Color.Firebrick, "Bulut manzilini kiriting.");
+            Show(Color.Firebrick, "Do'kon manzilini kiriting. Namuna: buildix.uz/taxtapul");
             return;
         }
 
+        // Do'kon belgisisiz bulut foydalanuvchini BARCHA do'konlar ichidan
+        // qidiradi va bir xil login ikki do'konda uchrasa qaysi biri
+        // tanlanishi aniqlanmagan bo'ladi — kassa begona do'konga bog'lanib
+        // ketishi mumkin. Kod bilan bog'lashda bu xavf yo'q: kod o'zi
+        // do'konga tegishli.
+        if (!_codeMode && address.Subdomain is null)
+        {
+            Show(Color.Firebrick,
+                "Manzilda do'kon nomi yo'q. To'liq manzilni yozing — namuna: buildix.uz/taxtapul");
+            return;
+        }
+
+        var url = address.CloudUrl;
         var terminalName = _name.Text.Trim();
 
         // Har rejimning o'z manzili va o'z tanasi — qolgan hammasi bir xil.
@@ -179,7 +193,9 @@ public sealed class PairingForm : Form
                 return;
             }
             path = "/api/pairing/activate";
-            body = new { username, password, subdomain = (string?)null, terminalName };
+            // Do'kon belgisi AYNAN shu yerda hal qiluvchi: usiz bulut
+            // loginni barcha do'konlar ichidan qidiradi.
+            body = new { username, password, subdomain = address.Subdomain, terminalName };
         }
 
         _pair.Enabled = false;
@@ -204,7 +220,7 @@ public sealed class PairingForm : Form
                 return;
             }
 
-            _secrets.SetCloudPairing(url, paired.Key);
+            _secrets.SetCloudPairing(url, paired.Key, address.Subdomain);
             Show(Color.SeaGreen, $"«{paired.MarketName}» do'koniga bog'landi.");
 
             // Ma'lumot API ishga tushganda o'zi tortiladi, shuning uchun
