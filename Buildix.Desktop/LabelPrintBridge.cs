@@ -127,23 +127,20 @@ public sealed class LabelPrintBridge
 
     /// <summary>
     /// Chek qayerga chiqadi: sozlamadagi printer, u yo'q bo'lsa — nomi
-    /// bo'yicha topilgani.
+    /// bo'yicha topilgani. UI oqimini BLOKLAMAYDI.
     /// </summary>
     /// <remarks>
-    /// Sozlamani o'tkazib yuborish oson va oqibati og'ir: chek qobiq orqali
-    /// umuman bosilmas, brauzer yo'liga tushar va kassir Windows'ning
+    /// <para>Sozlamani o'tkazib yuborish oson va oqibati og'ir: chek qobiq
+    /// orqali umuman bosilmas, brauzer yo'liga tushar va kassir Windows'ning
     /// «bu havolani ochadigan dastur yo'q» xatosini ko'rardi. Taxmin
-    /// ehtiyotkor — <see cref="ReceiptOutput.Guess"/> ga qarang.
-    /// </remarks>
-    private string? ReceiptTarget() => _secrets.ReceiptPrinter ?? ReceiptOutput.Guess();
-
-    /// <summary>
-    /// Printerni UI oqimini bloklamasdan aniqlaydi.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="ReceiptOutput.Guess"/> Windows'dagi printerlar ro'yxatini
-    /// o'qiydi — o'chiq tarmoq printeri bo'lsa bu chaqiruv sekin
-    /// tugaydi. U UI oqimida bajarilsa oyna muzlab qolardi.
+    /// ehtiyotkor — <see cref="ReceiptOutput.Guess"/> ga qarang.</para>
+    ///
+    /// <para><see cref="ReceiptOutput.Guess"/> Windows'dagi printerlar
+    /// ro'yxatini o'qiydi — o'chiq tarmoq printeri bo'lsa bu chaqiruv sekin
+    /// tugaydi. U UI oqimida bajarilsa oyna muzlab qolardi. Sinxron egizagi
+    /// ATAYLAB yo'q: u qolganda keyingi tahrir noto'g'risini tanlar va
+    /// muzlash aynan zaxira (rasm) yo'lida qaytardi — ya'ni printer
+    /// sozlanmagan kassada, birinchi chekda.</para>
     /// </remarks>
     private Task<string?> ReceiptTargetAsync() =>
         _secrets.ReceiptPrinter is { } configured
@@ -157,7 +154,7 @@ public sealed class LabelPrintBridge
         // etiket. Bitta sozlama bilan chek etiket printeriga tushardi va
         // 58x40 mm yorliqqa bosilgan chek hech narsaga yaramasdi.
         var receipt = string.Equals(request.Target, "receipt", StringComparison.OrdinalIgnoreCase);
-        var printer = receipt ? ReceiptTarget() : _secrets.LabelPrinter;
+        var printer = receipt ? await ReceiptTargetAsync() : _secrets.LabelPrinter;
         if (printer is null)
             return receipt ? "Chek printeri tanlanmagan." : "Yorliq printeri tanlanmagan.";
 

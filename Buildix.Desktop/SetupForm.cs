@@ -90,6 +90,9 @@ public sealed class SetupForm : Form
         Font = new Font("Segoe UI", 9.75F);
 
         var current = _secrets.ServerUrl;
+        // Saqlangan belgi AYNAN shu manzil uchun olingan. Oyna «Tekshirish»siz
+        // yopilsa, manzil o'zgarmagani shundan bilinadi.
+        _probedAddress = current;
         _server.Checked = current is null;
         _client.Checked = current is not null;
         _lan.Checked = _secrets.AllowLan;
@@ -260,10 +263,22 @@ public sealed class SetupForm : Form
     /// </remarks>
     private string? _probedShopId;
 
+    /// <summary>
+    /// <see cref="_probedShopId"/> QAYSI manzil uchun olingani.
+    ///
+    /// <para>Belgi manzilga bog'liq: server kompyuteri almashtirilsa yoki
+    /// qayta o'rnatilsa, uning do'kon belgisi ham yangi bo'ladi. Manzilni
+    /// tekshirmasdan almashtirgan texnik eski belgini yangi manzilga
+    /// yopishtirar va kassa keyingi ishga tushishda «boshqa do'kon» deb
+    /// bloklanardi.</para>
+    /// </summary>
+    private string? _probedAddress;
+
     private void Persist()
     {
         var isClient = _client.Checked;
-        _secrets.SetServerUrl(isClient ? Normalize(_address.Text) ?? _address.Text : null);
+        var normalized = Normalize(_address.Text);
+        _secrets.SetServerUrl(isClient ? normalized ?? _address.Text : null);
         // Server rejimida bu belgi keraksiz — u faqat ULANUVCHI kassaga
         // tegishli. Eski qiymat qolib ketsa, rol almashtirilganda noto'g'ri
         // solishtirishga sabab bo'lardi.
@@ -272,7 +287,17 @@ public sealed class SetupForm : Form
         // «Tekshirish» bosmasdan yopsa (masalan faqat printerni almashtirdi),
         // `_probedShopId` null bo'lar va belgi jimgina o'chib ketardi —
         // himoya esa aynan o'sha belgiga tayanadi.
-        _secrets.SetServerShopId(isClient ? _probedShopId ?? _secrets.ServerShopId : null);
+        //
+        // Lekin faqat MANZIL O'ZGARMAGANDA. Aks holda eski serverning belgisi
+        // yangi manzilga yopishar va kassa keyingi ishga tushishda «boshqa
+        // do'kon» deb bloklanardi — chiqish yo'li esa faqat sozlamalar
+        // faylini qo'lda tahrirlash bo'lardi. Belgi tashlab yuborilsa,
+        // MainForm uni birinchi muvaffaqiyatli ulanishda qaytadan yozadi.
+        var sameAddress = string.Equals(
+            normalized, _probedAddress, StringComparison.OrdinalIgnoreCase);
+        _secrets.SetServerShopId(isClient
+            ? _probedShopId ?? (sameAddress ? _secrets.ServerShopId : null)
+            : null);
         // Ulanuvchi kassa hech qachon tarmoqqa ochilmaydi: unda API umuman
         // ishga tushmaydi va yoqilgan bayroq faqat chalkashtirardi.
         _secrets.SetAllowLan(!isClient && _lan.Checked);
@@ -410,6 +435,7 @@ public sealed class SetupForm : Form
             if (probe.Problem is not null)
             {
                 _probedShopId = null;
+                _probedAddress = null;
                 Show(Color.Firebrick, probe.Problem);
                 return;
             }
@@ -420,6 +446,7 @@ public sealed class SetupForm : Form
             // aytmaydi — texnik buni faqat savdo boshlangandan keyin,
             // begona qoldiqlarni ko'rib bilardi.
             _probedShopId = probe.ShopId;
+            _probedAddress = address;
             Show(Color.SeaGreen, string.IsNullOrWhiteSpace(probe.ShopName)
                 ? "Server javob berdi. Saqlash mumkin."
                 : $"Server javob berdi: «{probe.ShopName}». Do'kon to'g'ri bo'lsa saqlang.");

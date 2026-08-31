@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/cn';
 import { formatSum } from '@/shared/lib/format';
 import type { ApiError } from '@/shared/api/types';
 import { salesApi, type Sale } from '@/features/sales/api';
+import { invalidateSaleLists } from '@/features/sales/invalidate';
 import { returnsApi } from './api';
 
 const REASONS = ['Defect', 'NotFit', 'SellerError', 'Other'] as const;
@@ -84,10 +85,13 @@ export function NewReturnModal({ open, onClose, presetSearch }: { open: boolean;
       return returnsApi.create({ saleId: sale!.id, reason, refundMethod: refund, items });
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['returns'] });
-      void qc.invalidateQueries({ queryKey: ['returns-summary'] });
+      // Qaytarish chekka manfiy to'lov yozadi va `PaidAmount` ni siljitadi —
+      // ya'ni chek kartochkasi, smena va qarz ekranlariga ham tegadi.
+      // Ilgari bu yerda faqat to'rtta kalit yangilanardi, ustiga sotuvchi
+      // qobig'ining `seller-returns` kaliti `returns` prefiksiga MOS
+      // KELMAS edi: sotuvchi o'z qaytarishini ro'yxatida ko'rmasdi.
+      invalidateSaleLists(qc);
       void qc.invalidateQueries({ queryKey: ['products'] });
-      void qc.invalidateQueries({ queryKey: ['cash-ledger'] });
       close();
     },
     onError: (e) => setError((e as unknown as ApiError).message ?? t('common.somethingWrong')),

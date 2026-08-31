@@ -102,20 +102,29 @@ export default function ReportsPage() {
   const previous = useMemo(() => prevRange(range), [range]);
   const stringPeriod = STRING_PERIOD[period];
 
-  // Kalitda SANA emas, davr turi turadi.
+  // H-13: monthly-category-sales resolves the month from a calendar date via the
+  // Tashkent clock — send yyyy-MM-dd, not a UTC instant (which would shift the
+  // month at Tashkent 00:00–05:00 on a UTC server).
+  const categoryDate = format(new Date(range.end), 'yyyy-MM-dd');
+
+  // Kalitda MILLISEKUND emas, KUN turadi.
   //
   // Ilgari kalit `range.end` ni o'z ichiga olardi, u esa `new Date()` dan
-  // MILLISEKUND aniqligida keladi. Ya'ni har mount'da yangi kalit tug'ilar
+  // millisekund aniqligida keladi. Ya'ni har mount'da yangi kalit tug'ilar
   // va kesh HECH QACHON ishlamasdi: «Hisobotlar» sahifasiga har kirganda
-  // ikkala og'ir so'rov qaytadan bajarilardi. Sana endi queryFn ichida —
-  // u kalitga ta'sir qilmaydi.
+  // ikkala og'ir so'rov qaytadan bajarilardi.
+  //
+  // Sanani butunlay olib tashlash esa teskari xatoni tug'dirardi: yarim
+  // tunda ochiq qolgan sahifa yangi oyning sarlavhasi ostida ESKI oyning
+  // raqamlarini ko'rsatardi. Kun aniqligi ikkalasini ham hal qiladi — kesh
+  // kun ichida ishlaydi, chegarada esa kalit o'zgaradi.
   const periodQuery = useQuery({
-    queryKey: ['reports-period', period],
+    queryKey: ['reports-period', period, categoryDate],
     queryFn: () => reportsApi.period(range.start, range.end),
     placeholderData: keepPreviousData,
   });
   const prevQuery = useQuery({
-    queryKey: ['reports-period-prev', period],
+    queryKey: ['reports-period-prev', period, categoryDate],
     queryFn: () => reportsApi.period(previous.start, previous.end),
     placeholderData: keepPreviousData,
   });
@@ -124,10 +133,6 @@ export default function ReportsPage() {
     queryFn: () => reportsApi.weeklySeries(SERIES_DAYS[period]),
     placeholderData: keepPreviousData,
   });
-  // H-13: monthly-category-sales resolves the month from a calendar date via the
-  // Tashkent clock — send yyyy-MM-dd, not a UTC instant (which would shift the
-  // month at Tashkent 00:00–05:00 on a UTC server).
-  const categoryDate = format(new Date(range.end), 'yyyy-MM-dd');
   const categoryQuery = useQuery({
     queryKey: ['reports-categories', categoryDate],
     queryFn: () => reportsApi.categorySales(categoryDate),

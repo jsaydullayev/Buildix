@@ -581,6 +581,10 @@ export default function PosPage() {
     items.length > 0 &&
     !checkout.isPending &&
     !settling &&
+    // Qarzni kimdan undirishni server MIJOZSIZ bilmaydi va so'rovni rad
+    // etadi. Tugma yoqilgan qolsa, kassir uni bosar va tushunarsiz xatoga
+    // urilardi. Sotuvchi kassasi buni allaqachon shunday qiladi.
+    (method !== 'Debt' || !!customer) &&
     (method !== 'Mixed' || (total > 0 && mixRemainder === 0));
 
   return (
@@ -950,8 +954,18 @@ export default function PosPage() {
                 <span>{actionError}</span>
               </div>
             )}
+            {/* Ilgari bu yerda «Mijoz: Chakana» yozuvi turardi — ya'ni UI
+                «mijozsiz ham bo'ladi» deb va'da berardi, server esa so'rovni
+                rad etardi. Endi u yetishmayotgan narsani aytadi va uni
+                to'ldirish tugmasini beradi. */}
             {method === 'Debt' && !customer && (
-              <div className="mb-2 text-[12px] text-warn-text">{t('pos.customer.label')}: {t('pos.customer.walkIn')}</div>
+              <div className="mb-2 flex items-center justify-between gap-2 rounded-input bg-warn-soft px-3 py-2 text-[12.5px] text-warn-text">
+                <span>{t('seller.pos.debtNeedsCustomer')}</span>
+                <Button size="sm" variant="secondary" onClick={() => setCustOpen(true)}>
+                  <UserPlus size={14} />
+                  {t('pos.customer.add')}
+                </Button>
+              </div>
             )}
 
             <div className="flex gap-2">
