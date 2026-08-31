@@ -440,6 +440,11 @@ public class SaleService : ISaleService
             await RecalculateSaleTotalAsync(sale, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+            // Bu yerda avansni qaytarish KERAK EMAS: yuqorida chegirma
+            // allaqachon to'langan summadan pastga tusha olmaydi qilib
+            // cheklangan, ya'ni ortiqcha umuman paydo bo'lmaydi. Chaqiruv
+            // qo'shilsa u har chegirmada bekorga bitta so'rov yuborardi.
+
             if (sale.Status == SaleStatus.Debt)
             {
                 var debt = await _context.Debts

@@ -102,6 +102,100 @@ public class SaleMoneyGuardTests
     }
 
     /// <summary>
+    /// Tovar olib tashlansa, ortiqcha avans mijozga QAYTADI.
+    /// </summary>
+    /// <remarks>
+    /// <para>Avans chek o'sganda qo'llanadi (AddSaleItem va
+    /// SetSaleItemQuantity uni chaqiradi). Olib tashlash yo'lida esa
+    /// chaqirilmasdi: jami tushar, to'langan summa o'z holicha qolar —
+    /// chek «ortiqcha to'langan» bo'lib qolar va mijozning puli unda
+    /// qamalib qolardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Tovar_olib_tashlanganda_ortiqcha_avans_qaytadi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000002" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 300_000, SaleStatus.Draft);
+        var item = new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        };
+        h.Db.SaleItems.Add(item);
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Credit, Amount = 300_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Ikkita dona olib tashlanadi — jami 200 000 ga tushadi.
+        var result = await h.NewSaleItemService()
+            .RemoveSaleItemAsync(sale.Id, new RemoveSaleItemDto(item.Id.ToString(), 2m));
+        Assert.True(result.IsSuccess, result.Error);
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == sale.Id);
+        Assert.Equal(200_000m, stored.TotalAmount);
+        Assert.Equal(200_000m, stored.PaidAmount);
+
+        var credit = await h.Db.Payments.IgnoreQueryFilters()
+            .Where(p => p.SaleId == sale.Id && p.PaymentType == PaymentType.Credit)
+            .SumAsync(p => p.Amount);
+        Assert.Equal(200_000m, credit);
+    }
+
+    /// <summary>
+    /// HAQIQIY ortiqcha to'lov avansga aylanmaydi.
+    /// </summary>
+    /// <remarks>
+    /// Faqat shu chekka qo'llangan avans qaytariladi. Kassir naqd ko'proq
+    /// olgan bo'lsa, o'sha pul do'kondan chiqmagan — uni avans deb yozish
+    /// do'konni ikki marta to'lashga majburlardi.
+    /// </remarks>
+    [Fact]
+    public async Task Naqd_ortiqcha_tolov_avansga_aylanmaydi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000003" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 300_000, SaleStatus.Draft);
+        var item = new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        };
+        h.Db.SaleItems.Add(item);
+        // Avans EMAS — naqd pul.
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Cash, Amount = 300_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await h.NewSaleItemService()
+            .RemoveSaleItemAsync(sale.Id, new RemoveSaleItemDto(item.Id.ToString(), 2m));
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == sale.Id);
+        // To'langan summa TEGILMAYDI: pul naqd kelgan, uni avansga
+        // aylantirish do'konni ikki marta to'lashga majburlardi.
+        Assert.Equal(300_000m, stored.PaidAmount);
+        Assert.Empty(await h.Db.Payments.IgnoreQueryFilters()
+            .Where(p => p.SaleId == sale.Id && p.PaymentType == PaymentType.Credit)
+            .ToListAsync());
+    }
+
+    /// <summary>
     /// Bekor qilingan chekda sarflangan AVANS mijozga qaytadi.
     /// </summary>
     /// <remarks>

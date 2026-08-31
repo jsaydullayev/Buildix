@@ -437,6 +437,13 @@ public class SaleItemService : ISaleItemService
                 await RecalculateSaleTotalAsync(sale, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+                // Chek KICHRAYDI — qo'llangan avansning ortiqcha qismi
+                // mijozga qaytadi. Qo'shish yo'lida avans qo'llanardi
+                // (yuqorida), olib tashlash yo'lida esa qaytarilmasdi:
+                // mijoz pulini yo'qotar, chek esa «ortiqcha to'langan»
+                // holatga tushib qolardi.
+                await _creditApplier.ReleaseAsync(sale.Id, cancellationToken);
+
                 return Result.Success(SaleMapper.MapItem(resultSaleItem, product.Name, product.GetUnitName(), (int)product.Unit));
             }
             else
@@ -467,6 +474,9 @@ public class SaleItemService : ISaleItemService
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await RecalculateSaleTotalAsync(sale, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                // Chek kichraydi — ortiqcha avans mijozga qaytadi.
+                await _creditApplier.ReleaseAsync(sale.Id, cancellationToken);
 
                 // Mapping: Product name = ExternalProductName, Unit = empty
                 return Result.Success(SaleMapper.MapItem(

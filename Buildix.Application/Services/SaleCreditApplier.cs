@@ -30,6 +30,49 @@ public class SaleCreditApplier : ISaleCreditApplier
         _logger = logger;
     }
 
+    /// <inheritdoc />
+    public async Task ReleaseAsync(Guid saleId, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        var sale = await _context.Sales
+            .Include(s => s.Payments)
+            .FirstOrDefaultAsync(s => s.Id == saleId && s.MarketId == marketId, cancellationToken);
+
+        if (sale is null) return;
+
+        var excess = sale.PaidAmount - sale.TotalAmount;
+        if (excess <= 0) return;
+
+        // Shu chekka qo'llangan avans: musbat Credit qatorlari sarflangan,
+        // manfiylari allaqachon qaytarilgan.
+        var appliedCredit = sale.Payments
+            .Where(p => p.PaymentType == PaymentType.Credit)
+            .Sum(p => p.Amount);
+
+        var release = Math.Min(excess, appliedCredit);
+        if (release <= 0) return;
+
+        _logger.LogInformation(
+            "Releasing customer credit: SaleId={SaleId}, Excess={Excess}, Released={Released}",
+            saleId, excess, release);
+
+        _context.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            SaleId = saleId,
+            MarketId = marketId,
+            PaymentType = PaymentType.Credit,
+            Amount = -release,
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        sale.PaidAmount -= release;
+        _context.Sales.Update(sale);
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task ApplyAsync(Guid saleId, Guid customerId, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
