@@ -218,6 +218,21 @@ public partial class AuthService
     /// </summary>
     private void EnsureMarketOpen(Market market)
     {
+        // O'CHIRILGAN do'kon — eshik butunlay yopiq.
+        //
+        // Slug bilan kirishda bu parol tekshiruvidan OLDIN qaralardi
+        // (yuqorida), slugsiz yo'lda esa UMUMAN qaralmasdi: bu tekshiruv
+        // shu metodda yo'q edi. Natijada o'chirilgan do'konning xodimi
+        // ildizdagi `/login` orqali (slugsiz) bemalol kirar va do'kon
+        // ma'lumotiga to'liq kirish olardi. Ikkala yo'l endi bitta
+        // qoidaga tayanadi.
+        if (!market.IsActive)
+        {
+            _logger.LogWarning("Login blocked — market {MarketId} is not active", market.Id);
+            throw new Buildix.Domain.Exceptions.MarketBlockedException(
+                market.Id, market.BlockedReason, market.BlockedAt);
+        }
+
         if (market.IsBlocked)
         {
             _logger.LogWarning(

@@ -100,6 +100,32 @@ public class AuthSubscriptionTests
         return user;
     }
 
+    /// <summary>
+    /// O'CHIRILGAN do'kon xodimi slugsiz ham kira olmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Slug bilan kirishda do'konning <c>IsActive</c> holati parol
+    /// tekshiruvidan oldin qaralardi, slugsiz yo'lda esa umuman
+    /// qaralmasdi — <c>EnsureMarketOpen</c> faqat <c>IsBlocked</c> va
+    /// obunani ko'rardi. Natijada o'chirilgan do'kon xodimi ildizdagi
+    /// <c>/login</c> orqali bemalol kirar va ma'lumotga to'liq ega
+    /// bo'lardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ochirilgan_dokon_xodimi_slugsiz_ham_kira_olmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await AddMarketAsync(h, "ochiq", isActive: false);
+        await AddOwnerAsync(h, market.Id, "sardor");
+
+        // Slug bilan — avvaldan yopiq edi.
+        Assert.Null(await NewAuthService(h).LoginAsync(new LoginRequest("sardor", Password, "ochiq")));
+
+        // Slugsiz — aynan shu teshik edi.
+        await Assert.ThrowsAsync<Buildix.Domain.Exceptions.MarketBlockedException>(
+            () => NewAuthService(h).LoginAsync(new LoginRequest("sardor", Password, null)));
+    }
+
     // ── domain rule (single source of truth) ─────────────────────────────
 
     [Fact]

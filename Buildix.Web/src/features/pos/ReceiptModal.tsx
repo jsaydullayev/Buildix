@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Check, Printer } from 'lucide-react';
 import { Modal, Button, Card } from '@/shared/ui';
@@ -41,9 +42,25 @@ export function ReceiptModal({
    */
   problem?: string | null;
   onClose: () => void;
-  onPrint: (id: string) => void;
+  onPrint: (id: string) => Promise<void> | void;
 }) {
   const { t } = useTranslation();
+
+  // Chop etish TUGAGUNCHA tugma band. Busiz kassir sabri chidamay ikkinchi
+  // marta bosar va printerdan ikkita bir xil chek chiqardi — mijozda ikkita
+  // qog'oz, kassirda esa qaysi biri haqiqiy ekani haqida savol.
+  const [printing, setPrinting] = useState(false);
+
+  async function print(id: string) {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      await onPrint(id);
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   return (
     <Modal
       open={!!sale}
@@ -51,7 +68,11 @@ export function ReceiptModal({
       title={t('pos.done.title')}
       footer={
         <>
-          <Button variant="secondary" onClick={() => sale && onPrint(sale.id)}>
+          <Button
+            variant="secondary"
+            loading={printing}
+            onClick={() => sale && void print(sale.id)}
+          >
             <Printer size={15} />
             {t('pos.done.print')}
           </Button>

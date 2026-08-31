@@ -1060,7 +1060,37 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<AuditLog>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashRegister>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
         modelBuilder.Entity<CashWithdrawal>().HasQueryFilter(x => !TenantMarketId.HasValue || x.MarketId == TenantMarketId);
+
+        // ── Bulutga yuborish kursori ─────────────────────────────────────
+        // `ShopPushService` har bir jadvaldan o'zgargan qatorlarni
+        // (UpdatedAt, Id) juftligi bo'yicha oladi: shu juftlikdan KATTA
+        // qatorlarni topib, o'sha tartibda saralab, birinchi paketni
+        // qaytaradi.
+        //
+        // Indekssiz bu har bir jadval uchun TO'LIQ SKANERLASH va SARALASH
+        // degani. Sinxronizatsiya har daqiqada ishlaydi va o'n beshta
+        // jadvaldan o'tadi — ya'ni do'kon bazasi kun bo'yi, hech qanday
+        // o'zgarish bo'lmasa ham, daqiqasiga o'n besh marta to'liq
+        // skanerlanardi. Bulutda esa bu har bir ijarachi uchun takrorlanadi.
+        //
+        // Indeks aynan so'rov tartibida: qidiruv ham, saralash ham undan
+        // o'qiladi va «o'zgarish yo'q» holati bir necha yozuvda hal bo'ladi.
+        foreach (var entity in SyncCursorEntities)
+            modelBuilder.Entity(entity).HasIndex(nameof(BaseEntity.UpdatedAt), nameof(BaseEntity.Id));
     }
+
+    /// <summary>
+    /// Bulutga yuboriladigan jadvallar — <c>ShopPushService</c> dagi ro'yxat
+    /// bilan bir xil bo'lishi shart.
+    /// </summary>
+    private static readonly Type[] SyncCursorEntities =
+    [
+        typeof(User), typeof(Supplier), typeof(Product), typeof(Customer),
+        typeof(Shift), typeof(Sale), typeof(SaleItem), typeof(Payment),
+        typeof(Debt), typeof(SaleReturn), typeof(SaleReturnItem),
+        typeof(ZakupReceipt), typeof(Zakup), typeof(CashMovement),
+        typeof(StockMovement),
+    ];
 
     // ── UpdatedAt ────────────────────────────────────────────────────────────
     // Ikkala SaveChanges ham shu yerdan o'tadi: sinxron chaqiruv EF ichida
