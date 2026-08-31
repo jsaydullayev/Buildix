@@ -60,7 +60,8 @@ public class SalePaymentService : ISalePaymentService
     /// Result on violation (the value is never read); an ok Result otherwise.
     /// </summary>
     private async Task<Result<PaymentDto>> CheckDebtRulesAsync(
-        Guid customerId, int marketId, Guid saleId, decimal newRemainingDebt, CancellationToken ct)
+        Guid customerId, int marketId, Guid saleId, Guid sellerId,
+        decimal newRemainingDebt, CancellationToken ct)
     {
         var settings = await _settings.GetOrCreateAsync(marketId, ct);
         var customer = await _context.Customers
@@ -68,6 +69,17 @@ public class SalePaymentService : ISalePaymentService
 
         if (settings.DebtOnlyForRegulars && (customer is null || !customer.IsRegular))
             return Result.Failure<PaymentDto>("Долг разрешён только постоянным клиентам.", "DEBT_REGULARS_ONLY");
+
+        // Kassirning bitta chekka qarz limiti. Ilgari u FAQAT «Qarzga»
+        // tugmasida tekshirilardi, ya'ni limitdan oshgan kassir shunchaki
+        // 1 so'mlik to'lov qabul qilib o'sha qarzni yozaverardi — qoida
+        // bitta tugmani chetlab o'tish bilan yo'qolardi. Null = cheksiz.
+        var maxDebtPerCheck = await _context.Users
+            .Where(u => u.Id == sellerId)
+            .Select(u => u.MaxDebtPerCheck)
+            .FirstOrDefaultAsync(ct);
+        if (maxDebtPerCheck is { } cap && newRemainingDebt > cap)
+            return Result.Failure<PaymentDto>($"Sizning bir chekka qarz limitingiz {cap:N0} сум.");
 
         if (customer is not null)
         {
@@ -294,7 +306,8 @@ public class SalePaymentService : ISalePaymentService
             if (newPaidAmount < sale.TotalAmount && sale.CustomerId.HasValue && sale.CustomerId.Value != Guid.Empty)
             {
                 var debtCheck = await CheckDebtRulesAsync(
-                    sale.CustomerId.Value, sale.MarketId, saleId, sale.TotalAmount - newPaidAmount, cancellationToken);
+                    sale.CustomerId.Value, sale.MarketId, saleId, sale.SellerId,
+                    sale.TotalAmount - newPaidAmount, cancellationToken);
                 if (debtCheck.IsFailure) return debtCheck;
             }
 

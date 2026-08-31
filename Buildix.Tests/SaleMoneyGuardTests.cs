@@ -363,6 +363,49 @@ public class SaleMoneyGuardTests
     }
 
     /// <summary>
+    /// Kassirning chekka qarz limitini QISMAN to'lov bilan chetlab bo'lmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Limit faqat «Qarzga» tugmasida tekshirilardi. Limitdan oshgan
+    /// kassir shunchaki 1 so'mlik to'lov qabul qilib o'sha qarzni yozaverardi
+    /// — qoida bitta tugmani chetlab o'tish bilan yo'qolardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Qarz_limitini_qisman_tolov_bilan_chetlab_bolmaydi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = Market, Username = "kassir", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+            MaxDebtPerCheck = 50_000m,
+        };
+        h.Db.Users.Add(seller);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000008" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 0, SaleStatus.Draft);
+        sale.SellerId = seller.Id;
+        h.Db.SaleItems.Add(new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // 100 000 to'lansa 200 000 qarz qoladi — limit 50 000.
+        var result = await h.NewSalePaymentService()
+            .AddPaymentAsync(sale.Id, new AddPaymentDto("Cash", 100_000m, null));
+
+        Assert.True(result.IsFailure);
+        Assert.Empty(await h.Db.Debts.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
     /// Bekor qilingan chekda sarflangan AVANS mijozga qaytadi.
     /// </summary>
     /// <remarks>
