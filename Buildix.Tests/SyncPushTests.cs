@@ -398,6 +398,138 @@ public class SyncPushTests
     }
 
     /// <summary>
+    /// Do'kon BOSHQA do'konning xodimini ID bo'yicha o'ziniki qila olmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ustiga yozish ID bo'yicha, <c>IgnoreQueryFilters()</c> bilan
+    /// izlanardi — ya'ni tenant filtri ataylab o'chirilgan joyda EGALIK
+    /// tekshiruvi umuman yo'q edi. Do'kon kalitiga ega odam qo'shni
+    /// do'konning egasi ID sini yuborsa: qatorning <c>MarketId</c> si
+    /// o'ziga almashar, <c>PasswordHash</c> gacha hamma ustun ustiga
+    /// ko'chirilardi. Begona hisob o'g'irlanar, uning do'koni esa hisobni
+    /// butunlay yo'qotardi — pull so'rovi <c>MarketId</c> bo'yicha
+    /// filtrlaydi.</para>
+    ///
+    /// <para><c>GuardRolesAsync</c> ham qutqarmasdi: «tanish ega»
+    /// so'rovida ham do'kon sharti yo'q edi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Begona_dokonning_xodimini_ID_boyicha_egallab_bolmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Users.Add(new User
+        {
+            Id = id, MarketId = 7, Username = "ega7", FullName = "Yettinchi ega",
+            PasswordHash = "haqiqiy", Role = Role.Owner, IsActive = true,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // 9-do'kon 7-do'kon egasining ID si bilan o'z parolini yuboradi.
+        var result = await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Users =
+            {
+                new User
+                {
+                    Id = id, MarketId = 9, Username = "hujum", FullName = "Hujum",
+                    PasswordHash = "hujumchi", Role = Role.Owner, IsActive = true,
+                },
+            },
+        });
+
+        Assert.Equal(0, result.Accepted);
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(7, stored.MarketId);
+        Assert.Equal("ega7", stored.Username);
+        Assert.Equal("haqiqiy", stored.PasswordHash);
+    }
+
+    /// <summary>
+    /// Do'kon savdo qatorini ham begona do'kondan tortib ola olmaydi.
+    /// </summary>
+    [Fact]
+    public async Task Begona_dokonning_sotuvini_ID_boyicha_egallab_bolmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Sales.Add(new Sale
+        {
+            Id = id, MarketId = 7, SellerId = Guid.NewGuid(),
+            SaleNumber = 5, TotalAmount = 100_000, PaidAmount = 100_000,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Sales =
+            {
+                new Sale
+                {
+                    Id = id, MarketId = 9, SellerId = Guid.NewGuid(),
+                    SaleNumber = 999, TotalAmount = 1m, PaidAmount = 1m,
+                },
+            },
+        });
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(7, stored.MarketId);
+        Assert.Equal(5, stored.SaleNumber);
+        Assert.Equal(100_000m, stored.TotalAmount);
+    }
+
+    /// <summary>
+    /// Do'kon push'i BULUT boshqaradigan ustunlarni tiklab yubormaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bu hujum emas, kundalik holat. <c>SyncUserDto</c> da
+    /// <c>ShiftStatus</c> ham, <c>TokensInvalidBeforeUtc</c> ham yo'q, ya'ni
+    /// ular do'konga UMUMAN tushmaydi va do'kon qatorida entity sukut
+    /// qiymati turadi (<c>Active</c>, <c>null</c>). Keyingi push esa o'sha
+    /// soxta sukutni bulutga qaytarardi: ega webda kassirning smenasini
+    /// bloklagach, bir daqiqadan keyin blok o'z-o'zidan yechilardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Dokon_push_i_bulutdagi_smena_blokini_yechmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        var invalidBefore = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        h.Db.Users.Add(new User
+        {
+            Id = id, MarketId = 9, Username = "kassir", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+            ShiftStatus = ShiftStatus.Blocked,
+            TokensInvalidBeforeUtc = invalidBefore,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Do'kon faqat ismni o'zgartirdi; qolgan maydonlarda sukut qiymati.
+        await NewService(h).AcceptAsync(9, new SyncPushDto
+        {
+            Users =
+            {
+                new User
+                {
+                    Id = id, MarketId = 9, Username = "kassir", FullName = "Yangi ism",
+                    PasswordHash = "x", Role = Role.Seller, IsActive = true,
+                },
+            },
+        });
+
+        var stored = await h.Db.Users.IgnoreQueryFilters().SingleAsync();
+        // Do'kon boshqaradigan maydon o'tdi...
+        Assert.Equal("Yangi ism", stored.FullName);
+        // ...bulutniki esa tegilmadi.
+        Assert.Equal(ShiftStatus.Blocked, stored.ShiftStatus);
+        Assert.Equal(invalidBefore, stored.TokensInvalidBeforeUtc);
+    }
+
+    /// <summary>
     /// Kategoriya raqami bulutda BOSHQA do'konnikiga tegishli bo'lishi mumkin
     /// (u yerda ketma-ketlik hamma uchun umumiy). Shuning uchun havola
     /// uziladi — tovar begona kategoriyaga tushib qolgandan ko'ra

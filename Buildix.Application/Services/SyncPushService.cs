@@ -49,8 +49,9 @@ public class SyncPushService : ISyncPushService
         // hisobot jimgina noto'g'ri ko'rsatardi.
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            await GuardRolesAsync(payload.Users, ct);
-            perTable["User"] = await UpsertAsync(_context.Users, payload.Users, marketId, ct);
+            await GuardRolesAsync(payload.Users, marketId, ct);
+            perTable["User"] = await UpsertAsync(
+                _context.Users, payload.Users, marketId, ct, CloudOwnedUserColumns);
 
             // ── Kategoriya havolasi UZILADI ─────────────────────────────────
             // `ProductCategories.Id` — butun son va u bulutda BARCHA do'konlar
@@ -178,7 +179,7 @@ public class SyncPushService : ISyncPushService
     /// bulutda ALLAQACHON egasi bo'lgan qator o'tadi, YANGI egani yaratish
     /// esa o'tmaydi: egalar bulutda, ro'yxatdan o'tishda tug'iladi.</para>
     /// </remarks>
-    private async Task GuardRolesAsync(List<User> users, CancellationToken ct)
+    private async Task GuardRolesAsync(List<User> users, int marketId, CancellationToken ct)
     {
         if (users.Count == 0) return;
 
@@ -195,9 +196,12 @@ public class SyncPushService : ISyncPushService
         var ownerIds = users.Where(u => u.Role == Role.Owner).Select(u => u.Id).ToList();
         if (ownerIds.Count == 0) return;
 
+        // «Tanish ega» — faqat SHU do'konning egasi. `u.MarketId == marketId`
+        // siz qo'shni do'konning egasi ham tanish sanalar va uning qatori
+        // guard'dan bemalol o'tib ketardi.
         var knownOwners = await _context.Users
             .IgnoreQueryFilters()
-            .Where(u => ownerIds.Contains(u.Id) && u.Role == Role.Owner)
+            .Where(u => ownerIds.Contains(u.Id) && u.Role == Role.Owner && u.MarketId == marketId)
             .Select(u => u.Id)
             .ToListAsync(ct);
 
@@ -213,8 +217,54 @@ public class SyncPushService : ISyncPushService
         }
     }
 
+    /// <summary>
+    /// Har qanday jadvalda ustiga yozilmaydigan ustunlar.
+    ///
+    /// <para><c>UpdatedAt</c> — bulutning suv belgisi; <c>MarketId</c> —
+    /// egalik (yuqoridagi izohga qarang).</para>
+    /// </summary>
+    private static readonly string[] NeverCopied =
+        [nameof(BaseEntity.Id), nameof(BaseEntity.UpdatedAt), "MarketId"];
+
+    /// <summary>
+    /// Do'kon xodim qatorida YOZA OLADIGAN ustunlar — pastga tushadigan
+    /// <see cref="DTOs.SyncUserDto"/> ning aynan o'zi.
+    /// </summary>
+    private static readonly string[] ShopWritableUserColumns =
+    [
+        nameof(User.Username), nameof(User.FullName), nameof(User.PasswordHash),
+        nameof(User.Phone), nameof(User.Role), nameof(User.IsActive),
+        nameof(User.IsDeleted), nameof(User.Permissions),
+        nameof(User.IsPermissionsCustomized), nameof(User.Language),
+        nameof(User.MaxDebtPerCheck), nameof(User.MaxDiscountPercent),
+    ];
+
+    /// <summary>
+    /// Xodimning BULUT egalik qiladigan ustunlari — do'kon push'i ularga
+    /// tegmaydi.
+    ///
+    /// <para><b>Nega kerak.</b> Bu ustunlar do'konga UMUMAN tushmaydi:
+    /// <c>SyncUserDto</c> da ular yo'q, ya'ni <c>ShopSyncService</c> do'kon
+    /// qatorini yaratganda ularga entity SUKUT qiymati tushadi
+    /// (<c>ShiftStatus = Active</c>, <c>TokensInvalidBeforeUtc = null</c>).
+    /// Keyingi push esa o'sha soxta sukutni bulutga qaytarardi. Amalda:
+    /// ega webda kassirning smenasini bloklaydi — bir daqiqadan keyin
+    /// do'konning push'i uni jimgina «Active» ga qaytarib qo'yardi. Chiqarib
+    /// yuborilgan xodimning tokeni ham xuddi shunday tiriladi.</para>
+    ///
+    /// <para>Ro'yxat OQ RO'YXATdan hisoblanadi: <c>SyncUserDto</c> ga yangi
+    /// maydon qo'shilsa uni yuqorida ham qayd etish kerak, aks holda u
+    /// bulutniki bo'lib qolaveradi — xavfsiz sukut.</para>
+    /// </summary>
+    private static readonly string[] CloudOwnedUserColumns = typeof(User)
+        .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+        .Where(p => p.CanWrite && !ShopWritableUserColumns.Contains(p.Name))
+        .Select(p => p.Name)
+        .ToArray();
+
     private async Task<int> UpsertAsync<T>(
-        DbSet<T> table, List<T> incoming, int marketId, CancellationToken ct)
+        DbSet<T> table, List<T> incoming, int marketId, CancellationToken ct,
+        params string[] cloudOwnedColumns)
         where T : BaseEntity
     {
         if (incoming.Count == 0) return 0;
@@ -225,13 +275,46 @@ public class SyncPushService : ISyncPushService
             .Where(x => ids.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, ct);
 
+        // ── EGALIK ─────────────────────────────────────────────────────────
+        // Bulutdagi qator BOSHQA do'konga tegishli bo'lsa, unga TEGILMAYDI.
+        //
+        // `IgnoreQueryFilters()` tenant filtrini ataylab o'chiradi (busiz
+        // yangi qatorni eskisidan ajratib bo'lmasdi), ya'ni bu yerda EF hech
+        // narsani himoya qilmaydi. Egalik tekshiruvisiz do'kon kalitiga ega
+        // odam qo'shni do'konning xodimi ID sini yuborsa: `ForceMarket` o'sha
+        // qatorga O'Z do'konining raqamini yozar, `CopyColumns` esa hamma
+        // ustunni — PasswordHash ni ham — ustiga ko'chirardi. Natijada begona
+        // hisob o'g'irlanar, egasining do'koni esa uni butunlay yo'qotardi.
+        //
+        // Qator RO'YXATDAN CHIQARIB tashlanadi, shunchaki o'tkazib
+        // yuborilmaydi: `payload.Sales` keyinroq ClassifyParentsAsync da
+        // «meniki» deb sanaladi va rad etilgan sotuvning qatorlari begona
+        // chekka yopishib qolardi.
+        var foreign = incoming.RemoveAll(row =>
+            existing.TryGetValue(row.Id, out var current)
+            && MarketOf(current) is int owner && owner != marketId);
+
+        if (foreign > 0)
+        {
+            _logger.LogWarning(
+                "Push from market {MarketId}: {Count} {Table} row(s) rejected — id belongs to another market",
+                marketId, foreign, typeof(T).Name);
+        }
+
+        // «MarketId» skip ro'yxatida — mudofaaning ikkinchi qatlami:
+        // yuqoridagi egalik tekshiruvi o'tkazib yuborgan holatda ham qator
+        // boshqa do'konga KO'CHIB o'tmaydi.
+        var skip = cloudOwnedColumns.Length == 0
+            ? NeverCopied
+            : [.. NeverCopied, .. cloudOwnedColumns];
+
         foreach (var row in incoming)
         {
             ForceMarket(row, marketId);
 
             if (existing.TryGetValue(row.Id, out var current))
             {
-                EntityWireFormat.CopyColumns(row, current, nameof(BaseEntity.Id), nameof(BaseEntity.UpdatedAt));
+                EntityWireFormat.CopyColumns(row, current, skip);
             }
             else
             {
@@ -390,5 +473,21 @@ public class SyncPushService : ISyncPushService
 
         if (property.PropertyType == typeof(int)) property.SetValue(row, marketId);
         else if (property.PropertyType == typeof(int?)) property.SetValue(row, (int?)marketId);
+    }
+
+    /// <summary>
+    /// Yozuv qaysi do'konga tegishli. <c>MarketId</c> ustuni yo'q entity
+    /// uchun (<see cref="SaleItem"/>, <see cref="SaleReturnItem"/>) —
+    /// <c>null</c>: ular do'konga faqat otasi orqali bog'lanadi va otasi
+    /// <see cref="ClassifyParentsAsync"/> da allaqachon tekshirilgan.
+    /// </summary>
+    private static int? MarketOf<T>(T row)
+    {
+        var property = typeof(T).GetProperty("MarketId");
+        if (property is null) return null;
+
+        if (property.PropertyType == typeof(int)) return (int)property.GetValue(row)!;
+        if (property.PropertyType == typeof(int?)) return (int?)property.GetValue(row);
+        return null;
     }
 }

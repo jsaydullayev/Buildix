@@ -633,6 +633,21 @@ public class SaleItemService : ISaleItemService
             await RecalculateSaleTotalAsync(sale, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+            // Chek KICHRAYDI — qo'llangan avansning ortiqcha qismi mijozga
+            // qaytadi. Bu kassaning ASOSIY miqdor yo'li: «−» tugmasi ham,
+            // qatorni butunlay o'chirish (newQuantity = 0) ham shu yerdan
+            // o'tadi. Busiz `ApplyAsync` hech narsa qilmasdi — u faqat
+            // qo'shadi va `Total − Paid` manfiy bo'lganda darhol qaytadi —
+            // ya'ni mijozning avansi jimgina chekda qolib ketardi.
+            //
+            // Faqat kamayganda: o'sish yo'lida ortiqcha ta'rifi bo'yicha
+            // paydo bo'lmaydi va chaqiruv har «+» bosilishiga bitta bekor
+            // so'rov qo'shardi.
+            if (delta < 0)
+            {
+                await _creditApplier.ReleaseAsync(sale.Id, cancellationToken);
+            }
+
             // The bill moved, so any outstanding customer credit has to be
             // re-applied against the new total.
             if (sale.CustomerId.HasValue)
@@ -724,8 +739,36 @@ public class SaleItemService : ISaleItemService
                 && await BelowCostBlockedForAsync(sale, marketId, cancellationToken))
                 return Result.Failure<SaleItemDto>("Цена продажи ниже закупочной.", "BELOW_COST");
 
-            // Update SaleItem price
             var oldPrice = saleItem.SalePrice;
+
+            // ── Narx HAQIQATDA to'langan summadan pastga tushira olmaydi ────
+            // Chegirma yo'lida bu qoida bor edi (SaleService.ApplyDiscountAsync),
+            // narx yo'lida esa yo'q: qarzdagi chekning narxini tushirish jamini
+            // to'langan summadan past qilib, chekni «ortiqcha to'langan»
+            // holatga solardi. Undan keyin qarz nolga yopilar, ortiqcha pul
+            // esa hech qayerda qayd etilmasdi.
+            //
+            // AVANS to'siq emas: u pastda mijozga qaytariladi. Shuning uchun
+            // solishtiruv faqat haqiqiy tender (naqd/karta) bo'yicha va faqat
+            // chekda to'lov bo'lganda — Draft cheklarda bu so'rov umuman
+            // yuborilmaydi.
+            if (request.NewPrice < oldPrice && sale.PaidAmount > 0)
+            {
+                var newTotal = Math.Max(
+                    0m, sale.TotalAmount - (oldPrice - request.NewPrice) * saleItem.Quantity);
+                var appliedCredit = await _context.Payments
+                    .Where(p => p.SaleId == sale.Id && p.PaymentType == PaymentType.Credit)
+                    .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+                var tendered = sale.PaidAmount - Math.Max(0m, appliedCredit);
+
+                if (newTotal < tendered)
+                {
+                    return Result.Failure<SaleItemDto>(
+                        $"Chek bo'yicha {MoneyText.Sum(tendered)} so'm to'langan — " +
+                        "narxni bundan pastga tushirib bo'lmaydi. Ortiqchani qaytarish uchun «Qaytarish» dan foydalaning.");
+                }
+            }
+
             saleItem.SalePrice = request.NewPrice;
             _unitOfWork.SaleItems.Update(saleItem);
 
@@ -754,6 +797,15 @@ public class SaleItemService : ISaleItemService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await RecalculateSaleTotalAsync(sale, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Narx TUSHDI — chek kichraydi, ya'ni qo'llangan avansning
+            // ortiqcha qismi mijozga qaytadi. Qarz blokidan OLDIN: aks holda
+            // `RemainingDebt` eski, shishirilgan `PaidAmount` dan hisoblanib
+            // qarz noto'g'ri yopilardi.
+            if (request.NewPrice < oldPrice)
+            {
+                await _creditApplier.ReleaseAsync(sale.Id, cancellationToken);
+            }
 
             if (sale.Status == SaleStatus.Debt)
             {

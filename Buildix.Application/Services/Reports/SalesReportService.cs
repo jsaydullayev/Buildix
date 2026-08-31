@@ -384,8 +384,13 @@ public sealed class SalesReportService(
             {
                 if (payment.Amount < 0)
                 {
-                    // Negative payment = refund/return
-                    totalRefunds += Math.Abs(payment.Amount);
+                    // Negative payment = refund/return.
+                    // Manfiy Credit bundan MUSTASNO: u mijozning do'kondagi
+                    // hisobiga qaytgan avans, kassadan chiqqan pul emas.
+                    // Uni sanash «Возвраты» ni bo'lmagan qaytarishlar bilan
+                    // shishirardi.
+                    if (payment.PaymentType != PaymentType.Credit)
+                        totalRefunds += Math.Abs(payment.Amount);
                 }
                 else
                 {

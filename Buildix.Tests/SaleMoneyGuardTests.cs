@@ -151,6 +151,173 @@ public class SaleMoneyGuardTests
     }
 
     /// <summary>
+    /// Miqdor KAMAYTIRILGANDA ham ortiqcha avans qaytadi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bu kassaning asosiy yo'li: «−» tugmasi va qatorni butunlay
+    /// o'chirish ham <c>SetSaleItemQuantityAsync</c> dan o'tadi. Avans
+    /// qaytarish faqat <c>RemoveSaleItem</c> ga ulangan edi, ya'ni kassir
+    /// odatda ishlatadigan yo'lda mijozning puli chekda qolib ketaverardi.
+    /// U yerdagi <c>ApplyAsync</c> qutqarmaydi — u faqat qo'shadi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Miqdor_kamaytirilganda_ortiqcha_avans_qaytadi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000004" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 300_000, SaleStatus.Draft);
+        var item = new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        };
+        h.Db.SaleItems.Add(item);
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Credit, Amount = 300_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // 6 → 4 dona: jami 200 000 ga tushadi.
+        var result = await h.NewSaleItemService()
+            .SetSaleItemQuantityAsync(sale.Id, new SetSaleItemQuantityDto(item.Id.ToString(), 4m));
+        Assert.True(result.IsSuccess, result.Error);
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == sale.Id);
+        Assert.Equal(200_000m, stored.TotalAmount);
+        Assert.Equal(200_000m, stored.PaidAmount);
+
+        var credit = await h.Db.Payments.IgnoreQueryFilters()
+            .Where(p => p.SaleId == sale.Id && p.PaymentType == PaymentType.Credit)
+            .SumAsync(p => p.Amount);
+        Assert.Equal(200_000m, credit);
+    }
+
+    /// <summary>
+    /// Mijoz chekdan uzilsa, sarflangan avans unga QAYTADI.
+    /// </summary>
+    /// <remarks>
+    /// <para>Avans mijozga chek EGASI orqali bog'lanadi. Chek uzilishi bilan
+    /// musbat Credit qatori mijozning hisobidan yo'qolar — ya'ni pul unda
+    /// qayta paydo bo'lar — chek esa uni to'langan deb ushlab turaverardi.
+    /// Bir avans ikki marta sarflanardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Mijoz_uzilganda_avans_qaytadi()
+    {
+        using var h = new TestHarness(Market);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000005" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 200_000, SaleStatus.Draft);
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Credit, Amount = 200_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var result = await h.NewSaleService()
+            .UpdateSaleCustomerAsync(sale.Id, new UpdateSaleCustomerDto(null));
+        Assert.True(result.IsSuccess, result.Error);
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == sale.Id);
+        Assert.Null(stored.CustomerId);
+        Assert.Equal(0m, stored.PaidAmount);
+
+        var credit = await h.Db.Payments.IgnoreQueryFilters()
+            .Where(p => p.SaleId == sale.Id && p.PaymentType == PaymentType.Credit)
+            .SumAsync(p => p.Amount);
+        Assert.Equal(0m, credit);
+    }
+
+    /// <summary>
+    /// Narxni HAQIQATDA to'langan summadan pastga tushirib bo'lmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Chegirma yo'lida bu qoida bor edi, narx yo'lida yo'q: qarzdagi
+    /// chekning narxini tushirish jamini to'langan summadan past qilar, qarz
+    /// nolga yopilar, ortiqcha pul esa hech qayerda qayd etilmasdi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Narxni_tolangan_summadan_pastga_tushirib_bolmaydi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000006" };
+        h.Db.Customers.Add(customer);
+
+        // Qarzdagi chek: 300 000 dan 200 000 i NAQD to'langan.
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 200_000, SaleStatus.Debt);
+        var item = new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        };
+        h.Db.SaleItems.Add(item);
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Cash, Amount = 200_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // 50 000 → 20 000: jami 120 000 bo'lar, to'langani esa 200 000.
+        var result = await h.NewSaleItemService().UpdateSaleItemPriceAsync(
+            item.Id, new UpdateSaleItemPriceDto(item.Id.ToString(), 20_000m, null), Guid.NewGuid());
+
+        Assert.True(result.IsFailure);
+        var stored = await h.Db.SaleItems.IgnoreQueryFilters().FirstAsync(x => x.Id == item.Id);
+        Assert.Equal(50_000m, stored.SalePrice);
+    }
+
+    /// <summary>
+    /// Narx tushsa, ortiqcha AVANS qaytadi (naqddan farqli).
+    /// </summary>
+    [Fact]
+    public async Task Narx_tushganda_ortiqcha_avans_qaytadi()
+    {
+        using var h = new TestHarness(Market);
+        var product = AddProduct(h);
+        h.Db.Products.Add(product);
+        var customer = new Customer { Id = Guid.NewGuid(), MarketId = Market, Phone = "+998900000007" };
+        h.Db.Customers.Add(customer);
+
+        var sale = AddSale(h, customer.Id, total: 300_000, paid: 300_000, SaleStatus.Draft);
+        var item = new SaleItem
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, ProductId = product.Id,
+            Quantity = 6, SalePrice = 50_000, CostPrice = 30_000,
+        };
+        h.Db.SaleItems.Add(item);
+        h.Db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), SaleId = sale.Id, MarketId = Market,
+            PaymentType = PaymentType.Credit, Amount = 300_000, CreatedAt = DateTime.UtcNow,
+        });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Avans to'siq emas — u qaytariladi.
+        var result = await h.NewSaleItemService().UpdateSaleItemPriceAsync(
+            item.Id, new UpdateSaleItemPriceDto(item.Id.ToString(), 40_000m, null), Guid.NewGuid());
+        Assert.True(result.IsSuccess, result.Error);
+
+        var stored = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == sale.Id);
+        Assert.Equal(240_000m, stored.TotalAmount);
+        Assert.Equal(240_000m, stored.PaidAmount);
+    }
+
+    /// <summary>
     /// HAQIQIY ortiqcha to'lov avansga aylanmaydi.
     /// </summary>
     /// <remarks>

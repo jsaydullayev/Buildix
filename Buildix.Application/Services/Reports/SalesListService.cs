@@ -87,8 +87,13 @@ public sealed class SalesListService(
                 profit = (grossProfit - sale.DiscountAmount) * paidRatio;
             }
 
-            // Check if this sale has any refund (negative) payments
-            var hasRefunds = sale.Payments.Any(p => p.Amount < 0);
+            // Check if this sale has any refund (negative) payments.
+            // Manfiy Credit — mijozga qaytmagan AVANS harakati (chek
+            // kichrayganda yoziladi), qaytarish emas. Uni hisobga olish
+            // chekning haqiqiy to'lov turini «Qaytarilgan» bilan almashtirib,
+            // ekranda naqd/karta ekanini butunlay yashirardi.
+            var hasRefunds = sale.Payments.Any(
+                p => p.Amount < 0 && p.PaymentType != PaymentType.Credit);
 
             // Determine payment type - if there are refunds, show as "Qaytarilgan"
             // Otherwise show the primary payment type

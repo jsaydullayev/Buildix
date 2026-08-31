@@ -73,6 +73,52 @@ public class SaleCreditApplier : ISaleCreditApplier
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task RevokeAsync(Guid saleId, CancellationToken cancellationToken = default)
+    {
+        var marketId = _currentMarketService.GetCurrentMarketId();
+
+        var sale = await _context.Sales
+            .Include(s => s.Payments)
+            .FirstOrDefaultAsync(s => s.Id == saleId && s.MarketId == marketId, cancellationToken);
+
+        if (sale is null) return;
+
+        var applied = sale.Payments
+            .Where(p => p.PaymentType == PaymentType.Credit)
+            .Sum(p => p.Amount);
+
+        if (applied <= 0) return;
+
+        _logger.LogInformation(
+            "Revoking customer credit: SaleId={SaleId}, Revoked={Revoked}", saleId, applied);
+
+        _context.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            SaleId = saleId,
+            MarketId = marketId,
+            PaymentType = PaymentType.Credit,
+            Amount = -applied,
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        sale.PaidAmount -= applied;
+        _context.Sales.Update(sale);
+
+        // Qarz qatori — avans qaytgach qarz o'sha summaga QAYTA ochiladi.
+        var debt = await _context.Debts
+            .FirstOrDefaultAsync(d => d.SaleId == saleId && d.MarketId == marketId, cancellationToken);
+        if (debt is not null)
+        {
+            debt.RemainingDebt = Math.Max(0m, sale.TotalAmount - sale.PaidAmount);
+            debt.Status = debt.RemainingDebt > 0 ? DebtStatus.Open : DebtStatus.Closed;
+            _context.Debts.Update(debt);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task ApplyAsync(Guid saleId, Guid customerId, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();

@@ -143,6 +143,16 @@ public class SaleService : ISaleService
                 return Result.Failure<SaleDto>("Mijoz topilmadi yoki bu do'konga tegishli emas");
         }
 
+        // ── Eski mijozning avansi chek bilan qolib ketmasin ─────────────────
+        // Avans mijozga chek EGASI orqali bog'lanadi. Chek boshqa mijozga
+        // o'tishi (yoki umuman uzilishi) bilan sarflangan avans eski
+        // mijozning hisobida QAYTA paydo bo'lardi — chek esa uni to'langan
+        // deb ushlab turaverardi. Ya'ni bir pul ikki marta sarflanardi.
+        if (sale.CustomerId != request.CustomerId)
+        {
+            await _creditApplier.RevokeAsync(saleId, cancellationToken);
+        }
+
         // Mijozni yangilaymiz
         sale.CustomerId = request.CustomerId;
         _unitOfWork.Sales.Update(sale);
@@ -276,8 +286,14 @@ public class SaleService : ISaleService
                 var limit = customer.DebtLimit ?? settings.DefaultDebtLimit;
                 if (limit > 0)
                 {
+                    // SHU chekning o'z qarzi chiqarib tashlanadi: pastda
+                    // ustiga `saleRemaining` qo'shiladi, ya'ni filtrsiz bir
+                    // xil qarz IKKI marta sanalar va chek limitga yetmagan
+                    // holda ham rad etilardi. `SalePaymentService` dagi
+                    // egizak tekshiruv buni allaqachon to'g'ri qiladi.
                     var currentDebt = await _context.Debts
-                        .Where(d => d.CustomerId == customer.Id && d.MarketId == marketId && d.Status == DebtStatus.Open)
+                        .Where(d => d.CustomerId == customer.Id && d.MarketId == marketId
+                            && d.Status == DebtStatus.Open && d.SaleId != saleId)
                         .SumAsync(d => (decimal?)d.RemainingDebt, cancellationToken) ?? 0m;
                     if (currentDebt + saleRemaining > limit)
                         return Result.Failure<SaleDto>(

@@ -137,7 +137,11 @@ public sealed class FinancialReportService(
                     {
                         cardPayments += payment.Amount;  // This will subtract
                     }
-                    totalRefunds += Math.Abs(payment.Amount);
+                    // Manfiy Credit — kassadan chiqmagan avans harakati.
+                    // Yuqoridagi cashInRegister/cardPayments uni allaqachon
+                    // chetlab o'tadi; totalRefunds ham shu qoidaga bo'ysunadi.
+                    if (payment.PaymentType != PaymentType.Credit)
+                        totalRefunds += Math.Abs(payment.Amount);
                 }
                 else
                 {

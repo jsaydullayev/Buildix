@@ -28,4 +28,22 @@ public interface ISaleCreditApplier
     /// majburlardi.</para>
     /// </remarks>
     Task ReleaseAsync(Guid saleId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Chekka qo'llangan avansni BUTUNLAY yechadi — mijoz almashganda yoki
+    /// chekdan uzilganda.
+    /// </summary>
+    /// <remarks>
+    /// <para>Avans mijozga chek EGASI orqali bog'lanadi: «sarflangan» deb
+    /// sanalishi uchun chek hamon o'sha mijozniki bo'lishi kerak. Chek
+    /// uzilishi bilan musbat Credit qatori hisobdan chiqadi va pul eski
+    /// mijozning hisobida QAYTA paydo bo'ladi — ayni paytda chek uni
+    /// to'langan deb ushlab turaveradi. Ya'ni bir avans ikki marta
+    /// sarflanardi.</para>
+    ///
+    /// <para><see cref="ReleaseAsync"/> dan farqi: u faqat ORTIQCHASINI
+    /// qaytaradi (chek kichraygan holat), bu esa hammasini — chunki chek
+    /// endi boshqa mijozniki.</para>
+    /// </remarks>
+    Task RevokeAsync(Guid saleId, CancellationToken cancellationToken = default);
 }

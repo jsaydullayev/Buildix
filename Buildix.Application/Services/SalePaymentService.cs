@@ -24,6 +24,7 @@ public class SalePaymentService : ISalePaymentService
     private readonly IMarketSettingsService _settings;
     private readonly IStockLedger _stockLedger;
     private readonly ICashLedger _cashLedger;
+    private readonly ISaleCreditApplier _creditApplier;
 
     public SalePaymentService(
         IUnitOfWork unitOfWork,
@@ -34,8 +35,10 @@ public class SalePaymentService : ISalePaymentService
         IMarketSettingsService settings,
         IStockLedger stockLedger,
         ICashLedger cashLedger,
+        ISaleCreditApplier creditApplier,
         IExternalPayoutLedger externalPayouts)
     {
+        _creditApplier = creditApplier;
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
@@ -206,6 +209,17 @@ public class SalePaymentService : ISalePaymentService
             // concurrent request. Computing it here (once) makes every check
             // below (already-paid, over-payment, debt) use the real total.
             await SaleTotals.RecalculateAsync(_context, sale, cancellationToken);
+
+            // Ortiqcha AVANSNI qaytarish — qoldiq hisoblanishidan OLDIN.
+            //
+            // Chek kichrayganda avans qo'llaydigan yo'llarning o'zi uni
+            // qaytaradi, lekin eski cheklarda ortiqcha qolib ketgan bo'lishi
+            // mumkin. Bu yerda qaytarilmasa, quyidagi `owed` manfiy chiqar va
+            // chek nol to'lov bilan JIMGINA yopilardi: mijozning avansi
+            // chekda qolib ketar, keyingi bekor qilish esa uni ikkinchi marta
+            // to'lardi. Ortiqcha bo'lmasa chaqiruv bitta o'qishdan keyin
+            // qaytadi va hech narsa yozmaydi.
+            await _creditApplier.ReleaseAsync(saleId, cancellationToken);
 
             // ── To'lanadigan qoldiq ─────────────────────────────────────────
             // Quyidagi ikkala himoya ham ilgari `TotalAmount > 0` shartiga

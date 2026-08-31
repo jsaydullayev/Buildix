@@ -488,7 +488,13 @@ public class ShiftService : IShiftService
         var clickCount = Checks(p => p.Type == PaymentType.Click);
         var terminalCount = Checks(p => p.Type is PaymentType.Terminal or PaymentType.Transfer);
 
-        var refunds = mine.Where(p => p.Amount < 0).ToList();
+        // «Qaytarish» — mijozga TENDER orqali qaytgan pul. Avans harakati
+        // (manfiy Credit) bunga kirmaydi: u kassadan chiqmaydi, shunchaki
+        // mijozning do'kondagi hisobiga qaytadi. Filtrsiz bitta avans
+        // qaytarilishi smena yopilishida «Qaytarishlar» raqamini shishirar,
+        // kassir esa yo'q pulni izlab qolardi. Yuqoridagi cashIn/cardIn
+        // Credit ni allaqachon shunday chiqarib tashlaydi.
+        var refunds = mine.Where(p => p.Amount < 0 && p.Type != PaymentType.Credit).ToList();
         var returnAmount = -refunds.Sum(p => p.Amount);
         var returnCount = refunds.Select(p => p.SaleId).Distinct().Count();
 

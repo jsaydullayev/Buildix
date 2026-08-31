@@ -197,6 +197,7 @@ public class SaleReversalService : ISaleReversalService
             // holicha qolardi: to'lovlar qoplangan-u, sotuvdagi raqam hamon
             // «to'langan» deb turardi. Bu chekni keyin qayta ochib bo'lmas
             // holga keltirar va hisobotlarda ham zid ma'lumot berardi.
+            var paidBefore = sale.PaidAmount;
             sale.PaidAmount = 0m;
             _unitOfWork.Sales.Update(sale);
 
@@ -233,7 +234,13 @@ public class SaleReversalService : ISaleReversalService
                     sale.CustomerId,
                     Status = sale.Status.ToString(),
                     sale.TotalAmount,
-                    sale.PaidAmount,
+                    // `sale.PaidAmount` yuqorida nolga tushirilgan — uni
+                    // yozish har bir bekor qilishni bir xil, ma'nosiz
+                    // «PaidAmount: 0» qilib qo'yardi va qancha pul
+                    // qaytarilgani izsiz qolardi. Qaytarilgan summa
+                    // firibgarlik tekshiruvining ASOSIY raqami.
+                    RefundedAmount = paidBefore,
+                    CashRefunded = cashRefund,
                 },
                 cancellationToken);
 

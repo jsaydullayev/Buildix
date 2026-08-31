@@ -174,6 +174,43 @@ public class ShiftFinancialsTests
     }
 
     /// <summary>
+    /// Avans harakati smenaning «Qaytarishlar» raqamiga TUSHMAYDI.
+    /// </summary>
+    /// <remarks>
+    /// <para>Chek kichrayganda mijozning avansi manfiy <c>Credit</c> qatori
+    /// bilan qaytariladi. Qaytarishlar faqat summa belgisi bo'yicha
+    /// ajratilardi, ya'ni bu harakat «Возвраты» ga tushar va smena
+    /// yopilishida kassir kassadan chiqmagan pulni izlab qolardi. Naqd va
+    /// naqdsiz yig'indilar <c>Credit</c> ni allaqachon chiqarib
+    /// tashlaydi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Avans_harakati_qaytarish_deb_sanalmaydi()
+    {
+        using var h = new TestHarness(Market);
+        var t0 = new DateTime(2026, 5, 12, 3, 0, 0, DateTimeKind.Utc);
+
+        var ali = AddUser(h, "Ali");
+        var shift = AddShift(h, ali.Id, t0, t0.AddHours(8), opening: 0);
+
+        // Naqd chek + qo'llangan avans, keyin chek kichraydi va avans qaytadi.
+        var sale = AddSale(h, ali.Id, t0.AddHours(1), 200_000, 200_000, SaleStatus.Paid);
+        AddPayment(h, sale, PaymentType.Cash, 100_000, t0.AddHours(1));
+        AddPayment(h, sale, PaymentType.Credit, 100_000, t0.AddHours(1));
+        AddPayment(h, sale, PaymentType.Credit, -100_000, t0.AddHours(2));
+
+        await h.Db.SaveChangesAsync();
+
+        var stats = (await h.NewShiftService().GetMarketShiftsAsync(limit: 50))
+            .Single(x => x.Id == shift.Id);
+
+        Assert.Equal(0m, stats.ReturnAmount);
+        Assert.Equal(0, stats.ReturnCount);
+        // Naqd o'z holicha: avans kassaga tushmagan ham, undan chiqmagan ham.
+        Assert.Equal(100_000m, stats.CashIn);
+    }
+
+    /// <summary>
     /// Bo'sh ro'yxat — so'rovlar umuman yuborilmasligi kerak.
     /// </summary>
     [Fact]
