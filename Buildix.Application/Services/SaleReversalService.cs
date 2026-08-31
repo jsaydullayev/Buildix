@@ -143,10 +143,15 @@ public class SaleReversalService : ISaleReversalService
 
             foreach (var paid in paidByType)
             {
-                // Credit (qarz) — pul emas, qarz yozuvi; u quyida alohida
-                // yopiladi, qoplovchi qator kerak emas.
-                if (paid.Type == PaymentType.Credit) continue;
-
+                // Credit (avans) ham QOPLANADI. Ilgari u tashlab ketilardi —
+                // izohda «quyida alohida yopiladi» deyilgan-u, quyida faqat
+                // `Debts` jadvalidagi qarzlar yopilardi. Avans esa qarz emas,
+                // u — mijozning do'kondagi puli va u shu chekka sarflangan.
+                // Chek bekor qilingach o'sha pul mijozga QAYTISHI kerak;
+                // qoplovchi qatorsiz u butunlay yo'qolardi.
+                //
+                // Kassaga ta'sir qilmaydi: quyidagi hisob faqat Cash ni
+                // oladi, avans esa yashikdan chiqmagan edi.
                 _context.Payments.Add(new Payment
                 {
                     Id = Guid.NewGuid(),
@@ -187,6 +192,12 @@ public class SaleReversalService : ISaleReversalService
 
             // Update sale status
             sale.Status = SaleStatus.Cancelled;
+
+            // Bekor qilingan chekda PUL QOLMAYDI. Ilgari `PaidAmount` o'z
+            // holicha qolardi: to'lovlar qoplangan-u, sotuvdagi raqam hamon
+            // «to'langan» deb turardi. Bu chekni keyin qayta ochib bo'lmas
+            // holga keltirar va hisobotlarda ham zid ma'lumot berardi.
+            sale.PaidAmount = 0m;
             _unitOfWork.Sales.Update(sale);
 
             // S4 — close the associated debt cleanly. The previous code

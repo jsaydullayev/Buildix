@@ -244,7 +244,15 @@ public class SalePaymentService : ISalePaymentService
             // Ortiqcha to'lov hech qachon qabul qilinmaydi: aks holda PaidAmount
             // jamidan oshib ketardi va ortiqcha pul keyinroq mijozning soxta
             // krediti bo'lib qayta paydo bo'lardi.
-            if (totalTendered > owed)
+            //
+            // Solishtirish MANFIY BO'LMAGAN qoldiq bilan. Chek ortiqcha
+            // to'langan bo'lsa (chegirma jamini to'langan summadan pastga
+            // tushirgan) `owed` manfiy bo'ladi va nol to'lov ham «qoldiqdan
+            // oshdi» deb rad etilardi. Ya'ni yuqoridagi xabar «chekni
+            // to'lovsiz yoping» deb maslahat berar, keyingi qatorning o'zi
+            // esa aynan shu yo'lni to'sib turardi — chekni yopishning hech
+            // qanday usuli qolmasdi.
+            if (totalTendered > Math.Max(0m, owed))
                 return Result.Failure<PaymentDto>("To'lov summasi qoldiq summadan oshib ketdi.");
 
             // Nol to'lov FAQAT to'lanadigan narsa qolmaganda o'rinli. Qoldiq

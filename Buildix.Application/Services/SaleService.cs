@@ -233,6 +233,21 @@ public class SaleService : ISaleService
             if (sale.PaidAmount >= sale.TotalAmount)
                 return Result.Failure<SaleDto>("Sale is already fully paid, cannot mark as debt");
 
+            // ── Mijoz SHART ──────────────────────────────────────────────────
+            // Qarz — kimningdir qarzi. Mijozsiz chekda `Debt` yozuvi umuman
+            // yaratilmasdi (u pastda `sale.CustomerId.HasValue` sharti bilan
+            // himoyalangan): sotuv holati «Qarz» bo'lib qolar, «Qarzlar»
+            // ro'yxatida esa hech qachon ko'rinmasdi. Ya'ni tovar do'kondan
+            // chiqib ketar, pul kelmas va uni kimdan undirish kerakligini
+            // hech narsa ko'rsatmasdi.
+            //
+            // To'lov yo'lida bu tekshiruv allaqachon bor
+            // (SalePaymentService — «Mijoz tanlanmagan savdoni qarzga yopib
+            // bo'lmaydi»), bu yerda esa tushib qolgan edi.
+            if (!sale.CustomerId.HasValue || sale.CustomerId.Value == Guid.Empty)
+                return Result.Failure<SaleDto>(
+                    "Mijoz tanlanmagan savdoni qarzga yozib bo'lmaydi. Mijoz tanlang.");
+
             // ── Business rules: debt-only-for-regulars + per-customer debt limit ──
             var settings = await _settings.GetOrCreateAsync(marketId, cancellationToken);
             var saleRemaining = sale.TotalAmount - sale.PaidAmount;
