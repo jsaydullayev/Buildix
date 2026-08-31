@@ -132,17 +132,24 @@ public class DebtQueryService : IDebtQueryService
             .ToList();
     }
 
+    /// <summary>Chek kartochkasidagi tovar qatori — faqat ko'rsatish uchun.</summary>
+    private readonly record struct DebtCheckItem(Guid SaleId, string? Name, decimal Quantity);
+
     public async Task<IReadOnlyList<DebtCheckDto>> GetDebtChecksAsync(string? search, string? due, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarket.GetCurrentMarketId();
         var now = DateTime.UtcNow;
 
+        // Tovar grafigi ATAYLAB yuklanmaydi. Ilgari bu yerda
+        // `.ThenInclude(SaleItems).ThenInclude(Product)` turardi va ekran
+        // ochilganda har bir ochiq qarzning HAMMA qatorlari, ularning har
+        // biri uchun esa to'liq `Product` yozuvi tortilardi — barcha
+        // ustunlari bilan. Ekranda esa faqat ikkita tovar NOMI ko'rinadi.
+        // Yuzta qarzli do'konda bu bir necha ming ortiqcha qator degani.
         var query = _context.Debts
             .AsNoTracking()
             .Include(d => d.Customer)
             .Include(d => d.Sale)
-                .ThenInclude(s => s!.SaleItems)
-                    .ThenInclude(si => si.Product)
             .Where(d => d.MarketId == marketId && d.Status == DebtStatus.Open && d.RemainingDebt > 0);
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -158,20 +165,30 @@ public class DebtQueryService : IDebtQueryService
 
         var rows = await query.ToListAsync(cancellationToken);
 
+        // Tovar nomlari ALOHIDA so'rov bilan va faqat kerakli ustunlar:
+        // chek raqami, nom va miqdor. Entity'ni to'liq yuklashning ma'nosi
+        // yo'q — ekranga faqat nom chiqadi.
+        var saleIds = rows.Select(d => d.SaleId).Distinct().ToList();
+        var itemsBySale = saleIds.Count == 0
+            ? new Dictionary<Guid, List<DebtCheckItem>>()
+            : (await _context.SaleItems
+                .AsNoTracking()
+                .Where(si => saleIds.Contains(si.SaleId))
+                .Select(si => new DebtCheckItem(
+                    si.SaleId,
+                    si.IsExternal ? si.ExternalProductName : si.Product!.Name,
+                    si.Quantity))
+                .ToListAsync(cancellationToken))
+              .GroupBy(x => x.SaleId)
+              .ToDictionary(g => g.Key, g => g.ToList());
+
         // «несколько долгов» — mijozning nechta ochiq qarzi borligi (badge uchun).
         var countByCustomer = rows.GroupBy(d => d.CustomerId).ToDictionary(g => g.Key, g => g.Count());
 
         var checks = rows.Select(d =>
         {
-            var items = d.Sale?.SaleItems ?? new List<Buildix.Domain.Entities.SaleItem>();
-            var named = items
-                .Select(si => new
-                {
-                    Name = si.IsExternal ? si.ExternalProductName : si.Product?.Name,
-                    si.Quantity,
-                })
-                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
-                .ToList();
+            var items = itemsBySale.GetValueOrDefault(d.SaleId) ?? [];
+            var named = items.Where(x => !string.IsNullOrWhiteSpace(x.Name)).ToList();
             var summary = string.Join(", ", named.Take(2).Select(i => $"{i.Name} ×{i.Quantity:0.##}"));
             if (named.Count > 2)
                 summary += $" +{named.Count - 2}";
