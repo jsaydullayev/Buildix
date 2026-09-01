@@ -368,6 +368,33 @@ public class ProductsController : ApiControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>
+    /// Qoldiq bilan OMBOR JURNALI o'rtasidagi farqni ko'rsatadi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nima uchun.</b> Bugun haqiqat manbai — tovar qatoridagi
+    /// qoldiq ustuni, jurnal esa uni tavsiflaydi. Bitta bazada bu ishlaydi.
+    /// Ikkita mustaqil kassa bir do'kon nomidan ishlaganda esa ishlamaydi:
+    /// bulut qatorni ID bo'yicha ustiga yozadi va arifmetika yo'qoladi.
+    /// Haqiqat manbaini jurnalga ko'chirishning birinchi sharti — jurnal
+    /// TO'LIQ bo'lishi. Bu yo'l aynan shuni o'lchaydi.</para>
+    ///
+    /// <para>Faqat o'qiydi va hech narsani tuzatmaydi: qaysi tomon to'g'ri
+    /// ekanini odam hal qilishi kerak. Bo'sh ro'yxat — hammasi joyida.</para>
+    ///
+    /// <para>Firibgarlikka sezgir raqam (kimdir qoldiqni qo'lda
+    /// o'zgartirganini ko'rsatadi), shuning uchun inventarizatsiya bilan
+    /// bir xil darvoza: faqat Owner.</para>
+    /// </remarks>
+    [HttpGet("~/api/Products/stock-drift")]
+    [Authorize(Roles = "Owner,SuperAdmin")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<ActionResult<IReadOnlyList<StockDrift>>> StockDrift(
+        [FromServices] IStockReconciler reconciler,
+        [FromServices] ICurrentMarketService currentMarket,
+        CancellationToken ct = default)
+        => Ok(await reconciler.FindDriftAsync(currentMarket.GetCurrentMarketId(), ct));
+
     [HttpDelete("{id}")]
     [RequirePermission(PermissionKeys.ProductsDelete)]
     public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken ct = default)

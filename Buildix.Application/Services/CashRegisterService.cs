@@ -358,6 +358,15 @@ public class CashRegisterService : ICashRegisterService
                     return Result.Failure<bool>("Недостаточно средств в кассе.", "INSUFFICIENT_FUNDS");
                 register.CurrentBalance -= w.Amount;
                 register.LastWithdrawalId = w.Id;
+
+                // Kassa JURNALIGA ham. So'rov yaratilganda hech narsa
+                // yozilmaydi (pul hali yashikda turibdi) — yozuvning yagona
+                // to'g'ri joyi shu yer. Busiz tasdiqlangan har bir yechish
+                // qoldiqni kamaytirar, «Расход» ro'yxatida esa ko'rinmasdi:
+                // egasi pul qayerga ketganini jurnaldan topa olmasdi.
+                _cashLedger.Record(
+                    marketId, -w.Amount, CashMovementType.Expense,
+                    userId: w.UserId, shiftId: w.ShiftId, comment: w.Comment);
             }
 
             w.ApprovalStatus = WithdrawalApprovalStatus.Approved;

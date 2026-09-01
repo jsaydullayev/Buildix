@@ -112,7 +112,11 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Db, Market, NullLogger<SaleItemService>.Instance, CreditApplier, Settings, Audit);
 
     public SaleReversalService NewSaleReversalService() =>
-        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance, StockLedger, ExternalPayouts);
+        new(UnitOfWork, Db, Market, Audit, NullLogger<SaleReversalService>.Instance,
+            StockLedger, CashLedger, ExternalPayouts);
+
+    public SaleReturnService NewSaleReturnService() =>
+        new(UnitOfWork, Db, Market, Audit, StockLedger, CashLedger);
 
     public SalePaymentService NewSalePaymentService() =>
         new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings,

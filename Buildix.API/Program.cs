@@ -613,6 +613,9 @@ try
     builder.Services.AddScoped<IStockLedger, StockLedger>();
     builder.Services.AddScoped<IExternalPayoutLedger, ExternalPayoutLedger>();
     builder.Services.AddScoped<ICashLedger, CashLedger>();
+    // Qoldiq bilan jurnal orasidagi farqni o'lchaydi — ko'p kassali
+    // rejimga o'tishning birinchi qadami (faqat o'qiydi).
+    builder.Services.AddScoped<IStockReconciler, StockReconciler>();
     builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IProductQueryService, ProductQueryService>();

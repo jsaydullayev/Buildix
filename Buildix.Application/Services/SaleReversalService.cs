@@ -24,9 +24,10 @@ public class SaleReversalService : ISaleReversalService
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<SaleReversalService> _logger;
     private readonly IStockLedger _stockLedger;
+    private readonly ICashLedger _cashLedger;
     private readonly IExternalPayoutLedger _externalPayouts;
 
-    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts)
+    public SaleReversalService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLogService, ILogger<SaleReversalService> logger, IStockLedger stockLedger, ICashLedger cashLedger, IExternalPayoutLedger externalPayouts)
     {
         _unitOfWork = unitOfWork;
         _context = context;
@@ -34,6 +35,7 @@ public class SaleReversalService : ISaleReversalService
         _auditLogService = auditLogService;
         _logger = logger;
         _stockLedger = stockLedger;
+        _cashLedger = cashLedger;
         _externalPayouts = externalPayouts;
     }
 
@@ -174,6 +176,16 @@ public class SaleReversalService : ISaleReversalService
                 if (cashRegister != null)
                 {
                     cashRegister.CurrentBalance -= cashRefund;
+
+                    // Kassa JURNALIGA ham yoziladi. Ilgari bu yerda faqat
+                    // balans o'zgarardi: egasi «Касса» ekranida qoldiq
+                    // tushganini ko'rar, «Расход» ro'yxatida esa unga mos
+                    // qator YO'Q edi — pul sababsiz kamaygandek ko'rinardi.
+                    _cashLedger.Record(
+                        sale.MarketId, -cashRefund, CashMovementType.Expense,
+                        userId: adminId, shiftId: sale.ShiftId, refNumber: sale.SaleNumber,
+                        comment: $"Chek №{sale.SaleNumber} bekor qilindi");
+
                     _logger.LogInformation(
                         "Sale {SaleId} cancelled — refunded {Amount} cash to market {MarketId} till",
                         saleId, cashRefund, sale.MarketId);
@@ -373,6 +385,16 @@ public class SaleReversalService : ISaleReversalService
                 if (cashRegister != null)
                 {
                     cashRegister.CurrentBalance -= netCashOnSale;
+
+                    // Jurnalga ham. Belgi ma'noni o'zi tashiydi: chek pul
+                    // kiritgan bo'lsa u yashikdan CHIQADI (Расход), chek
+                    // mijozga qaytargan bo'lsa pul yashikka QAYTADI.
+                    _cashLedger.Record(
+                        sale.MarketId, -netCashOnSale,
+                        netCashOnSale > 0 ? CashMovementType.Expense : CashMovementType.Deposit,
+                        userId: userId, shiftId: sale.ShiftId, refNumber: sale.SaleNumber,
+                        comment: $"Chek №{sale.SaleNumber} o'chirildi");
+
                     _logger.LogInformation(
                         "Cash reversed on sale delete: SaleId={SaleId} NetCash={Amount} NewBalance={Balance}",
                         saleId, netCashOnSale, cashRegister.CurrentBalance);
@@ -589,6 +611,14 @@ public class SaleReversalService : ISaleReversalService
                     if (cashRegister != null)
                     {
                         cashRegister.CurrentBalance -= overpaid;
+
+                        // Jurnalga ham — busiz qaytarilgan ortiqcha pul
+                        // «Расход» ro'yxatida ko'rinmasdi.
+                        _cashLedger.Record(
+                            marketId, -overpaid, CashMovementType.Expense,
+                            userId: userId, shiftId: sale.ShiftId, refNumber: sale.SaleNumber,
+                            comment: $"Chek №{sale.SaleNumber} — ortiqcha qaytarildi");
+
                         _logger.LogInformation(
                             "Cash refunded on item return: SaleId={SaleId} Amount={Amount} NewBalance={Balance}",
                             sale.Id, overpaid, cashRegister.CurrentBalance);
