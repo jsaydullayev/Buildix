@@ -40,9 +40,14 @@ public static class ServerProbe
                 return new Result(null, id, name);
             }
 
-            // 400 — deyarli har doim AllowedHosts: server lokal tarmoqqa
-            // ochilmagan. Buni alohida aytish kerak, aks holda texnik
-            // manzilni qayta-qayta tekshirib vaqt yo'qotadi.
+            // 400 — AllowedHosts: server lokal tarmoqqa ochilmagan.
+            //
+            // Amalda bu javob KAM uchraydi: tarmoq rejimi o'chiq bo'lsa API
+            // umuman 0.0.0.0 ga bog'lanmaydi (Buildix.API/Program.cs) va
+            // ulanish soket darajasida rad etiladi — ya'ni yuqoridagi
+            // `ConnectionRefused` shoxiga tushadi. Bu yerda esa API boshqa
+            // yo'l bilan (masalan teskari proksi orqali) ko'tarilgan holat
+            // uchun qoladi.
             if ((int)response.StatusCode == 400)
                 return new Result("Server ulanishni rad etdi. Server kassada tarmoq rejimi yoqilmagan.");
 
@@ -115,8 +120,17 @@ public static class ServerProbe
 
     private static string Explain(HttpRequestException ex) => ex.InnerException switch
     {
+        // IKKI sabab ataylab birga aytiladi.
+        //
+        // Ilgari bu yerda faqat «Buildix ochiq emas» turardi. Lekin tarmoq
+        // rejimi o'chiq server kassa ham AYNAN shu xatoni beradi: API u
+        // holatda 127.0.0.1 ga bog'lanadi va lokal tarmoqdan kelgan ulanish
+        // soket darajasida rad etiladi (sinovda tekshirilgan). Ya'ni texnik
+        // server kompyuterga borar, Buildix ochiq turganini ko'rar va
+        // xabarni yolg'on deb hisoblab, sababni tarmoqdan qidirardi.
         System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.ConnectionRefused }
-            => "server kompyuterida Buildix ochiq emas.",
+            => "server kassada Buildix ochiq emas, yoki tarmoq rejimi yoqilmagan "
+             + "(server kassada: --setup → «Boshqa kassalar shu kompyuterga ulanadi»).",
         System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.TimedOut }
             => "brandmauer to'sib turgan bo'lishi mumkin.",
         System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.HostNotFound }
