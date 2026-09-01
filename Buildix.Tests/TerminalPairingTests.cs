@@ -441,4 +441,56 @@ public class TerminalPairingTests
         // Eski kalit endi o'tmaydi.
         Assert.Null(await service.AuthenticateAsync(first.Value.Key));
     }
+
+    /// <summary>
+    /// Do'kon egasi O'Z kompyuterini bekor qila oladi.
+    /// </summary>
+    /// <remarks>
+    /// Ilgari buni faqat SuperAdmin qila olardi va unga ham interfeys yo'q
+    /// edi — ya'ni bog'lash oynasidagi «panelda eskisini bekor qiling» degan
+    /// xabar mavjud bo'lmagan joyga yo'naltirardi va egasi server
+    /// kompyuterini almashtira olmasdi.
+    /// </remarks>
+    [Fact]
+    public async Task Egasi_oz_kompyuterini_bekor_qila_oladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var paired = await service.ActivateAsync(market.Id, "Server kassa", null);
+
+        var revoked = await service.RevokeAsync(
+            paired.Value.TerminalId, Guid.NewGuid(), requireMarketId: market.Id);
+
+        Assert.True(revoked.IsSuccess, revoked.Error);
+        Assert.Null(await service.AuthenticateAsync(paired.Value.Key));
+    }
+
+    /// <summary>
+    /// Egasi BOSHQA do'konning kompyuterini uza olmaydi.
+    /// </summary>
+    /// <remarks>
+    /// Kompyuter <c>IgnoreQueryFilters()</c> bilan, ID bo'yicha izlanadi —
+    /// ya'ni tenant filtri o'chirilgan joyda EF hech narsani himoya qilmaydi.
+    /// Tekshiruvsiz ega qo'shni do'konning terminal ID sini yuborib, uning
+    /// kassasini bulutdan uzib qo'ya olardi.
+    /// </remarks>
+    [Fact]
+    public async Task Begona_dokonning_kompyuterini_uzib_bolmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var mine = await NewMarketAsync(h, id: 5, name: "Mening do'konim");
+        var other = await NewMarketAsync(h, id: 7, name: "Qo'shni do'kon");
+        var service = NewService(h);
+
+        var foreign = await service.ActivateAsync(other.Id, "Qo'shnining kassasi", null);
+
+        var revoked = await service.RevokeAsync(
+            foreign.Value.TerminalId, Guid.NewGuid(), requireMarketId: mine.Id);
+
+        Assert.True(revoked.IsFailure);
+        Assert.Equal("NOT_FOUND", revoked.Code);
+        // Qo'shnining kassasi ishlab turibdi.
+        Assert.NotNull(await service.AuthenticateAsync(foreign.Value.Key));
+    }
 }

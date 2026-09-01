@@ -205,9 +205,11 @@ public class TerminalPairingService : ITerminalPairingService
         if (active is not null)
         {
             return Result.Failure<PairedTerminalDto>(
-                $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan. "
-                + "Yangisini bog'lashdan oldin panelda eskisini bekor qiling — "
-                + "unda yuborilmagan savdolar qolgan bo'lishi mumkin.",
+                $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan.\r\n\r\n"
+                + "2-kassani bulutga bog'lash SHART EMAS — u server kassaga ulanadi "
+                + "(pastdagi havolaga qarang).\r\n\r\n"
+                + "Server kompyuter almashtirilayotgan bo'lsa, saytdagi Sozlamalar → "
+                + "«Bulutga bog'langan kompyuter» bo'limida eskisini bekor qiling.",
                 "ALREADY_PAIRED");
         }
 
@@ -278,13 +280,22 @@ public class TerminalPairingService : ITerminalPairingService
     /// faqat ataylab, eski kompyuter bilan ishi tugagach qilish kerak.</para>
     /// </summary>
     public async Task<Result<bool>> RevokeAsync(
-        Guid terminalId, Guid byUserId, CancellationToken ct = default)
+        Guid terminalId, Guid byUserId, int? requireMarketId = null, CancellationToken ct = default)
     {
         var terminal = await _context.ShopTerminals
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == terminalId, ct);
 
         if (terminal is null)
+            return Result.Failure<bool>("Kompyuter topilmadi", "NOT_FOUND");
+
+        // Do'kon egasi FAQAT o'z kompyuterini uza oladi. `IgnoreQueryFilters()`
+        // yuqorida tenant filtrini ataylab o'chiradi (SuperAdmin uchun kerak),
+        // ya'ni bu yerda EF hech narsani himoya qilmaydi. Tekshiruvsiz ega
+        // boshqa do'konning terminal ID sini yuborib, begona kassani bulutdan
+        // uzib qo'ya olardi. «Topilmadi» deyiladi: boshqa do'konda o'sha ID
+        // BOR ekanini bilib olishning ham hojati yo'q.
+        if (requireMarketId is { } marketId && terminal.MarketId != marketId)
             return Result.Failure<bool>("Kompyuter topilmadi", "NOT_FOUND");
 
         // Takroriy bekor qilish xato emas: operator ro'yxatni yangilamasdan

@@ -167,6 +167,18 @@ public sealed class MainForm : Form
             _status.Text = "Do'konni bulutga bog'lash…";
             using var pairing = new PairingForm(_secrets);
             pairing.ShowDialog(this);
+
+            // Bu kompyuter 2-KASSA ekan. Rol ishga tushishda hal bo'ladi
+            // (baza va API ko'tariladimi), ya'ni uni shu yerdan davom
+            // ettirib bo'lmaydi: baza allaqachon ko'tarilgan, endi esa u
+            // umuman kerak emas.
+            if (pairing.SwitchedToClient)
+            {
+                Fail("Sozlama saqlandi: bu kompyuter server kassaga ulanadi."
+                     + Environment.NewLine + Environment.NewLine
+                     + "O'zgarish kuchga kirishi uchun Buildix'ni qaytadan oching.");
+                return;
+            }
         }
         _api.CloudUrl = _secrets.CloudUrl;
         _api.TerminalKey = _secrets.TerminalKey;

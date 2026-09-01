@@ -30,9 +30,39 @@ public sealed class PairingForm : Form
     private readonly TextBox _password = new() { Width = 220, UseSystemPasswordChar = true };
     private readonly TextBox _code = new() { Width = 200, CharacterCasing = CharacterCasing.Upper };
     private readonly TextBox _name = new() { Width = 220, Text = "Server kassa" };
-    private readonly Label _result = new() { AutoSize = false, Width = 470, Height = 52 };
+    // Balandligi ATAYLAB katta: bulutning xato matni bir necha jumla bo'lishi
+    // mumkin («allaqachon bog'langan» xabari shunday) va kichik yorliqda u
+    // gap o'rtasida qirqilib qolardi — ya'ni kassir aynan nima qilish
+    // kerakligini o'qiy olmasdi.
+    private readonly Label _result = new() { AutoSize = false, Width = 480, Height = 96 };
     private readonly Button _pair = new() { Text = "Kirish va bog'lash", Width = 170 };
     private readonly LinkLabel _switchMode = new() { AutoSize = true, Text = "Kod bilan bog'lash" };
+
+    /// <summary>
+    /// 2-kassa yo'li. Bulutga bog'lash unga UMUMAN kerak emas.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bu oyna yangi o'rnatilgan har bir kompyuterda birinchi bo'lib
+    /// chiqadi va faqat bitta yo'lni — bulutga bog'lanishni — ko'rsatardi.
+    /// 2-kassada esa u boshi berk ko'cha: do'konga allaqachon kompyuter
+    /// bog'langan, ya'ni urinish «allaqachon bog'langan» xatosiga uriladi va
+    /// texnikda hech qanday davom yo'li qolmasdi. Sozlash oynasi
+    /// (<c>--setup</c>) mavjud edi, lekin uni bilish kerak edi.</para>
+    /// </remarks>
+    private readonly LinkLabel _asClient = new()
+    {
+        AutoSize = true,
+        Text = "Bu kompyuter — 2-kassa (server kassaga ulanadi)",
+    };
+
+    /// <summary>
+    /// Foydalanuvchi shu oynadan turib kassani ULANUVCHI qilib sozladi.
+    ///
+    /// <para>Rol ishga tushishda hal bo'ladi (baza va API ko'tariladimi yoki
+    /// yo'q), shuning uchun uni yo'l-yo'lakay almashtirib bo'lmaydi — qobiq
+    /// buni ko'rib, qayta ochishni so'raydi.</para>
+    /// </summary>
+    public bool SwitchedToClient { get; private set; }
 
     private readonly TableLayoutPanel _loginRows = new();
     private readonly TableLayoutPanel _codeRows = new();
@@ -50,7 +80,7 @@ public sealed class PairingForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(540, 400);
+        ClientSize = new Size(540, 470);
         Font = new Font("Segoe UI", 9.75F);
 
         var intro = new Label
@@ -61,7 +91,8 @@ public sealed class PairingForm : Form
             Text = "Bu kompyuter hali bulutga bog'lanmagan, shuning uchun do'kon "
                  + "xodimlari hali yo'q va tizimga kirib bo'lmaydi.\r\n\r\n"
                  + "O'z do'koningizning manzilini yozing va do'kon EGASINING "
-                 + "login-paroli bilan kiring.",
+                 + "login-paroli bilan kiring. Bu do'konning BIRINCHI (server) "
+                 + "kompyuteri uchun.",
         };
 
         BuildLoginRows();
@@ -72,7 +103,7 @@ public sealed class PairingForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 1,
-            RowCount = 7,
+            RowCount = 8,
             AutoSize = true,
         };
         layout.Controls.Add(intro, 0, 0);
@@ -83,7 +114,11 @@ public sealed class PairingForm : Form
         // qismdan TASHQARIDA turadi — rejimni almashtirganda yozilgan nom
         // yo'qolmasin.
         layout.Controls.Add(Row("Kassa nomi:", _name), 0, 4);
-        layout.Controls.Add(_result, 0, 5);
+        // 2-kassa yo'li xato chiqishidan OLDIN ko'rinadi: aks holda texnik
+        // avval bulutga bog'lashga urinib, tushunarsiz xatoga uriladi.
+        _asClient.Margin = new Padding(0, 4, 0, 6);
+        layout.Controls.Add(_asClient, 0, 5);
+        layout.Controls.Add(_result, 0, 6);
 
         var buttons = new FlowLayoutPanel
         {
@@ -100,13 +135,14 @@ public sealed class PairingForm : Form
         buttons.Controls.Add(_pair);
         _switchMode.Margin = new Padding(0, 9, 18, 0);
         buttons.Controls.Add(_switchMode);
-        layout.Controls.Add(buttons, 0, 6);
+        layout.Controls.Add(buttons, 0, 7);
 
         Controls.Add(layout);
         AcceptButton = _pair;
         CancelButton = later;
 
         _switchMode.LinkClicked += (_, _) => SetMode(!_codeMode);
+        _asClient.LinkClicked += (_, _) => SetUpAsClient();
         _pair.Click += async (_, _) => await PairAsync();
 
         SetMode(codeMode: false);
@@ -147,6 +183,36 @@ public sealed class PairingForm : Form
         _switchMode.Text = codeMode ? "Login-parol bilan bog'lash" : "Kod bilan bog'lash";
         Show(Color.DimGray, string.Empty);
         if (codeMode) _code.Focus(); else _username.Focus();
+    }
+
+    /// <summary>
+    /// Kassani ULANUVCHI qilib sozlaydi — sozlash oynasini ochib.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sozlash oynasi bu ishni allaqachon biladi (rol, manzil,
+    /// «Tekshirish», printerlar), shuning uchun bu yerda uni takrorlash
+    /// ma'nosiz bo'lardi va ikki nusxa vaqt o'tishi bilan ajralib
+    /// ketardi.</para>
+    ///
+    /// <para>Manzil YOZILGANINI tekshiramiz: texnik oynani ochib, hech narsa
+    /// o'zgartirmasdan yopgan bo'lishi mumkin va o'shanda bog'lash oynasi
+    /// joyida qolishi kerak.</para>
+    /// </remarks>
+    private void SetUpAsClient()
+    {
+        using var setup = new SetupForm(_secrets);
+        if (setup.ShowDialog(this) != DialogResult.OK) return;
+        if (_secrets.ServerUrl is null)
+        {
+            Show(Color.Firebrick,
+                "Sozlamada «Bu kompyuter server kassaga ULANADI» tanlanmagan — "
+                + "kassa hamon server rejimida.");
+            return;
+        }
+
+        SwitchedToClient = true;
+        DialogResult = DialogResult.Cancel;
+        Close();
     }
 
     private async Task PairAsync()

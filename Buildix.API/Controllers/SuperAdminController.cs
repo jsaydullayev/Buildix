@@ -436,7 +436,8 @@ public class SuperAdminController : ControllerBase
     {
         if (!TryGetCallerId(out var superAdminId)) return Unauthorized();
 
-        var result = await pairing.RevokeAsync(terminalId, superAdminId, ct);
+        // `requireMarketId: null` — SuperAdmin barcha do'konlarni boshqaradi.
+        var result = await pairing.RevokeAsync(terminalId, superAdminId, null, ct);
         if (result.IsFailure) return NotFound(new { message = result.Error });
         return Ok(new { revoked = true });
     }

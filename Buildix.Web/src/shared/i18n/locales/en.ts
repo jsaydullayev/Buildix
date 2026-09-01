@@ -892,6 +892,20 @@ export const en: TranslationSchema = {
       audit: 'Audit log',
       auditHint: 'Record employee actions',
     },
+    terminals: {
+      title: 'Cloud-paired computer',
+      subtitle: 'The register holding the shop database. Only one allowed',
+      none: 'No computer is paired yet.',
+      pairedAt: 'Paired',
+      lastSeen: 'Last contact',
+      never: 'never connected',
+      revoked: 'Revoked',
+      revoke: 'Revoke',
+      confirmTitle: 'Disconnect the computer from the cloud',
+      confirmBody:
+        '«{{name}}» will be disconnected from the cloud. This cannot be undone — a new pairing will be required. It may still hold sales that never reached the cloud: once revoked they will not be sent. Continue only if you are done with the old computer.',
+      hint: 'A second register does not belong here — it connects to the server register over the local network.',
+    },
   },
   employees: {
     title: 'Employees',

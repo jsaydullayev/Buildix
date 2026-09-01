@@ -44,6 +44,24 @@ export interface DesktopApp {
   version: string | null;
 }
 
+/**
+ * Do'konga bulutga bog'langan kompyuter — «server kassa».
+ *
+ * <p>Bitta do'konga bir vaqtda faqat BITTA kompyuter bog'lanadi: kalit
+ * ishlaydigan joy — bu do'konning ma'lumotlar bazasi turgan kompyuter.
+ * Ikkitasi bo'lsa, bitta do'kon nomidan ikkita mustaqil baza ish ko'rar va
+ * ular bulutda bir-birining ustiga yozardi.</p>
+ */
+export interface ShopTerminal {
+  id: string;
+  name: string;
+  pairedAt: string;
+  lastSeenAtUtc: string | null;
+  /** To'ldirilgan bo'lsa — kompyuter bulutdan uzilgan. */
+  revokedAtUtc: string | null;
+  lastIpAddress: string | null;
+}
+
 export const settingsApi = {
   get: async (): Promise<MarketSettings> => {
     const { data } = await apiClient.get<MarketSettings>('/Markets/settings');
@@ -56,5 +74,12 @@ export const settingsApi = {
   desktopApp: async (): Promise<DesktopApp> => {
     const { data } = await apiClient.get<DesktopApp>('/Markets/desktop-app');
     return data;
+  },
+  terminals: async (): Promise<ShopTerminal[]> => {
+    const { data } = await apiClient.get<ShopTerminal[]>('/Markets/terminals');
+    return data;
+  },
+  revokeTerminal: async (id: string): Promise<void> => {
+    await apiClient.post(`/Markets/terminals/${id}/revoke`);
   },
 };

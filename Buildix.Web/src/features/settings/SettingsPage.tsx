@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
-import { PageHeader, Button, Card, Toggle, Spinner, LanguageSwitch } from '@/shared/ui';
+import { PageHeader, Button, Card, Toggle, Spinner, LanguageSwitch, useConfirm } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
+import { formatShortDate, formatTime } from '@/shared/lib/format';
+import { useSyncFreshness } from '@/shared/sync/useSyncFreshness';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
 import { accountApi } from '@/features/account/api';
 import { settingsApi, type MarketSettings } from './api';
@@ -264,10 +266,115 @@ export default function SettingsPage() {
           />
         </Section>
 
+        {/* Bulutga bog'langan kompyuter — uni bekor qilish yo'li */}
+        <TerminalsSection />
+
         {/* Do'kon dasturi — internetsiz ishlaydigan kassa */}
         <DesktopSection />
       </div>
     </>
+  );
+}
+
+/**
+ * Do'konning bulutga bog'langan kompyuteri va uni UZISH tugmasi.
+ *
+ * <p><b>Nega kerak edi.</b> Bitta do'konga bir vaqtda faqat bitta kompyuter
+ * bog'lanadi. Server kompyuter almashtirilsa, yangisini bog'lash oynasi
+ * «avval eskisini bekor qiling» deb rad etardi — lekin bu amalni faqat
+ * SuperAdmin bajara olardi va unga ham interfeys yo'q edi. Ya'ni xabar
+ * mavjud bo'lmagan panelga yo'naltirar, egasi esa qo'llab-quvvatlashsiz
+ * kompyuterini almashtira olmasdi.</p>
+ *
+ * <p><b>Nega faqat bulutda.</b> <code>ShopTerminals</code> jadvali do'kon
+ * nusxasiga hech qachon tortilmaydi — do'kon kompyuterida u har doim bo'sh.
+ * U yerda kartani ko'rsatish «hech narsa bog'lanmagan» degan yolg'on
+ * xulosaga olib kelardi.</p>
+ */
+function TerminalsSection() {
+  const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const freshness = useSyncFreshness();
+
+  const onShopMachine = freshness.data?.isShopMachine ?? false;
+
+  const query = useQuery({
+    queryKey: ['shop-terminals'],
+    queryFn: settingsApi.terminals,
+    enabled: !onShopMachine,
+  });
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => settingsApi.revokeTerminal(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['shop-terminals'] }),
+  });
+
+  if (onShopMachine || freshness.isLoading) return null;
+
+  const terminals = query.data ?? [];
+  const when = (iso: string) => `${formatShortDate(iso, i18n.language)} ${formatTime(iso)}`;
+
+  async function askRevoke(id: string, name: string) {
+    const ok = await confirm({
+      title: t('settings.terminals.confirmTitle'),
+      message: t('settings.terminals.confirmBody', { name }),
+      confirmLabel: t('settings.terminals.revoke'),
+      tone: 'danger',
+    });
+    if (ok) revoke.mutate(id);
+  }
+
+  return (
+    <Section title={t('settings.terminals.title')} subtitle={t('settings.terminals.subtitle')}>
+      {query.isLoading ? (
+        <div className="flex justify-center py-2 text-primary">
+          <Spinner size={20} />
+        </div>
+      ) : terminals.length === 0 ? (
+        <p className="text-[13px] text-muted">{t('settings.terminals.none')}</p>
+      ) : (
+        terminals.map((terminal) => (
+          <div
+            key={terminal.id}
+            className={cn(
+              'flex items-start justify-between gap-3 rounded-input border border-hairline px-3 py-2.5',
+              terminal.revokedAtUtc && 'opacity-55',
+            )}
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-[14px] font-medium">{terminal.name}</span>
+                {terminal.revokedAtUtc && (
+                  <span className="flex-none rounded-pill bg-danger-soft px-2 py-0.5 text-[11.5px] text-danger">
+                    {t('settings.terminals.revoked')}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[12px] text-muted-2">
+                {t('settings.terminals.pairedAt')}: {when(terminal.pairedAt)}
+                {' · '}
+                {t('settings.terminals.lastSeen')}:{' '}
+                {terminal.lastSeenAtUtc ? when(terminal.lastSeenAtUtc) : t('settings.terminals.never')}
+                {terminal.lastIpAddress ? ` · ${terminal.lastIpAddress}` : ''}
+              </p>
+            </div>
+            {!terminal.revokedAtUtc && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-none"
+                loading={revoke.isPending}
+                onClick={() => void askRevoke(terminal.id, terminal.name)}
+              >
+                {t('settings.terminals.revoke')}
+              </Button>
+            )}
+          </div>
+        ))
+      )}
+      <p className="text-[12px] text-muted-2">{t('settings.terminals.hint')}</p>
+    </Section>
   );
 }
 

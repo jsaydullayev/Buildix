@@ -892,6 +892,20 @@ export const uz: TranslationSchema = {
       audit: 'Audit jurnali',
       auditHint: 'Xodimlar amallarini yozib borish',
     },
+    terminals: {
+      title: 'Bulutga bog‘langan kompyuter',
+      subtitle: 'Do‘kon bazasi turgan kassa. Bittadan ortiq bo‘lmaydi',
+      none: 'Hozircha hech qanday kompyuter bog‘lanmagan.',
+      pairedAt: 'Bog‘langan',
+      lastSeen: 'Oxirgi aloqa',
+      never: 'aloqaga chiqmagan',
+      revoked: 'Bekor qilingan',
+      revoke: 'Bekor qilish',
+      confirmTitle: 'Kompyuterni bulutdan uzish',
+      confirmBody:
+        '«{{name}}» bulutdan uziladi va bu qaytarilmaydi — yangi bog‘lash kerak bo‘ladi. Unda hali yuborilmagan savdolar qolgan bo‘lishi mumkin: uzilgandan keyin ular jo‘natilmaydi. Eski kompyuter bilan ishingiz tugagan bo‘lsagina davom eting.',
+      hint: '2-kassani bu yerga qo‘shish shart emas — u server kassaga lokal tarmoq orqali ulanadi.',
+    },
   },
   employees: {
     title: 'Xodimlar',

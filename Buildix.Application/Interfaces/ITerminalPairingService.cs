@@ -30,7 +30,14 @@ public interface ITerminalPairingService
     Task<IReadOnlyList<TerminalDto>> ListAsync(int marketId, CancellationToken ct = default);
 
     /// <summary>Kalitni bekor qiladi — kompyuter shu zahoti uziladi.</summary>
-    Task<Result<bool>> RevokeAsync(Guid terminalId, Guid byUserId, CancellationToken ct = default);
+    /// <param name="requireMarketId">
+    /// Berilsa, kompyuter AYNAN shu do'konniki bo'lishi shart. Do'kon egasi
+    /// chaqirganda majburiy: usiz u boshqa do'konning ID sini yuborib,
+    /// begona kassani bulutdan uzib qo'ya olardi. SuperAdmin uchun
+    /// <c>null</c> — u barcha do'konlarni boshqaradi.
+    /// </param>
+    Task<Result<bool>> RevokeAsync(
+        Guid terminalId, Guid byUserId, int? requireMarketId = null, CancellationToken ct = default);
 
     /// <summary>Aloqa vaqtini belgilaydi (bir daqiqada bir marta).</summary>
     Task TouchAsync(ShopTerminal terminal, string? ipAddress, CancellationToken ct = default);

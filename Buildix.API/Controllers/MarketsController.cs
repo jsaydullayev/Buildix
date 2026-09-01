@@ -140,6 +140,60 @@ public class MarketsController : ApiControllerBase
             settings.ReceiptWidthMm, settings.AutoPrintReceipt, settings.InactivityLogoutMinutes));
     }
 
+    /// <summary>
+    /// Do'konga bulutga bog'langan kompyuter(lar).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega egaga kerak.</b> Bitta do'konga bir vaqtda faqat BITTA
+    /// kompyuter bog'lanadi (bazasi turgan joy). Kompyuter almashtirilsa,
+    /// yangisi bog'lanmaydi va bog'lash oynasi «avval eskisini bekor qiling»
+    /// deydi. Ilgari buni faqat SuperAdmin qila olardi va o'sha «panel»
+    /// hech qayerda yo'q edi — ya'ni xabar mavjud bo'lmagan joyga
+    /// yo'naltirardi va egasi qo'llab-quvvatlashsiz kompyuterini
+    /// almashtira olmasdi.</para>
+    ///
+    /// <para>Bekor qilinganlari ham qaytadi: «qachon va nimani bekor
+    /// qilganman» degan savolga javob bo'lishi kerak.</para>
+    ///
+    /// <para><b>Do'kon kompyuterida bo'sh qaytadi.</b> <c>ShopTerminals</c>
+    /// jadvali faqat BULUT bazasida to'ladi — do'kon nusxasiga u hech qachon
+    /// tortilmaydi. Ekran shu sababli faqat bulutda ko'rsatiladi.</para>
+    /// </remarks>
+    [HttpGet("~/api/Markets/terminals")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<ActionResult<IReadOnlyList<TerminalDto>>> Terminals(
+        [FromServices] ITerminalPairingService pairing,
+        CancellationToken cancellationToken)
+        => Ok(await pairing.ListAsync(_currentMarketService.GetCurrentMarketId(), cancellationToken));
+
+    /// <summary>
+    /// Kompyuterni bulutdan uzadi — yangisini bog'lashning yagona yo'li.
+    /// </summary>
+    /// <remarks>
+    /// <para>Qaytarilmaydi: kalitning o'zi hech qayerda saqlanmaydi, faqat
+    /// hash'i. Bekor qilingan kompyuter yuborilmagan savdolarni bulutga
+    /// jo'nata olmaydi — shuning uchun buni eski kompyuter bilan ishi
+    /// tugagach qilish kerak. Ogohlantirish interfeysda.</para>
+    /// </remarks>
+    [HttpPost("~/api/Markets/terminals/{terminalId:guid}/revoke")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> RevokeTerminal(
+        Guid terminalId,
+        [FromServices] ITerminalPairingService pairing,
+        CancellationToken cancellationToken)
+    {
+        var raw = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(raw, out var ownerId)) return Unauthorized();
+
+        // Do'kon raqami MAJBURIY: usiz ega boshqa do'konning kompyuterini
+        // uzib qo'ya olardi.
+        var result = await pairing.RevokeAsync(
+            terminalId, ownerId, _currentMarketService.GetCurrentMarketId(), cancellationToken);
+
+        if (result.IsFailure) return NotFound(new { message = result.Error });
+        return Ok(new { revoked = true });
+    }
+
     // Owner only — the whole Настройки screen. Absolute routes so the paths
     // stay clean (GET/PUT /api/Markets/settings) under the [action] template.
     [HttpGet("~/api/Markets/settings")]
