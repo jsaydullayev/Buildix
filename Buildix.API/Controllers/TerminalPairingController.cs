@@ -80,10 +80,18 @@ public class TerminalPairingController : ControllerBase
         if (auth.MarketId is not { } marketId)
             return BadRequest(new { message = "Bu hisob hech qaysi do'konga bog'lanmagan." });
 
+        // `ReplaceExisting` ni EGA tasdiqlaydi: bu yo'lga faqat uning
+        // login-paroli bilan kelinadi va yuqorida rol tekshirilgan.
         var result = await _pairing.ActivateAsync(
-            marketId, request.TerminalName, HttpContext.Connection.RemoteIpAddress?.ToString(), ct);
+            marketId, request.TerminalName, HttpContext.Connection.RemoteIpAddress?.ToString(),
+            request.ReplaceExisting, ct);
 
-        if (result.IsFailure) return BadRequest(new { message = result.Error });
+        // Xato KODI ham qaytariladi: ilova «eskisini bekor qilib bog'lash»
+        // bandini aynan shunga qarab ko'rsatadi. Matn bo'yicha tanish
+        // mo'rt bo'lardi — xabar tahrirlansa band jimgina yo'qolardi.
+        // Bu yo'l egaga tanitilgan, ya'ni kod hech narsani oshkor qilmaydi.
+        if (result.IsFailure)
+            return BadRequest(new { message = result.Error, code = result.Code });
 
         return Ok(result.Value);
     }

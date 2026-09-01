@@ -12,7 +12,15 @@ public interface ITerminalPairingService
     /// <summary>Do'kon uchun bir martalik kod beradi (panel).</summary>
     Task<Result<PairingCodeDto>> IssueCodeAsync(int marketId, Guid byUserId, CancellationToken ct = default);
 
-    /// <summary>Kodni kalitga almashtiradi (do'kon ilovasi, anonim).</summary>
+    /// <summary>
+    /// Kodni kalitga almashtiradi (do'kon ilovasi, anonim).
+    /// </summary>
+    /// <remarks>
+    /// Bu yo'lda ESKISINING o'rnini egallash ATAYLAB yo'q: kodni taxmin
+    /// qilgan odam do'konning kassasini bulutdan uzib, o'rniga o'zinikini
+    /// qo'ya olardi. Almashtirish faqat egasining login-paroli bilan
+    /// (<see cref="ActivateAsync"/>) yoki panel orqali bo'ladi.
+    /// </remarks>
     Task<Result<PairedTerminalDto>> RedeemAsync(
         string code, string terminalName, string? ipAddress, CancellationToken ct = default);
 
@@ -20,8 +28,15 @@ public interface ITerminalPairingService
     /// Kodsiz bog'laydi — do'kon egasi o'z login-paroli bilan. Parolni
     /// CHAQIRUVCHI tekshiradi va faqat <c>Owner</c> ekanini kafolatlaydi.
     /// </summary>
+    /// <param name="replaceExisting">
+    /// Do'konda allaqachon bog'langan kompyuter bo'lsa, uni bekor qilib shu
+    /// kompyuterni bog'lash. Server kompyuter qayta o'rnatilganda YAGONA
+    /// chiqish yo'li — batafsil:
+    /// <see cref="DTOs.ActivateTerminalRequest.ReplaceExisting"/>.
+    /// </param>
     Task<Result<PairedTerminalDto>> ActivateAsync(
-        int marketId, string terminalName, string? ipAddress, CancellationToken ct = default);
+        int marketId, string terminalName, string? ipAddress,
+        bool replaceExisting = false, CancellationToken ct = default);
 
     /// <summary>Kalit bo'yicha kompyuterni taniydi. Yaroqsiz bo'lsa — null.</summary>
     Task<ShopTerminal?> AuthenticateAsync(string key, CancellationToken ct = default);

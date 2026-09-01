@@ -38,7 +38,30 @@ public record ActivateTerminalRequest(
     [property: JsonPropertyName("username")] string Username,
     [property: JsonPropertyName("password")] string Password,
     [property: JsonPropertyName("subdomain")] string? Subdomain,
-    [property: JsonPropertyName("terminalName")] string TerminalName);
+    [property: JsonPropertyName("terminalName")] string TerminalName,
+
+    /// <summary>
+    /// Do'konda allaqachon bog'langan kompyuter bo'lsa, uni BEKOR QILIB
+    /// shu kompyuterni bog'lash.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega kerak.</b> Server kompyuter qayta o'rnatilsa (disk
+    /// tozalandi, Windows qaytadan qo'yildi, kompyuter almashtirildi) yangi
+    /// nusxada hech qanday kalit qolmaydi, bulutda esa ESKI yozuv tirik
+    /// turadi. Natijada do'kon butunlay qulflanardi: bog'lash «allaqachon
+    /// bog'langan» deb rad etar, bekor qilinishi kerak bo'lgan kompyuter esa
+    /// endi mavjud emas edi.</para>
+    ///
+    /// <para><b>Nega sukut bo'yicha o'chiq.</b> Eski kompyuterda bulutga hali
+    /// yuborilmagan savdolar qolgan bo'lishi mumkin va bekor qilingandan
+    /// keyin ular hech qachon jo'natilmaydi. Shuning uchun bu jimgina
+    /// bo'lmaydi — egasi ogohlantirishni o'qib, ataylab tasdiqlaydi.</para>
+    ///
+    /// <para>Ruxsat egalikka tayanadi: bu yo'l do'kon EGASINING
+    /// login-parolini talab qiladi, ya'ni tasdiqni faqat do'konni
+    /// boshqarishga haqli odam bera oladi.</para>
+    /// </remarks>
+    [property: JsonPropertyName("replaceExisting")] bool ReplaceExisting = false);
 
 /// <summary>
 /// Do'kon dasturini yuklab olish uchun kerakli ma'lumot.

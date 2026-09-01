@@ -443,6 +443,73 @@ public class TerminalPairingTests
     }
 
     /// <summary>
+    /// Qayta o'rnatilgan SERVER kompyuter o'zini qaytadan bog'lay oladi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eng og'ir holat shu edi. Server kompyuter qayta o'rnatilsa
+    /// (disk tozalandi, Windows qaytadan qo'yildi) yangi nusxada kalit
+    /// qolmaydi, bulutda esa ESKI yozuv tirik turadi. Bog'lash «allaqachon
+    /// bog'langan» deb rad etilar, bekor qilinishi kerak bo'lgan kompyuter
+    /// esa endi mavjud emas edi — ya'ni do'kon o'z bazasiga qaytolmasdi va
+    /// butunlay qulflanib qolardi.</para>
+    ///
+    /// <para>Egalik isbotlangan (bu yo'lga faqat egasining login-paroli
+    /// bilan kelinadi), shuning uchun u eskisini shu yerdan bekor qila
+    /// oladi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Qayta_ornatilgan_server_ozini_qaytadan_boglay_oladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        var before = await service.ActivateAsync(market.Id, "Server kassa", null);
+
+        // Kompyuter qayta o'rnatildi — kalit yo'qoldi, lekin bulutda yozuv bor.
+        var blocked = await service.ActivateAsync(market.Id, "Server kassa", null);
+        Assert.True(blocked.IsFailure);
+        Assert.Equal("ALREADY_PAIRED", blocked.Code);
+
+        // Egasi bandni belgilaydi.
+        var after = await service.ActivateAsync(
+            market.Id, "Server kassa", null, replaceExisting: true);
+
+        Assert.True(after.IsSuccess, after.Error);
+        Assert.NotEqual(before.Value.Key, after.Value.Key);
+        // Eski kalit o'ldi, yangisi ishlaydi.
+        Assert.Null(await service.AuthenticateAsync(before.Value.Key));
+        Assert.NotNull(await service.AuthenticateAsync(after.Value.Key));
+        // Eskisi yo'qolmaydi — «qachon almashtirilgan» izi qoladi.
+        var rows = await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.Single(rows, t => t.RevokedAtUtc is null);
+    }
+
+    /// <summary>
+    /// KOD yo'lida eskisining o'rnini egallash yo'q.
+    /// </summary>
+    /// <remarks>
+    /// Kodni taxmin qilgan odam do'konning kassasini bulutdan uzib, o'rniga
+    /// o'zinikini qo'ya olardi. Almashtirish faqat egasining login-paroli
+    /// bilan bo'ladi.
+    /// </remarks>
+    [Fact]
+    public async Task Kod_yoli_eskisini_almashtira_olmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var market = await NewMarketAsync(h);
+        var service = NewService(h);
+        await service.ActivateAsync(market.Id, "Server kassa", null);
+
+        var issued = await service.IssueCodeAsync(market.Id, Guid.NewGuid());
+        var paired = await service.RedeemAsync(issued.Value.Code, "Begona", null);
+
+        Assert.True(paired.IsFailure);
+        Assert.Equal("ALREADY_PAIRED", paired.Code);
+        Assert.Single(await h.Db.ShopTerminals.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
     /// Do'kon egasi O'Z kompyuterini bekor qila oladi.
     /// </summary>
     /// <remarks>

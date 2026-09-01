@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
@@ -124,7 +124,9 @@ public class TerminalPairingService : ITerminalPairingService
                     "Kod noto'g'ri yoki muddati o'tgan. Panelda yangi kod oling.");
             }
 
-            var created = await CreateTerminalAsync(row.MarketId, terminalName, ipAddress, now, ct);
+            // Kod yo'lida almashtirish YO'Q — sababi interfeys izohida.
+            var created = await CreateTerminalAsync(
+                row.MarketId, terminalName, ipAddress, replaceExisting: false, now, ct);
             if (created.IsFailure) return created;
 
             row.UsedAtUtc = now;
@@ -149,13 +151,15 @@ public class TerminalPairingService : ITerminalPairingService
     /// bazasini begona kompyuterga ko'chirish imkonini berardi.</para>
     /// </summary>
     public async Task<Result<PairedTerminalDto>> ActivateAsync(
-        int marketId, string terminalName, string? ipAddress, CancellationToken ct = default)
+        int marketId, string terminalName, string? ipAddress,
+        bool replaceExisting = false, CancellationToken ct = default)
     {
         var now = _clock.GetUtcNow().UtcDateTime;
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var created = await CreateTerminalAsync(marketId, terminalName, ipAddress, now, ct);
+            var created = await CreateTerminalAsync(
+                marketId, terminalName, ipAddress, replaceExisting, now, ct);
             if (created.IsFailure) return created;
 
             await _unitOfWork.SaveChangesAsync(ct);
@@ -169,7 +173,8 @@ public class TerminalPairingService : ITerminalPairingService
     /// bu ikkisi bitta tranzaksiyada bo'lishi shart.
     /// </summary>
     private async Task<Result<PairedTerminalDto>> CreateTerminalAsync(
-        int marketId, string terminalName, string? ipAddress, DateTime now, CancellationToken ct)
+        int marketId, string terminalName, string? ipAddress, bool replaceExisting,
+        DateTime now, CancellationToken ct)
     {
         var market = await _context.Markets
             .IgnoreQueryFilters()
@@ -198,19 +203,37 @@ public class TerminalPairingService : ITerminalPairingService
         // Shuning uchun eskisini AVTOMATIK bekor qilmaymiz: eski
         // kompyuterda hali yuborilmagan savdolar qolgan bo'lishi mumkin
         // va ularni jimgina yo'qotib bo'lmaydi. Operator ataylab bekor
-        // qilsin.
+        // qilsin — `replaceExisting` aynan o'sha tasdiq.
         var active = await _context.ShopTerminals
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.MarketId == marketId && t.RevokedAtUtc == null, ct);
-        if (active is not null)
+
+        if (active is not null && !replaceExisting)
         {
             return Result.Failure<PairedTerminalDto>(
                 $"Bu do'konga «{active.Name}» kompyuteri allaqachon bog'langan.\r\n\r\n"
                 + "2-kassani bulutga bog'lash SHART EMAS — u server kassaga ulanadi "
                 + "(pastdagi havolaga qarang).\r\n\r\n"
-                + "Server kompyuter almashtirilayotgan bo'lsa, saytdagi Sozlamalar → "
-                + "«Bulutga bog'langan kompyuter» bo'limida eskisini bekor qiling.",
+                + "Bu O'SHA kompyuter bo'lsa (qayta o'rnatilgan yoki almashtirilgan) — "
+                + "quyidagi bandni belgilab, eskisini bekor qiling.",
                 "ALREADY_PAIRED");
+        }
+
+        if (active is not null)
+        {
+            // ── Eskisining o'rnini egallash ──────────────────────────────────
+            // Aynan shu yerda do'kon ILGARI butunlay qulflanib qolardi: server
+            // kompyuter qayta o'rnatilsa yangi nusxada kalit qolmasdi, bulutda
+            // esa eski yozuv tirik turardi. Bog'lash rad etilar, bekor
+            // qilinishi kerak bo'lgan kompyuter esa endi mavjud emas edi —
+            // ya'ni do'kon o'z bazasiga qaytolmasdi.
+            //
+            // Egalik allaqachon isbotlangan: bu yo'lga faqat do'kon EGASINING
+            // login-paroli (yoki panelda berilgan kod) bilan kelinadi.
+            active.RevokedAtUtc = now;
+            _logger.LogWarning(
+                "Terminal {TerminalId} ({Name}) of market {MarketId} revoked — replaced by a new pairing from {Ip}",
+                active.Id, active.Name, marketId, ipAddress ?? "?");
         }
 
         var key = NewKey();

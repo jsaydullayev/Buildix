@@ -56,6 +56,34 @@ public sealed class PairingForm : Form
     };
 
     /// <summary>
+    /// «Eskisini bekor qilib, shu kompyuterni bog'lash» — do'konda
+    /// allaqachon kompyuter bog'langan bo'lsa chiqadi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega kerak.</b> Server kompyuter qayta o'rnatilsa (disk
+    /// tozalandi, Windows qaytadan qo'yildi) yangi nusxada kalit qolmaydi,
+    /// bulutda esa ESKI yozuv tirik turadi. Do'kon butunlay qulflanardi:
+    /// bog'lash rad etilar, bekor qilinishi kerak bo'lgan kompyuter esa endi
+    /// mavjud emas edi. Yagona chiqish yo'li saytga kirib, paneldan bekor
+    /// qilish bo'lardi — uni bilish kerak edi.</para>
+    ///
+    /// <para><b>Nega jimgina emas.</b> Eski kompyuterda bulutga yuborilmagan
+    /// savdolar qolgan bo'lishi mumkin va bekor qilingandan keyin ular hech
+    /// qachon jo'natilmaydi. Shuning uchun bu ataylab belgilanadigan band,
+    /// sukut bo'yicha o'chiq.</para>
+    /// </remarks>
+    private readonly CheckBox _replace = new()
+    {
+        AutoSize = false,
+        Width = 480,
+        Height = 50,
+        Visible = false,
+        ForeColor = Color.Firebrick,
+        Text = "Eskisini bekor qilib, SHU kompyuterni bog'lash." + Environment.NewLine
+             + "Eski kompyuterda yuborilmagan savdolar qolgan bo'lsa, ular bulutga yetmaydi.",
+    };
+
+    /// <summary>
     /// Foydalanuvchi shu oynadan turib kassani ULANUVCHI qilib sozladi.
     ///
     /// <para>Rol ishga tushishda hal bo'ladi (baza va API ko'tariladimi yoki
@@ -80,7 +108,7 @@ public sealed class PairingForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(540, 470);
+        ClientSize = new Size(540, 524);
         Font = new Font("Segoe UI", 9.75F);
 
         var intro = new Label
@@ -103,7 +131,7 @@ public sealed class PairingForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 1,
-            RowCount = 8,
+            RowCount = 9,
             AutoSize = true,
         };
         layout.Controls.Add(intro, 0, 0);
@@ -119,6 +147,7 @@ public sealed class PairingForm : Form
         _asClient.Margin = new Padding(0, 4, 0, 6);
         layout.Controls.Add(_asClient, 0, 5);
         layout.Controls.Add(_result, 0, 6);
+        layout.Controls.Add(_replace, 0, 7);
 
         var buttons = new FlowLayoutPanel
         {
@@ -135,7 +164,7 @@ public sealed class PairingForm : Form
         buttons.Controls.Add(_pair);
         _switchMode.Margin = new Padding(0, 9, 18, 0);
         buttons.Controls.Add(_switchMode);
-        layout.Controls.Add(buttons, 0, 7);
+        layout.Controls.Add(buttons, 0, 8);
 
         Controls.Add(layout);
         AcceptButton = _pair;
@@ -180,6 +209,10 @@ public sealed class PairingForm : Form
         _loginRows.Visible = !codeMode;
         _codeRows.Visible = codeMode;
         _pair.Text = codeMode ? "Kod bilan bog'lash" : "Kirish va bog'lash";
+        // Kod yo'lida almashtirish yo'q: kodni taxmin qilgan odam do'konning
+        // kassasini uzib, o'rniga o'zinikini qo'ya olardi.
+        _replace.Visible = false;
+        _replace.Checked = false;
         _switchMode.Text = codeMode ? "Login-parol bilan bog'lash" : "Kod bilan bog'lash";
         Show(Color.DimGray, string.Empty);
         if (codeMode) _code.Focus(); else _username.Focus();
@@ -261,7 +294,18 @@ public sealed class PairingForm : Form
             path = "/api/pairing/activate";
             // Do'kon belgisi AYNAN shu yerda hal qiluvchi: usiz bulut
             // loginni barcha do'konlar ichidan qidiradi.
-            body = new { username, password, subdomain = address.Subdomain, terminalName };
+            //
+            // `replaceExisting` — egasi ataylab belgilagan band. Sukut
+            // bo'yicha o'chiq va u faqat «allaqachon bog'langan» javobidan
+            // KEYIN ko'rinadi, ya'ni tasodifan yoqib bo'lmaydi.
+            body = new
+            {
+                username,
+                password,
+                subdomain = address.Subdomain,
+                terminalName,
+                replaceExisting = _replace.Checked,
+            };
         }
 
         _pair.Enabled = false;
@@ -274,8 +318,20 @@ public sealed class PairingForm : Form
             if (!response.IsSuccessStatusCode)
             {
                 // Bulut xabari o'zbekcha va aniq — uni yashirmaymiz.
-                var problem = await ReadMessageAsync(response);
-                Show(Color.Firebrick, problem);
+                var problem = await ReadProblemAsync(response);
+                Show(Color.Firebrick, problem.Message);
+
+                // Do'konda allaqachon kompyuter bor. Aynan shu yerda ish
+                // ilgari to'xtardi: qayta o'rnatilgan server kompyuterda
+                // bog'lanishning HECH QANDAY yo'li qolmasdi. Endi egasi
+                // eskisini shu yerdan bekor qila oladi — bandni belgilab,
+                // tugmani qaytadan bosadi.
+                //
+                // Kod yo'lida band ko'rsatilmaydi: kodni taxmin qilgan odam
+                // do'konning kassasini uzib, o'rniga o'zinikini qo'ya olardi.
+                if (!_codeMode && problem.Code == "ALREADY_PAIRED")
+                    _replace.Visible = true;
+
                 return;
             }
 
@@ -309,19 +365,28 @@ public sealed class PairingForm : Form
         }
     }
 
-    /// <summary>Bulutning xato matnini oladi; bo'lmasa umumiy xabar.</summary>
-    private static async Task<string> ReadMessageAsync(HttpResponseMessage response)
+    /// <summary>
+    /// Bulutning xato matni va XATO TURI; matn bo'lmasa umumiy xabar.
+    /// </summary>
+    /// <remarks>
+    /// Tur alohida qaytariladi: oyna «eskisini bekor qilib bog'lash» bandini
+    /// aynan shunga qarab ko'rsatadi. Matn bo'yicha tanish mo'rt bo'lardi —
+    /// bulutdagi xabar tahrirlansa band jimgina yo'qolar va buni hech narsa
+    /// bildirmasdi.
+    /// </remarks>
+    private static async Task<(string Message, string? Code)> ReadProblemAsync(
+        HttpResponseMessage response)
     {
         try
         {
             var body = await response.Content.ReadFromJsonAsync<ProblemBody>();
-            if (!string.IsNullOrWhiteSpace(body?.Message)) return body!.Message!;
+            if (!string.IsNullOrWhiteSpace(body?.Message)) return (body!.Message!, body.Code);
         }
         catch (Exception) { /* JSON emas — quyidagi umumiy xabar */ }
 
-        return response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+        return (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
             ? "Juda ko'p urinish bo'ldi. Bir oz kutib, qaytadan urining."
-            : $"Bog'lanmadi (kod {(int)response.StatusCode}).";
+            : $"Bog'lanmadi (kod {(int)response.StatusCode}).", null);
     }
 
     private void Show(Color color, string text)
@@ -336,5 +401,6 @@ public sealed class PairingForm : Form
         [property: JsonPropertyName("key")] string Key);
 
     private sealed record ProblemBody(
-        [property: JsonPropertyName("message")] string? Message);
+        [property: JsonPropertyName("message")] string? Message,
+        [property: JsonPropertyName("code")] string? Code = null);
 }
