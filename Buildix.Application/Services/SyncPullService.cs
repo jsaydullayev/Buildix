@@ -183,6 +183,15 @@ public class SyncPullService : ISyncPullService
                 AsUtc(p.CreatedAt), AsUtc(p.UpdatedAt)))
             .ToListAsync(ct);
 
+        var debtDtos = saleIds.Count == 0 ? [] : await _context.Debts
+            .IgnoreQueryFilters()
+            .Where(d => saleIds.Contains(d.SaleId))
+            .Select(d => new SyncDebtDto(
+                d.Id, d.SaleId, d.CustomerId, d.TotalDebt, d.RemainingDebt,
+                (int)d.Status, d.DueDate == null ? null : AsUtc(d.DueDate.Value),
+                AsUtc(d.UpdatedAt)))
+            .ToListAsync(ct);
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
@@ -217,7 +226,7 @@ public class SyncPullService : ISyncPullService
 
         return new SyncPullDto(
             now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto,
-            saleDtos, itemDtos, paymentDtos);
+            saleDtos, itemDtos, paymentDtos, debtDtos);
     }
 
     /// <summary>

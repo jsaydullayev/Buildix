@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace Buildix.Application.DTOs;
 
@@ -82,7 +82,8 @@ public record SyncPullDto(
     /// </remarks>
     [property: JsonPropertyName("sales")] IReadOnlyList<SyncSaleDto>? Sales = null,
     [property: JsonPropertyName("saleItems")] IReadOnlyList<SyncSaleItemDto>? SaleItems = null,
-    [property: JsonPropertyName("payments")] IReadOnlyList<SyncPaymentDto>? Payments = null)
+    [property: JsonPropertyName("payments")] IReadOnlyList<SyncPaymentDto>? Payments = null,
+    [property: JsonPropertyName("debts")] IReadOnlyList<SyncDebtDto>? Debts = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
@@ -98,6 +99,9 @@ public record SyncPullDto(
 
     /// <summary>To'lovlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncPaymentDto> PaymentsOrEmpty => Payments ?? [];
+
+    /// <summary>Qarzlar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncDebtDto> DebtsOrEmpty => Debts ?? [];
 }
 
 /// <summary>
@@ -205,6 +209,25 @@ public record SyncSaleItemDto(
     [property: JsonPropertyName("costPrice")] decimal CostPrice,
     [property: JsonPropertyName("salePrice")] decimal SalePrice,
     [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Chekning qarzi.
+/// </summary>
+/// <remarks>
+/// <para>Chek bilan BIRGA yuriladi. Qarz o'zgarganda (masalan qisman
+/// to'langanda) chekning <c>PaidAmount</c> i ham o'zgaradi, ya'ni otasi
+/// baribir qaytadan tushadi va qarz u bilan birga keladi — alohida kursor
+/// kerak emas.</para>
+/// </remarks>
+public record SyncDebtDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("customerId")] Guid CustomerId,
+    [property: JsonPropertyName("totalDebt")] decimal TotalDebt,
+    [property: JsonPropertyName("remainingDebt")] decimal RemainingDebt,
+    [property: JsonPropertyName("status")] int Status,
+    [property: JsonPropertyName("dueDate")] DateTimeOffset? DueDate,
     [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 
 /// <summary>Chekka yozilgan to'lov (manfiy — qaytarish).</summary>

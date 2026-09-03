@@ -66,15 +66,16 @@ public class ShopSyncTests
         return new SyncPullDto(stamp, stamp, null, [], products);
     }
 
-    /// <summary>Chek + qatorlari + to'lovlari keladigan javob.</summary>
+    /// <summary>Chek + qatorlari + to'lovlari + qarzi keladigan javob.</summary>
     private static SyncPullDto WithSales(
         IReadOnlyList<SyncSaleDto> sales,
         IReadOnlyList<SyncSaleItemDto>? items = null,
-        IReadOnlyList<SyncPaymentDto>? payments = null)
+        IReadOnlyList<SyncPaymentDto>? payments = null,
+        IReadOnlyList<SyncDebtDto>? debts = null)
     {
         var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
         return new SyncPullDto(stamp, stamp, null, [], null, null, null,
-            sales, items, payments);
+            sales, items, payments, debts);
     }
 
     private static SyncSaleDto NewSale(
@@ -768,6 +769,84 @@ public class ShopSyncTests
         // Suv belgisi chekdan O'TIB KETMAGAN — u qaytadan so'raladi.
         var state = await h.Db.SyncStates.FirstAsync();
         Assert.Equal(sale.UpdatedAt, state.PullWatermark);
+    }
+
+    /// <summary>
+    /// Chekning QARZI ham do'konga tushadi.
+    /// </summary>
+    /// <remarks>
+    /// Chek tushib, qarzi tushmasa «chek bor, qarz yo'q» holati chiqardi:
+    /// mijozning qarzi jimgina yo'qolar va buni keyin hech narsa
+    /// ko'rsatmasdi.
+    /// </remarks>
+    [Fact]
+    public async Task Chekning_qarzi_ham_tushadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Username = "kassir2", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+        var customer = new Customer
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Phone = "+998901112233", FullName = "Xoshim",
+        };
+        h.Db.Users.Add(seller);
+        h.Db.Customers.Add(customer);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        await ApplyAsync(h, WithSales(
+            [NewSale(h, saleId, seller.Id, afterHours: 0,
+                customerId: customer.Id, total: 300_000, paid: 100_000)],
+            debts: [new SyncDebtDto(Guid.NewGuid(), saleId, customer.Id,
+                300_000m, 200_000m, (int)DebtStatus.Open, null, h.DbClock.GetUtcNow())]));
+
+        var debt = await h.Db.Debts.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(saleId, debt.SaleId);
+        Assert.Equal(customer.Id, debt.CustomerId);
+        Assert.Equal(200_000m, debt.RemainingDebt);
+        Assert.Equal(7, debt.MarketId);
+    }
+
+    /// <summary>
+    /// Mijozi hali kelmagan qarz KUTILADI — yo'qolmaydi.
+    /// </summary>
+    /// <remarks>
+    /// Qarz mijozsiz bo'lolmaydi (havola majburiy). Uni tashlab yuborish
+    /// «chek bor, qarz yo'q» holatiga olib kelardi. Shuning uchun suv
+    /// belgisi undan o'tib ketmaydi va keyingi tortishda qaytadan keladi.
+    /// </remarks>
+    [Fact]
+    public async Task Mijozsiz_qarz_kutiladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Username = "kassir2", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+        h.Db.Users.Add(seller);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        var debtStamp = h.DbClock.GetUtcNow();
+        await ApplyAsync(h, WithSales(
+            [NewSale(h, saleId, seller.Id, afterHours: 0)],
+            debts: [new SyncDebtDto(Guid.NewGuid(), saleId, Guid.NewGuid(),
+                300_000m, 200_000m, (int)DebtStatus.Open, null, debtStamp)]));
+
+        // Chek tushdi, qarz esa kutilyapti.
+        Assert.Single(await h.Db.Sales.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await h.Db.Debts.IgnoreQueryFilters().ToListAsync());
+
+        var state = await h.Db.SyncStates.FirstAsync();
+        Assert.Equal(debtStamp, state.PullWatermark);
     }
 
     /// <summary>

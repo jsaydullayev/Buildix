@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
@@ -503,6 +503,15 @@ public class ShopSyncService : IShopSyncService
         {
             await ApplySaleItemsAsync(payload.SaleItemsOrEmpty, accepted, ct);
             await ApplyPaymentsAsync(payload.PaymentsOrEmpty, accepted, marketId, ct);
+
+            // Qarz mijozsiz bo'lolmaydi (havola majburiy). Mijoz hali
+            // kelmagan bo'lsa qarz KUTILADI — chunki uni tashlab yuborish
+            // «chek bor, qarz yo'q» degan holatga olib kelardi va mijozning
+            // qarzi jimgina yo'qolardi.
+            var debtDeferred = await ApplyDebtsAsync(
+                payload.DebtsOrEmpty, accepted, marketId, ct);
+            if (debtDeferred is { } dd && (deferredFrom is not { } cur || dd < cur))
+                deferredFrom = dd;
         }
 
         return (applied, deferredFrom);
@@ -606,6 +615,74 @@ public class ShopSyncService : IShopSyncService
 
             _applied.Add((payment.Id, nameof(Payment), payment));
         }
+    }
+
+    /// <summary>
+    /// Chekning qarzi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Qarz MIJOZSIZ bo'lolmaydi — havola majburiy. Mijoz hali
+    /// tushmagan bo'lsa qarz kutiladi va suv belgisi undan o'tib ketmaydi:
+    /// tashlab yuborish «chek bor, qarz yo'q» holatiga olib kelardi va
+    /// mijozning qarzi JIMGINA yo'qolardi — buni keyin hech narsa
+    /// ko'rsatmasdi.</para>
+    ///
+    /// <para>Qarz o'zgarganda (qisman to'langanda) chekning <c>PaidAmount</c>
+    /// i ham o'zgaradi, ya'ni otasi qaytadan tushadi va qarz u bilan birga
+    /// keladi.</para>
+    /// </remarks>
+    private async Task<DateTimeOffset?> ApplyDebtsAsync(
+        IReadOnlyList<SyncDebtDto> incoming, HashSet<Guid> acceptedSales,
+        int marketId, CancellationToken ct)
+    {
+        var mine = incoming.Where(d => acceptedSales.Contains(d.SaleId)).ToList();
+        if (mine.Count == 0) return null;
+
+        var ids = mine.Select(d => d.Id).ToList();
+        var local = await _context.Debts
+            .IgnoreQueryFilters()
+            .Where(d => ids.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, ct);
+
+        var customerIds = mine.Select(d => d.CustomerId).Distinct().ToList();
+        var knownCustomers = (await _context.Customers
+            .IgnoreQueryFilters()
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        DateTimeOffset? deferred = null;
+
+        foreach (var dto in mine)
+        {
+            if (!knownCustomers.Contains(dto.CustomerId))
+            {
+                deferred = deferred is { } d && d <= dto.UpdatedAt ? d : dto.UpdatedAt;
+                continue;
+            }
+
+            if (!local.TryGetValue(dto.Id, out var debt))
+            {
+                debt = new Debt { Id = dto.Id, SaleId = dto.SaleId, MarketId = marketId };
+                _context.Debts.Add(debt);
+            }
+            else if (DateTime.SpecifyKind(debt.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                continue;
+            }
+
+            debt.CustomerId = dto.CustomerId;
+            debt.TotalDebt = dto.TotalDebt;
+            debt.RemainingDebt = dto.RemainingDebt;
+            debt.Status = Enum.IsDefined(typeof(DebtStatus), dto.Status)
+                ? (DebtStatus)dto.Status
+                : debt.Status;
+            debt.DueDate = dto.DueDate?.UtcDateTime;
+
+            _applied.Add((debt.Id, nameof(Debt), debt));
+        }
+
+        return deferred;
     }
 
     /// <summary>
