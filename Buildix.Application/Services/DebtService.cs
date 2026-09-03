@@ -18,19 +18,26 @@ public class DebtService : IDebtService
     private readonly ILogger<DebtService> _logger;
     private readonly ICashLedger _cashLedger;
 
+    private readonly IMarketSettingsService _settings;
+    private readonly ISyncFreshnessService _freshness;
+
     public DebtService(
         IAppDbContext context,
         IUnitOfWork unitOfWork,
         ICurrentMarketService currentMarket,
         IAuditLogService auditLog,
         ILogger<DebtService> logger,
-        ICashLedger cashLedger)
+        ICashLedger cashLedger,
+        IMarketSettingsService settings,
+        ISyncFreshnessService freshness)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _currentMarket = currentMarket;
         _auditLog = auditLog;
         _logger = logger;
+        _settings = settings;
+        _freshness = freshness;
         _cashLedger = cashLedger;
     }
 
@@ -40,6 +47,17 @@ public class DebtService : IDebtService
             return Result.Failure<PayDebtResultDto>("To'lov miqdori 0 dan katta bo'lishi kerak.");
 
         var marketId = _currentMarket.GetCurrentMarketId();
+
+        // Qarzni UNDIRISH ham bulutga bog'liq amal: ikkinchi kassa shu
+        // qarzni allaqachon undirgan bo'lishi mumkin va oflayn holda uni
+        // bilib bo'lmaydi. Ikki marta undirilgan qarz mijozning hisobida
+        // soxta avans bo'lib qolardi.
+        if (DebtCloudGate.Blocks(
+                await _settings.GetOrCreateAsync(marketId, cancellationToken),
+                await _freshness.GetAsync(marketId, cancellationToken)))
+        {
+            return Result.Failure<PayDebtResultDto>(DebtCloudGate.Message, DebtCloudGate.Code);
+        }
 
         // Capture the payment id for the post-commit, fire-and-forget audit log.
         Guid paymentId = Guid.Empty;

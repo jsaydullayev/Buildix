@@ -28,7 +28,7 @@ public class SaleService : ISaleService
 
     private readonly IStockLedger _stockLedger;
 
-    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts, ICurrentRegisterService currentRegister)
+    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts, ICurrentRegisterService currentRegister, ISyncFreshnessService freshness)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -41,10 +41,12 @@ public class SaleService : ISaleService
         _stockLedger = stockLedger;
         _externalPayouts = externalPayouts;
         _currentRegister = currentRegister;
+        _freshness = freshness;
     }
 
     private readonly IExternalPayoutLedger _externalPayouts;
     private readonly ICurrentRegisterService _currentRegister;
+    private readonly ISyncFreshnessService _freshness;
 
     public async Task<Result<SaleDto>> CreateSaleAsync(CreateSaleDto request, Guid sellerId, CancellationToken cancellationToken = default)
     {
@@ -292,6 +294,12 @@ public class SaleService : ISaleService
             if (settings.DebtOnlyForRegulars && (customer is null || !customer.IsRegular))
                 return Result.Failure<SaleDto>(
                     "Долг разрешён только постоянным клиентам.", "DEBT_REGULARS_ONLY");
+
+            // Mustaqil bazali kassalarda qarz OFLAYN yozib bo'lmaydi:
+            // ikkinchi kassa bu mijozga allaqachon qarz bergan bo'lishi
+            // mumkin va chegara jimgina ikki marta sarflanardi.
+            if (DebtCloudGate.Blocks(settings, await _freshness.GetAsync(marketId, cancellationToken)))
+                return Result.Failure<SaleDto>(DebtCloudGate.Message, DebtCloudGate.Code);
 
             // Per-user «Долг на чек» limiti: kassir bitta chekka belgilangan
             // summadan ko'p qarz qoldira olmaydi. Null = cheksiz.

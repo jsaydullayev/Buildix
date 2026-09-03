@@ -117,6 +117,24 @@ public class SyncPullService : ISyncPullService
             c.Id, c.Phone, c.FullName, c.Comment, (int)c.CustomerType,
             c.IsRegular, c.DebtLimit, c.IsDeleted, AsUtc(c.UpdatedAt))).ToList();
 
+        // ── Sozlamalar: faqat DO'KON ishlatadigan maydonlar ──────────────
+        // Ilgari ular umuman sinxronlanmasdi va bulutda-do'konda ikkita
+        // mustaqil nusxa yotardi (sabab SyncSettingsDto izohida).
+        var settingsRow = await _context.MarketSettings
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.MarketId == marketId && s.UpdatedAt >= fromUtc, ct);
+
+        var settingsDto = settingsRow is null ? null : new SyncSettingsDto(
+            settingsRow.Phone, settingsRow.Address, settingsRow.WorkingHours,
+            settingsRow.ReceiptHeader, settingsRow.ReceiptFooter,
+            settingsRow.AutoPrintReceipt, settingsRow.ReceiptWidthMm,
+            settingsRow.SalesOnlyWhenShiftOpen, settingsRow.CashWithdrawalNeedsApproval,
+            settingsRow.DebtOnlyForRegulars, settingsRow.DebtRequiresCloud,
+            settingsRow.DefaultDebtLimit, settingsRow.BlockSaleBelowCost,
+            settingsRow.AllowedCashDiscrepancy, settingsRow.MinStockAlertEnabled,
+            settingsRow.DefaultMarkupPct, settingsRow.InactivityLogoutMinutes,
+            settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt));
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
@@ -126,9 +144,11 @@ public class SyncPullService : ISyncPullService
             .Concat(customerDtos.Select(c => c.UpdatedAt))
             .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
+        if (settingsDto is not null) stamps.Add(settingsDto.UpdatedAt);
         var nextSince = stamps.Count > 0 ? stamps.Max() : since;
 
-        return new SyncPullDto(now, nextSince, marketDto, userDtos, productDtos, customerDtos);
+        return new SyncPullDto(
+            now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto);
     }
 
     /// <summary>

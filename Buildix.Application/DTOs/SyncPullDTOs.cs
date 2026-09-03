@@ -66,7 +66,13 @@ public record SyncPullDto(
     /// <para>Sukut bo'yicha BO'SH: eski do'kon nusxasi bu maydonni bilmaydi
     /// va uni talab qilish o'sha do'konlarning tortishini yiqitardi.</para>
     /// </remarks>
-    [property: JsonPropertyName("customers")] IReadOnlyList<SyncCustomerDto>? Customers = null)
+    [property: JsonPropertyName("customers")] IReadOnlyList<SyncCustomerDto>? Customers = null,
+
+    /// <summary>
+    /// Do'kon sozlamalari — o'zgargan bo'lsa. Sukut bo'yicha <c>null</c>:
+    /// eski do'kon nusxasi bu maydonni bilmaydi.
+    /// </summary>
+    [property: JsonPropertyName("settings")] SyncSettingsDto? Settings = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
@@ -137,6 +143,45 @@ public record SyncCustomerDto(
     [property: JsonPropertyName("isRegular")] bool IsRegular,
     [property: JsonPropertyName("debtLimit")] decimal? DebtLimit,
     [property: JsonPropertyName("isDeleted")] bool IsDeleted,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Do'kon sozlamalari — egasi paneldan boshqaradigan qoidalar.
+/// </summary>
+/// <remarks>
+/// <para><b>Ilgari sozlamalar UMUMAN sinxronlanmasdi</b> — na yuqoriga, na
+/// pastga. Ya'ni bulutda va do'konda ikkita mustaqil nusxa yotardi va ular
+/// hech qachon uchrashmasdi: egasi saytda do'kon manzilini yozsa, chekda u
+/// paydo bo'lmasdi; chek enini 58 mm qilsa, kassa 80 mm bosaverardi. Hech
+/// qanday xato chiqmasdi — sozlama «saqlandi» deb yozar, faqat boshqa
+/// nusxaga tegmasdi.</para>
+///
+/// <para>Faqat DO'KON ishlatadigan maydonlar. Bildirishnoma bayroqlari va
+/// yuborilgan xulosa sanasi bu yerda yo'q: ular bulutning o'z ishi.</para>
+/// </remarks>
+public record SyncSettingsDto(
+    [property: JsonPropertyName("phone")] string? Phone,
+    [property: JsonPropertyName("address")] string? Address,
+    [property: JsonPropertyName("workingHours")] string? WorkingHours,
+
+    [property: JsonPropertyName("receiptHeader")] string? ReceiptHeader,
+    [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
+    [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
+    [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
+
+    [property: JsonPropertyName("salesOnlyWhenShiftOpen")] bool SalesOnlyWhenShiftOpen,
+    [property: JsonPropertyName("cashWithdrawalNeedsApproval")] bool CashWithdrawalNeedsApproval,
+    [property: JsonPropertyName("debtOnlyForRegulars")] bool DebtOnlyForRegulars,
+    [property: JsonPropertyName("debtRequiresCloud")] bool DebtRequiresCloud,
+    [property: JsonPropertyName("defaultDebtLimit")] decimal DefaultDebtLimit,
+    [property: JsonPropertyName("blockSaleBelowCost")] bool BlockSaleBelowCost,
+
+    [property: JsonPropertyName("allowedCashDiscrepancy")] decimal AllowedCashDiscrepancy,
+    [property: JsonPropertyName("minStockAlertEnabled")] bool MinStockAlertEnabled,
+    [property: JsonPropertyName("defaultMarkupPct")] decimal DefaultMarkupPct,
+    [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes,
+    [property: JsonPropertyName("auditEnabled")] bool AuditEnabled,
+
     [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>

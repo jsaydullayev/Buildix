@@ -66,6 +66,21 @@ public class ShopSyncTests
         return new SyncPullDto(stamp, stamp, null, [], products);
     }
 
+    /// <summary>Faqat sozlamalar keladigan javob.</summary>
+    private static SyncPullDto WithSettings(SyncSettingsDto settings)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], null, null, settings);
+    }
+
+    private static SyncSettingsDto NewSettings(
+        TestHarness h, double afterHours,
+        string? address = "Toshkent, Chilonzor", string? phone = "+998901112233",
+        int receiptWidthMm = 80, bool debtRequiresCloud = false) =>
+        new(phone, address, null, null, null, false, receiptWidthMm,
+            false, false, false, debtRequiresCloud, 0m, false,
+            0m, false, 18m, 0, true, h.DbClock.GetUtcNow().AddHours(afterHours));
+
     /// <summary>Faqat mijozlar keladigan javob.</summary>
     private static SyncPullDto WithCustomers(params SyncCustomerDto[] customers)
     {
@@ -557,6 +572,82 @@ public class ShopSyncTests
         var debt = await h.Db.Debts.IgnoreQueryFilters().FirstAsync();
         Assert.Equal(200_000m, debt.RemainingDebt);
         Assert.Equal(DebtStatus.Open, debt.Status);
+    }
+
+    /// <summary>
+    /// Saytda qo'yilgan do'kon MANZILI va TELEFONI do'konga yetib boradi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sozlamalar UMUMAN sinxronlanmasdi — na yuqoriga, na pastga.
+    /// Bulutda va do'konda ikkita mustaqil nusxa yotardi va ular hech qachon
+    /// uchrashmasdi: egasi saytda manzilni yozsa chekda u paydo bo'lmasdi,
+    /// chek enini 58 mm qilsa kassa 80 mm bosaverardi. Sozlama «saqlandi»
+    /// deb yozar, faqat boshqa nusxaga tegmasdi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Saytdagi_sozlama_dokonga_yetadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithSettings(NewSettings(
+            h, afterHours: 0, address: "Taxtapul bozori, 12", receiptWidthMm: 58)));
+
+        var stored = await h.Db.MarketSettings.IgnoreQueryFilters()
+            .FirstAsync(x => x.MarketId == 7);
+        Assert.Equal("Taxtapul bozori, 12", stored.Address);
+        Assert.Equal("+998901112233", stored.Phone);
+        Assert.Equal(58, stored.ReceiptWidthMm);
+    }
+
+    /// <summary>Qarz qoidasi ham sozlama orqali do'konga yetadi.</summary>
+    /// <remarks>
+    /// «Qarz amallari uchun bulut kerak» qoidasi egasi tomonidan paneldan
+    /// yoqiladi. Sozlamalar tushmaganida bu qoidani do'konga yetkazishning
+    /// hech qanday yo'li yo'q edi.
+    /// </remarks>
+    [Fact]
+    public async Task Qarz_qoidasi_dokonga_yetadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithSettings(
+            NewSettings(h, afterHours: 0, debtRequiresCloud: true)));
+
+        var stored = await h.Db.MarketSettings.IgnoreQueryFilters()
+            .FirstAsync(x => x.MarketId == 7);
+        Assert.True(stored.DebtRequiresCloud);
+    }
+
+    /// <summary>
+    /// Do'konda qilingan YANGIROQ o'zgarish bulutning eski nusxasi bilan
+    /// bosilmaydi.
+    /// </summary>
+    [Fact]
+    public async Task Dokondagi_yangi_sozlama_saqlanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.MarketSettings.Add(new MarketSettings
+        {
+            MarketId = 7, Address = "Do'konda yozilgan", ReceiptWidthMm = 58,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Bulutdan ESKI nusxa keladi.
+        await ApplyAsync(h, WithSettings(
+            NewSettings(h, afterHours: -3, address: "Eski manzil", receiptWidthMm: 80)));
+
+        var stored = await h.Db.MarketSettings.IgnoreQueryFilters()
+            .FirstAsync(x => x.MarketId == 7);
+        Assert.Equal("Do'konda yozilgan", stored.Address);
+        Assert.Equal(58, stored.ReceiptWidthMm);
     }
 
     /// <summary>

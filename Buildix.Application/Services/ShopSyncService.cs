@@ -146,6 +146,9 @@ public class ShopSyncService : IShopSyncService
             // 5. Mijozlar — xuddi shu qoida bo'yicha.
             var customerCount = await ApplyCustomersAsync(payload.CustomersOrEmpty, marketId, ct);
 
+            // 6. Do'kon sozlamalari.
+            var settingsChanged = await ApplySettingsAsync(payload.Settings, marketId, ct);
+
             state ??= NewState(marketId);
             state.PullWatermark = payload.NextSince;
             state.LastPulledAtUtc = _clock.GetUtcNow().UtcDateTime;
@@ -155,9 +158,9 @@ public class ShopSyncService : IShopSyncService
 
             _logger.LogInformation(
                 "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} "
-                + "customers={CustomerCount} watermark={Watermark:O}",
+                + "customers={CustomerCount} settings={SettingsChanged} watermark={Watermark:O}",
                 payload.Market is not null, payload.Users.Count, productCount, customerCount,
-                payload.NextSince);
+                settingsChanged, payload.NextSince);
 
             return ShopSyncResult.Ok(payload.Market is not null, payload.Users.Count);
         });
@@ -311,6 +314,70 @@ public class ShopSyncService : IShopSyncService
         }
 
         return applied;
+    }
+
+    /// <summary>
+    /// Egasi paneldan o'zgartirgan do'kon sozlamalarini qo'llaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ilgari sozlamalar UMUMAN sinxronlanmasdi.</b> Bulutda va
+    /// do'konda ikkita mustaqil nusxa yotardi: egasi saytda do'kon manzilini
+    /// yozsa chekda u paydo bo'lmasdi, chek enini 58 mm qilsa kassa 80 mm
+    /// bosaverardi. Sozlama «saqlandi» deb yozar, faqat boshqa nusxaga
+    /// tegmasdi — ya'ni xato hech qayerda ko'rinmasdi.</para>
+    ///
+    /// <para><b>Yangiroq nusxa g'olib</b> — tovar va mijozdagi bilan bir xil
+    /// qoida. Do'konda ham sozlash ekrani bor va u yerdagi o'zgarishni eski
+    /// bulut nusxasi bilan bosib yuborish mumkin emas.</para>
+    ///
+    /// <para><b>Qolgan kamchilik:</b> do'konda qilingan o'zgarish bulutga
+    /// CHIQMAYDI — sozlamalar hali push'ga qo'shilmagan. Ya'ni egasi
+    /// telefonda ko'radigan sozlamalar do'konnikidan orqada qolishi mumkin.
+    /// Buni tuzatish uchun push tomoni ham kerak.</para>
+    /// </remarks>
+    private async Task<bool> ApplySettingsAsync(
+        SyncSettingsDto? dto, int marketId, CancellationToken ct)
+    {
+        if (dto is null) return false;
+
+        var settings = await _context.MarketSettings
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.MarketId == marketId, ct);
+
+        if (settings is null)
+        {
+            settings = new MarketSettings { MarketId = marketId };
+            _context.MarketSettings.Add(settings);
+        }
+        else if (DateTime.SpecifyKind(settings.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+        {
+            // Do'kondagi o'zgarish yangiroq — tegmaymiz.
+            return false;
+        }
+
+        settings.Phone = dto.Phone;
+        settings.Address = dto.Address;
+        settings.WorkingHours = dto.WorkingHours;
+
+        settings.ReceiptHeader = dto.ReceiptHeader;
+        settings.ReceiptFooter = dto.ReceiptFooter;
+        settings.AutoPrintReceipt = dto.AutoPrintReceipt;
+        settings.ReceiptWidthMm = dto.ReceiptWidthMm;
+
+        settings.SalesOnlyWhenShiftOpen = dto.SalesOnlyWhenShiftOpen;
+        settings.CashWithdrawalNeedsApproval = dto.CashWithdrawalNeedsApproval;
+        settings.DebtOnlyForRegulars = dto.DebtOnlyForRegulars;
+        settings.DebtRequiresCloud = dto.DebtRequiresCloud;
+        settings.DefaultDebtLimit = dto.DefaultDebtLimit;
+        settings.BlockSaleBelowCost = dto.BlockSaleBelowCost;
+
+        settings.AllowedCashDiscrepancy = dto.AllowedCashDiscrepancy;
+        settings.MinStockAlertEnabled = dto.MinStockAlertEnabled;
+        settings.DefaultMarkupPct = dto.DefaultMarkupPct;
+        settings.InactivityLogoutMinutes = dto.InactivityLogoutMinutes;
+        settings.AuditEnabled = dto.AuditEnabled;
+
+        return true;
     }
 
     /// <summary>

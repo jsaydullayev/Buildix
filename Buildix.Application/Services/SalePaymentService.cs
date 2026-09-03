@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Common;
@@ -25,6 +25,7 @@ public class SalePaymentService : ISalePaymentService
     private readonly IStockLedger _stockLedger;
     private readonly ICashLedger _cashLedger;
     private readonly ISaleCreditApplier _creditApplier;
+    private readonly ISyncFreshnessService _freshness;
 
     public SalePaymentService(
         IUnitOfWork unitOfWork,
@@ -36,9 +37,11 @@ public class SalePaymentService : ISalePaymentService
         IStockLedger stockLedger,
         ICashLedger cashLedger,
         ISaleCreditApplier creditApplier,
+        ISyncFreshnessService freshness,
         IExternalPayoutLedger externalPayouts)
     {
         _creditApplier = creditApplier;
+        _freshness = freshness;
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
@@ -69,6 +72,12 @@ public class SalePaymentService : ISalePaymentService
 
         if (settings.DebtOnlyForRegulars && (customer is null || !customer.IsRegular))
             return Result.Failure<PaymentDto>("Долг разрешён только постоянным клиентам.", "DEBT_REGULARS_ONLY");
+
+        // Qisman to'lov ham qarz YARATADI — «Qarzga» tugmasi bilan bir xil
+        // darvoza. Aks holda qoida bitta tugmani chetlab o'tish bilan
+        // yo'qolardi.
+        if (DebtCloudGate.Blocks(settings, await _freshness.GetAsync(marketId, ct)))
+            return Result.Failure<PaymentDto>(DebtCloudGate.Message, DebtCloudGate.Code);
 
         // Kassirning bitta chekka qarz limiti. Ilgari u FAQAT «Qarzga»
         // tugmasida tekshirilardi, ya'ni limitdan oshgan kassir shunchaki

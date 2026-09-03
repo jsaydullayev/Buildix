@@ -1,3 +1,4 @@
+using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Services;
 using Buildix.Domain.Entities;
@@ -24,6 +25,23 @@ public sealed class FakeCurrentMarketService : ICurrentMarketService
         MarketId ?? throw new UnauthorizedAccessException("No market in test context.");
 
     public int? TryGetCurrentMarketId() => MarketId;
+}
+
+/// <summary>
+/// Bulut bilan aloqa holati — sinovda qo'lda qo'yiladi.
+///
+/// <para>Sukut bo'yicha «bog'langan va yangi»: mavjud sinovlarning
+/// hech biri qarz darvozasiga urilmasligi kerak, chunki qoida
+/// (<c>DebtRequiresCloud</c>) ham sukut bo'yicha o'chiq.</para>
+/// </summary>
+public sealed class FakeSyncFreshness : ISyncFreshnessService
+{
+    public bool IsPaired { get; set; } = true;
+    public bool IsFresh { get; set; } = true;
+    public string? Error { get; set; }
+
+    public Task<SyncFreshnessDto> GetAsync(int marketId, CancellationToken ct = default) =>
+        Task.FromResult(new SyncFreshnessDto(IsPaired, IsFresh, null, null, null, Error));
 }
 
 /// <summary>
@@ -122,9 +140,12 @@ public sealed class TestHarness : IDisposable
     /// </summary>
     public FakeCurrentRegisterService Register { get; } = new();
 
+    /// <summary>Bulut bilan aloqa holati (qarz darvozasi uchun).</summary>
+    public FakeSyncFreshness Freshness { get; } = new();
+
     public SaleService NewSaleService() =>
         new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier,
-            NewSaleQueryService(), Settings, StockLedger, ExternalPayouts, Register);
+            NewSaleQueryService(), Settings, StockLedger, ExternalPayouts, Register, Freshness);
 
     public SaleItemService NewSaleItemService() =>
         new(UnitOfWork, Db, Market, NullLogger<SaleItemService>.Instance, CreditApplier, Settings, Audit);
@@ -138,7 +159,7 @@ public sealed class TestHarness : IDisposable
 
     public SalePaymentService NewSalePaymentService() =>
         new(UnitOfWork, Db, Market, Audit, NullLogger<SalePaymentService>.Instance, Settings,
-            StockLedger, CashLedger, CreditApplier, ExternalPayouts);
+            StockLedger, CashLedger, CreditApplier, Freshness, ExternalPayouts);
 
     public ProductLabelService NewProductLabelService() =>
         new(Db, UnitOfWork, Market);
@@ -170,7 +191,8 @@ public sealed class TestHarness : IDisposable
         new(UnitOfWork, Market, ImageStorage, Audit);
 
     public DebtService NewDebtService() =>
-        new(Db, UnitOfWork, Market, Audit, NullLogger<DebtService>.Instance, CashLedger);
+        new(Db, UnitOfWork, Market, Audit, NullLogger<DebtService>.Instance, CashLedger,
+            Settings, Freshness);
 
     // Telegram bot day summary. Deliberately takes marketId per call (it also
     // runs in a background job with no tenant context), so it does not use Market.

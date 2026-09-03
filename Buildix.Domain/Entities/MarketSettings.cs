@@ -31,6 +31,31 @@ public class MarketSettings : IUpdateTracked
     public bool CashWithdrawalNeedsApproval { get; set; } = true;
     /// <summary>Qarzga sotish faqat "postoyanniy" mijozlarga.</summary>
     public bool DebtOnlyForRegulars { get; set; } = true;
+
+    /// <summary>
+    /// Qarz amallari uchun BULUT bilan aloqa talab qilinadimi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nima uchun.</b> Ikkita kassa o'z bazasi bilan ishlaganda
+    /// ular bir-birining qarz yozuvlarini ko'rmaydi. Ikkalasi ham oflayn
+    /// holda bitta mijozga qarz bera oladi (chegara ikki marta sarflanadi),
+    /// bitta qarzni ikki marta undira oladi, yoki bitta avansni ikki marta
+    /// sarflay oladi. Bularning hech biri xato bermaydi — raqamlar keyin
+    /// birlashganda to'g'ri kelmay qoladi.</para>
+    ///
+    /// <para><b>Nima qiladi.</b> Yoqilgan bo'lsa, qarz yaratadigan va qarzni
+    /// undiradigan amallar do'konning ma'lumoti YANGI ekanini talab qiladi.
+    /// Aloqa yo'q yoki ma'lumot eskirgan bo'lsa, amal rad etiladi va kassir
+    /// buni darhol ko'radi — jimgina noto'g'ri yozuvdan ko'ra yaxshiroq.
+    /// Naqd va karta savdosi TEGILMAYDI: ular oflayn ham xavfsiz, chunki
+    /// pul o'sha yerda va o'sha zahoti olinadi.</para>
+    ///
+    /// <para><b>Sukut bo'yicha O'CHIQ.</b> Bitta kassali do'konda (va bitta
+    /// bazaga ulangan ikki kassada) bunday xavf umuman yo'q: qarz yozuvi
+    /// bitta joyda va u har doim o'ziga o'zi mos. Qoidani yoqish faqat
+    /// mustaqil bazali kassalar paydo bo'lganda ma'noga ega.</para>
+    /// </remarks>
+    public bool DebtRequiresCloud { get; set; } = false;
     /// <summary>Bitta mijozga standart qarz limiti (sum). 0 = limitsiz.</summary>
     public decimal DefaultDebtLimit { get; set; } = 15_000_000m;
     /// <summary>Kassada ruxsat etilgan maksimal расхождение (sum).</summary>
