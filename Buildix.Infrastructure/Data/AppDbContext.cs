@@ -510,6 +510,22 @@ public class AppDbContext : DbContext, IAppDbContext
             // ikkinchi qatlam).
             b.Property(x => x.RegisterCode).HasMaxLength(4);
 
+            // ── Chek raqami TAKRORLANMASLIGI shart ───────────────────────
+            // Ikkita kassa o'z bazasi bilan ishlaganda ular bir-birining
+            // raqamini ko'rmaydi. Ularning yozuvlari bulutda birlashganda
+            // to'qnashuv bo'lsa, u JIMGINA qabul qilinardi: ikkita «№101»
+            // yonma-yon yotar va qaytarish qaysi biriga tegishini hech kim
+            // ayta olmasdi. Indeks buni yozib bo'lmaydigan qiladi — xato
+            // ma'lumot buzilishidan ko'ra yaxshiroq.
+            //
+            // Filtr MAJBURIY: eski qarzning texnik qatorlari
+            // (`IsOpeningBalance`) raqamsiz yaratiladi va ularning
+            // `SaleNumber` i 0 bo'ladi. Ikkinchi shunday mijoz paydo
+            // bo'lishi bilan filtrsiz indeks umuman qurilmasdi.
+            b.HasIndex(x => new { x.MarketId, x.RegisterCode, x.SaleNumber })
+                .IsUnique()
+                .HasFilter("\"SaleNumber\" > 0");
+
             // Eski qarzning texnik qatori — tushum hisobidan chiqariladi
             // (Sale.IsOpeningBalance izohiga qarang). Sukut `false`, ya'ni
             // mavjud savdolar odatdagidek qolaveradi.

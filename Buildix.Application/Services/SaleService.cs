@@ -101,6 +101,23 @@ public class SaleService : ISaleService
             // abandoned drafts remain acceptable (like a physical receipt roll).
             await MarketSequenceLock.AcquireAsync(
                 _context, MarketSequenceLock.SaleNumberClass, marketId, cancellationToken);
+
+            // ── Raqam ajratish O'ZGARMAYDI, ataylab ──────────────────────
+            // Chekning takrorlanmas belgisi — RAQAMNING O'ZI emas, «kassa +
+            // raqam» juftligi («A-101» va «B-101» — ikki xil chek). Shu
+            // sababli har kassaga alohida ketma-ketlik berishning hojati
+            // yo'q va u zarar qilardi:
+            //
+            //   • Bitta bazali do'konda (bugungi holat) raqamlar yagona va
+            //     o'suvchi bo'lib qolaveradi — ular allaqachon to'qnashmaydi.
+            //   • Mustaqil bazalarda esa har kassa baribir o'z bazasining
+            //     maksimumidan hisoblaydi va ajratishni o'zgartirish bunga
+            //     hech narsa qo'shmaydi — takrorlanmaslikni kassa belgisi
+            //     va (MarketId, RegisterCode, SaleNumber) bo'yicha YAGONA
+            //     indeks ta'minlaydi.
+            //
+            // Ya'ni bu yerdagi eng xavfsiz o'zgarish — hech qanday
+            // o'zgarish: mavjud do'konlarning chek raqamlari joyida qoladi.
             sale.SaleNumber = (await _context.Sales
                 .Where(s => s.MarketId == marketId)
                 .MaxAsync(s => (int?)s.SaleNumber, cancellationToken) ?? 0) + 1;
