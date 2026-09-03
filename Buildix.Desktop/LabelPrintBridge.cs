@@ -64,9 +64,16 @@ public sealed class LabelPrintBridge
     {
         // Sahifa qobiq ichida ekanini SHU belgi bilan biladi. Brauzerda bu
         // yo'q va u odatdagi chop etish oynasidan foydalanadi.
+        // Kassa belgisi ham shu yerda beriladi: sahifa uni har so'rovga
+        // qo'shadi va server chek qaysi kassada urilganini shundan biladi.
+        // Lokal tarmoq rejimida boshqa yo'l yo'q — 2-kassaning o'z API si
+        // yo'q, ya'ni belgini server tomonidan aniqlab bo'lmaydi.
+        var register = JsonSerializer.Serialize(_secrets.RegisterCode);
+
         await core.AddScriptToExecuteOnDocumentCreatedAsync(
             "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, "
-            + "{ canPrintLabels: true, canPrintReceipts: true, canPrintRaw: true });");
+            + "{ canPrintLabels: true, canPrintReceipts: true, canPrintRaw: true, "
+            + $"registerCode: {register} }});");
 
         core.WebMessageReceived += async (_, e) =>
         {

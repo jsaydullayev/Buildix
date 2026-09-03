@@ -504,6 +504,12 @@ public class AppDbContext : DbContext, IAppDbContext
             // max+1 read, so concurrent creates can't reuse a number.
             b.HasIndex(x => new { x.MarketId, x.SaleNumber });
 
+            // Kassa belgisi QISQA: u chek ustida va ro'yxatlarda ko'rinadi.
+            // Qiymat so'rov sarlavhasidan keladi, ya'ni ishonchsiz manba —
+            // uzunlik shu yerda ham cheklanadi (xizmat qatlamidan tashqari
+            // ikkinchi qatlam).
+            b.Property(x => x.RegisterCode).HasMaxLength(4);
+
             // Eski qarzning texnik qatori — tushum hisobidan chiqariladi
             // (Sale.IsOpeningBalance izohiga qarang). Sukut `false`, ya'ni
             // mavjud savdolar odatdagidek qolaveradi.

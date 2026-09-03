@@ -13,11 +13,33 @@ const rawClient: AxiosInstance = axios.create({ baseURL: env.apiBaseUrl });
 /** Main client used by the whole app. */
 export const apiClient: AxiosInstance = axios.create({ baseURL: env.apiBaseUrl });
 
+/**
+ * Shu kompyuter QAYSI kassa ekani — do'kon dasturining qobig'i beradi.
+ *
+ * <p>Ikki kassali do'konda chek qaysi birida urilgani hech qayerda
+ * ko'rinmasdi: sotuvchi «kim sotgan» ni aytadi, «qayerda» ni emas — bitta
+ * kassir kun davomida ikkala kassada ham ishlashi mumkin.</p>
+ *
+ * <p>Nega serverda emas, SO'ROVDA: lokal tarmoq rejimida 2-kassaning o'z
+ * API si yo'q va uning so'rovlari server kassaning API siga boradi. Server
+ * sozlamasidan olinsa, har bir chek serverning belgisi bilan yozilardi.</p>
+ *
+ * <p>Brauzerda (egasi telefonda) qobiq yo'q — belgi ham yo'q.</p>
+ */
+function registerCode(): string | null {
+  const w = window as unknown as { buildixDesktop?: { registerCode?: string | null } };
+  return w.buildixDesktop?.registerCode ?? null;
+}
+
 // --- Request: attach the bearer token ---------------------------------------
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = sessionApi.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const register = registerCode();
+  if (register) {
+    config.headers['X-Buildix-Register'] = register;
   }
   return config;
 });

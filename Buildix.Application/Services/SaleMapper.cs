@@ -174,7 +174,9 @@ internal static class SaleMapper
             sale.DiscountAmount,
             sale.CreatedAt,
             itemsDto,
-            paymentsDto
+            paymentsDto,
+            sale.Shift?.ShiftNumber ?? 0,
+            sale.RegisterCode
         );
     }
 }

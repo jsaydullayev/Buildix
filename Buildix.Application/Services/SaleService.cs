@@ -28,7 +28,7 @@ public class SaleService : ISaleService
 
     private readonly IStockLedger _stockLedger;
 
-    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts)
+    public SaleService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IAppDbContext context, ILogger<SaleService> logger, ICurrentMarketService currentMarketService, ISaleCreditApplier creditApplier, ISaleQueryService saleQueryService, IMarketSettingsService settings, IStockLedger stockLedger, IExternalPayoutLedger externalPayouts, ICurrentRegisterService currentRegister)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -40,9 +40,11 @@ public class SaleService : ISaleService
         _settings = settings;
         _stockLedger = stockLedger;
         _externalPayouts = externalPayouts;
+        _currentRegister = currentRegister;
     }
 
     private readonly IExternalPayoutLedger _externalPayouts;
+    private readonly ICurrentRegisterService _currentRegister;
 
     public async Task<Result<SaleDto>> CreateSaleAsync(CreateSaleDto request, Guid sellerId, CancellationToken cancellationToken = default)
     {
@@ -76,6 +78,9 @@ public class SaleService : ISaleService
             SellerId = sellerId,
             ShiftId = openShiftId,   // drawer session this receipt belongs to
             CustomerId = request.CustomerId,
+            // Chek qaysi kassada urilgani. Sotuvchi bu savolga javob
+            // bermaydi: bitta kassir ikkala kassada ham ishlashi mumkin.
+            RegisterCode = _currentRegister.GetRegisterCode(),
             Status = SaleStatus.Draft,
             TotalAmount = 0,
             PaidAmount = 0,

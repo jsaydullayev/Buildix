@@ -715,6 +715,10 @@ try
     // long-polling. Faqat Telegram:UseLongPolling=true bo'lganda ishga tushadi.
     builder.Services.AddHostedService<Buildix.API.BackgroundJobs.TelegramLongPollingBackgroundService>();
     builder.Services.AddScoped<ICurrentMarketService, CurrentMarketService>();
+    // So'rov qaysi KASSADAN kelgani (X-Buildix-Register). Faqat ko'rsatish
+    // uchun — sarlavhani har kim yozishi mumkin, huquq tekshiruvi unga
+    // tayanmaydi.
+    builder.Services.AddScoped<ICurrentRegisterService, CurrentRegisterService>();
     builder.Services.AddScoped<IExcelService, ExcelService>();
     builder.Services.AddScoped<ISalesExcelExportService, SalesExcelExportService>();
     builder.Services.AddScoped<IProductsExcelExportService, ProductsExcelExportService>();

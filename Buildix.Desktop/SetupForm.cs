@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace Buildix.Desktop;
 
@@ -30,6 +30,25 @@ public sealed class SetupForm : Form
         AutoSize = true,
         Margin = new Padding(20, 0, 0, 0),
     };
+    /// <summary>
+    /// Shu kassaning qisqa belgisi — «A», «B», «1».
+    /// </summary>
+    /// <remarks>
+    /// <para>Ikki kassali do'konda chek qaysi birida urilgani hech qayerda
+    /// ko'rinmasdi: sotuvchi «kim sotgan» ni aytadi, «qayerda» ni emas —
+    /// bitta kassir kun davomida ikkala kassada ham ishlashi mumkin.</para>
+    ///
+    /// <para>Har kompyuterda ALOHIDA qo'yiladi va shu kompyuterdan
+    /// yuborilgan har bir so'rov bilan ketadi. Bitta kassali do'konda
+    /// bo'sh qoldirilsa bo'ladi.</para>
+    /// </remarks>
+    private readonly TextBox _register = new()
+    {
+        Width = 60,
+        MaxLength = 4,
+        CharacterCasing = CharacterCasing.Upper,
+    };
+
     private readonly TextBox _address = new() { Width = 260 };
     private readonly TextBox _feed = new() { Width = 260 };
     private readonly Label _result = new() { AutoSize = false, Width = 470, Height = 40 };
@@ -105,6 +124,7 @@ public sealed class SetupForm : Form
         foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             _printer.Items.Add(name);
         _feed.Text = _secrets.UpdateFeedUrl ?? "";
+        _register.Text = _secrets.RegisterCode ?? "";
         _receiptPrinter.Items.Add(NoPrinter);
         foreach (string name in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             _receiptPrinter.Items.Add(name);
@@ -121,13 +141,31 @@ public sealed class SetupForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 3,
-            RowCount = 15,
+            RowCount = 16,
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        layout.Controls.Add(_server, 0, 0);
+        // Kassa belgisi — rol tanlashdan OLDIN, chunki u ikkala rejimga ham
+        // tegishli: server kassaning ham, ulanuvchi kassaning ham o'z
+        // belgisi bo'ladi.
+        var registerRow = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0, 0, 0, 10) };
+        registerRow.Controls.Add(new Label
+        {
+            Text = "Kassa belgisi:", AutoSize = true, Margin = new Padding(0, 6, 6, 0),
+        });
+        registerRow.Controls.Add(_register);
+        registerRow.Controls.Add(new Label
+        {
+            Text = "«A», «B» — chekda va sotuvlar ro'yxatida ko'rinadi. Bitta kassali do'konda shart emas.",
+            AutoSize = false, Width = 380, Height = 32,
+            ForeColor = SystemColors.GrayText, Margin = new Padding(8, 4, 0, 0),
+        });
+        layout.Controls.Add(registerRow, 0, 0);
+        layout.SetColumnSpan(registerRow, 3);
+
+        layout.Controls.Add(_server, 0, 1);
         layout.SetColumnSpan(_server, 3);
 
         var serverHint = new Label
@@ -136,10 +174,10 @@ public sealed class SetupForm : Form
             AutoSize = false, Width = 460, Height = 20, ForeColor = SystemColors.GrayText,
             Margin = new Padding(20, 0, 0, 8),
         };
-        layout.Controls.Add(serverHint, 0, 1);
+        layout.Controls.Add(serverHint, 0, 2);
         layout.SetColumnSpan(serverHint, 3);
 
-        layout.Controls.Add(_lan, 0, 2);
+        layout.Controls.Add(_lan, 0, 3);
         layout.SetColumnSpan(_lan, 3);
 
         // Boshqa kassalarda AYNAN shu manzil yoziladi. Uni ko'rsatmaslik
@@ -151,24 +189,24 @@ public sealed class SetupForm : Form
             AutoSize = false, Width = 470, Height = 20,
             Margin = new Padding(20, 2, 0, 8),
         };
-        layout.Controls.Add(addresses, 0, 3);
+        layout.Controls.Add(addresses, 0, 4);
         layout.SetColumnSpan(addresses, 3);
 
-        layout.Controls.Add(_firewall, 0, 4);
+        layout.Controls.Add(_firewall, 0, 5);
         layout.SetColumnSpan(_firewall, 3);
 
-        layout.Controls.Add(_client, 0, 5);
+        layout.Controls.Add(_client, 0, 6);
         layout.SetColumnSpan(_client, 3);
 
-        layout.Controls.Add(new Label { Text = "Manzil:", AutoSize = true, Margin = new Padding(20, 6, 6, 0) }, 0, 6);
-        layout.Controls.Add(_address, 1, 6);
-        layout.Controls.Add(_test, 2, 6);
+        layout.Controls.Add(new Label { Text = "Manzil:", AutoSize = true, Margin = new Padding(20, 6, 6, 0) }, 0, 7);
+        layout.Controls.Add(_address, 1, 7);
+        layout.Controls.Add(_test, 2, 7);
 
         layout.Controls.Add(new Label
         {
             Text = "Yorliq printeri:", AutoSize = true, Margin = new Padding(0, 12, 6, 0),
-        }, 0, 7);
-        layout.Controls.Add(_printer, 1, 7);
+        }, 0, 8);
+        layout.Controls.Add(_printer, 1, 8);
         var printerHint = new Label
         {
             AutoSize = false, Width = 470, Height = 30,
@@ -176,15 +214,15 @@ public sealed class SetupForm : Form
             Text = "Tanlansa — yorliq to'g'ridan-to'g'ri shu printerga, aniq o'lchamda chiqadi. "
                  + "Bo'sh qoldirilsa har safar chop etish oynasi ochiladi.",
         };
-        layout.Controls.Add(printerHint, 0, 8);
+        layout.Controls.Add(printerHint, 0, 9);
         layout.SetColumnSpan(printerHint, 3);
 
         layout.Controls.Add(new Label
         {
             Text = "Chek printeri:", AutoSize = true, Margin = new Padding(0, 12, 6, 0),
-        }, 0, 9);
-        layout.Controls.Add(_receiptPrinter, 1, 9);
-        layout.Controls.Add(_testReceipt, 2, 9);
+        }, 0, 10);
+        layout.Controls.Add(_receiptPrinter, 1, 10);
+        layout.Controls.Add(_testReceipt, 2, 10);
         var receiptHint = new Label
         {
             AutoSize = false, Width = 470, Height = 30,
@@ -192,7 +230,7 @@ public sealed class SetupForm : Form
             Text = "Rulonli printer: ro'yxatdan tanlang yoki tarmoq printerining IP "
                  + "manzilini yozing (masalan 192.168.1.50). «Sinov cheki» darhol tekshiradi.",
         };
-        layout.Controls.Add(receiptHint, 0, 10);
+        layout.Controls.Add(receiptHint, 0, 11);
         layout.SetColumnSpan(receiptHint, 3);
 
         // ── Yangilanish manzili ────────────────────────────────────────────
@@ -202,8 +240,8 @@ public sealed class SetupForm : Form
         layout.Controls.Add(new Label
         {
             Text = "Yangilanish:", AutoSize = true, Margin = new Padding(0, 6, 6, 0),
-        }, 0, 11);
-        layout.Controls.Add(_feed, 1, 11);
+        }, 0, 12);
+        layout.Controls.Add(_feed, 1, 12);
 
         var feedHint = new Label
         {
@@ -213,10 +251,10 @@ public sealed class SetupForm : Form
                  + "yangilanmaydi — bu ataylab: sinov do'konini alohida kanalga "
                  + "yo'naltirish mumkin.",
         };
-        layout.Controls.Add(feedHint, 0, 12);
+        layout.Controls.Add(feedHint, 0, 13);
         layout.SetColumnSpan(feedHint, 3);
 
-        layout.Controls.Add(_result, 0, 13);
+        layout.Controls.Add(_result, 0, 14);
         layout.SetColumnSpan(_result, 3);
 
         var buttons = new FlowLayoutPanel
@@ -228,7 +266,7 @@ public sealed class SetupForm : Form
         var cancel = new Button { Text = "Bekor qilish", Width = 110, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(_save);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 14);
+        layout.Controls.Add(buttons, 0, 15);
         layout.SetColumnSpan(buttons, 3);
 
         Controls.Add(layout);
@@ -307,6 +345,7 @@ public sealed class SetupForm : Form
 
         _secrets.SetReceiptPrinter(ReceiptTarget());
         _secrets.SetUpdateFeedUrl(_feed.Text);
+        _secrets.SetRegisterCode(_register.Text);
     }
 
     /// <summary>

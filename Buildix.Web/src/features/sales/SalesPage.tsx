@@ -304,7 +304,20 @@ function SaleRow({ sale, onOpen }: { sale: Sale; onOpen: () => void }) {
       onClick={onOpen}
       className="grid w-full grid-cols-sales items-center gap-4 border-b border-hairline px-6 py-3.5 text-left text-[13px] last:border-0 hover:bg-bg/40"
     >
-      <span className="font-semibold text-primary nums">№{sale.saleNumber}</span>
+      {/*
+        Kassa belgisi raqamning YONIDA. Ikki kassali do'konda «qaysi kassada
+        urilgan» degan savol aynan shu ustunda tug'iladi; alohida ustun
+        ochish esa bitta kassali do'konlarda bo'sh joy egallardi.
+        Belgisiz do'konda hech narsa qo'shilmaydi.
+      */}
+      <span className="flex items-center gap-1.5 font-semibold text-primary nums">
+        №{sale.saleNumber}
+        {sale.registerCode && (
+          <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+            {sale.registerCode}
+          </span>
+        )}
+      </span>
       <span className="text-muted-2 nums">{formatTime(sale.createdAt)}</span>
       <span className="truncate font-medium">{sale.sellerName}</span>
       <span className="truncate text-muted">{itemsText}</span>

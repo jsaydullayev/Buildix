@@ -12,6 +12,29 @@ public class Sale : BaseEntity, ISoftDelete
     /// </summary>
     public int SaleNumber { get; set; }
 
+    /// <summary>
+    /// Chek QAYSI kassada urilgani — texnik sozlashda qo'yiladigan qisqa
+    /// belgi («A», «B», «1»).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega sotuvchi yetarli emas.</b> Bitta kassir kun davomida
+    /// ikkala kassada ham ishlashi mumkin, ikki kassir esa bitta login
+    /// ostida ishlashi mumkin. Ya'ni <c>SellerId</c> «qaysi kassada
+    /// sotilgan» degan savolga javob bermaydi — u faqat «kim sotgan» ni
+    /// aytadi.</para>
+    ///
+    /// <para><b>Nega so'rov bilan keladi, sozlamadan emas.</b> Lokal tarmoq
+    /// rejimida 2-kassaning o'z API si YO'Q — uning so'rovlari server
+    /// kassaning API siga boradi. Serverning sozlamasidan olinsa, har bir
+    /// chek serverning belgisi bilan yozilardi. Shuning uchun belgi
+    /// so'rovning o'zida keladi (<c>X-Buildix-Register</c>) va uni qobiq
+    /// qo'yadi.</para>
+    ///
+    /// <para><c>null</c> — belgi qo'yilmagan kassa yoki brauzerdan kirilgan
+    /// (egasi telefonda). Eski yozuvlarda ham <c>null</c>.</para>
+    /// </remarks>
+    public string? RegisterCode { get; set; }
+
     public Guid SellerId { get; set; }
 
     /// <summary>

@@ -41,6 +41,14 @@ export interface Sale {
   payments: SalePayment[];
   /** Shift this receipt belongs to; 0 for sales made before shifts were numbered. */
   shiftNumber?: number;
+  /**
+   * Chek qaysi KASSADA urilgani («A», «B»).
+   *
+   * <p>Sotuvchi bu savolga javob bermaydi: bitta kassir kun davomida ikkala
+   * kassada ham ishlashi mumkin. `null` — belgisiz kassa yoki brauzerdan
+   * kirilgan (egasi telefonda).</p>
+   */
+  registerCode?: string | null;
 }
 
 export interface SalesQuery {

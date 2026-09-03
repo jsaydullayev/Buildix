@@ -27,6 +27,17 @@ public sealed class FakeCurrentMarketService : ICurrentMarketService
 }
 
 /// <summary>
+/// So'rov kelgan kassaning belgisi — sinovda qo'lda qo'yiladi.
+/// Sukut bo'yicha <c>null</c>: brauzerdan kirilgan holat.
+/// </summary>
+public sealed class FakeCurrentRegisterService : ICurrentRegisterService
+{
+    public string? Code { get; set; }
+
+    public string? GetRegisterCode() => Code;
+}
+
+/// <summary>
 /// Qo'lda suriladigan soat. Boshlang'ich nuqta o'tmishdagi aniq sana:
 /// testdagi vaqtlar tizim soatiga bog'liq bo'lmasin.
 /// </summary>
@@ -105,8 +116,15 @@ public sealed class TestHarness : IDisposable
     public SaleQueryService NewSaleQueryService() =>
         new(UnitOfWork, Db, Market, NullLogger<SaleQueryService>.Instance);
 
+    /// <summary>
+    /// So'rov qaysi kassadan kelgani. Sinovda qo'lda qo'yiladi — HTTP
+    /// sarlavhasi yo'q.
+    /// </summary>
+    public FakeCurrentRegisterService Register { get; } = new();
+
     public SaleService NewSaleService() =>
-        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier, NewSaleQueryService(), Settings, StockLedger, ExternalPayouts);
+        new(UnitOfWork, Audit, Db, NullLogger<SaleService>.Instance, Market, CreditApplier,
+            NewSaleQueryService(), Settings, StockLedger, ExternalPayouts, Register);
 
     public SaleItemService NewSaleItemService() =>
         new(UnitOfWork, Db, Market, NullLogger<SaleItemService>.Instance, CreditApplier, Settings, Audit);

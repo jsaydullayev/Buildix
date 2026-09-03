@@ -81,7 +81,14 @@ public record SaleDto(
     /// The shift this receipt belongs to ("Смена №112"). 0 when the sale predates
     /// <c>Sale.ShiftId</c> or the caller did not load the navigation.
     /// </summary>
-    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0
+    [property: JsonPropertyName("shiftNumber")] int ShiftNumber = 0,
+
+    /// <summary>
+    /// Chek qaysi KASSADA urilgani («A», «B»). Sotuvchi bu savolga javob
+    /// bermaydi: bitta kassir ikkala kassada ham ishlashi mumkin.
+    /// <c>null</c> — belgisiz kassa yoki brauzerdan kirilgan.
+    /// </summary>
+    [property: JsonPropertyName("registerCode")] string? RegisterCode = null
 );
 
 public record CreateSaleDto(

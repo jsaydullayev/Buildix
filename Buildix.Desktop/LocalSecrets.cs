@@ -276,6 +276,38 @@ public sealed class LocalSecrets
     }
 
     /// <summary>
+    /// Shu kassaning qisqa belgisi — «A», «B», «1».
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nima uchun.</b> Do'konda ikkita kassa bo'lsa, chek qaysi
+    /// birida urilganini hech narsa ko'rsatmasdi: sotuvchi «kim sotgan» ni
+    /// aytadi, «qayerda» ni emas — bitta kassir kun davomida ikkala kassada
+    /// ham ishlashi mumkin.</para>
+    ///
+    /// <para>Har kompyuterda ALOHIDA qo'yiladi va u shu kompyuterdan
+    /// yuborilgan har bir so'rov bilan birga ketadi. Lokal tarmoq rejimida
+    /// bu hal qiluvchi: 2-kassaning o'z API si yo'q, ya'ni belgini server
+    /// tomonidan aniqlab bo'lmaydi.</para>
+    /// </remarks>
+    public string? RegisterCode =>
+        _root["RegisterCode"] is JsonValue v && v.TryGetValue<string>(out var code)
+        && !string.IsNullOrWhiteSpace(code)
+            ? code
+            : null;
+
+    public void SetRegisterCode(string? code)
+    {
+        // Faqat harf va raqam, ko'pi bilan to'rtta: belgi chek ustida va
+        // ro'yxatlarda ko'rinadi.
+        var cleaned = new string((code ?? string.Empty)
+            .Where(char.IsLetterOrDigit).Take(4).ToArray()).ToUpperInvariant();
+
+        if (cleaned.Length == 0) _root.Remove("RegisterCode");
+        else _root["RegisterCode"] = cleaned;
+        Save();
+    }
+
+    /// <summary>
     /// Kassa chekining printeri (termal rulon).
     /// </summary>
     /// <remarks>
