@@ -101,7 +101,7 @@ public class SyncPullService : ISyncPullService
 
         var productDtos = products.Select(p => new SyncProductDto(
             p.Id, p.Name, p.CostPrice, p.SalePrice, p.MinSalePrice, p.MinThreshold,
-            p.Sku, p.Barcode, p.IsHidden, p.IsDeleted, AsUtc(p.UpdatedAt))).ToList();
+            p.Sku, p.Barcode, p.IsHidden, p.IsDeleted, AsUtc(p.UpdatedAt), (int)p.Unit)).ToList();
 
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan

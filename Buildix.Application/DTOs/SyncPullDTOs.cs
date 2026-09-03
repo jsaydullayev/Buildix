@@ -77,7 +77,26 @@ public record SyncProductDto(
     [property: JsonPropertyName("barcode")] string? Barcode,
     [property: JsonPropertyName("isHidden")] bool IsHidden,
     [property: JsonPropertyName("isDeleted")] bool IsDeleted,
-    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt,
+
+    /// <summary>
+    /// O'lchov birligi (<see cref="Domain.Enums.UnitType"/> raqami).
+    /// </summary>
+    /// <remarks>
+    /// <para>Do'konda YANGI tovar yaratish uchun kerak: birliksiz u
+    /// «dona» bo'lib tushar va qopda sotiladigan sement kassada dona bilan
+    /// ko'rinardi. Mavjud tovarni yangilashda ham qo'llanadi — egasi
+    /// birlikni panelda to'g'irlashi mumkin.</para>
+    ///
+    /// <para><b>0 — «yuborilmagan», birlik EMAS.</b> Sanoq 1 dan boshlanadi
+    /// (<c>Piece = 1</c>), ya'ni nol hech qanday birlikka to'g'ri kelmaydi va
+    /// buni sentinel sifatida ishlatish xavfsiz. Eski bulut bu maydonni
+    /// umuman yubormaydi — o'shanda do'kondagi birlik O'Z HOLICHA qoladi.
+    /// Agar nol haqiqiy qiymat bo'lganida (masalan <c>Piece = 0</c>), eski
+    /// bulut bilan ishlayotgan do'konning har bir tovari jimgina «dona» ga
+    /// aylanardi.</para>
+    /// </remarks>
+    [property: JsonPropertyName("unit")] int Unit = 0);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>
 public record SyncMarketDto(

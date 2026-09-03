@@ -376,11 +376,17 @@ public class ShopSyncTests
     }
 
     /// <summary>
-    /// Noma'lum tovar YARATILMAYDI: bulutda tovar yaratish oqimi yo'q, u
-    /// do'konda tug'iladi. Noma'lum id — nosozlik belgisi.
+    /// Yaratilgan tovar SHU do'konga yoziladi.
     /// </summary>
+    /// <remarks>
+    /// <para>Ilgari noma'lum id umuman yaratilmasdi va bu sinov o'sha
+    /// xulqni qulflab turardi. Endi tovar yaratiladi — lekin do'kon raqami
+    /// javobdan EMAS, tortishda aniqlangan qiymatdan olinadi. Bulut buzilgan
+    /// javob yuborsa ham, tovar begona do'konga tushib qolmasligi
+    /// kerak.</para>
+    /// </remarks>
     [Fact]
-    public async Task Nomalum_tovar_yaratilmaydi()
+    public async Task Yaratilgan_tovar_shu_dokonga_yoziladi()
     {
         using var h = new TestHarness(marketId: null);
         h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
@@ -389,7 +395,8 @@ public class ShopSyncTests
 
         await ApplyAsync(h, WithProducts(NewProduct(h, Guid.NewGuid(), 1000, afterHours: 1)));
 
-        Assert.Empty(await h.Db.Products.IgnoreQueryFilters().ToListAsync());
+        var stored = Assert.Single(await h.Db.Products.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal(7, stored.MarketId);
     }
 
     /// <summary>
@@ -398,7 +405,87 @@ public class ShopSyncTests
     /// haqiqiy vaqtga tayanish taqqoslashni ma'nosiz qilardi.
     /// </summary>
     private static SyncProductDto NewProduct(
-        TestHarness h, Guid id, decimal salePrice, double afterHours) =>
-        new(id, "Sement", 40_000, salePrice, 50_000, 10, null, null, false, false,
-            h.DbClock.GetUtcNow().AddHours(afterHours));
+        TestHarness h, Guid id, decimal salePrice, double afterHours,
+        string name = "Sement", UnitType unit = UnitType.Piece) =>
+        new(id, name, 40_000, salePrice, 50_000, 10, null, null, false, false,
+            h.DbClock.GetUtcNow().AddHours(afterHours), (int)unit);
+
+    /// <summary>
+    /// Saytdan qo'shilgan tovar do'konga YETIB BORADI.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari noma'lum id shunchaki o'tkazib yuborilardi: egasi
+    /// katalogga saytdan tovar qo'shsa, u do'konga hech qachon yetmasdi.
+    /// Xato chiqmasdi va hech qayerga yozilmasdi — egasi tovarni panelda
+    /// ko'rar, kassir esa uni kassadan topa olmasdi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Saytdan_qoshilgan_tovar_dokonga_yetadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+        var id = Guid.NewGuid();
+
+        await ApplyAsync(h, WithProducts(
+            NewProduct(h, id, 52_000, afterHours: 0, name: "Yangi sement", unit: UnitType.Bag)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
+        Assert.Equal("Yangi sement", stored.Name);
+        Assert.Equal(52_000m, stored.SalePrice);
+        // Birlik ham keladi: busiz qopda sotiladigan sement kassada
+        // «dona» bo'lib ko'rinardi.
+        Assert.Equal(UnitType.Bag, stored.Unit);
+    }
+
+    /// <summary>
+    /// Yangi tovarning qoldig'i NOL bo'ladi.
+    /// </summary>
+    /// <remarks>
+    /// Qoldiqni faqat do'kon biladi — tovar u yerda jismonan turadi. Bulut
+    /// raqamini qabul qilish omborda yo'q tovarni bor qilib ko'rsatardi va
+    /// kassir buni faqat mijoz oldida bilardi. Qoldiq xaridnoma yoki
+    /// inventarizatsiya orqali paydo bo'ladi.
+    /// </remarks>
+    [Fact]
+    public async Task Yangi_tovarning_qoldigi_nol()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+        var id = Guid.NewGuid();
+
+        await ApplyAsync(h, WithProducts(NewProduct(h, id, 52_000, afterHours: 0)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
+        Assert.Equal(0m, stored.Quantity);
+    }
+
+    /// <summary>
+    /// Yangi tovar OMBOR JURNALI qoidasini buzmaydi.
+    /// </summary>
+    /// <remarks>
+    /// Qoida: <c>Quantity == SUM(jurnal Delta) − (qoralamalar ushlagani)</c>.
+    /// Nol qoldiqli tovarda uchala tomon ham nol, ya'ni tenglik saqlanadi —
+    /// va bulutdan kelgan tovar 1-bosqichda o'rnatilgan tekshiruvni
+    /// yiqitmaydi.
+    /// </remarks>
+    [Fact]
+    public async Task Yangi_tovar_ombor_qoidasini_buzmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithProducts(
+            NewProduct(h, Guid.NewGuid(), 52_000, afterHours: 0),
+            NewProduct(h, Guid.NewGuid(), 31_000, afterHours: 0, name: "G'isht")));
+
+        h.Db.ChangeTracker.Clear();
+        var drifts = await new StockReconciler(h.Db).FindDriftAsync(7);
+        Assert.Empty(drifts);
+    }
 }

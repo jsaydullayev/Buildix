@@ -168,10 +168,18 @@ public class ShopSyncService : IShopSyncService
     /// tovarni «tiriltirib» yuborardi: kassir omborda yo'q narsani sotishga
     /// urinardi va buni faqat mijoz oldida bilardi.</para>
     ///
-    /// <para><b>Yangi tovar YARATILMAYDI.</b> Bu yerda faqat mavjudlari
-    /// yangilanadi. Bulutda tovar yaratish oqimi yo'q — u do'konda tug'iladi
-    /// va push bilan yuqoriga chiqadi. Noma'lum id kelsa, bu bulutdagi
-    /// nosozlik yoki boshqa do'konning yozuvi bo'lishi mumkin.</para>
+    /// <para><b>Yangi tovar YARATILADI ham.</b> Ilgari noma'lum id shunchaki
+    /// o'tkazib yuborilardi va bu jimgina teshik edi: egasi katalogga
+    /// saytdan tovar qo'shsa, u do'konga HECH QACHON yetib bormasdi.
+    /// Xato chiqmasdi, hech qayerga yozilmasdi — egasi tovarni panelda
+    /// ko'rar, kassir esa uni kassadan topa olmasdi.</para>
+    ///
+    /// <para><b>Yangi tovarning qoldig'i — NOL.</b> Bulut do'kondagi
+    /// qoldiqni bilmaydi va bilishi ham mumkin emas (yuqoriga qarang).
+    /// Tovar do'konga kelganda qoldiq xaridnoma yoki inventarizatsiya
+    /// orqali paydo bo'ladi. Egasi saytda miqdor yozgan bo'lsa ham, u
+    /// do'konga o'tmaydi — aks holda omborda yo'q tovar bor bo'lib
+    /// ko'rinardi.</para>
     ///
     /// <para><b>Nega vaqt solishtiriladi.</b> Do'kon o'z tovarini yuborgach,
     /// bulut unga O'Z vaqtini qo'yadi va keyingi tortishda o'sha yozuv
@@ -194,12 +202,32 @@ public class ShopSyncService : IShopSyncService
         var applied = 0;
         foreach (var dto in incoming)
         {
-            if (!local.TryGetValue(dto.Id, out var product)) continue;
+            if (!local.TryGetValue(dto.Id, out var product))
+            {
+                // Saytdan qo'shilgan tovar. Id ATAYLAB bulutdagidek: aks
+                // holda keyingi push do'kon nusxasini ikkinchi tovar deb
+                // yozar va katalogda juftlik paydo bo'lardi.
+                product = new Product
+                {
+                    Id = dto.Id,
+                    MarketId = marketId,
+                    // Qoldiq NOL: uni faqat do'kon biladi (izohga qarang).
+                    Quantity = 0m,
+                };
+                _context.Products.Add(product);
+                local[dto.Id] = product;
+            }
+            else
+            {
+                // Do'kondagi yozuv yangiroq bo'lsa — tegmaymiz. Yangi
+                // yaratilganda solishtiradigan narsa yo'q.
+                var cloudTime = dto.UpdatedAt.UtcDateTime;
+                if (DateTime.SpecifyKind(product.UpdatedAt, DateTimeKind.Utc) > cloudTime) continue;
+            }
 
-            // Do'kondagi yozuv yangiroq bo'lsa — tegmaymiz.
-            var cloudTime = dto.UpdatedAt.UtcDateTime;
-            if (DateTime.SpecifyKind(product.UpdatedAt, DateTimeKind.Utc) > cloudTime) continue;
-
+            product.Unit = Enum.IsDefined(typeof(UnitType), dto.Unit)
+                ? (UnitType)dto.Unit
+                : product.Unit;
             product.Name = dto.Name;
             product.CostPrice = dto.CostPrice;
             product.SalePrice = dto.SalePrice;
