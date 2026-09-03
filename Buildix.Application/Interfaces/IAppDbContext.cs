@@ -51,6 +51,9 @@ public interface IAppDbContext
     DbSet<ShopTerminal> ShopTerminals { get; }
     DbSet<SyncState> SyncStates { get; }
     DbSet<SyncPushState> SyncPushStates { get; }
+
+    /// <summary>Bulutdan kelgan qatorlar belgisi — aylanishni to'sadi.</summary>
+    DbSet<SyncedRowMark> SyncedRowMarks { get; }
     DbSet<TerminalPairingCode> TerminalPairingCodes { get; }
     DbSet<PlatformPlan> PlatformPlans { get; }
     DbSet<PlatformSettings> PlatformSettings { get; }

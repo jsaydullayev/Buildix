@@ -92,6 +92,84 @@ public class ShopPushTests
         Assert.Equal("Sement", handler.Sent[0].Products[0].Name);
     }
 
+    /// <summary>
+    /// BULUTDAN kelgan qator qaytib yuqoriga KETMAYDI.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aylanish shunday tug'iladi: pastga tushgan qator do'kon
+    /// bazasiga yozilganda o'zining lokal <c>UpdatedAt</c> ini oladi, ya'ni
+    /// darhol «yangi o'zgargan» bo'lib ko'rinadi va yuborishga tushadi.
+    /// Bulut uni qabul qilib o'z vaqtini qo'yadi, ikkinchi kassa yana
+    /// tortadi, yana yozadi, yana yuboradi — CHEKSIZ AYLANISH. Xato
+    /// chiqmaydi: tarmoq va baza bekorga ishlaydi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Bulutdan_kelgan_qator_qaytib_ketmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        await ReadyAsync(h);
+        var product = NewProduct("Bulutdan kelgan");
+        h.Db.Products.Add(product);
+        await h.Db.SaveChangesAsync();
+
+        // Qator bulutdan kelgan deb belgilanadi — AYNAN shu holati bilan.
+        var applied = await h.Db.Products.IgnoreQueryFilters()
+            .Where(x => x.Id == product.Id).Select(x => x.UpdatedAt).FirstAsync();
+        h.Db.SyncedRowMarks.Add(new SyncedRowMark
+        {
+            RowId = product.Id, TableName = nameof(Product), AppliedUpdatedAt = applied,
+        });
+        await h.Db.SaveChangesAsync();
+
+        var (service, handler) = NewService(h);
+        var result = await service.PushAsync();
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, result.Rows);
+        Assert.Empty(handler.Sent);
+    }
+
+    /// <summary>
+    /// Bulutdan kelgan qator DO'KONDA o'zgartirilsa — yuboriladi.
+    /// </summary>
+    /// <remarks>
+    /// Oddiy «bulutdan keldi» bayrog'i yetmasligining sababi shu: boshqa
+    /// kassada yozilgan chekni bu kassa o'zgartirishi mumkin (masalan qarzni
+    /// undirsa) va o'sha o'zgarish bulutga CHIQISHI shart. Belgi qatorning
+    /// qaysi holati kelganini eslaydi, shuning uchun keyingi o'zgarish uni
+    /// o'z-o'zidan «yangi» qiladi.
+    /// </remarks>
+    [Fact]
+    public async Task Dokonda_ozgartirilgan_qator_yuboriladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        await ReadyAsync(h);
+        var product = NewProduct("Bulutdan kelgan");
+        h.Db.Products.Add(product);
+        await h.Db.SaveChangesAsync();
+
+        var applied = await h.Db.Products.IgnoreQueryFilters()
+            .Where(x => x.Id == product.Id).Select(x => x.UpdatedAt).FirstAsync();
+        h.Db.SyncedRowMarks.Add(new SyncedRowMark
+        {
+            RowId = product.Id, TableName = nameof(Product), AppliedUpdatedAt = applied,
+        });
+        await h.Db.SaveChangesAsync();
+
+        // Do'konda narx o'zgardi — soat oldinga suriladi, ya'ni yangi
+        // `UpdatedAt` belgidagidan farq qiladi.
+        h.DbClock.Advance(TimeSpan.FromMinutes(5));
+        var row = await h.Db.Products.IgnoreQueryFilters().FirstAsync(x => x.Id == product.Id);
+        row.SalePrice = 777;
+        await h.Db.SaveChangesAsync();
+
+        var (service, handler) = NewService(h);
+        var result = await service.PushAsync();
+
+        Assert.Equal(1, result.Rows);
+        Assert.Equal(777, Assert.Single(handler.Sent[0].Products).SalePrice);
+    }
+
     [Fact]
     public async Task Yuborilgan_yozuv_qayta_yuborilmaydi()
     {

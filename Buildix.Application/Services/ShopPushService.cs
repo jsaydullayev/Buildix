@@ -299,10 +299,24 @@ public class ShopPushService : IShopPushService
         // IgnoreQueryFilters — o'chirilgan yozuv ham yuborilishi SHART: aks
         // holda bulutda u tirik bo'lib qolaverardi va egasining telefonida
         // bekor qilingan savdo hamon ko'rinardi.
+        // ── Bulutdan kelgan qator QAYTIB ketmaydi ────────────────────────
+        // Pastga tushgan qator do'kon bazasiga yozilganda o'zining lokal
+        // `UpdatedAt` ini oladi, ya'ni u darhol «yangi o'zgargan» bo'lib
+        // ko'rinadi va bu yerga tushib qolardi. Bulut uni qabul qilib o'z
+        // vaqtini qo'yar, ikkinchi kassa yana tortar, yana yozar, yana
+        // yuborardi — CHEKSIZ AYLANISH. Xato chiqmaydi: tarmoq va baza
+        // bekorga ishlaydi, qatorlar esa tinimsiz qayta yoziladi.
+        //
+        // Belgi qatorning qaysi HOLATI kelganini eslaydi. Shu sababli
+        // bulutdan kelgan chekni keyinchalik do'kon o'zgartirsa (masalan
+        // boshqa kassada yozilgan qarzni undirsa), `UpdatedAt` farq qiladi
+        // va qator odatdagidek yuboriladi.
         var rows = await scoped
             .IgnoreQueryFilters()
             .Where(x => x.UpdatedAt > sinceUtc
                      || (x.UpdatedAt == sinceUtc && x.Id.CompareTo(lastId) > 0))
+            .Where(x => !_context.SyncedRowMarks
+                .Any(m => m.RowId == x.Id && m.AppliedUpdatedAt == x.UpdatedAt))
             .OrderBy(x => x.UpdatedAt).ThenBy(x => x.Id)
             .Take(BatchSize)
             .AsNoTracking()

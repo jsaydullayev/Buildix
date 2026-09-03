@@ -81,6 +81,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ShopTerminal> ShopTerminals => Set<ShopTerminal>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<SyncPushState> SyncPushStates => Set<SyncPushState>();
+    public DbSet<SyncedRowMark> SyncedRowMarks => Set<SyncedRowMark>();
     public DbSet<TerminalPairingCode> TerminalPairingCodes => Set<TerminalPairingCode>();
     public DbSet<PlatformPlan> PlatformPlans => Set<PlatformPlan>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
@@ -310,6 +311,13 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             b.HasKey(x => new { x.MarketId, x.TableName });
             b.Property(x => x.TableName).HasMaxLength(64);
+        });
+
+        // Bulutdan kelgan qatorlar — ular qaytib yuqoriga ketmasligi kerak.
+        modelBuilder.Entity<SyncedRowMark>(b =>
+        {
+            b.HasKey(x => x.RowId);
+            b.Property(x => x.TableName).IsRequired().HasMaxLength(64);
         });
 
         // Bir martalik bog'lanish kodi.
