@@ -1,4 +1,4 @@
-﻿using Buildix.Application.DTOs;
+using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,6 +32,17 @@ namespace Buildix.Application.Services;
 /// </summary>
 public class SyncPullService : ISyncPullService
 {
+    /// <summary>
+    /// Bir javobda bir jadvaldan nechta qator.
+    ///
+    /// <para>Do'kon interneti sekin bo'lishi mumkin, shuning uchun javob
+    /// kichik bo'lgani ma'qul. Cheklar ALOHIDA: chek qatorlari va to'lovlari
+    /// bilan birga kelgani uchun bitta chek bir necha qatorga teng.</para>
+    /// </summary>
+    private const int ProductBatch = 500;
+    private const int CustomerBatch = 500;
+    private const int SaleBatch = 200;
+
     private readonly IAppDbContext _context;
     private readonly TimeProvider _clock;
 
@@ -96,7 +107,7 @@ public class SyncPullService : ISyncPullService
             .IgnoreQueryFilters()
             .Where(p => p.MarketId == marketId && p.UpdatedAt >= fromUtc)
             .OrderBy(p => p.UpdatedAt)
-            .Take(500)
+            .Take(ProductBatch)
             .ToListAsync(ct);
 
         var productDtos = products.Select(p => new SyncProductDto(
@@ -110,7 +121,7 @@ public class SyncPullService : ISyncPullService
             .IgnoreQueryFilters()
             .Where(c => c.MarketId == marketId && c.UpdatedAt >= fromUtc)
             .OrderBy(c => c.UpdatedAt)
-            .Take(500)
+            .Take(CustomerBatch)
             .ToListAsync(ct);
 
         var customerDtos = customers.Select(c => new SyncCustomerDto(
@@ -135,6 +146,43 @@ public class SyncPullService : ISyncPullService
             settingsRow.DefaultMarkupPct, settingsRow.InactivityLogoutMinutes,
             settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt));
 
+        // ── Cheklar va ularning bolalari ─────────────────────────────────
+        // Bolalar ALOHIDA kursor bilan olinmaydi — ular OTASI bilan birga
+        // yuboriladi. Aks holda qator otasidan oldin kelib, do'kon tomonida
+        // tashqi kalit buzilardi va uni «kutish» navbatiga qo'yish kerak
+        // bo'lardi. Chek o'zgarganda jami ham o'zgaradi, ya'ni tahrirlangan
+        // qator otasi bilan baribir qaytadan tushadi.
+        var sales = await _context.Sales
+            .IgnoreQueryFilters()
+            .Where(s => s.MarketId == marketId && s.UpdatedAt >= fromUtc)
+            .OrderBy(s => s.UpdatedAt)
+            .Take(SaleBatch)
+            .ToListAsync(ct);
+
+        var saleIds = sales.Select(s => s.Id).ToList();
+
+        var saleDtos = sales.Select(s => new SyncSaleDto(
+            s.Id, s.SaleNumber, s.RegisterCode, s.SellerId, s.ShiftId, s.CustomerId,
+            (int)s.Status, s.TotalAmount, s.PaidAmount, s.DiscountAmount,
+            s.IsOpeningBalance, s.IsDeleted, AsUtc(s.CreatedAt), AsUtc(s.UpdatedAt))).ToList();
+
+        var itemDtos = saleIds.Count == 0 ? [] : await _context.SaleItems
+            .IgnoreQueryFilters()
+            .Where(i => saleIds.Contains(i.SaleId))
+            .Select(i => new SyncSaleItemDto(
+                i.Id, i.SaleId, i.ProductId, i.IsExternal, i.ExternalProductName,
+                i.ExternalCostPrice, i.Quantity, i.CostPrice, i.SalePrice, i.Comment,
+                AsUtc(i.UpdatedAt)))
+            .ToListAsync(ct);
+
+        var paymentDtos = saleIds.Count == 0 ? [] : await _context.Payments
+            .IgnoreQueryFilters()
+            .Where(p => saleIds.Contains(p.SaleId))
+            .Select(p => new SyncPaymentDto(
+                p.Id, p.SaleId, (int)p.PaymentType, p.Amount, p.CollectedByUserId,
+                AsUtc(p.CreatedAt), AsUtc(p.UpdatedAt)))
+            .ToListAsync(ct);
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
@@ -142,13 +190,34 @@ public class SyncPullService : ISyncPullService
         var stamps = userDtos.Select(u => u.UpdatedAt)
             .Concat(productDtos.Select(p => p.UpdatedAt))
             .Concat(customerDtos.Select(c => c.UpdatedAt))
+            .Concat(saleDtos.Select(s => s.UpdatedAt))
             .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
         if (settingsDto is not null) stamps.Add(settingsDto.UpdatedAt);
-        var nextSince = stamps.Count > 0 ? stamps.Max() : since;
+
+        // ── CHEGARAGA urilgan jadval belgini USHLAB turadi ───────────────
+        // Har jadval o'z chegarasi bilan olinadi. Belgi barcha jadvallarning
+        // eng kattasiga surilsa, chegaraga urilgan jadvalning QOLGAN
+        // qatorlari abadiy o'tkazib yuborilardi: ularning vaqti yangi
+        // belgidan kichik bo'lib qolar, lekin ular javobga tushmagan
+        // bo'lardi. Xato chiqmasdi — yozuvlar shunchaki hech qachon
+        // yetib bormasdi.
+        //
+        // Shuning uchun chegaraga urilgan har bir jadval belgini o'zining
+        // oxirgi qatorida ushlab turadi. Takror yuborish zarar qilmaydi:
+        // qo'llash ID bo'yicha va idempotent.
+        var caps = new List<DateTimeOffset>();
+        if (productDtos.Count >= ProductBatch) caps.Add(productDtos.Max(p => p.UpdatedAt));
+        if (customerDtos.Count >= CustomerBatch) caps.Add(customerDtos.Max(c => c.UpdatedAt));
+        if (saleDtos.Count >= SaleBatch) caps.Add(saleDtos.Max(s => s.UpdatedAt));
+
+        var nextSince = caps.Count > 0
+            ? caps.Min()
+            : stamps.Count > 0 ? stamps.Max() : since;
 
         return new SyncPullDto(
-            now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto);
+            now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto,
+            saleDtos, itemDtos, paymentDtos);
     }
 
     /// <summary>

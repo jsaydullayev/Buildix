@@ -2,6 +2,7 @@
 using Buildix.Application.Common;
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
+using Buildix.Domain.Common;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Enums;
 using Buildix.Domain.Interfaces;
@@ -149,18 +150,31 @@ public class ShopSyncService : IShopSyncService
             // 6. Do'kon sozlamalari.
             var settingsChanged = await ApplySettingsAsync(payload.Settings, marketId, ct);
 
+            // 7. Boshqa kassalarda urilgan cheklar — qatorlari va to'lovlari
+            //    bilan. Eng oxirida: ular xodim, tovar va mijozga ishora
+            //    qiladi, ya'ni o'shalar allaqachon yozilgan bo'lishi kerak.
+            var (saleCount, deferredFrom) = await ApplySalesAsync(payload, marketId, ct);
+
             state ??= NewState(marketId);
-            state.PullWatermark = payload.NextSince;
+            // Kutilgan chek bo'lsa, belgi undan O'TIB KETMAYDI — aks holda
+            // u boshqa hech qachon so'ralmasdi va chek abadiy yo'qolardi.
+            state.PullWatermark = deferredFrom ?? payload.NextSince;
             state.LastPulledAtUtc = _clock.GetUtcNow().UtcDateTime;
             state.LastError = null;
 
             await _unitOfWork.SaveChangesAsync(ct);
 
+            // Belgilar SAQLASHDAN KEYIN yoziladi: qatorning yakuniy
+            // `UpdatedAt` i aynan o'sha saqlashda qo'yiladi va belgi shu
+            // qiymatga tayanadi.
+            await MarkSyncedAsync(ct);
+
             _logger.LogInformation(
                 "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} "
-                + "customers={CustomerCount} settings={SettingsChanged} watermark={Watermark:O}",
+                + "customers={CustomerCount} settings={SettingsChanged} sales={SaleCount} "
+                + "watermark={Watermark:O}",
                 payload.Market is not null, payload.Users.Count, productCount, customerCount,
-                settingsChanged, payload.NextSince);
+                settingsChanged, saleCount, state.PullWatermark);
 
             return ShopSyncResult.Ok(payload.Market is not null, payload.Users.Count);
         });
@@ -378,6 +392,259 @@ public class ShopSyncService : IShopSyncService
         settings.AuditEnabled = dto.AuditEnabled;
 
         return true;
+    }
+
+    /// <summary>
+    /// Shu tortishda qo'llangan qatorlar — belgi ular uchun yoziladi.
+    /// </summary>
+    private readonly List<(Guid Id, string Table, BaseEntity Row)> _applied = [];
+
+    /// <summary>
+    /// Boshqa kassalarda urilgan cheklarni qatorlari va to'lovlari bilan
+    /// qo'llaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nima uchun.</b> Har kassa o'z bazasi bilan ishlaganda
+    /// 2-kassa 1-kassaning cheklarini ko'rmaydi — boshqa kassada urilgan
+    /// chekni qaytarib ham, uning qarzini undirib ham bo'lmaydi. Mijoz uchun
+    /// bu «chekingiz bizda yo'q» degani.</para>
+    ///
+    /// <para><b>Notanish xodimli chek KUTILADI.</b> Chek sotuvchiga ishora
+    /// qiladi va u hali tushmagan bo'lishi mumkin. Bunday chekni yozish
+    /// tashqi kalitni buzardi, tashlab yuborish esa uni abadiy yo'qotardi —
+    /// shuning uchun u chetga qo'yiladi va suv belgisi undan o'tib
+    /// ketmaydi: keyingi tortishda u qaytadan keladi.</para>
+    ///
+    /// <para><b>Smena bog'lanishi UZILADI.</b> Smenalar pastga tushmaydi,
+    /// ya'ni begona <c>ShiftId</c> tashqi kalitni buzardi. Yo'qotiladigan
+    /// narsa — chekdagi «Смена №N» yozuvi, u ham faqat o'z kassasida
+    /// ma'noga ega.</para>
+    /// </remarks>
+    private async Task<(int Applied, DateTimeOffset? DeferredFrom)> ApplySalesAsync(
+        SyncPullDto payload, int marketId, CancellationToken ct)
+    {
+        var incoming = payload.SalesOrEmpty;
+        if (incoming.Count == 0) return (0, null);
+
+        var ids = incoming.Select(s => s.Id).ToList();
+        var local = await _context.Sales
+            .IgnoreQueryFilters()
+            .Where(s => ids.Contains(s.Id) && s.MarketId == marketId)
+            .ToDictionaryAsync(s => s.Id, ct);
+
+        // Mavjud xodimlar — chek faqat tanish sotuvchi bilan yoziladi.
+        var sellerIds = incoming.Select(s => s.SellerId).Distinct().ToList();
+        var knownSellers = (await _context.Users
+            .IgnoreQueryFilters()
+            .Where(u => sellerIds.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        // Mijoz ixtiyoriy, lekin mavjud bo'lishi shart — aks holda havola
+        // buziladi. Noma'lum mijoz chekni KUTDIRMAYDI: uni bo'sh qoldirish
+        // chekni butunlay yo'qotishdan yaxshiroq.
+        var customerIds = incoming.Where(s => s.CustomerId.HasValue)
+            .Select(s => s.CustomerId!.Value).Distinct().ToList();
+        var knownCustomers = (await _context.Customers
+            .IgnoreQueryFilters()
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        var accepted = new HashSet<Guid>();
+        DateTimeOffset? deferredFrom = null;
+        var applied = 0;
+
+        foreach (var dto in incoming)
+        {
+            if (!knownSellers.Contains(dto.SellerId))
+            {
+                // Sotuvchi hali kelmagan — chekni kutamiz.
+                deferredFrom = deferredFrom is { } d && d <= dto.UpdatedAt ? d : dto.UpdatedAt;
+                continue;
+            }
+
+            if (!local.TryGetValue(dto.Id, out var sale))
+            {
+                sale = new Sale { Id = dto.Id, MarketId = marketId };
+                _context.Sales.Add(sale);
+                local[dto.Id] = sale;
+            }
+            else if (DateTime.SpecifyKind(sale.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                // Do'kondagi nusxa yangiroq — tegmaymiz, lekin bolalari
+                // baribir qo'llanadi (ular ham do'kondagidan eski bo'lsa
+                // o'z navbatida o'tkazib yuboriladi).
+                accepted.Add(dto.Id);
+                continue;
+            }
+
+            sale.SaleNumber = dto.SaleNumber;
+            sale.RegisterCode = dto.RegisterCode;
+            sale.SellerId = dto.SellerId;
+            sale.ShiftId = null;   // smenalar pastga tushmaydi (izohga qarang)
+            sale.CustomerId = dto.CustomerId is { } cid && knownCustomers.Contains(cid) ? cid : null;
+            sale.Status = Enum.IsDefined(typeof(SaleStatus), dto.Status)
+                ? (SaleStatus)dto.Status
+                : sale.Status;
+            sale.TotalAmount = dto.TotalAmount;
+            sale.PaidAmount = dto.PaidAmount;
+            sale.DiscountAmount = dto.DiscountAmount;
+            sale.IsOpeningBalance = dto.IsOpeningBalance;
+            sale.IsDeleted = dto.IsDeleted;
+            sale.CreatedAt = dto.CreatedAt.UtcDateTime;
+
+            accepted.Add(dto.Id);
+            _applied.Add((sale.Id, nameof(Sale), sale));
+            applied++;
+        }
+
+        if (accepted.Count > 0)
+        {
+            await ApplySaleItemsAsync(payload.SaleItemsOrEmpty, accepted, ct);
+            await ApplyPaymentsAsync(payload.PaymentsOrEmpty, accepted, marketId, ct);
+        }
+
+        return (applied, deferredFrom);
+    }
+
+    /// <summary>
+    /// Chek qatorlari. Faqat QABUL QILINGAN cheklarniki — otasiz qator
+    /// tashqi kalitni buzardi.
+    /// </summary>
+    private async Task ApplySaleItemsAsync(
+        IReadOnlyList<SyncSaleItemDto> incoming, HashSet<Guid> acceptedSales, CancellationToken ct)
+    {
+        var mine = incoming.Where(i => acceptedSales.Contains(i.SaleId)).ToList();
+        if (mine.Count == 0) return;
+
+        var ids = mine.Select(i => i.Id).ToList();
+        var local = await _context.SaleItems
+            .IgnoreQueryFilters()
+            .Where(i => ids.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id, ct);
+
+        // Tovar hali kelmagan bo'lishi mumkin. Qatorni tashlab yubormaymiz:
+        // chekdagi summa tovarsiz ham to'g'ri — havola bo'sh qoladi va
+        // keyingi tortishda tovar kelganda to'ldiriladi.
+        var productIds = mine.Where(i => i.ProductId.HasValue)
+            .Select(i => i.ProductId!.Value).Distinct().ToList();
+        var knownProducts = (await _context.Products
+            .IgnoreQueryFilters()
+            .Where(p => productIds.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        foreach (var dto in mine)
+        {
+            if (!local.TryGetValue(dto.Id, out var item))
+            {
+                item = new SaleItem { Id = dto.Id, SaleId = dto.SaleId };
+                _context.SaleItems.Add(item);
+            }
+            else if (DateTime.SpecifyKind(item.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                continue;
+            }
+
+            item.ProductId = dto.ProductId is { } pid && knownProducts.Contains(pid) ? pid : null;
+            item.IsExternal = dto.IsExternal;
+            item.ExternalProductName = dto.ExternalProductName;
+            item.ExternalCostPrice = dto.ExternalCostPrice;
+            item.Quantity = dto.Quantity;
+            item.CostPrice = dto.CostPrice;
+            item.SalePrice = dto.SalePrice;
+            item.Comment = dto.Comment;
+
+            _applied.Add((item.Id, nameof(SaleItem), item));
+        }
+    }
+
+    /// <summary>Chekka yozilgan to'lovlar (manfiy — qaytarish).</summary>
+    private async Task ApplyPaymentsAsync(
+        IReadOnlyList<SyncPaymentDto> incoming, HashSet<Guid> acceptedSales,
+        int marketId, CancellationToken ct)
+    {
+        var mine = incoming.Where(p => acceptedSales.Contains(p.SaleId)).ToList();
+        if (mine.Count == 0) return;
+
+        var ids = mine.Select(p => p.Id).ToList();
+        var local = await _context.Payments
+            .IgnoreQueryFilters()
+            .Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        // Pulni YIQQAN xodim boshqa kassaniki bo'lishi mumkin va u hali
+        // kelmagan bo'lishi mumkin — havola bo'sh qoldiriladi.
+        var collectorIds = mine.Where(p => p.CollectedByUserId.HasValue)
+            .Select(p => p.CollectedByUserId!.Value).Distinct().ToList();
+        var knownCollectors = (await _context.Users
+            .IgnoreQueryFilters()
+            .Where(u => collectorIds.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        foreach (var dto in mine)
+        {
+            if (!local.TryGetValue(dto.Id, out var payment))
+            {
+                payment = new Payment { Id = dto.Id, SaleId = dto.SaleId, MarketId = marketId };
+                _context.Payments.Add(payment);
+            }
+            else if (DateTime.SpecifyKind(payment.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                continue;
+            }
+
+            payment.PaymentType = Enum.IsDefined(typeof(PaymentType), dto.PaymentType)
+                ? (PaymentType)dto.PaymentType
+                : payment.PaymentType;
+            payment.Amount = dto.Amount;
+            payment.CollectedByUserId =
+                dto.CollectedByUserId is { } uid && knownCollectors.Contains(uid) ? uid : null;
+            payment.CreatedAt = dto.CreatedAt.UtcDateTime;
+
+            _applied.Add((payment.Id, nameof(Payment), payment));
+        }
+    }
+
+    /// <summary>
+    /// Qo'llangan qatorlarni «bulutdan keldi» deb belgilaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Busiz qator do'kon bazasiga yozilgani zahoti «yangi o'zgargan»
+    /// bo'lib ko'rinar va qaytib bulutga ketardi — u yerdan yana pastga,
+    /// yana yuqoriga: CHEKSIZ AYLANISH. Belgi qatorning AYNAN shu holatini
+    /// eslaydi, ya'ni keyinchalik do'konda qilingan o'zgarish odatdagidek
+    /// yuqoriga chiqadi.</para>
+    /// </remarks>
+    private async Task MarkSyncedAsync(CancellationToken ct)
+    {
+        if (_applied.Count == 0) return;
+
+        var ids = _applied.Select(x => x.Id).ToList();
+        var existing = await _context.SyncedRowMarks
+            .Where(m => ids.Contains(m.RowId))
+            .ToDictionaryAsync(m => m.RowId, ct);
+
+        foreach (var (id, table, row) in _applied)
+        {
+            if (existing.TryGetValue(id, out var mark))
+            {
+                mark.AppliedUpdatedAt = row.UpdatedAt;
+                continue;
+            }
+
+            _context.SyncedRowMarks.Add(new SyncedRowMark
+            {
+                RowId = id,
+                TableName = table,
+                AppliedUpdatedAt = row.UpdatedAt,
+            });
+        }
+
+        _applied.Clear();
+        await _unitOfWork.SaveChangesAsync(ct);
     }
 
     /// <summary>

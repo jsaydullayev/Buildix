@@ -66,6 +66,25 @@ public class ShopSyncTests
         return new SyncPullDto(stamp, stamp, null, [], products);
     }
 
+    /// <summary>Chek + qatorlari + to'lovlari keladigan javob.</summary>
+    private static SyncPullDto WithSales(
+        IReadOnlyList<SyncSaleDto> sales,
+        IReadOnlyList<SyncSaleItemDto>? items = null,
+        IReadOnlyList<SyncPaymentDto>? payments = null)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], null, null, null,
+            sales, items, payments);
+    }
+
+    private static SyncSaleDto NewSale(
+        TestHarness h, Guid id, Guid sellerId, double afterHours,
+        int number = 101, string? register = "A", Guid? customerId = null,
+        decimal total = 200_000, decimal paid = 200_000) =>
+        new(id, number, register, sellerId, null, customerId,
+            (int)SaleStatus.Paid, total, paid, 0m, false, false,
+            h.DbClock.GetUtcNow(), h.DbClock.GetUtcNow().AddHours(afterHours));
+
     /// <summary>Faqat sozlamalar keladigan javob.</summary>
     private static SyncPullDto WithSettings(SyncSettingsDto settings)
     {
@@ -648,6 +667,107 @@ public class ShopSyncTests
             .FirstAsync(x => x.MarketId == 7);
         Assert.Equal("Do'konda yozilgan", stored.Address);
         Assert.Equal(58, stored.ReceiptWidthMm);
+    }
+
+    /// <summary>
+    /// BOSHQA kassada urilgan chek do'konga qatorlari bilan tushadi.
+    /// </summary>
+    /// <remarks>
+    /// Har kassa o'z bazasi bilan ishlaganda 2-kassa 1-kassaning cheklarini
+    /// ko'rmaydi — boshqa kassada urilgan chekni qaytarib ham, uning qarzini
+    /// undirib ham bo'lmaydi. Mijoz uchun bu «chekingiz bizda yo'q» degani.
+    /// </remarks>
+    [Fact]
+    public async Task Boshqa_kassaning_cheki_dokonga_tushadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Username = "kassir2", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+        h.Db.Users.Add(seller);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        await ApplyAsync(h, WithSales(
+            [NewSale(h, saleId, seller.Id, afterHours: 0, number: 55, register: "B")],
+            [new SyncSaleItemDto(Guid.NewGuid(), saleId, null, true, "Qo'shnidan g'isht",
+                8_000m, 4m, 8_000m, 12_000m, null, h.DbClock.GetUtcNow())],
+            [new SyncPaymentDto(Guid.NewGuid(), saleId, (int)PaymentType.Cash, 48_000m,
+                null, h.DbClock.GetUtcNow(), h.DbClock.GetUtcNow())]));
+
+        var sale = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == saleId);
+        Assert.Equal(55, sale.SaleNumber);
+        Assert.Equal("B", sale.RegisterCode);
+        Assert.Equal(7, sale.MarketId);
+
+        Assert.Single(await h.Db.SaleItems.IgnoreQueryFilters().Where(i => i.SaleId == saleId).ToListAsync());
+        Assert.Single(await h.Db.Payments.IgnoreQueryFilters().Where(p => p.SaleId == saleId).ToListAsync());
+    }
+
+    /// <summary>
+    /// Tushgan chek QAYTIB bulutga ketmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eng muhim tekshiruv. Belgisiz qator do'kon bazasiga yozilgani
+    /// zahoti «yangi o'zgargan» bo'lib ko'rinar va yuborishga tushardi;
+    /// bulut uni qabul qilib o'z vaqtini qo'yar, ikkinchi kassa yana
+    /// tortardi — cheksiz aylanish. Hech qanday xato chiqmasdi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Tushgan_chek_qaytib_ketmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Username = "kassir2", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+        h.Db.Users.Add(seller);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        await ApplyAsync(h, WithSales([NewSale(h, saleId, seller.Id, afterHours: 0)]));
+
+        // Chek ham, uning belgisi ham yozilgan — va belgi qatorning
+        // AYNAN joriy holatini ko'rsatadi.
+        var sale = await h.Db.Sales.IgnoreQueryFilters().FirstAsync(x => x.Id == saleId);
+        var mark = await h.Db.SyncedRowMarks.FirstAsync(m => m.RowId == saleId);
+        Assert.Equal(nameof(Sale), mark.TableName);
+        Assert.Equal(sale.UpdatedAt, mark.AppliedUpdatedAt);
+    }
+
+    /// <summary>
+    /// Notanish SOTUVCHILI chek kutiladi — va yo'qolmaydi.
+    /// </summary>
+    /// <remarks>
+    /// Chek sotuvchiga ishora qiladi va u hali tushmagan bo'lishi mumkin.
+    /// Bunday chekni yozish tashqi kalitni buzardi, tashlab yuborish esa uni
+    /// ABADIY yo'qotardi. Shuning uchun suv belgisi undan o'tib ketmaydi va
+    /// keyingi tortishda chek qaytadan so'raladi.
+    /// </remarks>
+    [Fact]
+    public async Task Notanish_sotuvchili_chek_kutiladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        var sale = NewSale(h, saleId, Guid.NewGuid(), afterHours: 0);   // sotuvchi yo'q
+        await ApplyAsync(h, WithSales([sale]));
+
+        Assert.Empty(await h.Db.Sales.IgnoreQueryFilters().ToListAsync());
+
+        // Suv belgisi chekdan O'TIB KETMAGAN — u qaytadan so'raladi.
+        var state = await h.Db.SyncStates.FirstAsync();
+        Assert.Equal(sale.UpdatedAt, state.PullWatermark);
     }
 
     /// <summary>

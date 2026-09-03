@@ -72,13 +72,32 @@ public record SyncPullDto(
     /// Do'kon sozlamalari — o'zgargan bo'lsa. Sukut bo'yicha <c>null</c>:
     /// eski do'kon nusxasi bu maydonni bilmaydi.
     /// </summary>
-    [property: JsonPropertyName("settings")] SyncSettingsDto? Settings = null)
+    [property: JsonPropertyName("settings")] SyncSettingsDto? Settings = null,
+
+    /// <summary>
+    /// Boshqa kassalarda urilgan cheklar va ularning qatorlari.
+    /// </summary>
+    /// <remarks>
+    /// Sukut bo'yicha bo'sh: eski do'kon nusxasi bu maydonlarni bilmaydi.
+    /// </remarks>
+    [property: JsonPropertyName("sales")] IReadOnlyList<SyncSaleDto>? Sales = null,
+    [property: JsonPropertyName("saleItems")] IReadOnlyList<SyncSaleItemDto>? SaleItems = null,
+    [property: JsonPropertyName("payments")] IReadOnlyList<SyncPaymentDto>? Payments = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
 
     /// <summary>Mijozlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncCustomerDto> CustomersOrEmpty => Customers ?? [];
+
+    /// <summary>Cheklar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncSaleDto> SalesOrEmpty => Sales ?? [];
+
+    /// <summary>Chek qatorlari — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncSaleItemDto> SaleItemsOrEmpty => SaleItems ?? [];
+
+    /// <summary>To'lovlar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncPaymentDto> PaymentsOrEmpty => Payments ?? [];
 }
 
 /// <summary>
@@ -143,6 +162,59 @@ public record SyncCustomerDto(
     [property: JsonPropertyName("isRegular")] bool IsRegular,
     [property: JsonPropertyName("debtLimit")] decimal? DebtLimit,
     [property: JsonPropertyName("isDeleted")] bool IsDeleted,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// BOSHQA kassada urilgan chek.
+/// </summary>
+/// <remarks>
+/// <para><b>Nima uchun pastga tushadi.</b> Har kassa o'z bazasi bilan
+/// ishlaganda 2-kassa 1-kassaning cheklarini KO'RMAYDI — ya'ni boshqa
+/// kassada urilgan chekni qaytarib bo'lmaydi va uning qarzini undirib
+/// bo'lmaydi. Mijoz uchun bu «chekingiz bizda yo'q» degani.</para>
+///
+/// <para><b>Qoldiq va kassa balansi bu yerda YO'Q.</b> Ular chekdan emas,
+/// ombor va kassa JURNALIDAN hisoblanadi (1-bosqich). Chek bilan birga
+/// qoldiqni ko'chirish o'sha jurnalni ikki marta hisoblab yuborardi.</para>
+/// </remarks>
+public record SyncSaleDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleNumber")] int SaleNumber,
+    [property: JsonPropertyName("registerCode")] string? RegisterCode,
+    [property: JsonPropertyName("sellerId")] Guid SellerId,
+    [property: JsonPropertyName("shiftId")] Guid? ShiftId,
+    [property: JsonPropertyName("customerId")] Guid? CustomerId,
+    [property: JsonPropertyName("status")] int Status,
+    [property: JsonPropertyName("totalAmount")] decimal TotalAmount,
+    [property: JsonPropertyName("paidAmount")] decimal PaidAmount,
+    [property: JsonPropertyName("discountAmount")] decimal DiscountAmount,
+    [property: JsonPropertyName("isOpeningBalance")] bool IsOpeningBalance,
+    [property: JsonPropertyName("isDeleted")] bool IsDeleted,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>Chekning bitta qatori.</summary>
+public record SyncSaleItemDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("productId")] Guid? ProductId,
+    [property: JsonPropertyName("isExternal")] bool IsExternal,
+    [property: JsonPropertyName("externalProductName")] string? ExternalProductName,
+    [property: JsonPropertyName("externalCostPrice")] decimal ExternalCostPrice,
+    [property: JsonPropertyName("quantity")] decimal Quantity,
+    [property: JsonPropertyName("costPrice")] decimal CostPrice,
+    [property: JsonPropertyName("salePrice")] decimal SalePrice,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>Chekka yozilgan to'lov (manfiy — qaytarish).</summary>
+public record SyncPaymentDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("paymentType")] int PaymentType,
+    [property: JsonPropertyName("amount")] decimal Amount,
+    [property: JsonPropertyName("collectedByUserId")] Guid? CollectedByUserId,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 
 /// <summary>
