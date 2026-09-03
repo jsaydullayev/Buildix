@@ -53,10 +53,26 @@ public record SyncPullDto(
     /// <para>Sukut bo'yicha BO'SH: eski do'kon nusxasi bu maydonni umuman
     /// bilmaydi va uni talab qilish o'sha do'konlarning tortishini
     /// yiqitardi.</para>
-    [property: JsonPropertyName("products")] IReadOnlyList<SyncProductDto>? Products = null)
+    [property: JsonPropertyName("products")] IReadOnlyList<SyncProductDto>? Products = null,
+
+    /// <summary>
+    /// Egasi paneldan qo'shgan yoki o'zgartirgan mijozlar.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari mijozlar pastga UMUMAN tushmasdi: egasi saytdan mijoz
+    /// qo'shsa yoki uning qarz chegarasini o'zgartirsa, do'kon buni hech
+    /// qachon bilmasdi.</para>
+    ///
+    /// <para>Sukut bo'yicha BO'SH: eski do'kon nusxasi bu maydonni bilmaydi
+    /// va uni talab qilish o'sha do'konlarning tortishini yiqitardi.</para>
+    /// </remarks>
+    [property: JsonPropertyName("customers")] IReadOnlyList<SyncCustomerDto>? Customers = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
+
+    /// <summary>Mijozlar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncCustomerDto> CustomersOrEmpty => Customers ?? [];
 }
 
 /// <summary>
@@ -97,6 +113,31 @@ public record SyncProductDto(
     /// aylanardi.</para>
     /// </remarks>
     [property: JsonPropertyName("unit")] int Unit = 0);
+
+/// <summary>
+/// Mijoz — egasi paneldan boshqaradigan maydonlar.
+/// </summary>
+/// <remarks>
+/// <para><b>QARZ bu yerda YO'Q va bo'lishi ham shart emas.</b> Tovar
+/// qoldig'idan farqli o'laroq, mijozning qarzi <see cref="Domain.Entities.Customer"/>
+/// da alohida ustun sifatida YOTMAYDI — u <c>Debts</c> qatorlaridan
+/// hisoblanadi. Ya'ni qarzni sinxronlash uchun alohida qoida kerak emas:
+/// qatorlar push bilan yuqoriga chiqadi va ikkala tomonda ham bir xil
+/// hisoblanadi.</para>
+///
+/// <para><c>DebtLimit</c> esa aksincha — bu egasi qo'yadigan CHEGARA, qarzning
+/// o'zi emas. U paneldan o'zgartiriladi va do'konga tushishi kerak.</para>
+/// </remarks>
+public record SyncCustomerDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("phone")] string Phone,
+    [property: JsonPropertyName("fullName")] string? FullName,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("customerType")] int CustomerType,
+    [property: JsonPropertyName("isRegular")] bool IsRegular,
+    [property: JsonPropertyName("debtLimit")] decimal? DebtLimit,
+    [property: JsonPropertyName("isDeleted")] bool IsDeleted,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>
 public record SyncMarketDto(

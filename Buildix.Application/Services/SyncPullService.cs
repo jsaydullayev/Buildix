@@ -103,17 +103,32 @@ public class SyncPullService : ISyncPullService
             p.Id, p.Name, p.CostPrice, p.SalePrice, p.MinSalePrice, p.MinThreshold,
             p.Sku, p.Barcode, p.IsHidden, p.IsDeleted, AsUtc(p.UpdatedAt), (int)p.Unit)).ToList();
 
+        // ── Mijozlar: egasi paneldan boshqaradigan maydonlar ─────────────
+        // Qarz ATAYLAB yo'q — u ustun emas, `Debts` qatorlaridan
+        // hisoblanadi (sabab SyncCustomerDto izohida).
+        var customers = await _context.Customers
+            .IgnoreQueryFilters()
+            .Where(c => c.MarketId == marketId && c.UpdatedAt >= fromUtc)
+            .OrderBy(c => c.UpdatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        var customerDtos = customers.Select(c => new SyncCustomerDto(
+            c.Id, c.Phone, c.FullName, c.Comment, (int)c.CustomerType,
+            c.IsRegular, c.DebtLimit, c.IsDeleted, AsUtc(c.UpdatedAt))).ToList();
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
         // qolar, lekin u javobga tushmagan bo'lardi.
         var stamps = userDtos.Select(u => u.UpdatedAt)
             .Concat(productDtos.Select(p => p.UpdatedAt))
+            .Concat(customerDtos.Select(c => c.UpdatedAt))
             .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
         var nextSince = stamps.Count > 0 ? stamps.Max() : since;
 
-        return new SyncPullDto(now, nextSince, marketDto, userDtos, productDtos);
+        return new SyncPullDto(now, nextSince, marketDto, userDtos, productDtos, customerDtos);
     }
 
     /// <summary>

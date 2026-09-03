@@ -143,6 +143,9 @@ public class ShopSyncService : IShopSyncService
             // 4. Tovarlarning EGASI boshqaradigan maydonlari.
             var productCount = await ApplyProductsAsync(payload.ProductsOrEmpty, marketId, ct);
 
+            // 5. Mijozlar — xuddi shu qoida bo'yicha.
+            var customerCount = await ApplyCustomersAsync(payload.CustomersOrEmpty, marketId, ct);
+
             state ??= NewState(marketId);
             state.PullWatermark = payload.NextSince;
             state.LastPulledAtUtc = _clock.GetUtcNow().UtcDateTime;
@@ -151,8 +154,10 @@ public class ShopSyncService : IShopSyncService
             await _unitOfWork.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} watermark={Watermark:O}",
-                payload.Market is not null, payload.Users.Count, productCount, payload.NextSince);
+                "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} "
+                + "customers={CustomerCount} watermark={Watermark:O}",
+                payload.Market is not null, payload.Users.Count, productCount, customerCount,
+                payload.NextSince);
 
             return ShopSyncResult.Ok(payload.Market is not null, payload.Users.Count);
         });
@@ -238,6 +243,69 @@ public class ShopSyncService : IShopSyncService
             product.IsHidden = dto.IsHidden;
             product.IsDeleted = dto.IsDeleted;
             // Quantity ATAYLAB yo'q.
+
+            applied++;
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Egasi paneldan qo'shgan yoki o'zgartirgan mijozlarni qo'llaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari mijozlar pastga UMUMAN tushmasdi: egasi saytdan mijoz
+    /// qo'shsa yoki uning qarz chegarasini o'zgartirsa, do'kon buni hech
+    /// qachon bilmasdi. Kassir o'sha mijozni kassadan topa olmasdi va uni
+    /// QAYTA yaratardi — natijada bitta odam bazada ikkita mijoz bo'lib,
+    /// qarzi ikkiga bo'linib ketardi.</para>
+    ///
+    /// <para><b>Qarz KO'CHIRILMAYDI</b> — chunki u ustun emas: mijozning
+    /// qarzi <c>Debts</c> qatorlaridan hisoblanadi va o'sha qatorlar push
+    /// bilan yuqoriga chiqadi. Tovar qoldig'idagi kabi maxsus qoida shu
+    /// sababdan kerak emas.</para>
+    ///
+    /// <para>Vaqt solishtiruvi tovarlardagi bilan bir xil: do'kondagi yozuv
+    /// yangiroq bo'lsa, uni eski nusxa bilan bosib yuborish mumkin emas.</para>
+    /// </remarks>
+    private async Task<int> ApplyCustomersAsync(
+        IReadOnlyList<SyncCustomerDto> incoming, int marketId, CancellationToken ct)
+    {
+        if (incoming.Count == 0) return 0;
+
+        var ids = incoming.Select(c => c.Id).ToList();
+        var local = await _context.Customers
+            .IgnoreQueryFilters()
+            .Where(c => ids.Contains(c.Id) && c.MarketId == marketId)
+            .ToDictionaryAsync(c => c.Id, ct);
+
+        var applied = 0;
+        foreach (var dto in incoming)
+        {
+            if (!local.TryGetValue(dto.Id, out var customer))
+            {
+                // Id ATAYLAB bulutdagidek — aks holda keyingi push do'kon
+                // nusxasini ikkinchi mijoz deb yozardi.
+                customer = new Customer { Id = dto.Id, MarketId = marketId };
+                _context.Customers.Add(customer);
+                local[dto.Id] = customer;
+            }
+            else
+            {
+                var cloudTime = dto.UpdatedAt.UtcDateTime;
+                if (DateTime.SpecifyKind(customer.UpdatedAt, DateTimeKind.Utc) > cloudTime) continue;
+            }
+
+            customer.Phone = dto.Phone;
+            customer.FullName = dto.FullName;
+            customer.Comment = dto.Comment;
+            customer.CustomerType = Enum.IsDefined(typeof(CustomerType), dto.CustomerType)
+                ? (CustomerType)dto.CustomerType
+                : customer.CustomerType;
+            customer.IsRegular = dto.IsRegular;
+            customer.DebtLimit = dto.DebtLimit;
+            customer.IsDeleted = dto.IsDeleted;
+            // Qarz ATAYLAB yo'q — u ustun emas (izohga qarang).
 
             applied++;
         }

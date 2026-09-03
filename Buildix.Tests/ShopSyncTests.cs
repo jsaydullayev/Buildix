@@ -66,6 +66,20 @@ public class ShopSyncTests
         return new SyncPullDto(stamp, stamp, null, [], products);
     }
 
+    /// <summary>Faqat mijozlar keladigan javob.</summary>
+    private static SyncPullDto WithCustomers(params SyncCustomerDto[] customers)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], null, customers);
+    }
+
+    private static SyncCustomerDto NewCustomer(
+        TestHarness h, Guid id, double afterHours,
+        string phone = "+998901112233", string? fullName = "Xoshim",
+        bool isRegular = false, decimal? debtLimit = null) =>
+        new(id, phone, fullName, null, (int)CustomerType.Individual, isRegular, debtLimit,
+            false, h.DbClock.GetUtcNow().AddHours(afterHours));
+
     /// <summary>Javobni do'kon bazasiga qo'llaydi.</summary>
     private static async Task ApplyAsync(TestHarness h, SyncPullDto payload)
     {
@@ -461,6 +475,88 @@ public class ShopSyncTests
 
         var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == id);
         Assert.Equal(0m, stored.Quantity);
+    }
+
+    /// <summary>
+    /// Saytdan qo'shilgan MIJOZ do'konga yetib boradi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ilgari mijozlar pastga umuman tushmasdi. Kassir o'sha mijozni
+    /// kassadan topa olmasdi va uni QAYTA yaratardi — bitta odam bazada
+    /// ikkita mijoz bo'lib, qarzi ikkiga bo'linib ketardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Saytdan_qoshilgan_mijoz_dokonga_yetadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+        var id = Guid.NewGuid();
+
+        await ApplyAsync(h, WithCustomers(NewCustomer(
+            h, id, afterHours: 0, fullName: "Jamshid", isRegular: true, debtLimit: 500_000)));
+
+        var stored = await h.Db.Customers.IgnoreQueryFilters().FirstAsync(c => c.Id == id);
+        Assert.Equal("Jamshid", stored.FullName);
+        Assert.Equal(7, stored.MarketId);
+        // Egasi qo'ygan CHEGARA ham keladi — qarzning o'zi emas.
+        Assert.True(stored.IsRegular);
+        Assert.Equal(500_000m, stored.DebtLimit);
+    }
+
+    /// <summary>
+    /// Do'kondagi YANGIROQ o'zgarish bulutdagi eski nusxa bilan bosilmaydi.
+    /// </summary>
+    [Fact]
+    public async Task Mijozdagi_yangi_ozgarish_saqlanadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Customers.Add(new Customer
+        {
+            Id = id, MarketId = 7, Phone = "+998901112233", FullName = "Yangi ism",
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        // Bulutdan ESKI nusxa keladi.
+        await ApplyAsync(h, WithCustomers(
+            NewCustomer(h, id, afterHours: -3, fullName: "Eski ism")));
+
+        var stored = await h.Db.Customers.IgnoreQueryFilters().FirstAsync(c => c.Id == id);
+        Assert.Equal("Yangi ism", stored.FullName);
+    }
+
+    /// <summary>
+    /// Mijozning QARZI bulutdan qaytarilmaydi — chunki u ustun emas.
+    /// </summary>
+    /// <remarks>
+    /// Qarz <c>Debts</c> qatorlaridan hisoblanadi. Bu sinov shu qoidani
+    /// qulflaydi: mijoz yangilangandan keyin ham uning qarz qatorlari
+    /// tegilmagan bo'lishi kerak.
+    /// </remarks>
+    [Fact]
+    public async Task Mijoz_yangilanishi_qarzga_tegmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var id = Guid.NewGuid();
+        h.Db.Customers.Add(new Customer { Id = id, MarketId = 7, Phone = "+998901112233" });
+        h.Db.Debts.Add(new Debt
+        {
+            Id = Guid.NewGuid(), MarketId = 7, CustomerId = id, SaleId = Guid.NewGuid(),
+            TotalDebt = 300_000, RemainingDebt = 200_000, Status = DebtStatus.Open,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithCustomers(NewCustomer(h, id, afterHours: 1, fullName: "Yangi")));
+
+        var debt = await h.Db.Debts.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(200_000m, debt.RemainingDebt);
+        Assert.Equal(DebtStatus.Open, debt.Status);
     }
 
     /// <summary>
