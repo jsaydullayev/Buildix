@@ -83,7 +83,13 @@ public record SyncPullDto(
     [property: JsonPropertyName("sales")] IReadOnlyList<SyncSaleDto>? Sales = null,
     [property: JsonPropertyName("saleItems")] IReadOnlyList<SyncSaleItemDto>? SaleItems = null,
     [property: JsonPropertyName("payments")] IReadOnlyList<SyncPaymentDto>? Payments = null,
-    [property: JsonPropertyName("debts")] IReadOnlyList<SyncDebtDto>? Debts = null)
+    [property: JsonPropertyName("debts")] IReadOnlyList<SyncDebtDto>? Debts = null,
+
+    /// <summary>
+    /// Boshqa kassalardagi ombor harakatlari — o'z kursori bilan.
+    /// </summary>
+    [property: JsonPropertyName("stockMovements")]
+    IReadOnlyList<SyncStockMovementDto>? StockMovements = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
@@ -102,6 +108,9 @@ public record SyncPullDto(
 
     /// <summary>Qarzlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncDebtDto> DebtsOrEmpty => Debts ?? [];
+
+    /// <summary>Ombor harakatlari — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncStockMovementDto> StockMovementsOrEmpty => StockMovements ?? [];
 }
 
 /// <summary>
@@ -237,6 +246,36 @@ public record SyncPaymentDto(
     [property: JsonPropertyName("paymentType")] int PaymentType,
     [property: JsonPropertyName("amount")] decimal Amount,
     [property: JsonPropertyName("collectedByUserId")] Guid? CollectedByUserId,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Ombor harakati — boshqa kassada bo'lgan qoldiq o'zgarishi.
+/// </summary>
+/// <remarks>
+/// <para><b>Nima uchun bu HAL QILUVCHI.</b> Tovar do'konda BITTA uyumda
+/// turadi, kassalar esa ikkita. A kassa 3 dona sotsa, B kassa buni bilishi
+/// SHART — aks holda u omborda yo'q tovarni sotishga urinadi. Qoldiq
+/// ustunini ko'chirib bo'lmaydi (oxirgi yozgan g'olib chiqadi), jurnal esa
+/// qo'shiladigan: ikkala kassaning harakatlari shunchaki yig'iladi.</para>
+///
+/// <para>Chekdan farqli o'laroq bu jadval otasi bilan yurmaydi — harakat
+/// tovarga bog'langan va o'z kursoriga ega. Jurnal QO'SHILADIGAN: yozilgan
+/// harakat hech qachon o'zgarmaydi.</para>
+///
+/// <para><c>ResultingQty</c> — harakat yozilgan kassadagi holat. U TARIX
+/// uchun ko'chiriladi, lekin qoldiqni hisoblashda ISHLATILMAYDI: boshqa
+/// kassada o'sha payt boshqa son bo'lgan.</para>
+/// </remarks>
+public record SyncStockMovementDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("productId")] Guid ProductId,
+    [property: JsonPropertyName("type")] int Type,
+    [property: JsonPropertyName("delta")] decimal Delta,
+    [property: JsonPropertyName("resultingQty")] decimal ResultingQty,
+    [property: JsonPropertyName("refNumber")] int? RefNumber,
+    [property: JsonPropertyName("userId")] Guid? UserId,
+    [property: JsonPropertyName("comment")] string? Comment,
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
 

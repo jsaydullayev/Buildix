@@ -155,6 +155,13 @@ public class ShopSyncService : IShopSyncService
             //    qiladi, ya'ni o'shalar allaqachon yozilgan bo'lishi kerak.
             var (saleCount, deferredFrom) = await ApplySalesAsync(payload, marketId, ct);
 
+            // 8. Ombor harakatlari — boshqa kassadagi qoldiq o'zgarishlari.
+            //    Tovarlardan KEYIN: harakat tovarga ishora qiladi.
+            var (moveCount, moveDeferred) = await ApplyStockMovementsAsync(
+                payload.StockMovementsOrEmpty, marketId, ct);
+            if (moveDeferred is { } md && (deferredFrom is not { } cur2 || md < cur2))
+                deferredFrom = md;
+
             state ??= NewState(marketId);
             // Kutilgan chek bo'lsa, belgi undan O'TIB KETMAYDI — aks holda
             // u boshqa hech qachon so'ralmasdi va chek abadiy yo'qolardi.
@@ -172,9 +179,9 @@ public class ShopSyncService : IShopSyncService
             _logger.LogInformation(
                 "Cloud pull applied: market={MarketChanged} users={UserCount} products={ProductCount} "
                 + "customers={CustomerCount} settings={SettingsChanged} sales={SaleCount} "
-                + "watermark={Watermark:O}",
+                + "stock={MoveCount} watermark={Watermark:O}",
                 payload.Market is not null, payload.Users.Count, productCount, customerCount,
-                settingsChanged, saleCount, state.PullWatermark);
+                settingsChanged, saleCount, moveCount, state.PullWatermark);
 
             return ShopSyncResult.Ok(payload.Market is not null, payload.Users.Count);
         });
@@ -683,6 +690,88 @@ public class ShopSyncService : IShopSyncService
         }
 
         return deferred;
+    }
+
+    /// <summary>
+    /// Boshqa kassadagi ombor harakatlarini qo'llaydi va QOLDIQNI suradi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nima uchun qoldiq ham o'zgaradi.</b> Tovar do'konda BITTA
+    /// uyumda turadi, kassalar esa ikkita. A kassa 3 dona sotsa, B kassaning
+    /// qoldig'i ham 3 taga kamayishi SHART — aks holda B omborda yo'q
+    /// tovarni sotishga urinadi va buni faqat mijoz oldida biladi.</para>
+    ///
+    /// <para><b>FAQAT YANGI harakat qoldiqni suradi.</b> Jurnal
+    /// qo'shiladigan: yozilgan harakat hech qachon o'zgarmaydi. Shuning
+    /// uchun mavjud ID butunlay o'tkazib yuboriladi — aks holda takroriy
+    /// tortish (ular normal holat, suv belgisi `&gt;=` bilan ishlaydi)
+    /// qoldiqni har safar qaytadan kamaytirib, tovarni yo'q qilardi.</para>
+    ///
+    /// <para><c>ResultingQty</c> TARIX uchun ko'chiriladi, lekin hisobda
+    /// ishlatilmaydi: u harakat yozilgan kassadagi holat va boshqa kassada
+    /// o'sha payt boshqa son bo'lgan.</para>
+    ///
+    /// <para>Tovari hali kelmagan harakat KUTILADI — uni tashlab yuborish
+    /// qoldiqni abadiy noto'g'ri qoldirardi.</para>
+    /// </remarks>
+    private async Task<(int Applied, DateTimeOffset? DeferredFrom)> ApplyStockMovementsAsync(
+        IReadOnlyList<SyncStockMovementDto> incoming, int marketId, CancellationToken ct)
+    {
+        if (incoming.Count == 0) return (0, null);
+
+        var ids = incoming.Select(m => m.Id).ToList();
+        var existing = (await _context.StockMovements
+            .IgnoreQueryFilters()
+            .Where(m => ids.Contains(m.Id))
+            .Select(m => m.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        var productIds = incoming.Select(m => m.ProductId).Distinct().ToList();
+        var products = await _context.Products
+            .IgnoreQueryFilters()
+            .Where(p => productIds.Contains(p.Id) && p.MarketId == marketId)
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        DateTimeOffset? deferred = null;
+        var applied = 0;
+
+        foreach (var dto in incoming)
+        {
+            // Allaqachon bor — jurnal o'zgarmaydi, qoldiqqa ham tegilmaydi.
+            if (existing.Contains(dto.Id)) continue;
+
+            if (!products.TryGetValue(dto.ProductId, out var product))
+            {
+                deferred = deferred is { } d && d <= dto.UpdatedAt ? d : dto.UpdatedAt;
+                continue;
+            }
+
+            var movement = new StockMovement
+            {
+                Id = dto.Id,
+                MarketId = marketId,
+                ProductId = dto.ProductId,
+                Type = Enum.IsDefined(typeof(StockMovementType), dto.Type)
+                    ? (StockMovementType)dto.Type
+                    : StockMovementType.Correction,
+                Delta = dto.Delta,
+                ResultingQty = dto.ResultingQty,
+                RefNumber = dto.RefNumber,
+                UserId = null,   // xodim havolasi ixtiyoriy va u kelmagan bo'lishi mumkin
+                Comment = dto.Comment,
+                CreatedAt = dto.CreatedAt.UtcDateTime,
+            };
+            _context.StockMovements.Add(movement);
+
+            // Qoldiq shu yerda suriladi — jurnal va ustun bir-biriga mos
+            // qolishi kerak (1-bosqichdagi qoida).
+            product.Quantity += dto.Delta;
+
+            _applied.Add((movement.Id, nameof(StockMovement), movement));
+            applied++;
+        }
+
+        return (applied, deferred);
     }
 
     /// <summary>

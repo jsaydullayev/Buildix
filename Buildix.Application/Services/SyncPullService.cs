@@ -42,6 +42,7 @@ public class SyncPullService : ISyncPullService
     private const int ProductBatch = 500;
     private const int CustomerBatch = 500;
     private const int SaleBatch = 200;
+    private const int StockBatch = 500;
 
     private readonly IAppDbContext _context;
     private readonly TimeProvider _clock;
@@ -192,6 +193,20 @@ public class SyncPullService : ISyncPullService
                 AsUtc(d.UpdatedAt)))
             .ToListAsync(ct);
 
+        // ── Ombor harakatlari: O'Z kursori bilan ─────────────────────────
+        // Chekdan farqli o'laroq bular otasi bilan yurmaydi — harakat
+        // tovarga bog'langan va chekdan mustaqil ravishda paydo bo'ladi
+        // (xaridnoma, inventarizatsiya, tuzatish).
+        var movements = await _context.StockMovements
+            .IgnoreQueryFilters()
+            .Where(m => m.MarketId == marketId && m.UpdatedAt >= fromUtc)
+            .OrderBy(m => m.UpdatedAt)
+            .Take(StockBatch)
+            .Select(m => new SyncStockMovementDto(
+                m.Id, m.ProductId, (int)m.Type, m.Delta, m.ResultingQty,
+                m.RefNumber, m.UserId, m.Comment, AsUtc(m.CreatedAt), AsUtc(m.UpdatedAt)))
+            .ToListAsync(ct);
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
@@ -200,6 +215,7 @@ public class SyncPullService : ISyncPullService
             .Concat(productDtos.Select(p => p.UpdatedAt))
             .Concat(customerDtos.Select(c => c.UpdatedAt))
             .Concat(saleDtos.Select(s => s.UpdatedAt))
+            .Concat(movements.Select(m => m.UpdatedAt))
             .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
         if (settingsDto is not null) stamps.Add(settingsDto.UpdatedAt);
@@ -219,6 +235,7 @@ public class SyncPullService : ISyncPullService
         if (productDtos.Count >= ProductBatch) caps.Add(productDtos.Max(p => p.UpdatedAt));
         if (customerDtos.Count >= CustomerBatch) caps.Add(customerDtos.Max(c => c.UpdatedAt));
         if (saleDtos.Count >= SaleBatch) caps.Add(saleDtos.Max(s => s.UpdatedAt));
+        if (movements.Count >= StockBatch) caps.Add(movements.Max(m => m.UpdatedAt));
 
         var nextSince = caps.Count > 0
             ? caps.Min()
@@ -226,7 +243,7 @@ public class SyncPullService : ISyncPullService
 
         return new SyncPullDto(
             now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto,
-            saleDtos, itemDtos, paymentDtos, debtDtos);
+            saleDtos, itemDtos, paymentDtos, debtDtos, movements);
     }
 
     /// <summary>

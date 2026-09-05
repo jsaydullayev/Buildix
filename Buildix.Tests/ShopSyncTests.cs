@@ -86,6 +86,19 @@ public class ShopSyncTests
             (int)SaleStatus.Paid, total, paid, 0m, false, false,
             h.DbClock.GetUtcNow(), h.DbClock.GetUtcNow().AddHours(afterHours));
 
+    /// <summary>Faqat ombor harakatlari keladigan javob.</summary>
+    private static SyncPullDto WithMovements(params SyncStockMovementDto[] movements)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], null, null, null,
+            null, null, null, null, movements);
+    }
+
+    private static SyncStockMovementDto NewMovement(
+        TestHarness h, Guid productId, decimal delta, Guid? id = null) =>
+        new(id ?? Guid.NewGuid(), productId, (int)StockMovementType.Sale, delta,
+            0m, 55, null, null, h.DbClock.GetUtcNow(), h.DbClock.GetUtcNow());
+
     /// <summary>Faqat sozlamalar keladigan javob.</summary>
     private static SyncPullDto WithSettings(SyncSettingsDto settings)
     {
@@ -847,6 +860,88 @@ public class ShopSyncTests
 
         var state = await h.Db.SyncStates.FirstAsync();
         Assert.Equal(debtStamp, state.PullWatermark);
+    }
+
+    /// <summary>
+    /// Boshqa kassadagi sotuv BU kassaning qoldig'ini ham kamaytiradi.
+    /// </summary>
+    /// <remarks>
+    /// Tovar do'konda BITTA uyumda turadi, kassalar esa ikkita. A kassa
+    /// 3 dona sotsa, B kassaning qoldig'i ham kamayishi shart — aks holda B
+    /// omborda yo'q tovarni sotishga urinadi va buni faqat mijoz oldida
+    /// biladi.
+    /// </remarks>
+    [Fact]
+    public async Task Boshqa_kassadagi_sotuv_qoldiqni_kamaytiradi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var product = new Product
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Name = "Sement", Quantity = 100,
+            CostPrice = 40_000, SalePrice = 52_000, MinSalePrice = 50_000, MinThreshold = 10,
+        };
+        h.Db.Products.Add(product);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        await ApplyAsync(h, WithMovements(NewMovement(h, product.Id, -3m)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == product.Id);
+        Assert.Equal(97m, stored.Quantity);
+        Assert.Single(await h.Db.StockMovements.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// TAKRORIY tortish qoldiqni ikkinchi marta kamaytirmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Takroriy tortish NORMAL holat: suv belgisi <c>&gt;=</c> bilan
+    /// ishlaydi, ya'ni oxirgi to'plam ataylab qayta yuboriladi. Jurnal
+    /// qo'shiladigan bo'lgani uchun mavjud ID butunlay o'tkazib yuboriladi —
+    /// aks holda har tortishda tovar yo'q bo'lib borardi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Takroriy_harakat_qoldiqni_ikki_marta_kamaytirmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var product = new Product
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Name = "Sement", Quantity = 100,
+            CostPrice = 40_000, SalePrice = 52_000, MinSalePrice = 50_000, MinThreshold = 10,
+        };
+        h.Db.Products.Add(product);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var moveId = Guid.NewGuid();
+        await ApplyAsync(h, WithMovements(NewMovement(h, product.Id, -3m, moveId)));
+        h.Db.ChangeTracker.Clear();
+        await ApplyAsync(h, WithMovements(NewMovement(h, product.Id, -3m, moveId)));
+
+        var stored = await h.Db.Products.IgnoreQueryFilters().FirstAsync(p => p.Id == product.Id);
+        Assert.Equal(97m, stored.Quantity);
+        Assert.Single(await h.Db.StockMovements.IgnoreQueryFilters().ToListAsync());
+    }
+
+    /// <summary>
+    /// Tovari kelmagan harakat KUTILADI — qoldiq noto'g'ri qolmasin.
+    /// </summary>
+    [Fact]
+    public async Task Tovarsiz_harakat_kutiladi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var move = NewMovement(h, Guid.NewGuid(), -3m);
+        await ApplyAsync(h, WithMovements(move));
+
+        Assert.Empty(await h.Db.StockMovements.IgnoreQueryFilters().ToListAsync());
+        var state = await h.Db.SyncStates.FirstAsync();
+        Assert.Equal(move.UpdatedAt, state.PullWatermark);
     }
 
     /// <summary>
