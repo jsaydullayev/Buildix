@@ -43,6 +43,7 @@ public class SyncPullService : ISyncPullService
     private const int CustomerBatch = 500;
     private const int SaleBatch = 200;
     private const int StockBatch = 500;
+    private const int CashBatch = 500;
 
     private readonly IAppDbContext _context;
     private readonly TimeProvider _clock;
@@ -207,6 +208,36 @@ public class SyncPullService : ISyncPullService
                 m.RefNumber, m.UserId, m.Comment, AsUtc(m.CreatedAt), AsUtc(m.UpdatedAt)))
             .ToListAsync(ct);
 
+        // Qaytarishlar — cheklar bilan birga (otasiz qaytarish ma'nosiz).
+        var returnDtos = saleIds.Count == 0 ? [] : await _context.SaleReturns
+            .IgnoreQueryFilters()
+            .Where(r => saleIds.Contains(r.SaleId))
+            .Select(r => new SyncSaleReturnDto(
+                r.Id, r.SaleId, r.Number, (int)r.Reason, (int)r.RefundMethod,
+                r.TotalAmount, r.Comment, AsUtc(r.CreatedAt), AsUtc(r.UpdatedAt)))
+            .ToListAsync(ct);
+
+        var returnIds = returnDtos.Select(r => r.Id).ToList();
+        var returnItemDtos = returnIds.Count == 0 ? [] : await _context.SaleReturnItems
+            .IgnoreQueryFilters()
+            .Where(i => returnIds.Contains(i.SaleReturnId))
+            .Select(i => new SyncSaleReturnItemDto(
+                i.Id, i.SaleReturnId, i.SaleItemId, i.ProductId, i.ProductName,
+                i.Quantity, i.UnitPrice, AsUtc(i.UpdatedAt)))
+            .ToListAsync(ct);
+
+        // ── Kassa jurnali: O'Z kursori bilan ─────────────────────────────
+        // Chekdan mustaqil paydo bo'ladi (inkassatsiya, xarajat, kirim).
+        var cashDtos = await _context.CashMovements
+            .IgnoreQueryFilters()
+            .Where(m => m.MarketId == marketId && m.UpdatedAt >= fromUtc)
+            .OrderBy(m => m.UpdatedAt)
+            .Take(CashBatch)
+            .Select(m => new SyncCashMovementDto(
+                m.Id, (int)m.Type, m.Amount, m.Category, m.RefNumber, m.Comment,
+                AsUtc(m.CreatedAt), AsUtc(m.UpdatedAt)))
+            .ToListAsync(ct);
+
         // Keyingi suv belgisi — QAYTARILGAN yozuvlarning eng kattasi, bulut
         // soati emas. Bulut vaqti olinsa, so'rov bajarilayotgan payt yozilgan
         // yozuv o'tkazib yuborilardi: uning vaqti belgidan kichik bo'lib
@@ -216,6 +247,7 @@ public class SyncPullService : ISyncPullService
             .Concat(customerDtos.Select(c => c.UpdatedAt))
             .Concat(saleDtos.Select(s => s.UpdatedAt))
             .Concat(movements.Select(m => m.UpdatedAt))
+            .Concat(cashDtos.Select(m => m.UpdatedAt))
             .ToList();
         if (marketDto is not null) stamps.Add(marketDto.UpdatedAt);
         if (settingsDto is not null) stamps.Add(settingsDto.UpdatedAt);
@@ -236,6 +268,7 @@ public class SyncPullService : ISyncPullService
         if (customerDtos.Count >= CustomerBatch) caps.Add(customerDtos.Max(c => c.UpdatedAt));
         if (saleDtos.Count >= SaleBatch) caps.Add(saleDtos.Max(s => s.UpdatedAt));
         if (movements.Count >= StockBatch) caps.Add(movements.Max(m => m.UpdatedAt));
+        if (cashDtos.Count >= CashBatch) caps.Add(cashDtos.Max(m => m.UpdatedAt));
 
         var nextSince = caps.Count > 0
             ? caps.Min()
@@ -243,7 +276,8 @@ public class SyncPullService : ISyncPullService
 
         return new SyncPullDto(
             now, nextSince, marketDto, userDtos, productDtos, customerDtos, settingsDto,
-            saleDtos, itemDtos, paymentDtos, debtDtos, movements);
+            saleDtos, itemDtos, paymentDtos, debtDtos, movements,
+            returnDtos, returnItemDtos, cashDtos);
     }
 
     /// <summary>

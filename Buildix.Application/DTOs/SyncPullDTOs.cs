@@ -89,7 +89,16 @@ public record SyncPullDto(
     /// Boshqa kassalardagi ombor harakatlari — o'z kursori bilan.
     /// </summary>
     [property: JsonPropertyName("stockMovements")]
-    IReadOnlyList<SyncStockMovementDto>? StockMovements = null)
+    IReadOnlyList<SyncStockMovementDto>? StockMovements = null,
+
+    /// <summary>Qaytarishlar — cheklar bilan birga keladi.</summary>
+    [property: JsonPropertyName("saleReturns")] IReadOnlyList<SyncSaleReturnDto>? SaleReturns = null,
+    [property: JsonPropertyName("saleReturnItems")]
+    IReadOnlyList<SyncSaleReturnItemDto>? SaleReturnItems = null,
+
+    /// <summary>Kassa jurnali — o'z kursori bilan.</summary>
+    [property: JsonPropertyName("cashMovements")]
+    IReadOnlyList<SyncCashMovementDto>? CashMovements = null)
 {
     /// <summary>Tovarlar — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncProductDto> ProductsOrEmpty => Products ?? [];
@@ -111,6 +120,13 @@ public record SyncPullDto(
 
     /// <summary>Ombor harakatlari — hech qachon <c>null</c> emas.</summary>
     public IReadOnlyList<SyncStockMovementDto> StockMovementsOrEmpty => StockMovements ?? [];
+
+    /// <summary>Qaytarishlar — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncSaleReturnDto> SaleReturnsOrEmpty => SaleReturns ?? [];
+    public IReadOnlyList<SyncSaleReturnItemDto> SaleReturnItemsOrEmpty => SaleReturnItems ?? [];
+
+    /// <summary>Kassa jurnali — hech qachon <c>null</c> emas.</summary>
+    public IReadOnlyList<SyncCashMovementDto> CashMovementsOrEmpty => CashMovements ?? [];
 }
 
 /// <summary>
@@ -275,6 +291,61 @@ public record SyncStockMovementDto(
     [property: JsonPropertyName("resultingQty")] decimal ResultingQty,
     [property: JsonPropertyName("refNumber")] int? RefNumber,
     [property: JsonPropertyName("userId")] Guid? UserId,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Qaytarish hujjati — chek bilan birga yuriladi.
+/// </summary>
+/// <remarks>
+/// Qaytarish chekka bog'langan: chek tushmagan bo'lsa qaytarish ham
+/// ma'nosiz. Shuning uchun u otasi bilan yuboriladi va o'z kursoriga
+/// muhtoj emas.
+/// </remarks>
+public record SyncSaleReturnDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleId")] Guid SaleId,
+    [property: JsonPropertyName("number")] int Number,
+    [property: JsonPropertyName("reason")] int Reason,
+    [property: JsonPropertyName("refundMethod")] int RefundMethod,
+    [property: JsonPropertyName("totalAmount")] decimal TotalAmount,
+    [property: JsonPropertyName("comment")] string? Comment,
+    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>Qaytarilgan bitta tovar.</summary>
+public record SyncSaleReturnItemDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("saleReturnId")] Guid SaleReturnId,
+    [property: JsonPropertyName("saleItemId")] Guid? SaleItemId,
+    [property: JsonPropertyName("productId")] Guid? ProductId,
+    [property: JsonPropertyName("productName")] string ProductName,
+    [property: JsonPropertyName("quantity")] decimal Quantity,
+    [property: JsonPropertyName("unitPrice")] decimal UnitPrice,
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Kassa jurnalining qatori.
+/// </summary>
+/// <remarks>
+/// <para><b>Kassa BALANSI bu bilan o'zgarmaydi.</b> Ikki sabab bor.
+/// Birinchisi: bu jadval balans jurnali EMAS — unda <c>Opening</c> (smena
+/// boshidagi qoldiq) qatori bor va u ataylab balansga tegmaydi, ya'ni
+/// «hamma summani qo'shish» qoidasi noto'g'ri. Ikkinchisi: har kassaning
+/// O'Z yashigi bor va kassir smena oxirida aynan o'zinikini sanaydi —
+/// boshqa kassaning pulini unga qo'shish sanoqni buzardi.</para>
+///
+/// <para>Qatorlar ko'rinish va audit uchun keladi: egasi «Касса» ekranida
+/// do'konda bugun nima bo'lganini to'liq ko'radi. Smena hisobiga ta'siri
+/// yo'q — u <c>Payments</c> va <c>CashWithdrawals</c> dan hisoblanadi.</para>
+/// </remarks>
+public record SyncCashMovementDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("type")] int Type,
+    [property: JsonPropertyName("amount")] decimal Amount,
+    [property: JsonPropertyName("category")] string? Category,
+    [property: JsonPropertyName("refNumber")] int? RefNumber,
     [property: JsonPropertyName("comment")] string? Comment,
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);

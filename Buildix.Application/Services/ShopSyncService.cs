@@ -162,6 +162,9 @@ public class ShopSyncService : IShopSyncService
             if (moveDeferred is { } md && (deferredFrom is not { } cur2 || md < cur2))
                 deferredFrom = md;
 
+            // 9. Kassa jurnali — faqat ko'rinish uchun, balansga TEGMAYDI.
+            await ApplyCashMovementsAsync(payload.CashMovementsOrEmpty, marketId, ct);
+
             state ??= NewState(marketId);
             // Kutilgan chek bo'lsa, belgi undan O'TIB KETMAYDI — aks holda
             // u boshqa hech qachon so'ralmasdi va chek abadiy yo'qolardi.
@@ -515,6 +518,10 @@ public class ShopSyncService : IShopSyncService
             // kelmagan bo'lsa qarz KUTILADI — chunki uni tashlab yuborish
             // «chek bor, qarz yo'q» degan holatga olib kelardi va mijozning
             // qarzi jimgina yo'qolardi.
+            await ApplySaleReturnsAsync(
+                payload.SaleReturnsOrEmpty, payload.SaleReturnItemsOrEmpty,
+                accepted, marketId, ct);
+
             var debtDeferred = await ApplyDebtsAsync(
                 payload.DebtsOrEmpty, accepted, marketId, ct);
             if (debtDeferred is { } dd && (deferredFrom is not { } cur || dd < cur))
@@ -772,6 +779,143 @@ public class ShopSyncService : IShopSyncService
         }
 
         return (applied, deferred);
+    }
+
+    /// <summary>
+    /// Qaytarish hujjatlari va ularning qatorlari.
+    /// </summary>
+    /// <remarks>
+    /// Chek bilan birga keladi: otasiz qaytarish ma'nosiz. Qaytarish OMBOR
+    /// qoldig'iga bu yerda tegmaydi — tovarning qaytishi alohida ombor
+    /// harakati bo'lib tushadi va qoldiq o'sha yerda suriladi. Ikkalasini
+    /// ham qilish tovarni ikki marta qaytarardi.
+    /// </remarks>
+    private async Task ApplySaleReturnsAsync(
+        IReadOnlyList<SyncSaleReturnDto> incoming,
+        IReadOnlyList<SyncSaleReturnItemDto> incomingItems,
+        HashSet<Guid> acceptedSales, int marketId, CancellationToken ct)
+    {
+        var mine = incoming.Where(r => acceptedSales.Contains(r.SaleId)).ToList();
+        if (mine.Count == 0) return;
+
+        var ids = mine.Select(r => r.Id).ToList();
+        var local = await _context.SaleReturns
+            .IgnoreQueryFilters()
+            .Where(r => ids.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, ct);
+
+        var accepted = new HashSet<Guid>();
+        foreach (var dto in mine)
+        {
+            if (!local.TryGetValue(dto.Id, out var ret))
+            {
+                ret = new SaleReturn { Id = dto.Id, SaleId = dto.SaleId, MarketId = marketId };
+                _context.SaleReturns.Add(ret);
+            }
+            else if (DateTime.SpecifyKind(ret.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                accepted.Add(dto.Id);
+                continue;
+            }
+
+            ret.Number = dto.Number;
+            ret.Reason = Enum.IsDefined(typeof(ReturnReason), dto.Reason)
+                ? (ReturnReason)dto.Reason : ret.Reason;
+            ret.RefundMethod = Enum.IsDefined(typeof(PaymentType), dto.RefundMethod)
+                ? (PaymentType)dto.RefundMethod : ret.RefundMethod;
+            ret.TotalAmount = dto.TotalAmount;
+            ret.Comment = dto.Comment;
+            ret.UserId = null;   // xodim havolasi kelmagan bo'lishi mumkin
+            ret.CreatedAt = dto.CreatedAt.UtcDateTime;
+
+            accepted.Add(dto.Id);
+            _applied.Add((ret.Id, nameof(SaleReturn), ret));
+        }
+
+        var mineItems = incomingItems.Where(i => accepted.Contains(i.SaleReturnId)).ToList();
+        if (mineItems.Count == 0) return;
+
+        var itemIds = mineItems.Select(i => i.Id).ToList();
+        var localItems = await _context.SaleReturnItems
+            .IgnoreQueryFilters()
+            .Where(i => itemIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id, ct);
+
+        foreach (var dto in mineItems)
+        {
+            if (!localItems.TryGetValue(dto.Id, out var item))
+            {
+                item = new SaleReturnItem { Id = dto.Id, SaleReturnId = dto.SaleReturnId };
+                _context.SaleReturnItems.Add(item);
+            }
+            else if (DateTime.SpecifyKind(item.UpdatedAt, DateTimeKind.Utc) > dto.UpdatedAt.UtcDateTime)
+            {
+                continue;
+            }
+
+            // Havolalar IXTIYORIY: to'liq qaytarishda sotuv liniyasi o'chgan
+            // bo'lishi mumkin, tovar esa hali kelmagan bo'lishi mumkin.
+            // Nom snapshot bo'lgani uchun hujjat ularsiz ham to'liq.
+            item.SaleItemId = null;
+            item.ProductId = null;
+            item.ProductName = dto.ProductName;
+            item.Quantity = dto.Quantity;
+            item.UnitPrice = dto.UnitPrice;
+
+            _applied.Add((item.Id, nameof(SaleReturnItem), item));
+        }
+    }
+
+    /// <summary>
+    /// Kassa jurnalining qatorlari — KO'RINISH uchun.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Balans ATAYLAB o'zgarmaydi.</b> Ikki sabab. Birinchisi: bu
+    /// jadval balans jurnali emas — unda <c>Opening</c> (smena boshidagi
+    /// qoldiq) qatori bor va u ataylab balansga tegmaydi, ya'ni «hamma
+    /// summani qo'shish» qoidasi noto'g'ri bo'lardi. Ikkinchisi: har
+    /// kassaning O'Z yashigi bor va kassir smena oxirida aynan o'zinikini
+    /// sanaydi — boshqa kassaning pulini unga qo'shish sanoqni buzardi.</para>
+    ///
+    /// <para>Smena hisobiga ta'siri yo'q: u <c>Payments</c> va
+    /// <c>CashWithdrawals</c> dan hisoblanadi, bu jadvaldan emas —
+    /// tekshirib ko'rildi.</para>
+    /// </remarks>
+    private async Task ApplyCashMovementsAsync(
+        IReadOnlyList<SyncCashMovementDto> incoming, int marketId, CancellationToken ct)
+    {
+        if (incoming.Count == 0) return;
+
+        var ids = incoming.Select(m => m.Id).ToList();
+        var existing = (await _context.CashMovements
+            .IgnoreQueryFilters()
+            .Where(m => ids.Contains(m.Id))
+            .Select(m => m.Id)
+            .ToListAsync(ct)).ToHashSet();
+
+        foreach (var dto in incoming)
+        {
+            // Jurnal qo'shiladigan — mavjud qator o'zgarmaydi.
+            if (existing.Contains(dto.Id)) continue;
+
+            var movement = new CashMovement
+            {
+                Id = dto.Id,
+                MarketId = marketId,
+                ShiftId = null,   // smenalar pastga tushmaydi
+                Type = Enum.IsDefined(typeof(CashMovementType), dto.Type)
+                    ? (CashMovementType)dto.Type
+                    : CashMovementType.Expense,
+                Amount = dto.Amount,
+                Category = dto.Category,
+                RefNumber = dto.RefNumber,
+                Comment = dto.Comment,
+                UserId = null,
+                CreatedAt = dto.CreatedAt.UtcDateTime,
+            };
+            _context.CashMovements.Add(movement);
+            _applied.Add((movement.Id, nameof(CashMovement), movement));
+        }
     }
 
     /// <summary>

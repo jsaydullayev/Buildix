@@ -99,6 +99,14 @@ public class ShopSyncTests
         new(id ?? Guid.NewGuid(), productId, (int)StockMovementType.Sale, delta,
             0m, 55, null, null, h.DbClock.GetUtcNow(), h.DbClock.GetUtcNow());
 
+    /// <summary>Faqat kassa jurnali keladigan javob.</summary>
+    private static SyncPullDto WithCash(params SyncCashMovementDto[] cash)
+    {
+        var stamp = new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+        return new SyncPullDto(stamp, stamp, null, [], null, null, null,
+            null, null, null, null, null, null, null, cash);
+    }
+
     /// <summary>Faqat sozlamalar keladigan javob.</summary>
     private static SyncPullDto WithSettings(SyncSettingsDto settings)
     {
@@ -942,6 +950,80 @@ public class ShopSyncTests
         Assert.Empty(await h.Db.StockMovements.IgnoreQueryFilters().ToListAsync());
         var state = await h.Db.SyncStates.FirstAsync();
         Assert.Equal(move.UpdatedAt, state.PullWatermark);
+    }
+
+    /// <summary>
+    /// Chekning QAYTARISHI ham do'konga tushadi.
+    /// </summary>
+    [Fact]
+    public async Task Chekning_qaytarishi_ham_tushadi()
+    {
+        using var h = new TestHarness(marketId: null);
+        var seller = new User
+        {
+            Id = Guid.NewGuid(), MarketId = 7, Username = "kassir2", FullName = "Kassir",
+            PasswordHash = "x", Role = Role.Seller, IsActive = true,
+        };
+        h.Db.Users.Add(seller);
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var saleId = Guid.NewGuid();
+        var returnId = Guid.NewGuid();
+        var stamp = h.DbClock.GetUtcNow();
+
+        var payload = WithSales([NewSale(h, saleId, seller.Id, afterHours: 0)]);
+        payload = payload with
+        {
+            SaleReturns = [new SyncSaleReturnDto(returnId, saleId, 3,
+                (int)ReturnReason.Defect, (int)PaymentType.Cash, 48_000m, null, stamp, stamp)],
+            SaleReturnItems = [new SyncSaleReturnItemDto(Guid.NewGuid(), returnId, null, null,
+                "Sement", 2m, 24_000m, stamp)],
+        };
+        await ApplyAsync(h, payload);
+
+        var ret = await h.Db.SaleReturns.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(saleId, ret.SaleId);
+        Assert.Equal(3, ret.Number);
+        Assert.Equal(48_000m, ret.TotalAmount);
+
+        var item = await h.Db.SaleReturnItems.IgnoreQueryFilters().FirstAsync();
+        // Nom SNAPSHOT — tovar havolasisiz ham hujjat to'liq.
+        Assert.Equal("Sement", item.ProductName);
+    }
+
+    /// <summary>
+    /// Kassa jurnali tushadi, lekin BALANSGA tegmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para>Har kassaning O'Z yashigi bor va kassir smena oxirida aynan
+    /// o'zinikini sanaydi — boshqa kassaning pulini unga qo'shish sanoqni
+    /// buzardi. Qolaversa bu jadval balans jurnali emas: unda `Opening`
+    /// qatori bor va u ataylab balansga tegmaydi.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Kassa_jurnali_tushadi_lekin_balansga_tegmaydi()
+    {
+        using var h = new TestHarness(marketId: null);
+        h.Db.CashRegisters.Add(new CashRegister
+        {
+            Id = Guid.NewGuid(), MarketId = 7, CurrentBalance = 500_000m,
+        });
+        h.Db.SyncStates.Add(new SyncState { MarketId = 7 });
+        await h.Db.SaveChangesAsync();
+        h.Db.ChangeTracker.Clear();
+
+        var stamp = h.DbClock.GetUtcNow();
+        await ApplyAsync(h, WithCash(new SyncCashMovementDto(
+            Guid.NewGuid(), (int)CashMovementType.Expense, -120_000m,
+            null, null, "Boshqa kassadagi chiqim", stamp, stamp)));
+
+        // Qator tushdi — egasi «Касса» ekranida ko'radi.
+        Assert.Single(await h.Db.CashMovements.IgnoreQueryFilters().ToListAsync());
+        // Yashik esa tegilmagan.
+        var register = await h.Db.CashRegisters.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(500_000m, register.CurrentBalance);
     }
 
     /// <summary>
