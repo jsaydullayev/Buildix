@@ -279,6 +279,12 @@ export const uz: TranslationSchema = {
         costTooHigh: 'Kelish narxi sotuv narxidan kichik bo‘lishi kerak.',
         add: 'Chekka qo‘shish',
       },
+      askPrice: {
+        title: 'Narxni kiriting',
+        price: 'Sotuv narxi',
+        add: 'Chekka qo‘shish',
+        hint: 'Bu tovarning narxi sotuvchiga ko‘rsatilmaydi — narxni egasidan so‘rab kiriting.',
+      },
     },
     shifts: {
       range: { week: 'Hafta', month: 'Oy', all: 'Butun davr' },

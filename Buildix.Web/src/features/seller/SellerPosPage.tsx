@@ -44,6 +44,7 @@ import {
 } from '@/features/pos/mix';
 import { ReceiptModal } from '@/features/pos/ReceiptModal';
 import { ExternalItemModal } from '@/features/pos/ExternalItemModal';
+import { AskPriceModal } from '@/features/pos/AskPriceModal';
 
 type Method = 'Cash' | 'Terminal' | 'Transfer' | 'Mixed' | 'Debt';
 
@@ -155,6 +156,12 @@ export default function SellerPosPage() {
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [custOpen, setCustOpen] = useState(false);
   const [externalOpen, setExternalOpen] = useState(false);
+  /**
+   * Narxi yashirilgan tovar bosilganda — narx so'raladigan tovar. Tovar
+   * savatga faqat narx kiritilgandan KEYIN tushadi, aks holda do'kon narxi
+   * qator summasi orqali baribir ko'rinib qolardi.
+   */
+  const [askPriceFor, setAskPriceFor] = useState<Product | null>(null);
   const [method, setMethod] = useState<Method>('Cash');
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [done, setDone] = useState<PosSale | null>(null);
@@ -563,11 +570,19 @@ export default function SellerPosPage() {
    * tushadi. Kassir necha marta tez bosishidan qat'i nazar ekran
    * sakramaydi.</p>
    */
-  function addProduct(product: Product) {
+  function addProduct(product: Product, entered?: { price: number; quantity: number }) {
+    const quantity = entered?.quantity ?? 1;
     const line: PendingLine = {
       productId: product.id,
       productName: product.name,
-      salePrice: product.salePrice,
+      // Narxi yashirilgan tovarda savatga KASSIR kiritgan raqam tushadi,
+      // do'kon narxi emas. Aks holda narx qator summasi va umumiy summa
+      // orqali baribir ko'rinib qolardi — miqdor bitta bo'lganda qator
+      // summasining o'zi narxga teng.
+      salePrice: entered?.price ?? product.salePrice,
+      // `minSalePrice` ekranga chiqmaydi (faqat serverga uzatiladi), shuning
+      // uchun u yashirilgan tovarda ham o'zgarishsiz ketadi — pastki chegara
+      // nazorati sotuv narxi qo'lda kiritilganda ham ishlashi kerak.
       minSalePrice: product.minSalePrice,
       // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
       // savat qatorida esa teskarisi ataladi.
@@ -576,16 +591,29 @@ export default function SellerPosPage() {
     };
 
     setActionError(null);
-    setPending((map) => bumpPending(map, line, 1));
+    setPending((map) => bumpPending(map, line, quantity));
     // Qoldiq ham darhol kamayadi — katalogdagi son bilan savat bir vaqtda
     // yangilansin, aks holda kassir «qo'shildimi?» deb ikkilanadi.
-    bumpStock(product.id, -1);
+    bumpStock(product.id, -quantity);
 
     const buffered = cartBuffer.current.get(product.id);
-    if (buffered) buffered.quantity += 1;
-    else cartBuffer.current.set(product.id, { line, quantity: 1 });
+    if (buffered) buffered.quantity += quantity;
+    else cartBuffer.current.set(product.id, { line, quantity });
 
     void drainCart();
+  }
+
+  /**
+   * Tovarni savatga qo'shishning YAGONA kirish nuqtasi — katalog bosilishi
+   * ham, skaner ham shu yerdan o'tadi.
+   *
+   * <p>Narxi yashirilgan tovar darhol qo'shilmaydi: avval narx so'raladi.
+   * Ikkala yo'l ham shu yerda birlashtirilgani uchun skanerlab qo'shish
+   * to'siqni chetlab o'ta olmaydi — ilgari aynan shunday teshik bo'lardi.</p>
+   */
+  function pickProduct(product: Product) {
+    if (hidePriceOf(product)) setAskPriceFor(product);
+    else addProduct(product);
   }
 
   /**
@@ -655,7 +683,7 @@ export default function SellerPosPage() {
     //    bo'lsa tarmoqqa UMUMAN chiqilmaydi — tovar shu zahoti savatda.
     const known = barcodeIndex.current.get(code);
     if (known) {
-      addProduct(known);
+      pickProduct(known);
       setSearch('');
       return;
     }
@@ -665,7 +693,7 @@ export default function SellerPosPage() {
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
       if (product.barcode) barcodeIndex.current.set(product.barcode, product);
-      addProduct(product);
+      pickProduct(product);
       setSearch('');
       return;
     }
@@ -687,7 +715,7 @@ export default function SellerPosPage() {
     const found = productsQuery.data?.items ?? [];
     const only = found.length === 1 ? found[0] : undefined;
     if (only) {
-      addProduct(only);
+      pickProduct(only);
       setSearch('');
     }
   }
@@ -702,14 +730,14 @@ export default function SellerPosPage() {
   async function handleScannedCode(code: string) {
     const known = barcodeIndex.current.get(code);
     if (known) {
-      addProduct(known);
+      pickProduct(known);
       setSearch('');
       return;
     }
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
       if (product.barcode) barcodeIndex.current.set(product.barcode, product);
-      addProduct(product);
+      pickProduct(product);
       setSearch('');
       return;
     }
@@ -721,7 +749,7 @@ export default function SellerPosPage() {
   // savatga tushmasligi kerak.
   useGlobalScanner(
     (code) => void handleScannedCode(code),
-    !done && !externalOpen && !custOpen && !checkoutOpen,
+    !done && !externalOpen && !custOpen && !checkoutOpen && askPriceFor === null,
   );
 
   /** Park the current receipt: it simply stays a Draft and reappears in the strip. */
@@ -895,7 +923,7 @@ export default function SellerPosPage() {
                       // disabled while ANY add was in flight, which capped the
                       // cashier at one product per round-trip.
                       disabled={out}
-                      onClick={() => addProduct(p)}
+                      onClick={() => pickProduct(p)}
                       className={cn(
                         'flex flex-col gap-2 rounded-card border bg-surface p-3 text-left transition-colors',
                         out
@@ -922,11 +950,17 @@ export default function SellerPosPage() {
                       {/* «Narxni sotuvchidan yashirish» belgilangan tovarlarda
                           kassir narxni katalogda ko'rmaydi — narxni egasi
                           aytadi. Tovarning o'zi haqidagi ma'lumot «Tovarlar»
-                          bo'limida ochiq qoladi. */}
+                          bo'limida ochiq qoladi.
+
+                          Bu yerda HECH NARSA yozilmaydi — ilgari «Narxni
+                          so'rang» turardi, lekin u ham ortiqcha: kartochka
+                          bosilganda narx alohida oynada baribir so'raladi va
+                          yozuv faqat joy egallardi. Bo'sh element ataylab
+                          qoldirilgan — kartochkalar bir xil balandlikda
+                          tursin, aks holda katalog panjarasi tishlanib
+                          ko'rinardi. */}
                       {hidePriceOf(p) ? (
-                        <span className="text-[13px] font-medium text-muted-2">
-                          {t('seller.pos.priceOnRequest')}
-                        </span>
+                        <span className="h-5" aria-hidden />
                       ) : (
                         <span className="text-[14px] font-semibold text-primary nums">
                           {formatSum(p.salePrice)}
@@ -1201,6 +1235,17 @@ export default function SellerPosPage() {
         onSubmit={(p) => addExternal.mutate(p)}
       />
 
+      <AskPriceModal
+        open={askPriceFor !== null}
+        product={askPriceFor}
+        onClose={() => setAskPriceFor(null)}
+        onSubmit={(price, quantity) => {
+          const product = askPriceFor;
+          setAskPriceFor(null);
+          if (product) addProduct(product, { price, quantity });
+        }}
+      />
+
       {sale && (
         <CheckoutModal
           open={checkoutOpen}
@@ -1315,23 +1360,33 @@ function ReceiptLine({
                   if (e.key === 'Escape') setPriceDraft(null);
                 }}
                 inputMode="decimal"
-                className="h-6 w-24 rounded border border-primary bg-surface px-1.5 text-right text-[11.5px] outline-none nums"
+                className="h-10 w-32 rounded-input border border-primary bg-surface px-2.5 text-right text-[15px] font-semibold outline-none nums"
               />
-            ) : (
-              <span className="nums">{formatSum(item.salePrice)}</span>
-            )}
-            <span>
-              {t('common.currency')}/{unitLabel(t, item.unitValue, item.unit)}
-            </span>
-            {canEditPrice && priceDraft === null && (
+            ) : canEditPrice ? (
+              /* Narxni o'zgartirish — qurilish bozorida kundalik amal (torg),
+                 shuning uchun BUTUN narx bloki bosiladigan qilingan. Ilgari
+                 faqat qalamchaning o'zi bosilardi va uning klassida na
+                 o'lcham, na to'ldirish bor edi: bosish maydoni 12×12 nuqtali
+                 ikonkaning o'zi bo'lib qolgan, kassir esa uni ko'rmasdi. */
               <button
                 type="button"
                 title={t('seller.pos.editPrice')}
                 onClick={() => setPriceDraft(String(item.salePrice))}
-                className="ml-0.5 text-muted-2 transition-colors hover:text-primary"
+                className="-ml-1.5 flex items-center gap-1.5 rounded-input px-1.5 py-1 transition-colors hover:bg-hairline hover:text-primary"
               >
-                <Pencil size={12} />
+                <span className="nums text-[13px] font-medium">{formatSum(item.salePrice)}</span>
+                <span>
+                  {t('common.currency')}/{unitLabel(t, item.unitValue, item.unit)}
+                </span>
+                <Pencil size={14} />
               </button>
+            ) : (
+              <>
+                <span className="nums">{formatSum(item.salePrice)}</span>
+                <span>
+                  {t('common.currency')}/{unitLabel(t, item.unitValue, item.unit)}
+                </span>
+              </>
             )}
           </div>
         </div>

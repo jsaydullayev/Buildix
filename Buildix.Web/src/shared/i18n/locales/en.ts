@@ -279,6 +279,12 @@ export const en: TranslationSchema = {
         costTooHigh: 'Cost price must be lower than the sale price.',
         add: 'Add to receipt',
       },
+      askPrice: {
+        title: 'Enter the price',
+        price: 'Sale price',
+        add: 'Add to receipt',
+        hint: 'This product’s price is hidden from sellers — ask the owner for it and type it in.',
+      },
     },
     shifts: {
       range: { week: 'Week', month: 'Month', all: 'All time' },
