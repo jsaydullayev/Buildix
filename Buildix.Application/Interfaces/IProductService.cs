@@ -21,7 +21,12 @@ public interface IProductService
 
     /// <summary>Inline tahrir (narx/min-qoldiq/ko'rinish) — faqat berilgan maydon o'zgaradi, auditlanadi.</summary>
     Task<Result<ProductDto>> PatchProductAsync(Guid id, ProductPatchDto request, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<bool> DeleteProductAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Tovarni o'chiradi — ilovaning hamma yeridan yo'qoladi, savdo tarixi
+    /// tegilmaydi. <c>false</c> — tovar topilmadi.
+    /// </summary>
+    /// <param name="actorUserId">Kim o'chirdi — auditga yoziladi.</param>
+    Task<bool> DeleteProductAsync(Guid id, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<bool> UpdateStockAsync(Guid id, decimal quantityChange, CancellationToken cancellationToken = default);
 
     // Bulk physical inventory count (Инвентаризация). Sets each product's on-hand

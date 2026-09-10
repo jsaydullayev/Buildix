@@ -35,6 +35,25 @@ export function desktopBridge(target: PrintTarget): WebViewBridge | null {
   return can && w.chrome?.webview ? w.chrome.webview : null;
 }
 
+/**
+ * Qobiqda shu turdagi XOM (RAW) chop etish sozlanganmi.
+ *
+ * <p>Chaqiruvchi bu bilan baytlarni SO'RASHDAN oldin qaror qiladi. Busiz
+ * printer sozlanmagan do'konda har chop etish avval serverdan ma'lumot
+ * so'rab, qobiqqa yuborib, xato olib, keyingina zaxira yo'liga tushardi —
+ * bir bosishga bitta keraksiz aylanma.</p>
+ */
+export function canPrintRaw(target: PrintTarget): boolean {
+  const w = window as unknown as {
+    chrome?: { webview?: WebViewBridge };
+    buildixDesktop?: { canPrintRaw?: boolean; canPrintRawLabels?: boolean };
+  };
+  if (!w.chrome?.webview) return false;
+  return target === 'label'
+    ? w.buildixDesktop?.canPrintRawLabels === true
+    : w.buildixDesktop?.canPrintRaw === true;
+}
+
 /** Qobiq javobini kutish chegarasi — sekin printerlarda chop etish uzoq. */
 const TIMEOUT_MS = 60_000;
 
@@ -107,12 +126,21 @@ export type RawPrintResult = { ok: boolean; problem?: string };
  * ham (TCP:9100) ulangan bo'lishi mumkin — bu yerdan farqi
  * bilinmaydi.</p>
  */
-export function printRawViaDesktop(dataBase64: string): Promise<RawPrintResult> {
+export function printRawViaDesktop(
+  dataBase64: string,
+  target: 'receipt' | 'label' = 'receipt',
+): Promise<RawPrintResult> {
   const w = window as unknown as {
     chrome?: { webview?: WebViewBridge };
-    buildixDesktop?: { canPrintRaw?: boolean };
+    buildixDesktop?: { canPrintRaw?: boolean; canPrintRawLabels?: boolean };
   };
-  const bridge = w.buildixDesktop?.canPrintRaw && w.chrome?.webview ? w.chrome.webview : null;
+  // Yorliq uchun ALOHIDA belgi: qobiqda chek printeri tanlangan bo'lib,
+  // yorliq printeri tanlanmagan bo'lishi mumkin. Bitta umumiy belgiga
+  // tayanilsa, bunday do'konda har chop etish avval baytlarni yasab,
+  // yuborib, xato olib, keyingina rasm yo'liga tushardi.
+  const capable =
+    target === 'label' ? w.buildixDesktop?.canPrintRawLabels : w.buildixDesktop?.canPrintRaw;
+  const bridge = capable && w.chrome?.webview ? w.chrome.webview : null;
   if (!bridge) return Promise.resolve({ ok: false });
 
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -130,7 +158,7 @@ export function printRawViaDesktop(dataBase64: string): Promise<RawPrintResult> 
     const onMessage = (e: { data: unknown }) => {
       const d = e.data as { kind?: string; id?: string; ok?: boolean; problem?: string } | null;
       if (!d || d.kind !== 'buildix.print-raw.result' || d.id !== id) return;
-      if (!d.ok && d.problem) console.warn('[buildix] chek printeri:', d.problem);
+      if (!d.ok && d.problem) console.warn(`[buildix] ${target} printeri:`, d.problem);
       finish({ ok: d.ok === true, problem: d.problem });
     };
 
@@ -141,7 +169,7 @@ export function printRawViaDesktop(dataBase64: string): Promise<RawPrintResult> 
       TIMEOUT_MS,
     );
     bridge.addEventListener('message', onMessage);
-    bridge.postMessage({ kind: 'buildix.print-raw', id, dataBase64 });
+    bridge.postMessage({ kind: 'buildix.print-raw', id, dataBase64, target });
   });
 }
 

@@ -70,9 +70,17 @@ public sealed class LabelPrintBridge
         // yo'q, ya'ni belgini server tomonidan aniqlab bo'lmaydi.
         var register = JsonSerializer.Serialize(_secrets.RegisterCode);
 
+        // `canPrintRawLabels` — yorliq printeri TANLANGANMI. Sahifa TSPL
+        // yo'lini shu belgi bilan tanlaydi: belgisiz u avval baytlarni
+        // so'rab, yuborib, xato olib, keyingina rasm yo'liga tushardi —
+        // ya'ni printer sozlanmagan har bir do'kon har bosishda bitta
+        // keraksiz aylanma to'lardi.
+        var rawLabels = _secrets.LabelPrinter is { Length: > 0 } ? "true" : "false";
+
         await core.AddScriptToExecuteOnDocumentCreatedAsync(
             "window.buildixDesktop = Object.assign(window.buildixDesktop || {}, "
             + "{ canPrintLabels: true, canPrintReceipts: true, canPrintRaw: true, "
+            + $"canPrintRawLabels: {rawLabels}, "
             + $"registerCode: {register} }});");
 
         core.WebMessageReceived += async (_, e) =>
@@ -110,10 +118,28 @@ public sealed class LabelPrintBridge
         };
     }
 
-    /// <summary>Tayyor baytlarni printerga yuboradi.</summary>
+    /// <summary>
+    /// Tayyor baytlarni printerga yuboradi — chekni ham, yorliqni ham.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Qaysi printerga — <c>target</c> aytadi.</b> Ilgari bu yerda
+    /// har doim CHEK printeri olinardi va <c>request.Target</c> umuman
+    /// o'qilmasdi. Yorliq baytlari ham chek printeriga ketardi: bir do'konda
+    /// ikkala printer ham turgani uchun bu jimgina noto'g'ri qurilmaga
+    /// yuborish edi.</para>
+    ///
+    /// <para>Yorliq uchun taxmin (<see cref="ReceiptOutput.Guess"/>)
+    /// ATAYLAB ishlatilmaydi: uning ishoralar ro'yxatida «gprinter» ham,
+    /// «xprinter» ham bor va ikkala printer o'rnatilgan do'konda u
+    /// ikkalasini topib, tanlashdan bosh tortadi. Yorliq printeri sozlashda
+    /// ochiq tanlanadi.</para>
+    /// </remarks>
     private async Task<string?> PrintRawAsync(PrintRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.DataBase64)) return "Chek ma'lumoti bo'sh.";
+        var label = string.Equals(request.Target, "label", StringComparison.OrdinalIgnoreCase);
+        var what = label ? "Yorliq" : "Chek";
+
+        if (string.IsNullOrWhiteSpace(request.DataBase64)) return $"{what} ma'lumoti bo'sh.";
 
         byte[] bytes;
         try
@@ -122,14 +148,14 @@ public sealed class LabelPrintBridge
         }
         catch (FormatException)
         {
-            return "Chek ma'lumoti buzilgan.";
+            return $"{what} ma'lumoti buzilgan.";
         }
 
-        var printer = await ReceiptTargetAsync();
-        if (printer is null)
-            return "Chek printeri tanlanmagan. Buildix.Desktop.exe --setup oynasida tanlang.";
+        var printer = label ? _secrets.LabelPrinter : await ReceiptTargetAsync();
+        if (string.IsNullOrWhiteSpace(printer))
+            return $"{what} printeri tanlanmagan. Buildix.Desktop.exe --setup oynasida tanlang.";
 
-        return await ReceiptOutput.SendAsync(printer, bytes, CancellationToken.None);
+        return await ReceiptOutput.SendAsync(printer, bytes, CancellationToken.None, what);
     }
 
     /// <summary>

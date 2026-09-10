@@ -20,6 +20,14 @@ export interface MarketSettings {
   autoPrintReceipt: boolean;
   /** Chek rulonining eni: 58 yoki 80 mm. */
   receiptWidthMm: number;
+  /** Yorliq rulonining eni, mm (57, 58, 40…). */
+  labelWidthMm: number;
+  /** Yorliq bo'yi, mm (38, 30, 40…). */
+  labelHeightMm: number;
+  /** Yorliqlar orasidagi tirqish, mm. Deyarli har doim 2. */
+  labelGapMm: number;
+  /** Vertikal siljish tuzatmasi, mm. Faqat musbat. */
+  labelOffsetMm: number;
   defaultLanguage: string; // "ru" | "uz"
   firstDayOfWeek: number;
   minStockAlertEnabled: boolean;

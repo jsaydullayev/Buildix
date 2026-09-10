@@ -176,7 +176,9 @@ public class DebtQueryService : IDebtQueryService
                 .Where(si => saleIds.Contains(si.SaleId))
                 .Select(si => new DebtCheckItem(
                     si.SaleId,
-                    si.IsExternal ? si.ExternalProductName : si.Product!.Name,
+                    // Nom qatorning o'zidan — jonli tovarga bog'lanish shart
+                    // emas. Bu ayni paytda bitta JOIN ni ham olib tashlaydi.
+                    si.IsExternal ? si.ExternalProductName : si.ProductName,
                     si.Quantity))
                 .ToListAsync(cancellationToken))
               .GroupBy(x => x.SaleId)

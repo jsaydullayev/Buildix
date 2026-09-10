@@ -5,7 +5,14 @@ import { Printer, Info } from 'lucide-react';
 import { Modal, Button, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { printLabels } from '@/shared/lib/printLabels';
+import { canPrintRaw, printRawViaDesktop, toBase64 } from '@/shared/lib/desktopPrint';
 import type { ApiError } from '@/shared/api/types';
+// Chop etish sozlamalari kassa bilan BIR endpoint'dan keladi
+// (`/Markets/pos-settings`) va bir xil so'rov kaliti ishlatiladi — ya'ni
+// butun ilova uchun bitta so'rov. Egaga tegishli `/Markets/settings` bu
+// yerda yaramaydi: yorliq oynasini `products.edit` ruxsatli omborchi
+// ochadi va unga o'sha yo'l berilmagan.
+import { posApi } from '@/features/pos/api';
 import { productsApi } from './api';
 
 /** Yorliq chop etiladigan bitta tovar. */
@@ -26,14 +33,16 @@ export interface LabelTarget {
 }
 
 /**
- * Yorliq o'lchamlari. Printer hali sotib olinmagan, shuning uchun uchta keng
- * tarqalgan rulon taklif qilinadi; server istalgan o'lchamni qabul qiladi.
+ * Rulon o'lchami — sozlamadan kelmasa ishlatiladigan zaxira.
+ *
+ * <p>Ilgari bu yerda uchta qattiq yozilgan variant turardi (58×40, 40×30,
+ * 30×20) va omborchi har chop etishda birini tanlardi. Do'konning haqiqiy
+ * rulonlari (57×38, 57×30) ro'yxatda umuman yo'q edi — u eng yaqinini
+ * tanlar, maket esa yorliqqa siljib tushardi. Rulon do'konning fizik
+ * xususiyati, chop etish tugmasini bosgan odamning tanlovi emas, shuning
+ * uchun u endi Sozlamalarda turadi.</p>
  */
-const SIZES = [
-  { key: '58x40', w: 58, h: 40 },
-  { key: '40x30', w: 40, h: 30 },
-  { key: '30x20', w: 30, h: 20 },
-] as const;
+const FALLBACK_ROLL = { widthMm: 58, heightMm: 40 };
 
 /**
  * Yorliq chop etish — uch joydan (tovar kartasi, ro'yxatdan ko'plab,
@@ -51,8 +60,19 @@ export function PrintLabelsModal({
 }) {
   const { t } = useTranslation();
   const [copies, setCopies] = useState<Record<string, number>>({});
-  const [size, setSize] = useState<(typeof SIZES)[number]>(SIZES[0]);
   const [error, setError] = useState<string | null>(null);
+
+  // Rulon o'lchami — do'kon sozlamasidan. Uzoq keshlanadi: u kuniga
+  // o'zgaradigan qiymat emas.
+  const settingsQuery = useQuery({
+    queryKey: ['pos-print-settings'],
+    queryFn: posApi.printSettings,
+    staleTime: 30 * 60_000,
+  });
+  const size = {
+    w: settingsQuery.data?.labelWidthMm ?? FALLBACK_ROLL.widthMm,
+    h: settingsQuery.data?.labelHeightMm ?? FALLBACK_ROLL.heightMm,
+  };
 
   // Oyna har ochilganda qaytadan to'ldiriladi: priyomkadan kelgan miqdor
   // oldingi seansdan qolgan qiymat bilan almashib ketmasin.
@@ -69,7 +89,7 @@ export function PrintLabelsModal({
   // O'ZIDAN chiqaradi, ya'ni ko'rgan narsa bosiladi.
   const sample = targets[0];
   const preview = useQuery({
-    queryKey: ['label-preview', sample?.id, sample?.barcode, size.key],
+    queryKey: ['label-preview', sample?.id, sample?.barcode, size.w, size.h],
     queryFn: () =>
       productsApi.labelPreview({
         name: sample!.name,
@@ -94,21 +114,45 @@ export function PrintLabelsModal({
   // Faqat ANIQ kodsizlar sanaladi — noma'lum (undefined) holat hisobga olinmaydi.
   const missingCode = targets.filter((p) => p.barcode === null).length;
 
+  /**
+   * Chop etish yo'llari — eng aniqidan boshlab.
+   *
+   * <ol>
+   *   <li><b>TSPL</b>: printerning O'Z tili. O'lcham jobning ichida
+   *   beriladi, ya'ni drayverdagi qog'oz o'lchami ahamiyatsiz va istalgan
+   *   rulon ishlaydi. Shtrix kodni printer 203 dpi da o'zi chizadi.</li>
+   *
+   *   <li><b>Rasm</b>: printer TSPL ni tushunmasa yoki qobiqda yorliq
+   *   printeri tanlanmagan bo'lsa. Sekinroq va drayverdagi qog'oz
+   *   o'lchamiga bog'liq, lekin ishlaydi.</li>
+   * </ol>
+   *
+   * <p>Chekdagi bilan bir xil narvon (<code>useReceiptPrinting</code>).</p>
+   */
   const print = useMutation({
-    // PDF EMAS, rasm. PDF ning sahifasi to'g'ri o'lchamda edi, lekin uni
-    // brauzerning chop etish oynasi «sahifaga moslash» bilan bosardi va
-    // qog'ozga xato o'lcham urilardi. Rasm aniq `@page` o'lchamli sahifaga
-    // qo'yiladi — masshtab qo'llanmaydi.
-    mutationFn: () =>
-      productsApi.labelImages(
-        targets.map((p) => ({ productId: p.id, copies: copies[p.id] ?? 1 })),
-        size.w,
-        size.h,
-      ),
-    onSuccess: async (labels) => {
+    mutationFn: async () => {
+      const items = targets.map((p) => ({ productId: p.id, copies: copies[p.id] ?? 1 }));
+
+      if (canPrintRaw('label')) {
+        const tspl = await productsApi.labelsTspl(items);
+        const raw = await printRawViaDesktop(await toBase64(new Blob([tspl])), 'label');
+        if (raw.ok) return { ok: true as const };
+        // Sabab YO'QOLMAYDI: zaxira yo'l ham ishlamasa, kassirga aynan
+        // shu xabar ko'rsatiladi («Yorliq printeri tanlanmagan» kabi).
+        const labels = await productsApi.labelImages(items, size.w, size.h);
+        const outcome = await printLabels(labels, size.w, size.h);
+        return outcome === 'failed'
+          ? { ok: false as const, problem: raw.problem }
+          : { ok: true as const };
+      }
+
+      const labels = await productsApi.labelImages(items, size.w, size.h);
       const outcome = await printLabels(labels, size.w, size.h);
-      if (outcome === 'failed') {
-        setError(t('labels.printFailed'));
+      return outcome === 'failed' ? { ok: false as const } : { ok: true as const };
+    },
+    onSuccess: (result) => {
+      if (!result.ok) {
+        setError(result.problem ?? t('labels.printFailed'));
         return;
       }
       onClose();
@@ -199,25 +243,14 @@ export function PrintLabelsModal({
           ))}
         </div>
 
-        {/* O'lcham */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* O'lcham — TANLANMAYDI, ko'rsatiladi. Rulon do'konning fizik
+            xususiyati va u Sozlamalarda bir marta beriladi. */}
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-[13px] font-medium text-label">{t('labels.size')}</span>
-          <div className="inline-flex rounded-input bg-hairline p-1">
-            {SIZES.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setSize(s)}
-                className={cn(
-                  'rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors nums',
-                  size.key === s.key ? 'bg-surface text-text shadow-card' : 'text-muted hover:text-text',
-                )}
-              >
-                {s.w}×{s.h}
-              </button>
-            ))}
-          </div>
-          <span className="text-[12.5px] text-muted-2">{t('labels.mm')}</span>
+          <span className="rounded-input bg-hairline px-3 py-1.5 text-[13px] font-medium nums">
+            {size.w}×{size.h} {t('labels.mm')}
+          </span>
+          <span className="text-[12.5px] text-muted-2">{t('labels.sizeFromSettings')}</span>
         </div>
 
         {missingCode > 0 && (

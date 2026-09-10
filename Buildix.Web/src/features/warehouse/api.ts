@@ -178,6 +178,59 @@ export const productsApi = {
   },
 
   /**
+   * Yorliqlar printerning O'Z tilida (TSPL) — eng aniq yo'l.
+   *
+   * <p>Rulon o'lchami bu yerda YUBORILMAYDI: uni server do'kon
+   * sozlamasidan oladi. Manba bitta bo'lishi kerak — aks holda sozlama
+   * bilan so'rov bir-biriga zid qiymat berib turardi.</p>
+   *
+   * <p>Baytlar qobiq orqali printerga xom holda ketadi: na drayver, na
+   * rasterlash, shtrix kodni printerning o'zi chizadi.</p>
+   */
+  labelsTspl: async (items: { productId: string; copies: number }[]): Promise<ArrayBuffer> => {
+    const { data } = await apiClient.post<ArrayBuffer>(
+      '/Products/labels/tspl',
+      { items },
+      { responseType: 'arraybuffer' },
+    );
+    return data;
+  },
+
+  /**
+   * Sinov yorlig'i (ramka + markaziy xoch) — TSPL da. O'lcham berilsa
+   * SAQLANMAGAN qiymat sinaladi: texnik yangi rulonni saqlashdan oldin
+   * tekshiradi.
+   */
+  labelTestTspl: async (roll?: {
+    widthMm: number;
+    heightMm: number;
+    gapMm: number;
+    offsetMm: number;
+  }): Promise<ArrayBuffer> => {
+    const { data } = await apiClient.get<ArrayBuffer>('/Products/labels/test/tspl', {
+      params: roll,
+      responseType: 'arraybuffer',
+    });
+    return data;
+  },
+
+  /**
+   * Tirqish sensori kalibrovkasi — rulon almashtirilganda birinchi shu.
+   * Bir-ikki yorliq bo'sh chiqadi, bu normal.
+   */
+  labelCalibrate: async (roll?: {
+    widthMm: number;
+    heightMm: number;
+    gapMm: number;
+  }): Promise<ArrayBuffer> => {
+    const { data } = await apiClient.get<ArrayBuffer>('/Products/labels/calibrate', {
+      params: roll,
+      responseType: 'arraybuffer',
+    });
+    return data;
+  },
+
+  /**
    * Yorliq PDF i. Har nusxa — alohida sahifa (yorliq printeri sahifadan keyin
    * qog'ozni uzadi). Kodsiz tovarlarga server kod o'zi biriktiradi.
    */

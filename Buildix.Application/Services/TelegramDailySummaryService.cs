@@ -159,7 +159,11 @@ public class TelegramDailySummaryService : ITelegramDailySummaryService
             ? []
             : await _db.SaleItems.AsNoTracking()
                 .Where(si => saleIds.Contains(si.SaleId))
-                .GroupBy(si => si.IsExternal ? si.ExternalProductName : (si.Product != null ? si.Product.Name : null))
+                // Nom qatorning o'zidan: o'chirilgan tovar ham kunlik
+                // xulosadagi «eng ko'p sotilganlar» ro'yxatida qolishi kerak.
+                // Ilgari jonli tovarga bog'lanardi va u yo'q bo'lsa qator
+                // `null` kalitga tushib, keyingi `Where` da tashlanardi.
+                .GroupBy(si => si.IsExternal ? si.ExternalProductName : si.ProductName)
                 .Where(g => g.Key != null)
                 .Select(g => new { Name = g.Key!, Qty = g.Sum(x => x.Quantity), Sum = g.Sum(x => x.SalePrice * x.Quantity) })
                 .OrderByDescending(x => x.Sum)

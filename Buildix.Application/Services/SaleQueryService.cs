@@ -171,7 +171,10 @@ public class SaleQueryService : ISaleQueryService
                     (s.Customer != null && s.Customer.FullName != null && s.Customer.FullName.ToLower().Contains(lower)) ||
                     (s.Customer != null && s.Customer.Phone.Contains(term)) ||
                     (s.Seller != null && s.Seller.FullName.ToLower().Contains(lower)) ||
-                    s.SaleItems.Any(si => si.Product != null && si.Product.Name.ToLower().Contains(lower)));
+                    // Qidiruv ham nusxa bo'yicha: o'chirilgan tovar nomi bilan
+                    // eski chekni topa olish kerak (qaytarish yoki tekshirish
+                    // uchun aynan shunday qidiriladi).
+                    s.SaleItems.Any(si => si.ProductName.ToLower().Contains(lower)));
             }
         }
 

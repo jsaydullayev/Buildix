@@ -162,7 +162,7 @@ public sealed class TestHarness : IDisposable
             StockLedger, CashLedger, CreditApplier, Freshness, ExternalPayouts);
 
     public ProductLabelService NewProductLabelService() =>
-        new(Db, UnitOfWork, Market);
+        new(Db, UnitOfWork, Market, Settings);
 
     public IStockLedger StockLedger => new StockLedger(Db);
     public ICashLedger CashLedger => new CashLedger(Db);
@@ -182,7 +182,7 @@ public sealed class TestHarness : IDisposable
             Settings, Substitute.For<ITelegramNotifier>(), CashLedger);
 
     public ProductService NewProductService() =>
-        new(UnitOfWork, Db, Market, Audit, StockLedger);
+        new(UnitOfWork, Db, Market, Audit, StockLedger, ImageStorage);
 
     public ProductQueryService NewProductQueryService() =>
         new(Db, Market, Clock);

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button, Card, Spinner, Badge, useConfirm } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
-import { PERMISSIONS } from '@/shared/config/permissions';
+import { PERMISSIONS, ROLES } from '@/shared/config/permissions';
 import { cn } from '@/shared/lib/cn';
 import { formatSum, formatQty } from '@/shared/lib/format';
 import { unitLabel } from '@/shared/lib/units';
@@ -28,6 +28,7 @@ import type { ApiError } from '@/shared/api/types';
 import { posApi, type PosCustomer, type PosSale } from './api';
 import { bumpPending, mergePending, settlePending, type PendingLine, type PendingMap } from './pending';
 import { useGlobalScanner } from './useGlobalScanner';
+import { AskPriceModal } from './AskPriceModal';
 import {
   EMPTY_MIX,
   MIX_ROWS,
@@ -59,16 +60,47 @@ const WIDE_METHODS = [
 
 // Miks mantig'i ./mix.ts da — kassir kassasi ham SHU manbadan oladi.
 
+/**
+ * Savatga qo'shish uchun tovardan kerak bo'ladigan qismi.
+ *
+ * <p><c>hidePriceFromSellers</c> IXTIYORIY: savat qatoridan takror
+ * qo'shishda (qator «+» tugmasi) bunday maydon yo'q va u yerda kerak
+ * ham emas — qatorda do'kon narxi emas, allaqachon tasdiqlangan narx
+ * turadi.</p>
+ */
+type AddableProduct = {
+  id: string;
+  name: string;
+  salePrice: number;
+  minSalePrice: number;
+  unit: number;
+  unitName: string;
+  hidePriceFromSellers?: boolean;
+};
+
 export default function PosPage() {
   const { subdomain } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const qc = useQueryClient();
   const confirm = useConfirm();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   // Narx ustida savdolashish — auditlanadigan huquq, shuning uchun ruxsat
   // ortida. Owner/Admin uni sukut bo'yicha oladi.
   const canEditPrice = hasPermission(PERMISSIONS.sales.edit);
+
+  /**
+   * «Narxni sotuvchidan yashirish» — bu ekran ham SOTUV oqimi, ya'ni
+   * to'siq shu yerda ham kerak.
+   *
+   * <p><b>Nega.</b> Bu sahifa <c>sales.create</c> ruxsati bilan ochiladi
+   * va sotuvchida o'sha ruxsat bor — ya'ni kassir shunchaki ikkinchi
+   * manzilni ochib, yashirilgan narxlarni katalogda ko'ra olardi. To'siq
+   * faqat kassir ekranida turgani uchun butun chora bekor bo'lardi.</p>
+   */
+  const isSeller = hasRole(ROLES.Seller);
+  /** Narxi so'ralayotgan tovar; oyna yopiq bo'lsa null. */
+  const [askPriceFor, setAskPriceFor] = useState<AddableProduct | null>(null);
 
   const [saleId, setSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -267,11 +299,13 @@ export default function PosPage() {
    * tarmoqni kutmaydi va necha marta tez bosishidan qat'i nazar ekran
    * sakramaydi.</p>
    */
-  function addProduct(p: { id: string; name: string; salePrice: number; minSalePrice: number; unit: number; unitName: string }) {
+  function addProduct(p: AddableProduct, entered?: { price: number; quantity: number }) {
+    const quantity = entered?.quantity ?? 1;
     const line: PendingLine = {
       productId: p.id,
       productName: p.name,
-      salePrice: p.salePrice,
+      // Narxi yashirilgan tovarda savatga KASSIR kiritgan raqam tushadi.
+      salePrice: entered?.price ?? p.salePrice,
       minSalePrice: p.minSalePrice,
       // Product da `unit` — UnitType raqami, `unitName` — qisqartma;
       // savat qatorida esa teskarisi ataladi.
@@ -280,13 +314,27 @@ export default function PosPage() {
     };
 
     setActionError(null);
-    setPending((map) => bumpPending(map, line, 1));
+    setPending((map) => bumpPending(map, line, quantity));
 
     const buffered = cartBuffer.current.get(p.id);
-    if (buffered) buffered.quantity += 1;
-    else cartBuffer.current.set(p.id, { line, quantity: 1 });
+    if (buffered) buffered.quantity += quantity;
+    else cartBuffer.current.set(p.id, { line, quantity });
 
     void drainCart();
+  }
+
+  /**
+   * Savatga qo'shishning yagona kirish nuqtasi — katalog va skaner shu
+   * yerdan o'tadi.
+   *
+   * <p>Narxi yashirilgan tovarda avval narx so'raladi: aks holda do'kon
+   * narxi qator summasi orqali baribir ko'rinardi. Savat qatoridagi «+»
+   * bu yo'ldan O'TMAYDI va o'tmasligi kerak — u qatorning allaqachon
+   * tasdiqlangan narxini takrorlaydi, do'kon narxini emas.</p>
+   */
+  function pickProduct(p: AddableProduct) {
+    if (isSeller && p.hidePriceFromSellers) setAskPriceFor(p);
+    else addProduct(p);
   }
 
   /**
@@ -369,7 +417,7 @@ export default function PosPage() {
     //    bo'lsa tarmoqqa umuman chiqilmaydi.
     const known = barcodeIndex.current.get(code);
     if (known) {
-      addProduct(known);
+      pickProduct(known);
       setSearch('');
       return;
     }
@@ -378,7 +426,7 @@ export default function PosPage() {
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
       if (product.barcode) barcodeIndex.current.set(product.barcode, product);
-      addProduct(product);
+      pickProduct(product);
       setSearch('');
       return;
     }
@@ -397,7 +445,7 @@ export default function PosPage() {
     const found = productsQuery.data?.items ?? [];
     const only = found.length === 1 ? found[0] : undefined;
     if (only) {
-      addProduct(only);
+      pickProduct(only);
       setSearch('');
     }
   }
@@ -409,14 +457,14 @@ export default function PosPage() {
   async function handleScannedCode(code: string) {
     const known = barcodeIndex.current.get(code);
     if (known) {
-      addProduct(known);
+      pickProduct(known);
       setSearch('');
       return;
     }
     const product = await posApi.findByBarcode(code).catch(() => null);
     if (product) {
       if (product.barcode) barcodeIndex.current.set(product.barcode, product);
-      addProduct(product);
+      pickProduct(product);
       setSearch('');
       return;
     }
@@ -427,7 +475,7 @@ export default function PosPage() {
   // tushmasligi kerak.
   useGlobalScanner(
     (code) => void handleScannedCode(code),
-    !done && !success && !externalOpen && !custOpen,
+    !done && !success && !externalOpen && !custOpen && askPriceFor === null,
   );
 
   /**
@@ -683,7 +731,7 @@ export default function PosPage() {
                     key={p.id}
                     type="button"
                     disabled={p.quantity <= 0}
-                    onClick={() => addProduct(p)}
+                    onClick={() => pickProduct(p)}
                     className="flex flex-col rounded-card border border-border bg-surface p-3 text-left transition-colors hover:border-primary disabled:opacity-50"
                   >
                     <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-hairline text-muted-2">
@@ -693,9 +741,17 @@ export default function PosPage() {
                     <div className="mt-1 text-[11.5px] text-muted-2 nums">
                       {formatQty(p.quantity)} {unitLabel(t, p.unit, p.unitName)}
                     </div>
-                    <div className="mt-1.5 text-[14px] font-semibold text-primary nums">
-                      {formatSum(p.salePrice)}
-                    </div>
+                    {/* Narxi yashirilgan tovarda HECH NARSA yozilmaydi —
+                        narx kartochka bosilganda alohida oynada so'raladi.
+                        Bo'sh element ataylab qoldirilgan: kartochkalar bir
+                        xil balandlikda tursin. */}
+                    {isSeller && p.hidePriceFromSellers ? (
+                      <div className="mt-1.5 h-5" aria-hidden />
+                    ) : (
+                      <div className="mt-1.5 text-[14px] font-semibold text-primary nums">
+                        {formatSum(p.salePrice)}
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -1016,6 +1072,17 @@ export default function PosPage() {
         onSubmit={(p) => addExternal.mutate(p)}
       />
 
+      <AskPriceModal
+        open={askPriceFor !== null}
+        product={askPriceFor}
+        onClose={() => setAskPriceFor(null)}
+        onSubmit={(price, quantity) => {
+          const product = askPriceFor;
+          setAskPriceFor(null);
+          if (product) addProduct(product, { price, quantity });
+        }}
+      />
+
       <ReceiptModal
         sale={done}
         shiftNumber={shiftQuery.data?.shiftNumber ?? 0}
@@ -1257,22 +1324,25 @@ function CartPrice({
             e.currentTarget.blur();
           }
         }}
-        className="h-6 w-24 rounded border border-primary bg-surface px-1.5 text-right text-[12px] outline-none nums"
+        className="h-10 w-32 rounded-input border border-primary bg-surface px-2.5 text-right text-[15px] font-semibold outline-none nums"
       />
     );
   }
 
   if (!editable) return <span className="nums">{formatSum(price)}</span>;
 
+  // Bosish maydoni ataylab kattalashtirildi: ilgari `px-0.5` va 11 nuqtali
+  // qalamcha bilan u matn qatoridan balandroq emas edi va kassir uni
+  // topolmasdi. Narx ustida savdolashish bu yerda kundalik amal.
   return (
     <button
       type="button"
       title={title}
       onClick={() => setDraft(String(price))}
-      className="flex items-center gap-1 rounded px-0.5 text-muted-2 transition-colors hover:text-primary"
+      className="-ml-1.5 flex items-center gap-1.5 rounded-input px-1.5 py-1 text-muted-2 transition-colors hover:bg-hairline hover:text-primary"
     >
-      <span className="nums">{formatSum(price)}</span>
-      <Pencil size={11} />
+      <span className="nums text-[13px] font-medium">{formatSum(price)}</span>
+      <Pencil size={14} />
     </button>
   );
 }

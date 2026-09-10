@@ -1,5 +1,6 @@
 using Buildix.Application.DTOs;
 using Buildix.Domain.Entities;
+using Buildix.Domain.Extensions;
 using Buildix.Domain.Interfaces;
 
 namespace Buildix.Application.Services;
@@ -17,6 +18,35 @@ namespace Buildix.Application.Services;
 /// </summary>
 internal static class SaleMapper
 {
+    /// <summary>
+    /// Qatorning nomi va o'lchov birligi — SOTUV paytidagi nusxadan.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega jonli mahsulotdan emas.</b> Ilgari nom har safar
+    /// <c>SaleItem.Product</c> orqali o'qilardi. Tovar o'chirilgach (yoki
+    /// yumshoq o'chirilib global filtrga tushgach) navigatsiya bo'sh
+    /// qaytardi va butun savdo tarixi «Unknown» ga aylanardi — mijozning
+    /// qo'lidagi chek bilan tizimdagi yozuv bir-biriga mos kelmay qolardi.
+    /// Endi nom qatorning o'zida turadi va tovarga bog'liq emas.</para>
+    ///
+    /// <para><paramref name="live"/> — faqat NUSXA bo'sh bo'lgan eski
+    /// yozuvlar uchun zaxira. Ko'chirish ularni to'ldiradi, ya'ni bu yo'l
+    /// amalda ishlamaydi; u ko'chirish o'tmagan bazada ham ekran to'g'ri
+    /// bo'lishi uchun qoldirilgan.</para>
+    /// </remarks>
+    private static (string Name, string Unit, int UnitValue) Describe(SaleItem item, Product? live)
+    {
+        if (item.IsExternal)
+            return (item.ExternalProductName ?? "Tashqi mahsulot", "", 0);
+
+        if (!string.IsNullOrWhiteSpace(item.ProductName))
+            return (item.ProductName, item.ProductUnit.GetUnitName(), (int)item.ProductUnit);
+
+        return live is not null
+            ? (live.Name, live.GetUnitName(), (int)live.Unit)
+            : ("Unknown", "", 0);
+    }
+
     public static SaleItemDto MapItem(SaleItem item, string productName, string unit = "", int unitValue = 0)
     {
         // Effective cost: external lines carry their own cost, ordinary lines
@@ -58,19 +88,7 @@ internal static class SaleMapper
         s.CreatedAt,
         s.SaleItems.Select(si =>
         {
-            string productName;
-            string unit = "";
-            var unitValue = 0;
-            if (!si.IsExternal)
-            {
-                productName = si.Product?.Name ?? "Unknown";
-                unit = si.Product?.GetUnitName() ?? "";
-                unitValue = (int)(si.Product?.Unit ?? 0);
-            }
-            else
-            {
-                productName = si.ExternalProductName ?? "Tashqi mahsulot";
-            }
+            var (productName, unit, unitValue) = Describe(si, si.Product);
             return MapItem(si, productName, unit, unitValue);
         }).ToList(),
         s.Payments
@@ -119,28 +137,14 @@ internal static class SaleMapper
 
         foreach (var item in saleItems)
         {
-            string? productName = null;
-            string unit = "";
-            var unitValue = 0;
+            // ProductId is nullable on the entity; guard before .Value so a
+            // corrupt row degrades gracefully instead of throwing.
+            Product? live = null;
+            if (!item.IsExternal && item.ProductId.HasValue)
+                products.TryGetValue(item.ProductId.Value, out live);
 
-            if (!item.IsExternal)
-            {
-                // ProductId is nullable on the entity; guard before .Value so a
-                // corrupt row degrades to "Unknown" instead of throwing.
-                if (item.ProductId.HasValue &&
-                    products.TryGetValue(item.ProductId.Value, out var product))
-                {
-                    productName = product.Name;
-                    unit = product.GetUnitName();
-                    unitValue = (int)product.Unit;
-                }
-            }
-            else
-            {
-                productName = item.ExternalProductName;
-            }
-
-            itemsDto.Add(MapItem(item, productName ?? "Unknown", unit, unitValue));
+            var (productName, unit, unitValue) = Describe(item, live);
+            itemsDto.Add(MapItem(item, productName, unit, unitValue));
         }
 
         var payments = await unitOfWork.Payments.FindAsync(p => p.SaleId == sale.Id, cancellationToken);

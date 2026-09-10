@@ -37,12 +37,21 @@ public class DebtChecksTests
         return sale;
     }
 
+    /// <remarks>
+    /// <c>ProductName</c>/<c>ProductUnit</c> — sotuv paytidagi nusxa. Ular
+    /// haqiqiy qatorda HAR DOIM to'ldirilgan bo'ladi (yaratishda yoziladi,
+    /// eski yozuvlarni ko'chirish to'ldiradi), shuning uchun sinov ma'lumoti
+    /// ham shunday bo'lishi kerak — aks holda sinov bazada hech qachon
+    /// uchramaydigan holatni tekshirgan bo'lardi.
+    /// </remarks>
     private static void AddItem(TestHarness h, Sale sale, Product? product, string? externalName, decimal qty)
         => h.Db.SaleItems.Add(new SaleItem
         {
             Id = Guid.NewGuid(), SaleId = sale.Id,
             ProductId = product?.Id, IsExternal = product is null,
             ExternalProductName = externalName, Quantity = qty,
+            ProductName = product?.Name ?? externalName ?? string.Empty,
+            ProductUnit = product?.Unit ?? UnitType.Piece,
             SalePrice = 10_000, CostPrice = 8_000,
         });
 

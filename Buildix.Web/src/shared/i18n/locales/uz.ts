@@ -279,6 +279,12 @@ export const uz: TranslationSchema = {
         costTooHigh: 'Kelish narxi sotuv narxidan kichik bo‘lishi kerak.',
         add: 'Chekka qo‘shish',
       },
+      askPrice: {
+        title: 'Narxni kiriting',
+        price: 'Sotuv narxi',
+        add: 'Chekka qo‘shish',
+        hint: 'Bu tovarning narxi sotuvchiga ko‘rsatilmaydi — narxni egasidan so‘rab kiriting.',
+      },
     },
     shifts: {
       range: { week: 'Hafta', month: 'Oy', all: 'Butun davr' },
@@ -873,6 +879,24 @@ export const uz: TranslationSchema = {
       header: 'Chek tepasidagi matn',
       footer: 'Chek pastidagi matn',
     },
+    label: {
+      title: 'Yorliq',
+      subtitle: 'Tovar etiketkasi ruloni',
+      width: 'Rulon eni',
+      height: 'Yorliq bo’yi',
+      sizeHint: 'Rulondagi bitta yorliqning o’lchami. Chop etishda shu ishlatiladi.',
+      gap: 'Tirqish',
+      gapHint: 'Ikki yorliq orasidagi bo’sh joy. Deyarli har doim 2 mm.',
+      offset: 'Vertikal siljish',
+      offsetHint:
+        'Maket tepadan pastga shuncha suriladi. Sinov yorlig’ining ramkasi tepaga surilgan bo’lsa — farqni o’lchab shu yerga kiriting.',
+      calibrate: 'Kalibrovka',
+      test: 'Sinov yorlig’i',
+      toolsHint:
+        'Rulon almashtirilganda AVVAL «Kalibrovka» bosing — printer yorliq uzunligini o’zi o’lchaydi (bir-ikki yorliq bo’sh chiqadi, bu normal). So’ng «Sinov yorlig’i» bilan tekshiring: ramka yorliqqa teng tushsa o’lcham to’g’ri. Ikkalasi ham ekrandagi qiymat bilan ishlaydi, saqlash shart emas.',
+      needDesktop: 'Yorliq printeriga faqat do’kon dasturi ichidan yuborish mumkin.',
+      failed: 'Yorliq printeriga yuborib bo’lmadi.',
+    },
     notify: {
       title: 'Bildirishnomalar',
       subtitle: 'Egaga Telegram’da nima yuborilsin',
@@ -1288,6 +1312,7 @@ export const uz: TranslationSchema = {
     pcs: 'dona',
     size: 'O‘lcham',
     mm: 'mm',
+    sizeFromSettings: '— Sozlamalardagi rulon',
     previewCaption: 'Ko‘rinish — chop etilganda shunday chiqadi ({{w}}×{{h}} mm)',
     previewFailed: 'Ko‘rinishni chizib bo‘lmadi',
     willGenerate: 'kod yaratiladi',

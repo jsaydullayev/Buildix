@@ -95,15 +95,26 @@ apiClient.interceptors.response.use(
       sessionApi.clear();
     }
 
-    // Blob so'ralgan javobda XATO ham Blob bo'lib keladi (PDF, Excel, chek).
-    // normalizeError undan matn o'qiy olmaydi va hammasi «Network error» bo'lib
-    // ko'rinadi — server aslida aniq sabab yozgan bo'lsa ham. Shuning uchun
-    // Blob'ni matnga o'girib, JSON bo'lsa ochamiz.
-    const blob = error.response?.data;
-    if (blob instanceof Blob) {
+    // Blob yoki ArrayBuffer so'ralgan javobda XATO ham o'sha turda keladi
+    // (PDF, Excel, chek, yorliq TSPL baytlari). normalizeError ulardan matn
+    // o'qiy olmaydi va hammasi «Network error» bo'lib ko'rinadi — server
+    // aslida aniq sabab yozgan bo'lsa ham. Shuning uchun ikkalasini ham
+    // matnga o'girib, JSON bo'lsa ochamiz.
+    //
+    // ArrayBuffer alohida qo'shilgan: `responseType: 'arraybuffer'` bilan
+    // so'ralgan yorliq endpointlarida javob Blob EMAS va eski tekshiruv
+    // ularni o'tkazib yuborardi.
+    const payload = error.response?.data;
+    const raw =
+      payload instanceof Blob
+        ? await payload.text().catch(() => null)
+        : payload instanceof ArrayBuffer
+          ? new TextDecoder().decode(payload)
+          : null;
+
+    if (raw !== null) {
       try {
-        const text = await blob.text();
-        const trimmed = text.trim();
+        const trimmed = raw.trim();
         error.response!.data =
           trimmed.startsWith('{') || trimmed.startsWith('[') ? JSON.parse(trimmed) : trimmed;
       } catch {

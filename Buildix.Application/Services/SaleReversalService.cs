@@ -5,6 +5,7 @@ using Buildix.Application.Common;
 using Buildix.Domain.Constants;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Enums;
+using Buildix.Domain.Extensions;
 using Buildix.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -442,17 +443,12 @@ public class SaleReversalService : ISaleReversalService
             var itemsDto = new List<SaleItemDto>();
             foreach (var si in saleItems)
             {
-                string productName;
-                string unit = "";
-                if (!si.IsExternal)
-                {
-                    productName = si.Product?.Name ?? "Unknown";
-                    unit = si.Product?.GetUnitName() ?? "";
-                }
-                else
-                {
-                    productName = si.ExternalProductName ?? "Tashqi mahsulot";
-                }
+                // Nom va birlik — sotuv paytidagi nusxadan, jonli tovardan
+                // emas: bekor qilingan chek ham o'z holicha ko'rinishi kerak.
+                var productName = si.DisplayName is { Length: > 0 } captured
+                    ? captured
+                    : (si.IsExternal ? "Tashqi mahsulot" : "Unknown");
+                var unit = si.IsExternal ? "" : si.ProductUnit.GetUnitName();
                 itemsDto.Add(new SaleItemDto(
                     si.Id.ToString(),
                     si.SaleId.ToString(),
@@ -698,19 +694,12 @@ public class SaleReversalService : ISaleReversalService
 
             if (!isFullReturn && saleItem != null)
             {
-                string productName;
-                string unit = "";
-
-                if (!saleItem.IsExternal)
-                {
-                    productName = saleItem.Product?.Name ?? "Unknown";
-                    unit = saleItem.Product?.GetUnitName() ?? "";
-                }
-                else
-                {
-                    productName = saleItem.ExternalProductName ?? "Unknown";
-                    unit = "";
-                }
+                // Nom va birlik — sotuv paytidagi nusxadan (yuqoridagi bilan
+                // bir xil sabab: hujjat tovarga bog'liq bo'lmasligi kerak).
+                var productName = saleItem.DisplayName is { Length: > 0 } captured
+                    ? captured
+                    : "Unknown";
+                var unit = saleItem.IsExternal ? "" : saleItem.ProductUnit.GetUnitName();
 
                 return new SaleItemDto(
                     saleItem.Id.ToString(),

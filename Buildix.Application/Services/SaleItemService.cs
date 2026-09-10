@@ -200,6 +200,10 @@ public class SaleItemService : ISaleItemService
                         SaleId = saleId,
                         ProductId = request.ProductId,
                         IsExternal = false,  // ✅ Oddiy mahsulot
+                        // ✅ Nom va birlik SHU YERDA nusxalanadi — keyin tovar
+                        // o'chirilsa yoki qayta nomlansa ham chek o'zgarmaydi.
+                        ProductName = product.Name,
+                        ProductUnit = product.Unit,
                         Quantity = request.Quantity,
                         CostPrice = product.CostPrice,
                         SalePrice = request.SalePrice,
@@ -308,6 +312,9 @@ public class SaleItemService : ISaleItemService
                         IsExternal = true,  // ✅ Tashqi mahsulot
                         ProductId = null,  // ✅ Nullable
                         ExternalProductName = request.ExternalProductName,
+                        // ✅ Nusxa maydoni tashqi tovarda ham to'ldiriladi —
+                        // o'qiydigan tomon ikki maydonni farqlab o'tirmasin.
+                        ProductName = request.ExternalProductName ?? string.Empty,
                         ExternalCostPrice = request.ExternalCostPrice.Value,
                         Quantity = request.Quantity,
                         SalePrice = request.SalePrice,

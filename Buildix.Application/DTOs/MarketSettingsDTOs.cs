@@ -8,14 +8,28 @@ namespace Buildix.Application.DTOs;
 /// GET response and the "Сохранить изменения" whole-form PUT.
 /// </summary>
 /// <summary>
-/// Kassa uchun chop etish sozlamalari — chek eni va avtomatik chop etish.
-/// To'liq sozlamalar ekrani egaga tegishli, bu esa har bir xodimga ochiq.
+/// Kassa va ombor uchun chop etish sozlamalari — chek eni, yorliq rulonining
+/// o'lchami va avtomatik chop etish.
 /// </summary>
+/// <remarks>
+/// <para>To'liq sozlamalar ekrani egaga tegishli, bu esa har bir xodimga
+/// ochiq.</para>
+///
+/// <para><b>Nega yorliq o'lchami ham shu yerda.</b> Yorliq oynasini
+/// <c>products.edit</c> ruxsatiga ega har qanday xodim ochadi, egaga
+/// tegishli <c>/api/Markets/settings</c> esa unga berilmagan. O'lcham faqat
+/// o'sha yerda bo'lganida, omborchi rulon o'lchamini umuman o'qiy olmasdi va
+/// yorliq eski qattiq yozilgan qiymat bilan chiqaverardi.</para>
+/// </remarks>
 public record PosPrintSettingsDto(
     [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
     /// <summary>Harakatsizlikda chiqarish, daqiqada. 0 — chiqarilmaydi.</summary>
-    [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes);
+    [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes,
+    [property: JsonPropertyName("labelWidthMm")] decimal LabelWidthMm = 58m,
+    [property: JsonPropertyName("labelHeightMm")] decimal LabelHeightMm = 40m,
+    [property: JsonPropertyName("labelGapMm")] decimal LabelGapMm = 2m,
+    [property: JsonPropertyName("labelOffsetMm")] decimal LabelOffsetMm = 0m);
 
 public record MarketSettingsDto(
     // Магазин
@@ -38,6 +52,11 @@ public record MarketSettingsDto(
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
     [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
+    // Этикетка (yorliq rulonining o'lchami)
+    [property: JsonPropertyName("labelWidthMm")] decimal LabelWidthMm,
+    [property: JsonPropertyName("labelHeightMm")] decimal LabelHeightMm,
+    [property: JsonPropertyName("labelGapMm")] decimal LabelGapMm,
+    [property: JsonPropertyName("labelOffsetMm")] decimal LabelOffsetMm,
     // Локаль
     [property: JsonPropertyName("defaultLanguage")] string DefaultLanguage,
     [property: JsonPropertyName("firstDayOfWeek")] int FirstDayOfWeek,
@@ -74,6 +93,10 @@ public record UpdateMarketSettingsRequest(
     [property: JsonPropertyName("receiptFooter")] string? ReceiptFooter,
     [property: JsonPropertyName("autoPrintReceipt")] bool AutoPrintReceipt,
     [property: JsonPropertyName("receiptWidthMm")] int ReceiptWidthMm,
+    [property: JsonPropertyName("labelWidthMm")] decimal LabelWidthMm,
+    [property: JsonPropertyName("labelHeightMm")] decimal LabelHeightMm,
+    [property: JsonPropertyName("labelGapMm")] decimal LabelGapMm,
+    [property: JsonPropertyName("labelOffsetMm")] decimal LabelOffsetMm,
     [property: JsonPropertyName("defaultLanguage")] string DefaultLanguage,
     [property: JsonPropertyName("firstDayOfWeek")] int FirstDayOfWeek,
     [property: JsonPropertyName("minStockAlertEnabled")] bool MinStockAlertEnabled,

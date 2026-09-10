@@ -234,7 +234,30 @@ public record SyncSaleItemDto(
     [property: JsonPropertyName("costPrice")] decimal CostPrice,
     [property: JsonPropertyName("salePrice")] decimal SalePrice,
     [property: JsonPropertyName("comment")] string? Comment,
-    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt,
+
+    /// <summary>
+    /// Tovar nomi — SOTUV paytidagi nusxa.
+    /// </summary>
+    /// <remarks>
+    /// <para>Busiz do'kon qatorni tortib olgach nomni o'z bazasidagi jonli
+    /// tovardan qidirardi; tovar u yerda hali yo'q bo'lsa (yoki o'chirilgan
+    /// bo'lsa) qator «Unknown» bo'lib qolardi.</para>
+    ///
+    /// <para><b><c>null</c> — «yuborilmagan», bo'sh nom EMAS.</b> Eski bulut
+    /// bu maydonni umuman yubormaydi va o'shanda do'kondagi mavjud nom O'Z
+    /// HOLICHA qolishi kerak — bo'sh satr bilan ustidan yozilsa, ishlab
+    /// turgan do'konning tarixi bir tortishda tozalanib ketardi.</para>
+    /// </remarks>
+    [property: JsonPropertyName("productName")] string? ProductName = null,
+
+    /// <summary>
+    /// O'lchov birligi nusxasi (<see cref="Domain.Enums.UnitType"/> raqami).
+    /// <c>0</c> — «yuborilmagan»: sanoq 1 dan boshlanadi, shuning uchun nol
+    /// hech qanday birlikka to'g'ri kelmaydi va sentinel sifatida xavfsiz
+    /// (izohi <see cref="SyncProductDto"/> da batafsil).
+    /// </summary>
+    [property: JsonPropertyName("productUnit")] int ProductUnit = 0);
 
 /// <summary>
 /// Chekning qarzi.
@@ -387,7 +410,17 @@ public record SyncSettingsDto(
     [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes,
     [property: JsonPropertyName("auditEnabled")] bool AuditEnabled,
 
-    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt,
+
+    // ── Yorliq rulonining o'lchami ───────────────────────────────────────
+    // Hammasi NULLABLE va bu ataylab. Eski bulut bu maydonlarni umuman
+    // yubormaydi; o'shanda do'kondagi qiymat O'Z HOLICHA qolishi kerak.
+    // Nol sentinel sifatida yaramaydi: tirqish 0 (uzluksiz rulon) ham,
+    // siljish 0 (tuzatmasiz) ham HAQIQIY qiymatlar.
+    [property: JsonPropertyName("labelWidthMm")] decimal? LabelWidthMm = null,
+    [property: JsonPropertyName("labelHeightMm")] decimal? LabelHeightMm = null,
+    [property: JsonPropertyName("labelGapMm")] decimal? LabelGapMm = null,
+    [property: JsonPropertyName("labelOffsetMm")] decimal? LabelOffsetMm = null);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>
 public record SyncMarketDto(

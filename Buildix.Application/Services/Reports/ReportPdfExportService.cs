@@ -364,23 +364,34 @@ public sealed class ReportPdfExportService(
         var invoiceItems = new List<InvoiceItemData>();
         foreach (var item in sale.SaleItems)
         {
-            // ✅ ISEXTERNAL SHARTI - Product name olish
+            // Nom qatorning O'ZIDAN olinadi — sotuv paytida yozib qo'yilgan
+            // nusxadan.
+            //
+            // Ilgari u jonli `Products` jadvalidan qidirilardi va tovar
+            // o'chirilishi bilan ALLAQACHON bosilib berilgan chek ham
+            // «Noma'lum mahsulot» ga aylanardi: mijozning qo'lidagi qog'oz
+            // bilan tizimdagi nusxa bir-biriga mos kelmay qolardi. Tovar
+            // qayta nomlanganda ham shunday edi — bir yil oldingi chek
+            // bugungi nomni ko'rsatardi.
             string productName;
-            if (!item.IsExternal)
+            if (item.IsExternal)
             {
-                // Oddiy mahsulot - ProductId nullable uchun null check
-                if (!item.ProductId.HasValue)
-                    productName = "Unknown";
-                else
-                {
-                    var product = productDict.GetValueOrDefault(item.ProductId.Value);
-                    productName = product?.Name ?? L("Noma'lum mahsulot", "Неизвестный товар");
-                }
+                productName = item.ExternalProductName ?? L("Noma'lum mahsulot", "Неизвестный товар");
+            }
+            else if (!string.IsNullOrWhiteSpace(item.ProductName))
+            {
+                productName = item.ProductName;
+            }
+            else if (item.ProductId is { } pid && productDict.GetValueOrDefault(pid) is { } product)
+            {
+                // Nusxa maydoni qo'shilishidan OLDINGI yozuvlar. Ko'chirish
+                // ularni to'ldiradi, ya'ni bu yo'l amalda ishlamaydi — lekin
+                // ko'chirish o'tmagan bazada chek baribir to'g'ri chiqsin.
+                productName = product.Name;
             }
             else
             {
-                // Tashqi mahsulot
-                productName = item.ExternalProductName ?? L("Noma'lum mahsulot", "Неизвестный товар");
+                productName = L("Noma'lum mahsulot", "Неизвестный товар");
             }
             invoiceItems.Add(new InvoiceItemData(
                 productName,

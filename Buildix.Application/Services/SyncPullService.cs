@@ -146,7 +146,9 @@ public class SyncPullService : ISyncPullService
             settingsRow.DefaultDebtLimit, settingsRow.BlockSaleBelowCost,
             settingsRow.AllowedCashDiscrepancy, settingsRow.MinStockAlertEnabled,
             settingsRow.DefaultMarkupPct, settingsRow.InactivityLogoutMinutes,
-            settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt));
+            settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt),
+            settingsRow.LabelWidthMm, settingsRow.LabelHeightMm,
+            settingsRow.LabelGapMm, settingsRow.LabelOffsetMm);
 
         // ── Cheklar va ularning bolalari ─────────────────────────────────
         // Bolalar ALOHIDA kursor bilan olinmaydi — ular OTASI bilan birga
@@ -174,7 +176,7 @@ public class SyncPullService : ISyncPullService
             .Select(i => new SyncSaleItemDto(
                 i.Id, i.SaleId, i.ProductId, i.IsExternal, i.ExternalProductName,
                 i.ExternalCostPrice, i.Quantity, i.CostPrice, i.SalePrice, i.Comment,
-                AsUtc(i.UpdatedAt)))
+                AsUtc(i.UpdatedAt), i.ProductName, (int)i.ProductUnit))
             .ToListAsync(ct);
 
         var paymentDtos = saleIds.Count == 0 ? [] : await _context.Payments

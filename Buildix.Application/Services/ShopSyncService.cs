@@ -401,6 +401,14 @@ public class ShopSyncService : IShopSyncService
         settings.InactivityLogoutMinutes = dto.InactivityLogoutMinutes;
         settings.AuditEnabled = dto.AuditEnabled;
 
+        // Yorliq o'lchami — faqat KELGAN bo'lsa yoziladi. Eski bulut bu
+        // maydonlarni yubormaydi va o'shanda do'konda sozlangan rulon
+        // o'lchami bir tortishda nolga tushib ketardi.
+        if (dto.LabelWidthMm is { } lw) settings.LabelWidthMm = lw;
+        if (dto.LabelHeightMm is { } lh) settings.LabelHeightMm = lh;
+        if (dto.LabelGapMm is { } lg) settings.LabelGapMm = lg;
+        if (dto.LabelOffsetMm is { } lo) settings.LabelOffsetMm = lo;
+
         return true;
     }
 
@@ -578,6 +586,17 @@ public class ShopSyncService : IShopSyncService
             item.CostPrice = dto.CostPrice;
             item.SalePrice = dto.SalePrice;
             item.Comment = dto.Comment;
+
+            // Nom va birlik nusxasi — faqat KELGAN bo'lsa yoziladi. Eski bulut
+            // bu maydonlarni yubormaydi (`null` / `0`) va o'shanda do'kondagi
+            // mavjud qiymat o'z holicha qolishi kerak: bo'sh satr bilan ustidan
+            // yozilsa, ishlab turgan do'konning tarixi bir tortishda
+            // tozalanib ketardi.
+            if (dto.ProductName is not null) item.ProductName = dto.ProductName;
+            if (dto.ProductUnit != 0) item.ProductUnit = (UnitType)dto.ProductUnit;
+
+            // Havola bo'sh qolgan bo'lsa ham qator o'qiladigan bo'lib qoladi:
+            // nom endi qatorning O'ZIDA turadi, jonli tovarda emas.
 
             _applied.Add((item.Id, nameof(SaleItem), item));
         }

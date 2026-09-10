@@ -197,6 +197,10 @@ public class ZakupService : IZakupService
                     Id = Guid.NewGuid(),
                     ReceiptId = receipt.Id,
                     ProductId = line.ProductId,
+                    // Nom SHU YERDA nusxalanadi — hujjat keyin tovarga
+                    // bog'liq bo'lmasin (yetkazib beruvchi qarzi shu
+                    // hujjatda hisoblanadi).
+                    ProductName = product.Name,
                     Quantity = line.Quantity,
                     CostPrice = line.CostPrice,
                     CreatedByAdminId = adminId,
@@ -620,7 +624,9 @@ public class ZakupService : IZakupService
         r.Items.Select(i => new ZakupReceiptLineDto(
             i.Id,
             i.ProductId,
-            i.Product?.Name ?? "Unknown",
+            // Priyomka paytidagi nusxa; jonli tovar faqat nusxasiz eski
+            // yozuvlar uchun zaxira (ko'chirish ularni to'ldiradi).
+            i.ProductName is { Length: > 0 } captured ? captured : (i.Product?.Name ?? "Unknown"),
             i.Quantity,
             i.CostPrice,
             i.Quantity * i.CostPrice)).ToList(),
@@ -631,7 +637,7 @@ public class ZakupService : IZakupService
     private static ZakupDto MapToDtoEager(Zakup zakup) => new(
         zakup.Id,
         zakup.ProductId,
-        zakup.Product?.Name ?? "Unknown",
+        zakup.ProductName is { Length: > 0 } captured ? captured : (zakup.Product?.Name ?? "Unknown"),
         zakup.Quantity,
         zakup.CostPrice,
         zakup.CreatedAt,

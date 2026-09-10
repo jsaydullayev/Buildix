@@ -90,16 +90,21 @@ public sealed class SalesReportService(
 
                 if (!item.IsExternal)
                 {
-                    // Oddiy mahsulot. A non-external item should always carry
-                    // a ProductId, but the column is nullable — guard so a
-                    // bad row is skipped instead of throwing.
-                    if (!item.ProductId.HasValue ||
-                        !products.TryGetValue(item.ProductId.Value, out var product))
-                        continue;
-
-                    productName = product.Name;
+                    // Nom va birlik — sotuv paytidagi NUSXADAN.
+                    //
+                    // Ilgari bu yerda jonli mahsulot qidirilar va topilmasa
+                    // qator butunlay TASHLAB YUBORILARDI (`continue`). Ya'ni
+                    // tovar o'chirilishi bilan uning savdolari kun
+                    // hisobotidan yo'qolar, tushum va foyda esa jimgina
+                    // kamayib qolardi — hisobot bilan kassadagi pul mos
+                    // kelmasdi. Endi qator har doim hisobga kiradi.
+                    productName = item.ProductName is { Length: > 0 } captured
+                        ? captured
+                        : (item.ProductId is { } pid && products.TryGetValue(pid, out var product)
+                            ? product.Name
+                            : "Noma'lum mahsulot");
                     costPrice = item.CostPrice;
-                    unit = product.GetUnitName();
+                    unit = item.ProductUnit.GetUnitName();
                 }
                 else
                 {

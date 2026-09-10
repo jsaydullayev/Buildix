@@ -23,7 +23,12 @@ internal static class RawPrinter
     /// <summary>
     /// Yuboradi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda sabab.
     /// </summary>
-    public static string? Send(string printerName, byte[] data)
+    /// <param name="docName">
+    /// Windows chop etish navbatida ko'rinadigan nom. Ilgari har bir job
+    /// «Buildix chek» deb atalardi — yorliq jobi ham, ya'ni navbatda
+    /// nima turganini ajratib bo'lmasdi.
+    /// </param>
+    public static string? Send(string printerName, byte[] data, string docName = "Buildix chek")
     {
         if (string.IsNullOrWhiteSpace(printerName)) return "Printer tanlanmagan.";
         if (data.Length == 0) return "Yuboriladigan ma'lumot bo'sh.";
@@ -36,7 +41,7 @@ internal static class RawPrinter
         {
             var info = new DOCINFO
             {
-                pDocName = "Buildix chek",
+                pDocName = docName,
                 pOutputFile = null,
                 // RAW — «bu tayyor ma'lumot, unga tegma» degani. Boshqa tur
                 // berilsa drayver baytlarni matn deb qabul qilar va ESC/POS

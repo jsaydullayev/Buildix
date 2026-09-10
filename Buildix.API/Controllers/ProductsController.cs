@@ -198,6 +198,76 @@ public class ProductsController : ApiControllerBase
         => ToActionResult(await _labelService.RenderLabelImagesAsync(request, ct));
 
     /// <summary>
+    /// Yorliqlarni printerning O'Z tilida (TSPL) beradi — eng aniq yo'l.
+    /// </summary>
+    /// <remarks>
+    /// <para>Baytlar qobiq orqali printerga XOM holda ketadi: na drayver, na
+    /// rasterlash. Shtrix kodni printerning o'zi chizadi, o'lcham esa
+    /// jobning ichida beriladi — ya'ni drayverdagi qog'oz o'lchami
+    /// ahamiyatsiz bo'ladi va istalgan rulon ishlaydi.</para>
+    ///
+    /// <para>Rulon o'lchami SO'ROVDAN emas, do'kon sozlamasidan olinadi
+    /// (sabab <see cref="ProductLabelService.RenderLabelsTsplAsync"/> da).
+    /// Ruxsat rasm yo'li bilan bir xil: bu yerda ham kodsiz tovarga
+    /// shtrix-kod biriktiriladi.</para>
+    /// </remarks>
+    [HttpPost("~/api/Products/labels/tspl")]
+    [RequirePermission(PermissionKeys.ProductsEdit)]
+    public async Task<IActionResult> PrintLabelsTspl(
+        [FromBody] PrintLabelsDto request, CancellationToken ct = default)
+    {
+        var result = await _labelService.RenderLabelsTsplAsync(request, ct);
+        if (result.IsFailure)
+            return result.Code == NotFoundCode
+                ? NotFound()
+                : BadRequest(new { message = result.Error, code = result.Code });
+
+        return File(result.Value, "application/octet-stream");
+    }
+
+    /// <summary>
+    /// Sinov yorlig'i (ramka + markaziy xoch) — TSPL da.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ramka yorliq chetidan 1 mm ichkarida chiqadi, ya'ni bir necha
+    /// millimetrlik siljish darhol ko'rinadi — namunaviy tovar yorlig'ida uni
+    /// payqab bo'lmasdi.</para>
+    ///
+    /// <para>O'lchamni so'rovda berish mumkin: texnik sozlamani SAQLASHDAN
+    /// oldin yangi rulonni sinab ko'radi. Ruxsat — <c>products.access</c>,
+    /// qolgan sinov yo'llari bilan bir xil: printerni kassir ham sinashi
+    /// kerak.</para>
+    /// </remarks>
+    [HttpGet("~/api/Products/labels/test/tspl")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<IActionResult> TestLabelTspl(
+        [FromQuery] double? widthMm = null, [FromQuery] double? heightMm = null,
+        [FromQuery] double? gapMm = null, [FromQuery] double? offsetMm = null,
+        CancellationToken ct = default)
+        => File(
+            await _labelService.RenderTestLabelTsplAsync(widthMm, heightMm, gapMm, offsetMm, ct),
+            "application/octet-stream");
+
+    /// <summary>
+    /// Tirqish sensorini kalibrovkalash — printer yorliq uzunligini o'zi
+    /// o'lchab xotirasiga yozadi.
+    /// </summary>
+    /// <remarks>
+    /// Rulon almashtirilganda BIRINCHI shu bajariladi: busiz printer oldingi
+    /// rulonning uzunligini ishlatadi va maket tirqishga tushadi. Bir-ikki
+    /// yorliq bo'sh chiqadi — bu normal, shuning uchun u chop etishning
+    /// ichiga qo'shilmagan (har bosishda ikkita yorliq bekorga ketardi).
+    /// </remarks>
+    [HttpGet("~/api/Products/labels/calibrate")]
+    [RequirePermission(PermissionKeys.ProductsAccess)]
+    public async Task<IActionResult> CalibrateLabels(
+        [FromQuery] double? widthMm = null, [FromQuery] double? heightMm = null,
+        [FromQuery] double? gapMm = null, CancellationToken ct = default)
+        => File(
+            await _labelService.RenderCalibrationTsplAsync(widthMm, heightMm, gapMm, ct),
+            "application/octet-stream");
+
+    /// <summary>
     /// Skaner uchun: shtrix-kod bo'yicha aniq moslik. Topilmasa 404.
     /// </summary>
     /// <remarks>
@@ -395,11 +465,18 @@ public class ProductsController : ApiControllerBase
         CancellationToken ct = default)
         => Ok(await reconciler.FindDriftAsync(currentMarket.GetCurrentMarketId(), ct));
 
+    /// <summary>
+    /// Tovarni o'chiradi. U katalogdan, ro'yxatlardan, qidiruvdan va
+    /// hisobotlardan yo'qoladi; cheklar, savdolar, qaytarishlar va priyomka
+    /// hujjatlari esa TEGILMAYDI — ular tovar nomini o'zida saqlaydi.
+    /// </summary>
     [HttpDelete("{id}")]
     [RequirePermission(PermissionKeys.ProductsDelete)]
     public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken ct = default)
     {
-        var result = await _productService.DeleteProductAsync(id);
+        // Kim o'chirgani auditga yoziladi va so'rov bekor qilinsa amal ham
+        // to'xtaydi — ilgari ikkalasi ham uzatilmasdi.
+        var result = await _productService.DeleteProductAsync(id, CurrentUserId(), ct);
         if (!result)
             return NotFound();
 
