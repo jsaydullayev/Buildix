@@ -221,7 +221,9 @@ public class CustomerService : ICustomerService
                 s.Status,
                 Items = s.SaleItems.Select(i => new
                 {
-                    Name = i.IsExternal ? i.ExternalProductName : (i.Product != null ? i.Product.Name : null),
+                    // Sotuv paytidagi nusxa — mijozning xarid tarixi tovar
+                    // o'chirilgandan keyin ham o'qiladigan bo'lib qoladi.
+                    Name = i.IsExternal ? i.ExternalProductName : i.ProductName,
                     i.Quantity,
                 }).ToList(),
                 PaymentTypes = s.Payments.Select(p => p.PaymentType).Distinct().ToList(),

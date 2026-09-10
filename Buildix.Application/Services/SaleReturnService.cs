@@ -77,9 +77,12 @@ public class SaleReturnService : ISaleReturnService
                 if (line.Quantity <= 0 || line.Quantity > saleItem.Quantity)
                     return Result.Failure<SaleReturnDto>($"Qaytarish miqdori noto'g'ri (mavjud: {saleItem.Quantity}).");
 
-                var productName = saleItem.IsExternal
-                    ? (saleItem.ExternalProductName ?? "Tashqi mahsulot")
-                    : (saleItem.Product?.Name ?? "Noma'lum");
+                // Nom sotuv qatorining NUSXASIDAN ko'chiriladi: qaytarish
+                // hujjati aynan sotilgan narsani ko'rsatishi kerak, tovarning
+                // bugungi nomini emas — va tovar o'chirilgan bo'lsa ham.
+                var productName = saleItem.DisplayName is { Length: > 0 } captured
+                    ? captured
+                    : "Noma'lum";
 
                 returnItems.Add(new SaleReturnItem
                 {

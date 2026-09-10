@@ -5,6 +5,23 @@ namespace Buildix.Domain.Entities;
 public class Zakup : BaseEntity
 {
     public Guid ProductId { get; set; }
+
+    /// <summary>
+    /// Tovar nomi — PRIYOMKA paytidagi holicha.
+    /// </summary>
+    /// <remarks>
+    /// <para>Priyomka hujjatida yetkazib beruvchining qarzi va to'lovi
+    /// turadi, ya'ni u moliyaviy hujjat va o'zgarmasligi kerak. Nom esa
+    /// jonli <see cref="Product"/> dan o'qilardi: tovar o'chirilgach
+    /// hujjatda «Unknown» qolar, tovar qayta nomlanganda esa eski hujjat
+    /// bugungi nomni ko'rsatardi — ikkalasi ham hisob-kitobni tekshirishni
+    /// imkonsiz qilardi.</para>
+    ///
+    /// <para>Sotuv qatoridagi <see cref="SaleItem.ProductName"/> bilan bir
+    /// xil yondashuv.</para>
+    /// </remarks>
+    public string ProductName { get; set; } = string.Empty;
+
     public decimal Quantity { get; set; }
     public decimal CostPrice { get; set; }
     public Guid CreatedByAdminId { get; set; }

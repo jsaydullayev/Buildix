@@ -16,14 +16,16 @@ public class ProductService : IProductService
     private readonly ICurrentMarketService _currentMarketService;
     private readonly IAuditLogService _auditLog;
     private readonly IStockLedger _stockLedger;
+    private readonly IProductImageStorage _imageStorage;
 
-    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog, IStockLedger stockLedger)
+    public ProductService(IUnitOfWork unitOfWork, IAppDbContext context, ICurrentMarketService currentMarketService, IAuditLogService auditLog, IStockLedger stockLedger, IProductImageStorage imageStorage)
     {
         _unitOfWork = unitOfWork;
         _context = context;
         _currentMarketService = currentMarketService;
         _auditLog = auditLog;
         _stockLedger = stockLedger;
+        _imageStorage = imageStorage;
     }
 
     public async Task<Result<ProductDto>> CreateProductAsync(CreateProductDto request, Guid? sellerId, CancellationToken cancellationToken = default)
@@ -291,7 +293,49 @@ public class ProductService : IProductService
         return Result.Success(new StocktakeResultDto(lines.Count, lines));
     }
 
-    public async Task<bool> DeleteProductAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Tovarni o'chiradi: u ilovaning hamma yeridan yo'qoladi, SAVDO TARIXI
+    /// esa tegilmaydi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega qatorning o'zi bazadan olib tashlanmaydi.</b> Uchta
+    /// sabab bor va ularning har biri yakka o'zi ham yetarli.</para>
+    ///
+    /// <para>Birinchisi — chekka bog'liqlik. <c>SaleItem</c>, <c>Zakup</c> va
+    /// <c>StockMovement</c> ning tashqi kalitlari <c>Restrict</c>, ya'ni
+    /// sotilgan yoki qabul qilingan tovarni Postgres o'chirishga umuman
+    /// ruxsat bermaydi. Ilgari shu yerda oddiy <c>Remove</c> turardi va
+    /// haqiqiy tovarni o'chirishga urinish 23503 xatosi bilan tugab,
+    /// foydalanuvchi «Serverda kutilmagan xatolik» degan 500 ni ko'rardi.</para>
+    ///
+    /// <para>Ikkinchisi — bulut bilan sinxronizatsiya. Protokol faqat
+    /// qo'shish/yangilashni biladi, o'chirishni bilmaydi: jismonan
+    /// o'chirilgan tovar keyingi yuborishda shunchaki YO'Q bo'lib qoladi va
+    /// bulutdagi nusxa (egasining telefonidagi ro'yxat) abadiy turaverardi.
+    /// <c>IsDeleted</c> esa yuboriladigan maydon — bulut ham o'chirilganini
+    /// biladi.</para>
+    ///
+    /// <para>Uchinchisi — kutilayotgan yuklamalar. Do'kon hali yuborilmagan
+    /// ombor harakati yoki priyomkasi bo'lsa, bulut ota-tovar yo'qligi uchun
+    /// ularni kechiktiradi, do'kon esa belgisini orqaga suradi — ikkalasi
+    /// abadiy takrorlanib qolardi.</para>
+    ///
+    /// <para><b>Foydalanuvchi uchun farqi yo'q.</b> Global filtr tovarni
+    /// katalogdan, qidiruvdan, ro'yxatlardan va hisobotlardan chiqarib
+    /// tashlaydi — u haqiqatan ham yo'qoladi.</para>
+    ///
+    /// <para><b>Nima HAQIQATAN o'chadi.</b> Ombor harakatlari jurnali (unga
+    /// faqat tovar orqali kirilardi, tovarsiz u hech qayerda ko'rinmaydi) va
+    /// rasm fayli. Kam qoldiq haqidagi bildirishnomalar alohida o'chirilmaydi:
+    /// ular holat asosida qayta hisoblanadi va tovar filtrdan chiqishi bilan
+    /// keyingi yangilanishda o'zi yo'qoladi.</para>
+    ///
+    /// <para><b>Nima QOLADI.</b> Cheklar, sotuv qatorlari, qaytarishlar va
+    /// priyomka hujjatlari — hammasi. Ular tovar nomini o'zida saqlaydi
+    /// (<see cref="Domain.Entities.SaleItem.ProductName"/>), ya'ni tovar
+    /// ketgach ham «Noma'lum mahsulot» ga aylanmaydi.</para>
+    /// </remarks>
+    public async Task<bool> DeleteProductAsync(Guid id, Guid actorUserId, CancellationToken cancellationToken = default)
     {
         var marketId = _currentMarketService.GetCurrentMarketId();
 
@@ -303,8 +347,36 @@ public class ProductService : IProductService
         if (product is null)
             return false;
 
-        _unitOfWork.Products.Delete(product);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // Audit uchun — tovar o'chirilgandan keyin ularni o'qib bo'lmaydi.
+        var productName = product.Name;
+        var imageUrl = product.ImageUrl;
+
+        var movementsRemoved = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var movements = await _context.StockMovements
+                .Where(m => m.ProductId == id)
+                .ToListAsync(cancellationToken);
+            if (movements.Count > 0)
+                _context.StockMovements.RemoveRange(movements);
+
+            product.IsDeleted = true;
+            product.DeletedAt = DateTime.UtcNow;
+            _unitOfWork.Products.Update(product);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return movements.Count;
+        }, cancellationToken);
+
+        // Fayl bazadan TASHQARIDA yotadi, ya'ni tranzaksiya bilan birga
+        // qaytarib bo'lmaydi. Shuning uchun u tranzaksiya muvaffaqiyatli
+        // yakunlangach o'chiriladi: teskari tartibda tranzaksiya yiqilsa
+        // rasm allaqachon yo'q bo'lardi, tovar esa joyida qolardi.
+        await _imageStorage.DeleteAsync(imageUrl, cancellationToken);
+
+        await _auditLog.LogActionAsync(
+            AuditEntityTypes.Product, id, AuditActions.Delete, actorUserId,
+            new { productName, stockMovementsRemoved = movementsRemoved });
+
         return true;
     }
 

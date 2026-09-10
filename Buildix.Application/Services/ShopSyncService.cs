@@ -579,6 +579,17 @@ public class ShopSyncService : IShopSyncService
             item.SalePrice = dto.SalePrice;
             item.Comment = dto.Comment;
 
+            // Nom va birlik nusxasi — faqat KELGAN bo'lsa yoziladi. Eski bulut
+            // bu maydonlarni yubormaydi (`null` / `0`) va o'shanda do'kondagi
+            // mavjud qiymat o'z holicha qolishi kerak: bo'sh satr bilan ustidan
+            // yozilsa, ishlab turgan do'konning tarixi bir tortishda
+            // tozalanib ketardi.
+            if (dto.ProductName is not null) item.ProductName = dto.ProductName;
+            if (dto.ProductUnit != 0) item.ProductUnit = (UnitType)dto.ProductUnit;
+
+            // Havola bo'sh qolgan bo'lsa ham qator o'qiladigan bo'lib qoladi:
+            // nom endi qatorning O'ZIDA turadi, jonli tovarda emas.
+
             _applied.Add((item.Id, nameof(SaleItem), item));
         }
     }

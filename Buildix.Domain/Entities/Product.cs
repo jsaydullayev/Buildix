@@ -1,5 +1,6 @@
 using Buildix.Domain.Common;
 using Buildix.Domain.Enums;
+using Buildix.Domain.Extensions;
 
 namespace Buildix.Domain.Entities;
 
@@ -123,24 +124,9 @@ public class Product : BaseEntity, ISoftDelete
     public bool IsLowStock => Quantity <= MinThreshold;
 
     /// <summary>
-    /// Unit nomini olish (uzbek)
+    /// Unit nomini olish (uzbek). Qisqartmalar
+    /// <see cref="Extensions.UnitTypeExtensions.GetUnitName(UnitType)"/> da —
+    /// sotuv qatori birlikni mahsulotsiz ham chiqara olishi kerak.
     /// </summary>
-    public string GetUnitName()
-    {
-        return Unit switch
-        {
-            UnitType.Piece => "dona",
-            UnitType.Kilogram => "kg",
-            UnitType.Meter => "m",
-            UnitType.Bag => "qop",
-            UnitType.Ton => "t",
-            UnitType.Sheet => "list",
-            UnitType.Bucket => "chelak",
-            UnitType.Roll => "rulon",
-            UnitType.Box => "quti",
-            UnitType.Pack => "pachka",
-            UnitType.Liter => "l",
-            _ => "noma'lum"
-        };
-    }
+    public string GetUnitName() => Unit.GetUnitName();
 }

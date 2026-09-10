@@ -109,12 +109,12 @@ public sealed class SalesListService(
                 paymentType = paymentTypeRaw.ToLowerInvariant();
             }
 
-            // Nom: oddiy mahsulotda Product.Name, tashqi (bir martalik) mahsulotda
-            // item'ga yozib qo'yilgan ExternalProductName.
+            // Nom — sotuv paytidagi nusxadan (`DisplayName` tashqi va oddiy
+            // tovarni birga qamrab oladi). Ilgari oddiy tovarda jonli
+            // `Product.Name` o'qilardi va tovar o'chirilgach kun hisobotidagi
+            // qatorlar nomsiz bo'lib qolardi.
             var lines = sale.SaleItems
-                .Select(i => new DailySalesListLineDto(
-                    (i.IsExternal ? i.ExternalProductName : i.Product?.Name) ?? string.Empty,
-                    i.Quantity))
+                .Select(i => new DailySalesListLineDto(i.DisplayName, i.Quantity))
                 .ToList();
 
             salesListItems.Add(new DailySalesListItemDto(

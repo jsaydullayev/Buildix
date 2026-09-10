@@ -182,7 +182,7 @@ public sealed class TestHarness : IDisposable
             Settings, Substitute.For<ITelegramNotifier>(), CashLedger);
 
     public ProductService NewProductService() =>
-        new(UnitOfWork, Db, Market, Audit, StockLedger);
+        new(UnitOfWork, Db, Market, Audit, StockLedger, ImageStorage);
 
     public ProductQueryService NewProductQueryService() =>
         new(Db, Market, Clock);

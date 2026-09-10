@@ -619,6 +619,21 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.SalePrice).HasPrecision(18, 2);
             b.Property(x => x.Comment).HasMaxLength(500);
 
+            // ✅ Tovar nomi va birligi — SOTUV paytidagi nusxa.
+            // Hujjat tovarga bog'liq bo'lmasligi uchun: tovar o'chirilsa yoki
+            // qayta nomlansa ham eski chek o'zgarmaydi. Ilgari nom jonli
+            // Products dan olinardi va o'chirilgan tovar butun tarixni
+            // «Noma'lum mahsulot» ga aylantirardi.
+            b.Property(x => x.ProductName)
+                .HasMaxLength(200)
+                .IsRequired()
+                .HasDefaultValue(string.Empty);
+
+            b.Property(x => x.ProductUnit)
+                .HasConversion<int>()
+                .IsRequired()
+                .HasDefaultValue(UnitType.Piece);
+
             b.HasOne(x => x.Sale).WithMany(p => p.SaleItems).HasForeignKey(x => x.SaleId)
                 .OnDelete(DeleteBehavior.Cascade); // Sale o'chirilsa, SaleItemlar ham o'chadi
 
@@ -827,6 +842,14 @@ public class AppDbContext : DbContext, IAppDbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Quantity).HasPrecision(18, 3);
             b.Property(x => x.CostPrice).HasPrecision(18, 2);
+
+            // Tovar nomi — PRIYOMKA paytidagi nusxa. Hujjatda yetkazib
+            // beruvchi qarzi hisoblanadi, ya'ni u tovar o'chirilgandan keyin
+            // ham to'liq o'qiladigan bo'lib qolishi kerak.
+            b.Property(x => x.ProductName)
+                .HasMaxLength(200)
+                .IsRequired()
+                .HasDefaultValue(string.Empty);
 
             // IMPORTANT: Product o'chirilganda Zakup tarixi o'CHMASIN kerak
             b.HasOne(x => x.Product).WithMany(p => p.Zakups).HasForeignKey(x => x.ProductId)

@@ -196,6 +196,13 @@ public sealed class DashboardService(
 
         // Group line items by ProductId; track distinct sellers per product.
         var byProduct = new Dictionary<Guid, (decimal qty, decimal revenue, decimal profit, HashSet<Guid> sellers)>();
+
+        // Nom sotuv qatoridan ham yig'iladi — zaxira sifatida. O'chirilgan
+        // tovar jonli jadvaldan topilmaydi (global filtr uni chiqarib
+        // tashlaydi) va reytingdagi qator NOMSIZ bo'lib qolardi: sotuv
+        // raqamlari ko'rinar, nima sotilgani esa yo'q.
+        var nameFromSale = new Dictionary<Guid, string>();
+
         foreach (var sale in sales)
         {
             foreach (var item in sale.SaleItems)
@@ -220,6 +227,7 @@ public sealed class DashboardService(
                 }
                 agg.sellers.Add(sale.SellerId);
                 byProduct[key] = agg;
+                if (item.ProductName is { Length: > 0 } captured) nameFromSale[key] = captured;
             }
         }
 
@@ -249,7 +257,12 @@ public sealed class DashboardService(
             rows.Add(new TopProductRow(
                 Rank: rank++,
                 ProductId: id.ToString(),
-                Name: productName.TryGetValue(id, out var n) ? n : string.Empty,
+                // Jonli nom ustun: egasi tovarni qayta nomlagan bo'lsa reyting
+                // BUGUNGI nomni ko'rsatsin. Nusxa esa faqat tovar o'chirilgan
+                // holat uchun zaxira.
+                Name: productName.TryGetValue(id, out var n) ? n
+                    : nameFromSale.TryGetValue(id, out var captured) ? captured
+                    : string.Empty,
                 Category: productCategory.TryGetValue(id, out var c) ? c : string.Empty,
                 Sellers: agg.sellers.Count,
                 Quantity: agg.qty,

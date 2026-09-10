@@ -174,7 +174,7 @@ public class SyncPullService : ISyncPullService
             .Select(i => new SyncSaleItemDto(
                 i.Id, i.SaleId, i.ProductId, i.IsExternal, i.ExternalProductName,
                 i.ExternalCostPrice, i.Quantity, i.CostPrice, i.SalePrice, i.Comment,
-                AsUtc(i.UpdatedAt)))
+                AsUtc(i.UpdatedAt), i.ProductName, (int)i.ProductUnit))
             .ToListAsync(ct);
 
         var paymentDtos = saleIds.Count == 0 ? [] : await _context.Payments

@@ -395,11 +395,18 @@ public class ProductsController : ApiControllerBase
         CancellationToken ct = default)
         => Ok(await reconciler.FindDriftAsync(currentMarket.GetCurrentMarketId(), ct));
 
+    /// <summary>
+    /// Tovarni o'chiradi. U katalogdan, ro'yxatlardan, qidiruvdan va
+    /// hisobotlardan yo'qoladi; cheklar, savdolar, qaytarishlar va priyomka
+    /// hujjatlari esa TEGILMAYDI — ular tovar nomini o'zida saqlaydi.
+    /// </summary>
     [HttpDelete("{id}")]
     [RequirePermission(PermissionKeys.ProductsDelete)]
     public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken ct = default)
     {
-        var result = await _productService.DeleteProductAsync(id);
+        // Kim o'chirgani auditga yoziladi va so'rov bekor qilinsa amal ham
+        // to'xtaydi — ilgari ikkalasi ham uzatilmasdi.
+        var result = await _productService.DeleteProductAsync(id, CurrentUserId(), ct);
         if (!result)
             return NotFound();
 
