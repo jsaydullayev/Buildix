@@ -32,4 +32,28 @@ public interface IProductLabelService
     /// <summary>Yorliqlarni rasm bo'lib beradi — aniq o'lchamli chop etish uchun.</summary>
     Task<Result<IReadOnlyList<LabelImageDto>>> RenderLabelImagesAsync(
         PrintLabelsDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Yorliqlarni printerning O'Z tilida (TSPL) beradi — eng aniq yo'l.
+    /// Rulon o'lchami do'kon sozlamasidan olinadi, so'rovdan emas.
+    /// </summary>
+    Task<Result<byte[]>> RenderLabelsTsplAsync(
+        PrintLabelsDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sinov yorlig'i (ramka + markaziy xoch) — TSPL da. O'lcham berilmasa
+    /// sozlamadan olinadi; berilgan bo'lsa SAQLANMAGAN qiymatni sinash uchun.
+    /// </summary>
+    Task<byte[]> RenderTestLabelTsplAsync(
+        double? widthMm = null, double? heightMm = null,
+        double? gapMm = null, double? offsetMm = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tirqish sensori kalibrovkasi — rulon almashtirilganda birinchi shu
+    /// bajariladi, aks holda printer oldingi rulonning uzunligini ishlatadi.
+    /// </summary>
+    Task<byte[]> RenderCalibrationTsplAsync(
+        double? widthMm = null, double? heightMm = null, double? gapMm = null,
+        CancellationToken cancellationToken = default);
 }

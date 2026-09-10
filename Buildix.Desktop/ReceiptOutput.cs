@@ -44,10 +44,17 @@ internal static class ReceiptOutput
     /// Yuboradi; muvaffaqiyatli bo'lsa <c>null</c>, aks holda kassirga
     /// ko'rsatiladigan sabab.
     /// </summary>
-    public static async Task<string?> SendAsync(string target, byte[] data, CancellationToken ct)
+    /// <param name="what">
+    /// Xabarlarda va Windows navbatida ko'rinadigan nom — «Chek» yoki
+    /// «Yorliq». Ilgari bu yerda «Chek» qattiq yozilgan edi va yorliq
+    /// yuborilganda ham xato «Chek printeri tanlanmagan» deb chiqardi —
+    /// texnik butunlay boshqa printerni tekshirib o'tirardi.
+    /// </param>
+    public static async Task<string?> SendAsync(
+        string target, byte[] data, CancellationToken ct, string what = "Chek")
     {
-        if (string.IsNullOrWhiteSpace(target)) return "Chek printeri tanlanmagan.";
-        if (data.Length == 0) return "Chek ma'lumoti bo'sh.";
+        if (string.IsNullOrWhiteSpace(target)) return $"{what} printeri tanlanmagan.";
+        if (data.Length == 0) return $"{what} ma'lumoti bo'sh.";
 
         if (IsNetwork(target, out var host, out var port))
             return await SendOverTcpAsync(host, port, data, ct);
@@ -57,7 +64,7 @@ internal static class ReceiptOutput
         // bo'lishi mumkin. Chaqiruv esa WebView2 ning xabar hodisasidan
         // keladi, ya'ni UI oqimida — o'sha paytda butun oyna muzlab
         // qolardi: kassir chek chiqguncha hech narsa bosa olmasdi.
-        return await Task.Run(() => RawPrinter.Send(target, data), ct);
+        return await Task.Run(() => RawPrinter.Send(target, data, $"Buildix {what.ToLowerInvariant()}"), ct);
     }
 
     /// <summary>

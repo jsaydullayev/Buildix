@@ -9,6 +9,8 @@ import { formatShortDate, formatTime } from '@/shared/lib/format';
 import { useSyncFreshness } from '@/shared/sync/useSyncFreshness';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage } from '@/shared/i18n';
 import { accountApi } from '@/features/account/api';
+import { canPrintRaw, printRawViaDesktop, toBase64 } from '@/shared/lib/desktopPrint';
+import { productsApi } from '@/features/warehouse/api';
 import { settingsApi, type MarketSettings } from './api';
 import { DesktopDownload } from '@/features/desktop/DesktopDownload';
 
@@ -28,6 +30,12 @@ export default function SettingsPage() {
     mutationFn: (body: MarketSettings) => settingsApi.update(body),
     onSuccess: (data) => {
       qc.setQueryData(['market-settings'], data);
+      // Kassa va yorliq ekranlari BOSHQA so'rovni o'qiydi
+      // (`/Markets/pos-settings`) va u 30 daqiqa keshlanadi. Bekor
+      // qilinmasa, egasi rulon o'lchamini o'zgartirib saqlagach yorliq
+      // yarim soatgacha ESKI o'lchamda chiqaverardi — va u buni sozlama
+      // ishlamayapti deb tushunardi.
+      void qc.invalidateQueries({ queryKey: ['pos-print-settings'] });
       setForm(data);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2500);
@@ -43,6 +51,54 @@ export default function SettingsPage() {
 
   const set = <K extends keyof MarketSettings>(key: K, value: MarketSettings[K]) =>
     setForm((f) => (f ? { ...f, [key]: value } : f));
+
+  // ── Yorliq printeri: kalibrovka va sinov ────────────────────────────
+  const [labelBusy, setLabelBusy] = useState<'calibrate' | 'test' | null>(null);
+  const [labelProblem, setLabelProblem] = useState<string | null>(null);
+
+  /**
+   * Kalibrovka yoki sinov yorlig'ini printerga yuboradi.
+   *
+   * <p>O'lcham EKRANDAGI (hali saqlanmagan) qiymatdan olinadi: texnik yangi
+   * rulonni saqlashdan oldin sinab ko'rishi kerak. Aks holda noto'g'ri
+   * qiymat avval do'konning ishlayotgan sozlamasini buzib, keyin
+   * bilinardi.</p>
+   */
+  async function sendLabelTool(kind: 'calibrate' | 'test') {
+    if (!form) return;
+    setLabelProblem(null);
+
+    // Xom yo'l faqat qobiq ichida bor: brauzerda printerga to'g'ridan-to'g'ri
+    // bayt yuborib bo'lmaydi.
+    if (!canPrintRaw('label')) {
+      setLabelProblem(t('settings.label.needDesktop'));
+      return;
+    }
+
+    setLabelBusy(kind);
+    try {
+      const bytes =
+        kind === 'calibrate'
+          ? await productsApi.labelCalibrate({
+              widthMm: form.labelWidthMm,
+              heightMm: form.labelHeightMm,
+              gapMm: form.labelGapMm,
+            })
+          : await productsApi.labelTestTspl({
+              widthMm: form.labelWidthMm,
+              heightMm: form.labelHeightMm,
+              gapMm: form.labelGapMm,
+              offsetMm: form.labelOffsetMm,
+            });
+
+      const raw = await printRawViaDesktop(await toBase64(new Blob([bytes])), 'label');
+      if (!raw.ok) setLabelProblem(raw.problem ?? t('settings.label.failed'));
+    } catch {
+      setLabelProblem(t('settings.label.failed'));
+    } finally {
+      setLabelBusy(null);
+    }
+  }
 
   if (query.isLoading || !form) {
     return (
@@ -191,6 +247,64 @@ export default function SettingsPage() {
             value={form.receiptFooter ?? ''}
             onChange={(v) => set('receiptFooter', v)}
           />
+        </Section>
+
+        {/* Этикетка — yorliq rulonining o'lchami.
+
+            Chek enidan farqli, bu yerda tayyor variantlar ro'yxati YO'Q:
+            yorliq rulonlari 57×38, 57×30, 58×40, 40×30, 30×20 va boshqa
+            ko'p o'lchamda bo'ladi va ularni sanab chiqib bo'lmaydi. Ilgari
+            o'lcham chop etish oynasida uchta qattiq yozilgan variantdan
+            tanlanardi — do'konning haqiqiy ruloni ro'yxatda yo'q edi. */}
+        <Section title={t('settings.label.title')} subtitle={t('settings.label.subtitle')}>
+          <NumberRow
+            label={t('settings.label.width')}
+            hint={t('settings.label.sizeHint')}
+            value={form.labelWidthMm}
+            onChange={(v) => set('labelWidthMm', v)}
+            suffix={t('settings.receipt.mm')}
+          />
+          <NumberRow
+            label={t('settings.label.height')}
+            value={form.labelHeightMm}
+            onChange={(v) => set('labelHeightMm', v)}
+            suffix={t('settings.receipt.mm')}
+          />
+          <NumberRow
+            label={t('settings.label.gap')}
+            hint={t('settings.label.gapHint')}
+            value={form.labelGapMm}
+            onChange={(v) => set('labelGapMm', v)}
+            suffix={t('settings.receipt.mm')}
+          />
+          <NumberRow
+            label={t('settings.label.offset')}
+            hint={t('settings.label.offsetHint')}
+            value={form.labelOffsetMm}
+            // Manfiy qiymat printerni sakratib yuboradi — sabab
+            // MarketSettings.LabelOffsetMm izohida.
+            onChange={(v) => set('labelOffsetMm', Math.max(0, v))}
+            suffix={t('settings.receipt.mm')}
+          />
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              variant="secondary"
+              loading={labelBusy === 'calibrate'}
+              onClick={() => void sendLabelTool('calibrate')}
+            >
+              {t('settings.label.calibrate')}
+            </Button>
+            <Button
+              variant="secondary"
+              loading={labelBusy === 'test'}
+              onClick={() => void sendLabelTool('test')}
+            >
+              {t('settings.label.test')}
+            </Button>
+          </div>
+          <p className="text-[12.5px] leading-relaxed text-muted-2">{t('settings.label.toolsHint')}</p>
+          {labelProblem && <p className="text-[12.5px] text-danger">{labelProblem}</p>}
         </Section>
 
         {/* Уведомления */}

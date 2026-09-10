@@ -2,6 +2,7 @@
 using Buildix.Application.DTOs;
 using Buildix.Application.Interfaces;
 using Buildix.Application.Services.Barcodes;
+using Buildix.Application.Services.Printing;
 using Buildix.Domain.Entities;
 using Buildix.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -24,15 +25,18 @@ public class ProductLabelService : IProductLabelService
     private readonly IAppDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentMarketService _currentMarketService;
+    private readonly IMarketSettingsService _settings;
 
     public ProductLabelService(
         IAppDbContext context,
         IUnitOfWork unitOfWork,
-        ICurrentMarketService currentMarketService)
+        ICurrentMarketService currentMarketService,
+        IMarketSettingsService settings)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _currentMarketService = currentMarketService;
+        _settings = settings;
     }
 
     public async Task<Result<string>> GenerateBarcodeAsync(
@@ -80,6 +84,94 @@ public class ProductLabelService : IProductLabelService
         if (prepared.IsFailure) return Result.Failure<byte[]>(prepared.Error!, prepared.Code);
 
         return Result.Success(LabelPdfRenderer.Render(prepared.Value, request.WidthMm, request.HeightMm));
+    }
+
+    /// <summary>
+    /// Yorliqlarni printerning O'Z tilida (TSPL) beradi — eng aniq yo'l.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>O'lcham SO'ROVDAN emas, SOZLAMADAN olinadi.</b> Rulon
+    /// do'konning fizik xususiyati, chop etish tugmasini bosgan odamning
+    /// tanlovi emas: bitta do'konda bitta rulon turadi. Ilgari o'lcham
+    /// interfeysdagi uchta qattiq yozilgan variantdan tanlanardi va do'konning
+    /// haqiqiy rulonlari (57×38, 57×30) ro'yxatda umuman yo'q edi — omborchi
+    /// eng yaqinini tanlar, maket esa yorliqqa siljib tushardi.</para>
+    ///
+    /// <para>Shuning uchun bu yerda <c>request.WidthMm</c>/<c>HeightMm</c>
+    /// ATAYLAB o'qilmaydi: manba bitta bo'lishi kerak, aks holda sozlama
+    /// bilan so'rov bir-biriga zid qiymat berib turardi va qaysi biri
+    /// ishlaganini aytib bo'lmasdi.</para>
+    /// </remarks>
+    public async Task<Result<byte[]>> RenderLabelsTsplAsync(
+        PrintLabelsDto request, CancellationToken cancellationToken = default)
+    {
+        var prepared = await PrepareLabelsAsync(request, cancellationToken);
+        if (prepared.IsFailure) return Result.Failure<byte[]>(prepared.Error!, prepared.Code);
+
+        var (w, h, gap, offset) = await RollAsync(null, null, null, null, cancellationToken);
+        return Result.Success(TsplLabel.Build(prepared.Value, w, h, gap, offset));
+    }
+
+    /// <summary>
+    /// Sinov yorlig'i (ramka + xoch) — TSPL da.
+    /// </summary>
+    /// <remarks>
+    /// O'lchamni ATAYLAB bekor qilsa bo'ladi: texnik sozlamani SAQLASHDAN
+    /// oldin yangi rulonni sinab ko'rishi kerak. Saqlangandan keyingina
+    /// sinash mumkin bo'lsa, noto'g'ri qiymat avval do'konning ishlayotgan
+    /// sozlamasini buzib, keyin bilinardi.
+    /// </remarks>
+    public async Task<byte[]> RenderTestLabelTsplAsync(
+        double? widthMm = null, double? heightMm = null,
+        double? gapMm = null, double? offsetMm = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (w, h, gap, offset) = await RollAsync(widthMm, heightMm, gapMm, offsetMm, cancellationToken);
+        return TsplLabel.TestLabel(w, h, gap, offset);
+    }
+
+    /// <summary>
+    /// Tirqish sensori kalibrovkasi — rulon almashtirilganda birinchi shu.
+    /// </summary>
+    public async Task<byte[]> RenderCalibrationTsplAsync(
+        double? widthMm = null, double? heightMm = null, double? gapMm = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (w, h, gap, _) = await RollAsync(widthMm, heightMm, gapMm, null, cancellationToken);
+        return TsplLabel.Calibrate(w, h, gap);
+    }
+
+    /// <summary>Sozlama bo'sh bo'lganda ishlatiladigan rulon.</summary>
+    private const double FallbackWidthMm = 58;
+    private const double FallbackHeightMm = 40;
+
+    /// <summary>
+    /// Rulon o'lchami: berilgani ustun, aks holda do'kon sozlamasi.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nol o'lcham hech qachon printerga ketmaydi.</b> Nolli qator
+    /// bo'lmasligi kerak — ko'chirish mavjud qatorlarga to'g'ri qiymat
+    /// yozadi — lekin bu chegara arzon va xatosi qimmat: <c>SIZE 0 mm</c>
+    /// buyrug'ida printerning qanday yo'l tutishi umuman aniqlanmagan.
+    /// Shuning uchun nol «sozlanmagan» deb qabul qilinadi.
+    /// </remarks>
+    private async Task<(double W, double H, double Gap, double Offset)> RollAsync(
+        double? widthMm, double? heightMm, double? gapMm, double? offsetMm,
+        CancellationToken cancellationToken)
+    {
+        var s = await _settings.GetOrCreateAsync(
+            _currentMarketService.GetCurrentMarketId(), cancellationToken);
+
+        var w = widthMm ?? (double)s.LabelWidthMm;
+        var h = heightMm ?? (double)s.LabelHeightMm;
+
+        return (
+            w > 0 ? w : FallbackWidthMm,
+            h > 0 ? h : FallbackHeightMm,
+            // Tirqish NOLI bo'lishi mumkin: uzluksiz (tirqishsiz) rulon.
+            Math.Max(0, gapMm ?? (double)s.LabelGapMm),
+            // Siljish manfiy bo'lmaydi — sabab TsplLabel.Build izohida.
+            Math.Max(0, offsetMm ?? (double)s.LabelOffsetMm));
     }
 
     /// <summary>

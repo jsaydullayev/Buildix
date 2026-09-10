@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Printer, ScanLine, Check, X, AlertTriangle, Usb, Tags } from 'lucide-react';
@@ -7,18 +7,26 @@ import { PageHeader, Card, Button, Badge, Spinner } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 import { formatShortDate, formatTime } from '@/shared/lib/format';
 import { printLabels } from '@/shared/lib/printLabels';
+import { canPrintRaw, printRawViaDesktop, toBase64 } from '@/shared/lib/desktopPrint';
 import type { ApiError } from '@/shared/api/types';
 import { posApi } from '@/features/pos/api';
+import { productsApi } from '@/features/warehouse/api';
 import { devicesApi } from './api';
 import { useScannerProbe } from './useScannerProbe';
 import { knownPrinters, pickPrinter, usbSupported, type UsbPrinter } from './usbPrinter';
 import { readCheck, writeCheck } from './lastCheck';
 
-const SIZES = [
-  { key: '58x40', w: 58, h: 40 },
+type LabelSize = { key: string; w: number; h: number };
+
+/** Sozlama hali kelmaganda ishlatiladigan zaxira. */
+const FALLBACK_SIZE: LabelSize = { key: '58x40', w: 58, h: 40 };
+
+/** Sinov uchun keng tarqalgan rulonlar — do'kon rulonidan TASHQARI. */
+const STANDARD_SIZES: LabelSize[] = [
+  FALLBACK_SIZE,
   { key: '40x30', w: 40, h: 30 },
   { key: '30x20', w: 30, h: 20 },
-] as const;
+];
 
 /** Printer sinovining holati. */
 type PrintState =
@@ -44,8 +52,33 @@ export default function DevicesPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { subdomain } = useParams();
-  const [size, setSize] = useState<(typeof SIZES)[number]>(SIZES[0]);
   const [print, setPrint] = useState<PrintState>({ kind: 'idle' });
+
+  // Do'konning HAQIQIY ruloni — Sozlamalardan. U ro'yxatning boshida turadi
+  // va sukut bo'yicha tanlangan bo'ladi: sinov birinchi navbatda o'sha rulon
+  // bilan qilinishi kerak. Ilgari bu yerda uchta qattiq yozilgan o'lcham
+  // turardi va do'konning ruloni (57×38) ular orasida umuman yo'q edi.
+  const settingsQuery = useQuery({
+    queryKey: ['pos-print-settings'],
+    queryFn: posApi.printSettings,
+    staleTime: 30 * 60_000,
+  });
+
+  const sizes = useMemo<LabelSize[]>(() => {
+    const s = settingsQuery.data;
+    if (!s) return STANDARD_SIZES;
+    const mine = { key: `${s.labelWidthMm}x${s.labelHeightMm}`, w: s.labelWidthMm, h: s.labelHeightMm };
+    return [mine, ...STANDARD_SIZES.filter((x) => x.key !== mine.key)];
+  }, [settingsQuery.data]);
+
+  const [size, setSize] = useState<LabelSize>(FALLBACK_SIZE);
+  // Sozlama kechroq keladi — kelganda tanlov do'kon ruloniga ko'chadi, lekin
+  // foydalanuvchi allaqachon boshqasini tanlagan bo'lsa TEGILMAYDI.
+  const touched = useRef(false);
+  useEffect(() => {
+    const first = sizes[0];
+    if (!touched.current && first) setSize(first);
+  }, [sizes]);
 
   // Ulangan USB printerlar va oxirgi tekshiruv holati.
   const [printers, setPrinters] = useState<UsbPrinter[]>([]);
@@ -75,6 +108,41 @@ export default function DevicesPage() {
           ? t('devices.printer.usbNone')
           : r.message,
     );
+  }
+
+  // ── Kalibrovka va TSPL sinovi ───────────────────────────────────────
+  // Bu ikkalasi Sozlamalar ekranida ham bor, lekin u faqat EGAGA ochiq.
+  // Rulonni esa omborchi almashtiradi va almashtirgandan keyin BIRINCHI
+  // qilinadigan ish — kalibrovka: busiz printer oldingi rulonning
+  // uzunligini ishlatadi. Server buni ataylab `products.access` ga ochgan
+  // («printerni kassir ham sinashi kerak»), interfeys esa faqat egaga
+  // qoldirgan edi.
+  const [tool, setTool] = useState<'calibrate' | 'test' | null>(null);
+  const [toolProblem, setToolProblem] = useState<string | null>(null);
+
+  async function sendTool(kind: 'calibrate' | 'test') {
+    setToolProblem(null);
+    if (!canPrintRaw('label')) {
+      setToolProblem(t('settings.label.needDesktop'));
+      return;
+    }
+    setTool(kind);
+    try {
+      const roll = { widthMm: size.w, heightMm: size.h, gapMm: settingsQuery.data?.labelGapMm ?? 2 };
+      const bytes =
+        kind === 'calibrate'
+          ? await productsApi.labelCalibrate(roll)
+          : await productsApi.labelTestTspl({
+              ...roll,
+              offsetMm: settingsQuery.data?.labelOffsetMm ?? 0,
+            });
+      const raw = await printRawViaDesktop(await toBase64(new Blob([bytes])), 'label');
+      if (!raw.ok) setToolProblem(raw.problem ?? t('settings.label.failed'));
+    } catch {
+      setToolProblem(t('settings.label.failed'));
+    } finally {
+      setTool(null);
+    }
   }
 
   const scanner = useScannerProbe();
@@ -167,11 +235,16 @@ export default function DevicesPage() {
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[13px] font-medium text-label">{t('devices.printer.size')}</span>
-              {SIZES.map((s) => (
+              {sizes.map((s) => (
                 <button
                   key={s.key}
                   type="button"
-                  onClick={() => setSize(s)}
+                  onClick={() => {
+                    // Qo'lda tanlangandan keyin sozlama kelib tanlovni
+                    // o'zgartirib yubormasin.
+                    touched.current = true;
+                    setSize(s);
+                  }}
                   className={cn(
                     'flex-none whitespace-nowrap rounded-input px-3.5 py-2 text-[13px] font-medium transition-colors',
                     size.key === s.key
@@ -183,6 +256,28 @@ export default function DevicesPage() {
                 </button>
               ))}
             </div>
+
+            {/* Rulon almashtirilganda BIRINCHI qilinadigan ish — kalibrovka.
+                Ilgari u faqat egaga ochiq Sozlamalar ekranida edi, rulonni
+                esa omborchi almashtiradi. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                loading={tool === 'calibrate'}
+                onClick={() => void sendTool('calibrate')}
+              >
+                {t('settings.label.calibrate')}
+              </Button>
+              <Button
+                variant="secondary"
+                loading={tool === 'test'}
+                onClick={() => void sendTool('test')}
+              >
+                {t('settings.label.test')}
+              </Button>
+            </div>
+            {toolProblem && <p className="text-[12.5px] text-danger">{toolProblem}</p>}
+            <p className="text-[12px] leading-relaxed text-muted-2">{t('settings.label.toolsHint')}</p>
 
             <div className="flex flex-wrap items-center gap-3">
               <Button loading={testPrint.isPending} onClick={() => { setPrint({ kind: 'idle' }); testPrint.mutate(); }}>

@@ -879,6 +879,24 @@ export const en: TranslationSchema = {
       header: 'Receipt header text',
       footer: 'Receipt footer text',
     },
+    label: {
+      title: 'Label',
+      subtitle: 'Product label roll',
+      width: 'Roll width',
+      height: 'Label height',
+      sizeHint: 'The size of one label on the roll. This is what printing uses.',
+      gap: 'Gap',
+      gapHint: 'The space between two labels. Almost always 2 mm.',
+      offset: 'Vertical shift',
+      offsetHint:
+        'The layout moves down by this many millimetres. If the test label’s frame sits too high, measure the difference and enter it here.',
+      calibrate: 'Calibrate',
+      test: 'Test label',
+      toolsHint:
+        'When you change the roll, press “Calibrate” FIRST — the printer measures the label length itself (one or two come out blank, that is normal). Then check with “Test label”: if the frame sits evenly along the edge, the size is right. Both buttons use the values on screen, so you need not save first.',
+      needDesktop: 'Sending to the label printer only works inside the shop app.',
+      failed: 'Could not send to the label printer.',
+    },
     notify: {
       title: 'Notifications',
       subtitle: 'What to send the owner on Telegram',
@@ -1294,6 +1312,7 @@ export const en: TranslationSchema = {
     pcs: 'pcs',
     size: 'Size',
     mm: 'mm',
+    sizeFromSettings: '— roll from Settings',
     previewCaption: 'Preview — this is what prints ({{w}}×{{h}} mm)',
     previewFailed: 'Preview unavailable',
     willGenerate: 'code will be created',
