@@ -401,6 +401,14 @@ public class ShopSyncService : IShopSyncService
         settings.InactivityLogoutMinutes = dto.InactivityLogoutMinutes;
         settings.AuditEnabled = dto.AuditEnabled;
 
+        // Yorliq o'lchami — faqat KELGAN bo'lsa yoziladi. Eski bulut bu
+        // maydonlarni yubormaydi va o'shanda do'konda sozlangan rulon
+        // o'lchami bir tortishda nolga tushib ketardi.
+        if (dto.LabelWidthMm is { } lw) settings.LabelWidthMm = lw;
+        if (dto.LabelHeightMm is { } lh) settings.LabelHeightMm = lh;
+        if (dto.LabelGapMm is { } lg) settings.LabelGapMm = lg;
+        if (dto.LabelOffsetMm is { } lo) settings.LabelOffsetMm = lo;
+
         return true;
     }
 

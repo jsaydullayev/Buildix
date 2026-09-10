@@ -52,6 +52,25 @@ public class MarketSettingsService : IMarketSettingsService
         // yaroqsiz en bilan chek qog'ozga sig'masdi va drayver uni o'zicha
         // siqib bosardi — har bir harf alohida qatorga tushardi.
         s.ReceiptWidthMm = r.ReceiptWidthMm <= 58 ? 58 : 80;
+
+        // Yorliq rulonining o'lchami — chek enidan farqli, ro'yxat bilan
+        // cheklab bo'lmaydi: 57×38, 57×30, 58×40, 40×30, 30×20 va boshqalar
+        // bemalol uchraydi. Shuning uchun oraliqqa siqiladi.
+        //
+        // Yuqori chegara `PrintLabelsDto` dagi Range bilan bir xil (210×297):
+        // ikkalasi bir xil qiymatni tekshiradi va ular ajralib ketmasligi
+        // kerak. Quyi chegara — shtrix kod sig'adigan eng kichik yorliq.
+        s.LabelWidthMm = Math.Clamp(r.LabelWidthMm, 20m, 210m);
+        s.LabelHeightMm = Math.Clamp(r.LabelHeightMm, 15m, 297m);
+        // Tirqish deyarli har doim 2 mm; 0 — uzluksiz (tirqishsiz) rulon.
+        s.LabelGapMm = Math.Clamp(r.LabelGapMm, 0m, 20m);
+        // Siljish MANFIY bo'lmaydi: TSPL `SHIFT` diapazoni 0…1016 va manfiy
+        // son firmware tomonidan ishorasiz deb o'qilib, maketni bir necha
+        // santimetrga sakratib yuboradi — haqiqiy printerda ko'rilgan.
+        // Yuqori chegara yorliq bo'yidan oshmasin: aks holda maket butunlay
+        // qo'shni yorliqqa ketardi.
+        s.LabelOffsetMm = Math.Clamp(r.LabelOffsetMm, 0m, s.LabelHeightMm);
+
         s.DefaultLanguage = ParseLanguage(r.DefaultLanguage);
         s.FirstDayOfWeek = r.FirstDayOfWeek is >= 1 and <= 7 ? r.FirstDayOfWeek : 1;
         s.MinStockAlertEnabled = r.MinStockAlertEnabled;
@@ -97,6 +116,10 @@ public class MarketSettingsService : IMarketSettingsService
         ReceiptFooter: s.ReceiptFooter,
         AutoPrintReceipt: s.AutoPrintReceipt,
         ReceiptWidthMm: s.ReceiptWidthMm,
+        LabelWidthMm: s.LabelWidthMm,
+        LabelHeightMm: s.LabelHeightMm,
+        LabelGapMm: s.LabelGapMm,
+        LabelOffsetMm: s.LabelOffsetMm,
         DefaultLanguage: s.DefaultLanguage.ToCode(),
         FirstDayOfWeek: s.FirstDayOfWeek,
         MinStockAlertEnabled: s.MinStockAlertEnabled,

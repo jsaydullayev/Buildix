@@ -170,6 +170,22 @@ public class AppDbContext : DbContext, IAppDbContext
             b.Property(x => x.DefaultDebtLimit).HasPrecision(18, 2);
             b.Property(x => x.AllowedCashDiscrepancy).HasPrecision(18, 2);
             b.Property(x => x.DefaultMarkupPct).HasPrecision(9, 2);
+            // Yorliq o'lchamlari — millimetrda, yarim millimetr aniqligida.
+            // Rulonlar butun mm da bo'ladi, tirqish va siljish tuzatmasi esa
+            // 0.5 mm gacha bo'lishi mumkin.
+            //
+            // `HasDefaultValue` SHART. Busiz EF ustunni `DEFAULT 0` bilan
+            // qo'shadi (C# dagi `= 58m` boshlang'ich qiymati SQL ga
+            // o'girilmaydi) va ALLAQACHON MAVJUD har bir do'kon sozlamasi
+            // nolga tushib qolardi — birinchi chop etishda printerga
+            // «SIZE 0 mm,0 mm» ketardi. Yangi do'konda bu bilinmasdi:
+            // qatorni servis C# obyektidan yaratadi va u yerda qiymat
+            // to'g'ri. Ya'ni nosozlik faqat yangilanishdan keyin, faqat
+            // ishlayotgan do'konda chiqardi.
+            b.Property(x => x.LabelWidthMm).HasPrecision(5, 1).HasDefaultValue(58m);
+            b.Property(x => x.LabelHeightMm).HasPrecision(5, 1).HasDefaultValue(40m);
+            b.Property(x => x.LabelGapMm).HasPrecision(5, 1).HasDefaultValue(2m);
+            b.Property(x => x.LabelOffsetMm).HasPrecision(5, 1).HasDefaultValue(0m);
             b.Property(x => x.DefaultLanguage).HasDefaultValue(Language.Russian);
             b.HasOne(x => x.Market).WithOne().HasForeignKey<MarketSettings>(x => x.MarketId);
         });

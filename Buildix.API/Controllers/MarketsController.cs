@@ -118,7 +118,7 @@ public class MarketsController : ApiControllerBase
     }
 
     /// <summary>
-    /// Kassaga kerak bo'ladigan chop etish sozlamalari.
+    /// Kassa va omborga kerak bo'ladigan chop etish sozlamalari.
     /// </summary>
     /// <remarks>
     /// <para>To'liq sozlamalar ekrani faqat EGAGA ochiq, lekin chek eni
@@ -126,6 +126,10 @@ public class MarketsController : ApiControllerBase
     /// 80 deb yozilgan edi va 58 mm printerli do'konda chek qog'ozga
     /// sig'masdi — drayver uni o'zicha siqib bosardi, har bir harf
     /// alohida qatorga tushardi.</para>
+    ///
+    /// <para>Yorliq rulonining o'lchami ham SHU YERDA, xuddi shu sababdan:
+    /// yorliq oynasini <c>products.edit</c> ruxsatiga ega omborchi ochadi,
+    /// egaga tegishli <c>/api/Markets/settings</c> esa unga berilmagan.</para>
     ///
     /// <para>Omma uchun ochiq yo'lga qo'yilmadi: do'kon sozlamasi kirgan
     /// xodimga tegishli, tashrifchiga emas.</para>
@@ -137,7 +141,9 @@ public class MarketsController : ApiControllerBase
         var settings = await _marketSettingsService.GetOrCreateAsync(
             _currentMarketService.GetCurrentMarketId(), cancellationToken);
         return Ok(new PosPrintSettingsDto(
-            settings.ReceiptWidthMm, settings.AutoPrintReceipt, settings.InactivityLogoutMinutes));
+            settings.ReceiptWidthMm, settings.AutoPrintReceipt, settings.InactivityLogoutMinutes,
+            settings.LabelWidthMm, settings.LabelHeightMm,
+            settings.LabelGapMm, settings.LabelOffsetMm));
     }
 
     /// <summary>

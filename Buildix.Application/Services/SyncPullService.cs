@@ -146,7 +146,9 @@ public class SyncPullService : ISyncPullService
             settingsRow.DefaultDebtLimit, settingsRow.BlockSaleBelowCost,
             settingsRow.AllowedCashDiscrepancy, settingsRow.MinStockAlertEnabled,
             settingsRow.DefaultMarkupPct, settingsRow.InactivityLogoutMinutes,
-            settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt));
+            settingsRow.AuditEnabled, AsUtc(settingsRow.UpdatedAt),
+            settingsRow.LabelWidthMm, settingsRow.LabelHeightMm,
+            settingsRow.LabelGapMm, settingsRow.LabelOffsetMm);
 
         // ── Cheklar va ularning bolalari ─────────────────────────────────
         // Bolalar ALOHIDA kursor bilan olinmaydi — ular OTASI bilan birga

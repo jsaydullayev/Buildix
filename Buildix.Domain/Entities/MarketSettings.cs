@@ -93,6 +93,51 @@ public class MarketSettings : IUpdateTracked
     /// </remarks>
     public int ReceiptWidthMm { get; set; } = 80;
 
+    // ── Этикетка (yorliq rulonlari) ──────────────────────────────────────
+    // Yorliq printeriga tovar etiketkasi bosiladi. Rulon o'lchami do'kondan
+    // do'konga (va hatto bir do'kon ichida) o'zgaradi, shuning uchun u
+    // sozlamada turadi.
+    //
+    // Nega chek eni kabi ikki qiymat bilan cheklanmagan: chek rulonlari
+    // amalda faqat 58 va 80 mm bo'ladi, yorliq rulonlari esa yo'q — 57×38,
+    // 57×30, 58×40, 40×30, 30×20 va boshqalar bemalol uchraydi. Ro'yxatga
+    // olib bo'lmaydi, shuning uchun oraliq beriladi.
+
+    /// <summary>Yorliq eni, mm. Printer boshining eniga sig'ishi kerak.</summary>
+    public decimal LabelWidthMm { get; set; } = 58m;
+
+    /// <summary>Yorliq bo'yi, mm.</summary>
+    public decimal LabelHeightMm { get; set; } = 40m;
+
+    /// <summary>
+    /// Ikki yorliq orasidagi tirqish (gap), mm. Printer yorliq chetini shu
+    /// tirqish bo'yicha topadi.
+    /// </summary>
+    /// <remarks>
+    /// Deyarli hamma rulonda 2 mm. Noto'g'ri berilsa printer yorliq
+    /// uzunligini xato o'lchaydi va maket qo'shni yorliqqa siljib tushadi.
+    /// </remarks>
+    public decimal LabelGapMm { get; set; } = 2m;
+
+    /// <summary>
+    /// Vertikal siljish tuzatmasi, mm. Maket yorliqqa tepadan pastga
+    /// shuncha suriladi.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nega kerak.</b> Bir xil o'lchamdagi rulonlar ham qog'ozga
+    /// bir xil yopishtirilmaydi va printerning sensori ham modeldan modelga
+    /// biroz farq qiladi. Natijada to'g'ri o'lcham berilgan bo'lsa ham maket
+    /// bir-ikki millimetrga surilib chiqishi mumkin — tepasi kesiladi.
+    /// Ehtimolliklarni kodda taxmin qilib bo'lmaydi, shuning uchun tuzatma
+    /// sozlamada: texnik bir marta o'lchab kiritadi.</para>
+    ///
+    /// <para>MANFIY QIYMAT YO'Q. TSPL da <c>SHIFT</c> diapazoni 0…1016 va
+    /// manfiy son yuborilganda firmware uni ishorasiz deb o'qib, maketni bir
+    /// necha santimetrga sakratib yuboradi — bitta yorliq o'rniga ikkitasiga
+    /// bo'linib tushadi. Buni haqiqiy printerda ko'rdik.</para>
+    /// </remarks>
+    public decimal LabelOffsetMm { get; set; } = 0m;
+
     // ── Локаль (locale) ──────────────────────────────────────────────────
     public Language DefaultLanguage { get; set; } = Language.Russian;
     /// <summary>Hafta boshi: 1 = Dushanba (ISO), 7 = Yakshanba.</summary>

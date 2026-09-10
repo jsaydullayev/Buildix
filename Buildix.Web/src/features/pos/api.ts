@@ -87,13 +87,27 @@ export interface CreateCustomerBody {
 
 export type { Product };
 
-/** Kirgan har bir xodimga ochiq do'kon sozlamalari. */
+/**
+ * Kirgan har bir xodimga ochiq do'kon sozlamalari.
+ *
+ * <p>Yorliq rulonining o'lchami ham shu yerda: yorliq oynasini
+ * `products.edit` ruxsatli omborchi ochadi, egaga tegishli
+ * `/Markets/settings` esa unga berilmagan.</p>
+ */
 export interface PosPrintSettings {
   /** Chek rulonining eni: 58 yoki 80 mm. */
   receiptWidthMm: number;
   autoPrintReceipt: boolean;
   /** Harakatsizlikda chiqarish, daqiqada. 0 — chiqarilmaydi. */
   inactivityLogoutMinutes: number;
+  /** Yorliq rulonining eni, mm. */
+  labelWidthMm: number;
+  /** Yorliq bo'yi, mm. */
+  labelHeightMm: number;
+  /** Yorliqlar orasidagi tirqish, mm. */
+  labelGapMm: number;
+  /** Vertikal siljish tuzatmasi, mm. */
+  labelOffsetMm: number;
 }
 
 export const posApi = {

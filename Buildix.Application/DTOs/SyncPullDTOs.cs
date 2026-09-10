@@ -410,7 +410,17 @@ public record SyncSettingsDto(
     [property: JsonPropertyName("inactivityLogoutMinutes")] int InactivityLogoutMinutes,
     [property: JsonPropertyName("auditEnabled")] bool AuditEnabled,
 
-    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt,
+
+    // ── Yorliq rulonining o'lchami ───────────────────────────────────────
+    // Hammasi NULLABLE va bu ataylab. Eski bulut bu maydonlarni umuman
+    // yubormaydi; o'shanda do'kondagi qiymat O'Z HOLICHA qolishi kerak.
+    // Nol sentinel sifatida yaramaydi: tirqish 0 (uzluksiz rulon) ham,
+    // siljish 0 (tuzatmasiz) ham HAQIQIY qiymatlar.
+    [property: JsonPropertyName("labelWidthMm")] decimal? LabelWidthMm = null,
+    [property: JsonPropertyName("labelHeightMm")] decimal? LabelHeightMm = null,
+    [property: JsonPropertyName("labelGapMm")] decimal? LabelGapMm = null,
+    [property: JsonPropertyName("labelOffsetMm")] decimal? LabelOffsetMm = null);
 
 /// <summary>Do'konning o'zi. Obuna holati shu maydonlardan hisoblanadi.</summary>
 public record SyncMarketDto(
